@@ -93,9 +93,14 @@ pub struct Colors {
     pub blue: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct UserList {
     users: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct WordList {
+    words: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,6 +160,32 @@ pub async fn save_offline_messages(messages: &[OfflineMessage]) -> Result<()> {
     fs::write("./json/offline_messages.json", data)
         .await
         .context("Failed to write ./json/offline_messages.json")
+}
+
+pub async fn load_user_list(path: &str) -> Result<Vec<String>> {
+    Ok(read_json::<UserList>(path).await?.users)
+}
+
+pub async fn save_user_list(path: &str, users: &[String]) -> Result<()> {
+    let data = serde_json::to_string_pretty(&UserList {
+        users: users.to_vec(),
+    })?;
+    fs::write(path, data)
+        .await
+        .with_context(|| format!("Failed to write {path}"))
+}
+
+pub async fn load_word_list(path: &str) -> Result<Vec<String>> {
+    Ok(read_json::<WordList>(path).await?.words)
+}
+
+pub async fn save_word_list(path: &str, words: &[String]) -> Result<()> {
+    let data = serde_json::to_string_pretty(&WordList {
+        words: words.to_vec(),
+    })?;
+    fs::write(path, data)
+        .await
+        .with_context(|| format!("Failed to write {path}"))
 }
 
 impl AppState {

@@ -6,15 +6,63 @@ use crate::{
             parse_stats_target_args,
         },
     },
-    config::{OfflineMessage, load_offline_messages, save_offline_messages},
+    config::{
+        OfflineMessage, load_offline_messages, load_user_list, load_word_list,
+        save_offline_messages, save_user_list, save_word_list,
+    },
     functions::utils::time,
+    structure::endpoints::endpoints::QuoteOptions,
 };
+use futures_util::stream::{self, StreamExt};
+use serde::Deserialize;
+use serde_json::json;
+use std::collections::{HashMap, HashSet};
+use std::sync::{
+    Mutex, OnceLock,
+    atomic::{AtomicU64, Ordering},
+};
+
+const ACTIVE_CACHE_TTL_MS: u64 = 5 * 60 * 1000;
+const ACTIVE_TOP_LIMIT: usize = 5;
+const ACTIVE_MSG_FETCH: usize = 100;
+const ACTIVE_CONCURRENCY: usize = 12;
+const ONE_DAY_MS: u64 = 24 * 60 * 60 * 1000;
+const SHOUT_COOLDOWN_MS: u64 = 60 * 1000;
+const MC_WHITELIST_PATH: &str = "./json/mc_whitelist.json";
+const MC_BLACKLIST_PATH: &str = "./json/mc_blacklist.json";
+const BAD_WORDS_PATH: &str = "./json/bad_words.json";
+const WORD_WHITELIST_PATH: &str = "./json/word_whitelist.json";
+
+#[derive(Debug, Clone)]
+struct ActiveCacheEntry {
+    expires_at: u64,
+    data: Vec<ActiveRow>,
+}
+
+#[derive(Debug, Clone)]
+struct ActiveRow {
+    username: String,
+    count: usize,
+}
+
+static ACTIVE_CACHE: OnceLock<Mutex<HashMap<String, ActiveCacheEntry>>> = OnceLock::new();
+static LAST_SHOUT_AT: AtomicU64 = AtomicU64::new(0);
 
 macro_rules! command {
     ($const_name:ident, $names:expr, $execute:ident) => {
         pub const $const_name: CommandDefinition = CommandDefinition {
             names: $names,
             whitelisted: false,
+            execute: $execute,
+        };
+    };
+}
+
+macro_rules! admin_command {
+    ($const_name:ident, $names:expr, $execute:ident) => {
+        pub const $const_name: CommandDefinition = CommandDefinition {
+            names: $names,
+            whitelisted: true,
             execute: $execute,
         };
     };
@@ -80,6 +128,53 @@ command!(
     &["lq", "listquoteservers"],
     list_quote_servers
 );
+command!(ACTIVE_COMMAND, &["active"], active);
+command!(ADD_FAQ_COMMAND, &["addfaq"], add_faq);
+admin_command!(BLACKLIST_COMMAND, &["blacklist"], blacklist);
+command!(BEST_PING_COMMAND, &["bp", "bestping"], best_ping);
+admin_command!(CENSOR_COMMAND, &["censor"], censor);
+command!(COORDS_COMMAND, &["coords"], coords);
+command!(DROP_COMMAND, &["drop"], drop_items);
+command!(EDIT_FAQ_COMMAND, &["editfaq"], edit_faq);
+command!(EFFICIENCY_COMMAND, &["efficiency", "eff"], efficiency);
+admin_command!(EXECUTE_COMMAND, &["execute", "exec", "run"], execute);
+command!(FEBZEY_COMMAND, &["febzey"], febzey);
+command!(FAQ_COMMAND, &["faq", "getfaq"], faq);
+command!(GRUDGE_COMMAND, &["grudge"], grudge);
+command!(IAM_COMMAND, &["iam"], iam);
+command!(MOUNT_COMMAND, &["mount", "ride", "mush"], mount);
+command!(NICKNAME_COMMAND, &["nickname"], nickname);
+command!(OLDNAMES_COMMAND, &["oldnames", "dox", "doxx"], oldnames);
+command!(
+    OWNS_FAQ_COMMAND,
+    &["ownsfaq", "ownfaq", "faqowner"],
+    owns_faq
+);
+command!(PROFILE_COMMAND, &["profile"], profile);
+command!(
+    RANDOM_QUOTE_ALL_COMMAND,
+    &["rqa", "randomquoteall"],
+    random_quote_all
+);
+command!(REALNAME_COMMAND, &["realname"], realname);
+command!(SET_PRESET_COMMAND, &["setpreset"], set_preset);
+command!(SHOUT_COMMAND, &["shout"], shout);
+command!(SLEEP_COMMAND, &["sleep"], sleep);
+command!(SURVIVED_COMMAND, &["survived"], survived);
+command!(
+    TWERK_COMMAND,
+    &["twerk", "bootyshake", "booty", "dance"],
+    twerk
+);
+command!(VICTIMS_COMMAND, &["victims", "murders", "bested"], victims);
+command!(VS_COMMAND, &["vs"], vs);
+admin_command!(WHITELIST_COMMAND, &["whitelist"], whitelist);
+admin_command!(
+    WORD_WHITELIST_COMMAND,
+    &["wordwhitelist", "wwl"],
+    word_whitelist
+);
+command!(WORST_PING_COMMAND, &["wp", "worstping"], worst_ping);
 
 fn kd<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
@@ -138,8 +233,10 @@ fn jdpt<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         let Some((target, uuid)) = parse_target_with_uuid(&ctx, "jdpt").await? else {
             return Ok(());
         };
-        let jd = ctx.state.api.get_join_date(&uuid, &target.server).await;
-        let pt = ctx.state.api.get_playtime(&uuid, &target.server).await;
+        let (jd, pt) = tokio::join!(
+            ctx.state.api.get_join_date(&uuid, &target.server),
+            ctx.state.api.get_playtime(&uuid, &target.server)
+        );
         if jd.is_none() && pt.is_none() {
             let hint = format_server_scope_hint(
                 target.has_server_arg,
@@ -275,27 +372,17 @@ fn summary<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             whisper(&ctx, &format!(" Could not find {search}."));
             return Ok(());
         };
-        let kd = ctx.state.api.get_kd(&uuid, &ctx.state.mc_server).await;
-        let pt = ctx
-            .state
-            .api
-            .get_playtime(&uuid, &ctx.state.mc_server)
-            .await;
-        let mc = ctx
-            .state
-            .api
-            .get_message_count(search, &ctx.state.mc_server)
-            .await;
-        let adv = ctx
-            .state
-            .api
-            .get_total_advancements_count(&uuid, &ctx.state.mc_server)
-            .await;
-        let jd = ctx
-            .state
-            .api
-            .get_join_date(&uuid, &ctx.state.mc_server)
-            .await;
+        let (kd, pt, mc, adv, jd) = tokio::join!(
+            ctx.state.api.get_kd(&uuid, &ctx.state.mc_server),
+            ctx.state.api.get_playtime(&uuid, &ctx.state.mc_server),
+            ctx.state
+                .api
+                .get_message_count(search, &ctx.state.mc_server),
+            ctx.state
+                .api
+                .get_total_advancements_count(&uuid, &ctx.state.mc_server),
+            ctx.state.api.get_join_date(&uuid, &ctx.state.mc_server)
+        );
         let kills = kd.as_ref().map(|kd| kd.kills).unwrap_or_default();
         let deaths = kd.as_ref().map(|kd| kd.deaths).unwrap_or_default();
         let kdr = if deaths > 0 {
@@ -695,6 +782,891 @@ fn list_quote_servers<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
+fn active<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let key = ctx.state.mc_server.clone();
+        let now = now_millis();
+        if let Some(rows) = active_cached(&key, now) {
+            send_active_rows(&ctx, &rows);
+            return Ok(());
+        }
+
+        whisper(&ctx, " Computing active players, this may take a moment...");
+        let users = ctx
+            .state
+            .api
+            .get_unique_users(&ctx.state.mc_server)
+            .await
+            .unwrap_or_default();
+        let usernames = users
+            .into_iter()
+            .map(|user| user.username)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let cutoff = now.saturating_sub(ONE_DAY_MS);
+        let server = ctx.state.mc_server.clone();
+        let api = ctx.state.api.clone();
+        let mut rows = stream::iter(usernames)
+            .map(|username| {
+                let api = api.clone();
+                let server = server.clone();
+                async move {
+                    let messages = api
+                        .get_messages(&username, &server, ACTIVE_MSG_FETCH, "DESC", 0)
+                        .await
+                        .unwrap_or_default();
+                    let count = messages
+                        .into_iter()
+                        .take_while(|msg| {
+                            epoch_ms_from_string(&msg.date).unwrap_or_default() >= cutoff
+                        })
+                        .count();
+                    ActiveRow { username, count }
+                }
+            })
+            .buffer_unordered(ACTIVE_CONCURRENCY)
+            .filter(|row| std::future::ready(row.count > 0))
+            .collect::<Vec<_>>()
+            .await;
+
+        rows.sort_by(|a, b| {
+            b.count
+                .cmp(&a.count)
+                .then_with(|| a.username.cmp(&b.username))
+        });
+        rows.truncate(ACTIVE_TOP_LIMIT);
+        active_cache()
+            .lock()
+            .expect("active cache lock poisoned")
+            .insert(
+                key,
+                ActiveCacheEntry {
+                    expires_at: now.saturating_add(ACTIVE_CACHE_TTL_MS),
+                    data: rows.clone(),
+                },
+            );
+        send_active_rows(&ctx, &rows);
+        Ok(())
+    })
+}
+
+fn add_faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let faq = ctx.args.join(" ").trim().to_owned();
+        if faq.is_empty() {
+            whisper(&ctx, " Add a FAQ with !addfaq <text>");
+            return Ok(());
+        }
+        if faq.contains('/') {
+            whisper(&ctx, " You can't use '/' in your FAQ.");
+            return Ok(());
+        }
+        let Some(uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+            whisper(&ctx, " An error occurred while adding your FAQ.");
+            return Ok(());
+        };
+        let Some(data) = ctx
+            .state
+            .api
+            .post_new_faq(ctx.sender, &faq, &uuid, &ctx.state.mc_server)
+            .await
+        else {
+            whisper(&ctx, " An error occurred while adding your FAQ.");
+            return Ok(());
+        };
+        if let Some(error) = data.error {
+            whisper(&ctx, &format!(" {error}"));
+        } else {
+            whisper(
+                &ctx,
+                &format!(" Your FAQ has been added. Your entry ID is {}.", data.id),
+            );
+        }
+        Ok(())
+    })
+}
+
+fn blacklist<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    list_command(ctx, MC_BLACKLIST_PATH, true)
+}
+
+fn whitelist<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    list_command(ctx, MC_WHITELIST_PATH, false)
+}
+
+fn best_ping<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let players = players_snapshot(&ctx);
+        let Some(best) = players
+            .iter()
+            .filter(|player| player.latency > 0)
+            .min_by_key(|player| player.latency)
+            .or_else(|| players.first())
+        else {
+            whisper(&ctx, " No players are cached yet.");
+            return Ok(());
+        };
+        if best.latency == 0 {
+            ctx.bot.chat(&format!(
+                " Best ping: {}: {}ms (Most likely just joined.)",
+                best.username, best.latency
+            ));
+        } else {
+            ctx.bot.chat(&format!(
+                " Best ping: {}: {}ms",
+                best.username, best.latency
+            ));
+        }
+        Ok(())
+    })
+}
+
+fn worst_ping<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let players = players_snapshot(&ctx);
+        let Some(worst) = players.iter().max_by_key(|player| player.latency) else {
+            whisper(&ctx, " No players are cached yet.");
+            return Ok(());
+        };
+        ctx.bot.chat(&format!(
+            " Worst Ping: {}: {}ms",
+            worst.username, worst.latency
+        ));
+        Ok(())
+    })
+}
+
+fn censor<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    word_list_command(ctx, BAD_WORDS_PATH, "bad words")
+}
+
+fn word_whitelist<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    word_list_command(ctx, WORD_WHITELIST_PATH, "word whitelist")
+}
+
+fn coords<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        if ctx.runtime.use_whitelist && !sender_whitelisted(&ctx) {
+            return Ok(());
+        }
+        let pos = ctx.bot.position();
+        whisper(
+            &ctx,
+            &format!(
+                " I am currently at: X: {} Y: {} Z: {}",
+                pos.x.floor() as i64,
+                pos.y.floor() as i64,
+                pos.z.floor() as i64
+            ),
+        );
+        Ok(())
+    })
+}
+
+fn drop_items<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        whisper(
+            &ctx,
+            " Drop is registered, but Azalea does not expose Mineflayer tossStack parity here yet.",
+        );
+        Ok(())
+    })
+}
+
+fn edit_faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let Some(id_raw) = ctx.args.first() else {
+            whisper(
+                &ctx,
+                " Please provide a valid FAQ ID. Usage: !editfaq <id> <new text>",
+            );
+            return Ok(());
+        };
+        let Ok(id) = id_raw.parse::<i64>() else {
+            whisper(
+                &ctx,
+                " Please provide a valid FAQ ID. Usage: !editfaq <id> <new text>",
+            );
+            return Ok(());
+        };
+        let faq = ctx
+            .args
+            .iter()
+            .skip(1)
+            .copied()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if faq.starts_with('/') {
+            whisper(&ctx, " FAQ text cannot start with '/'.");
+            return Ok(());
+        }
+        if faq.len() < 5 {
+            whisper(&ctx, " FAQ text must be at least 5 characters long.");
+            return Ok(());
+        }
+        let Some(uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+            whisper(&ctx, " An error occurred while editing your FAQ.");
+            return Ok(());
+        };
+        let Some(data) = ctx
+            .state
+            .api
+            .edit_faq(id, ctx.sender, &faq, &uuid, &ctx.state.mc_server)
+            .await
+        else {
+            whisper(&ctx, " An error occurred while editing your FAQ.");
+            return Ok(());
+        };
+        if let Some(error) = data.error {
+            whisper(&ctx, &format!(" {error}"));
+        } else {
+            whisper(
+                &ctx,
+                &format!(" Your FAQ has been successfully updated. ID: {id}."),
+            );
+        }
+        Ok(())
+    })
+}
+
+fn efficiency<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let (search, stat) = match ctx.args.as_slice() {
+            [stat] => (ctx.sender, stat.to_lowercase()),
+            [search, stat, ..] => (*search, stat.to_lowercase()),
+            _ => {
+                whisper(
+                    &ctx,
+                    " Valid stats: kills, deaths, messages. Usage: !efficiency [username] <stat>",
+                );
+                return Ok(());
+            }
+        };
+        if !matches!(stat.as_str(), "kills" | "deaths" | "messages") {
+            whisper(
+                &ctx,
+                " Valid stats: kills, deaths, messages. Usage: !efficiency [username] <stat>",
+            );
+            return Ok(());
+        }
+        let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
+            whisper(
+                &ctx,
+                &format!(" Couldn't get stats for {search}, or unexpected error occurred."),
+            );
+            return Ok(());
+        };
+        if stat == "kills" || stat == "deaths" {
+            let (kd, pt) = tokio::join!(
+                ctx.state.api.get_kd(&uuid, &ctx.state.mc_server),
+                ctx.state.api.get_playtime(&uuid, &ctx.state.mc_server)
+            );
+            let (Some(kd), Some(pt)) = (kd, pt) else {
+                whisper(
+                    &ctx,
+                    &format!(" Couldn't get stats for {search}, or unexpected error occurred."),
+                );
+                return Ok(());
+            };
+            let hours = pt.playtime as f64 / 3_600_000_f64;
+            if hours == 0.0 {
+                whisper(&ctx, &format!(" {search} has no playtime recorded."));
+                return Ok(());
+            }
+            let count = if stat == "kills" { kd.kills } else { kd.deaths };
+            ctx.bot.chat(&format!(
+                " {search}: {count} {stat} over {hours:.1} hours = {:.3} {stat}/hr",
+                count as f64 / hours
+            ));
+        } else {
+            let (mc, jd) = tokio::join!(
+                ctx.state
+                    .api
+                    .get_message_count(search, &ctx.state.mc_server),
+                ctx.state.api.get_join_date(&uuid, &ctx.state.mc_server)
+            );
+            let (Some(mc), Some(jd)) = (mc, jd) else {
+                whisper(
+                    &ctx,
+                    &format!(" Couldn't get stats for {search}, or unexpected error occurred."),
+                );
+                return Ok(());
+            };
+            let Some(join_ms) = epoch_ms_from_string(&jd.join_date) else {
+                whisper(
+                    &ctx,
+                    &format!(" Couldn't determine join date for {search}."),
+                );
+                return Ok(());
+            };
+            let days = now_millis().saturating_sub(join_ms) as f64 / 86_400_000_f64;
+            if days <= 0.0 {
+                whisper(
+                    &ctx,
+                    &format!(" Couldn't calculate message rate for {search}."),
+                );
+                return Ok(());
+            }
+            ctx.bot.chat(&format!(
+                " {search}: {} messages over {} days = {:.2} messages/day",
+                mc.message_count,
+                days.floor() as u64,
+                mc.message_count as f64 / days
+            ));
+        }
+        Ok(())
+    })
+}
+
+fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let command = ctx.args.join(" ").trim().to_owned();
+        if command.is_empty() {
+            whisper(&ctx, " Usage: !execute </command>");
+            return Ok(());
+        }
+        ctx.bot.chat(&command);
+        whisper(&ctx, &format!(" Executed: {command}"));
+        Ok(())
+    })
+}
+
+fn febzey<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let target = "Febzey_";
+        let Some(uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
+            ctx.bot
+                .chat(&format!(" I couldn't even find {target}. Truly absent."));
+            return Ok(());
+        };
+        let last_seen = ctx
+            .state
+            .api
+            .get_last_seen(&uuid, &ctx.state.mc_server)
+            .await;
+        let online = player_uuid(&ctx, target).is_some();
+        match last_seen.and_then(|row| epoch_ms_from_string(&row.last_seen)) {
+            Some(ts) if online => ctx.bot.chat(&format!(
+                " {target} is online after being gone for {}. Someone check on the bot maintainer.",
+                time::time_ago_str(ts)
+            )),
+            Some(ts) => ctx.bot.chat(&format!(
+                " Last seen {target}: {} ({}). Still not maintaining his bot.",
+                time::convert_unix_timestamp(ts / 1000),
+                time::time_ago_str(ts)
+            )),
+            None => ctx.bot.chat(&format!(
+                " No last seen data for {target}. The disappearance is complete."
+            )),
+        }
+        Ok(())
+    })
+}
+
+fn faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let Some(id) = ctx.args.first() else {
+            whisper(&ctx, " Usage: !faq <id>");
+            return Ok(());
+        };
+        let Some(data) = ctx
+            .state
+            .api
+            .get_faq(Some(id), Some(&ctx.state.mc_server))
+            .await
+        else {
+            whisper(
+                &ctx,
+                " There was an error getting your FAQ, it may not exist.",
+            );
+            return Ok(());
+        };
+        ctx.bot
+            .chat(&format!(" #{}/{}: {}", data.id, data.total, data.faq));
+        Ok(())
+    })
+}
+
+fn grudge<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let (killer, victim) = match ctx.args.as_slice() {
+            [victim] => (ctx.sender, *victim),
+            [killer, victim, ..] => (*killer, *victim),
+            _ => {
+                whisper(&ctx, " Usage: !grudge [killer] <victim>");
+                return Ok(());
+            }
+        };
+        let Some(uuid) = ctx.state.api.convert_username_to_uuid(killer).await else {
+            whisper(
+                &ctx,
+                &format!(" {killer} has no kills recorded, or unexpected error occurred."),
+            );
+            return Ok(());
+        };
+        let Some(kills) = ctx
+            .state
+            .api
+            .get_kills(&uuid, &ctx.state.mc_server, 10000, "DESC")
+            .await
+        else {
+            whisper(
+                &ctx,
+                &format!(" {killer} has no kills recorded, or unexpected error occurred."),
+            );
+            return Ok(());
+        };
+        let count = kills
+            .iter()
+            .filter_map(extract_victim_name)
+            .filter(|name| name.eq_ignore_ascii_case(victim))
+            .count();
+        if count == 0 {
+            ctx.bot
+                .chat(&format!(" {killer} has never killed {victim}."));
+        } else if count >= 30 {
+            ctx.bot.chat(&format!(
+                " {killer} has killed {victim} {count} times. That's a grudge!"
+            ));
+        } else {
+            ctx.bot.chat(&format!(
+                " {killer} has killed {victim} {count} time{}.",
+                if count == 1 { "" } else { "s" }
+            ));
+        }
+        Ok(())
+    })
+}
+
+fn iam<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let description = ctx
+            .args
+            .join(" ")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if description.is_empty() {
+            whisper(&ctx, " View descriptions with !whois or set one with !iam");
+            return Ok(());
+        }
+        if description.contains('/') {
+            whisper(&ctx, " Descriptions cannot contain '/'.");
+            return Ok(());
+        }
+        if ctx
+            .state
+            .api
+            .post_who_is_description(ctx.sender, &description)
+            .await
+            .is_some()
+        {
+            whisper(&ctx, " your !whois has been set.");
+        } else {
+            whisper(
+                &ctx,
+                " Failed to save your description. Try a shorter/simpler message.",
+            );
+        }
+        Ok(())
+    })
+}
+
+fn mount<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        whisper(
+            &ctx,
+            " Mount is registered, but Azalea entity mounting parity is not wired yet.",
+        );
+        Ok(())
+    })
+}
+
+fn nickname<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let nickname = ctx.args.join(" ").trim().to_owned();
+        if nickname.is_empty() {
+            whisper(&ctx, " Usage: !nickname <nickname>");
+            return Ok(());
+        }
+        ctx.bot.chat(&format!(" /nick {nickname}"));
+        Ok(())
+    })
+}
+
+fn oldnames<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let target = ctx.args.first().copied().unwrap_or(ctx.sender);
+        let url = format!(
+            "https://api.ashcon.app/mojang/v2/user/{}",
+            percent_encode_path_segment(target)
+        );
+        let response = reqwest::get(url).await;
+        let Ok(response) = response else {
+            ctx.bot
+                .chat(" An error occured while trying to look up the user.");
+            return Ok(());
+        };
+        if response.status().as_u16() == 404 {
+            whisper(
+                &ctx,
+                " Could not find the user you were looking for on the Ashcon API.",
+            );
+            return Ok(());
+        }
+        if !response.status().is_success() {
+            ctx.bot
+                .chat(" An error occured while trying to look up the user.");
+            return Ok(());
+        }
+        let profile = response.json::<AshconProfile>().await.ok();
+        let mut names = profile
+            .map(|profile| profile.username_history)
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|entry| entry.username)
+            .filter(|name| name != "1HateN1ggers" && name != "ShriviledP3ck3r")
+            .collect::<Vec<_>>();
+        names.dedup();
+        if names.is_empty() {
+            ctx.bot.chat(" No name history was found for that user.");
+        } else {
+            ctx.bot.chat(&format!(
+                " {target} has used the following names: {}",
+                names.join(", ")
+            ));
+        }
+        Ok(())
+    })
+}
+
+fn owns_faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let Some(id) = ctx.args.first() else {
+            whisper(&ctx, " Usage: !ownsfaq <id>");
+            return Ok(());
+        };
+        if id.parse::<i64>().is_err() {
+            whisper(&ctx, " Usage: !ownsfaq <id>");
+            return Ok(());
+        }
+        let Some(data) = ctx
+            .state
+            .api
+            .get_faq(Some(id), Some(&ctx.state.mc_server))
+            .await
+        else {
+            whisper(&ctx, &format!(" Could not find FAQ #{id}."));
+            return Ok(());
+        };
+        ctx.bot
+            .chat(&format!(" FAQ #{} owner: {}", data.id, data.username));
+        Ok(())
+    })
+}
+
+fn profile<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let target = ctx.args.first().copied().unwrap_or(ctx.sender);
+        ctx.bot.chat(&format!(" https://forestbot.org/u/{target}"));
+        Ok(())
+    })
+}
+
+fn random_quote_all<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let phrase = ctx.args.first().map(|s| (*s).to_owned());
+        let servers = crate::constants::quote_servers::QUOTE_SERVERS;
+        let server = servers[(now_millis() as usize) % servers.len()];
+        let data = ctx
+            .state
+            .api
+            .get_quote(
+                "none",
+                server,
+                Some(QuoteOptions {
+                    random: true,
+                    phrase: phrase.clone(),
+                }),
+            )
+            .await;
+        let Some(data) = data else {
+            let phrase_label = phrase
+                .as_deref()
+                .map(|phrase| format!(" for \"{phrase}\""))
+                .unwrap_or_default();
+            whisper(
+                &ctx,
+                &format!(" No quotes found{phrase_label} on {server}."),
+            );
+            return Ok(());
+        };
+        let date = data
+            .date
+            .as_deref()
+            .and_then(epoch_ms_from_string)
+            .map(time::time_ago_str)
+            .map(|date| format!(" ({date})"))
+            .unwrap_or_default();
+        ctx.bot.chat(&format!(
+            " Quote from {} [{}]: \"{}\"{}",
+            data.name, server, data.message, date
+        ));
+        Ok(())
+    })
+}
+
+fn realname<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let Some(target) = ctx.args.first() else {
+            whisper(&ctx, " Please provide a username to check.");
+            return Ok(());
+        };
+        let players = players_snapshot(&ctx);
+        if players
+            .iter()
+            .any(|player| player.username.eq_ignore_ascii_case(target))
+        {
+            ctx.bot.chat(&format!("{target} is the real username."));
+        } else {
+            ctx.bot
+                .chat(&format!("No player found matching \"{target}\" online."));
+        }
+        Ok(())
+    })
+}
+
+fn set_preset<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let Some(preset) = ctx.args.first() else {
+            return Ok(());
+        };
+        ctx.bot.chat(&format!("/nc preset {preset}"));
+        ctx.bot
+            .chat(&format!(" Set the preset {preset} successfully!"));
+        Ok(())
+    })
+}
+
+fn shout<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let raw = ctx.args.join(" ");
+        let message = raw.replace('/', "").trim().to_owned();
+        if message.is_empty() {
+            whisper(&ctx, " Usage: !shout <message>");
+            return Ok(());
+        }
+        let now = now_millis();
+        let last = LAST_SHOUT_AT.load(Ordering::Relaxed);
+        let remaining = SHOUT_COOLDOWN_MS.saturating_sub(now.saturating_sub(last));
+        if remaining > 0 {
+            whisper(
+                &ctx,
+                &format!(
+                    " Shout is on cooldown. Try again in {} minute(s).",
+                    remaining.div_ceil(60_000)
+                ),
+            );
+            return Ok(());
+        }
+        let shout_text = format!(
+            "[Shout {}] {}: {}",
+            ctx.state.mc_server, ctx.sender, message
+        );
+        ctx.bot.chat(&shout_text);
+        let Some(websocket) = ctx.state.api.websocket.as_ref() else {
+            whisper(
+                &ctx,
+                " Shout relay is unavailable right now (websocket disconnected).",
+            );
+            return Ok(());
+        };
+        websocket
+            .send_message(
+                "inbound_minecraft_chat",
+                json!({
+                    "name": ctx.sender,
+                    "message": shout_text,
+                    "date": now.to_string(),
+                    "mc_server": "all",
+                    "uuid": "shout-relay",
+                    "relay_type": "shout",
+                    "origin_server": ctx.state.mc_server,
+                    "relay_id": format!("{}-rust", now),
+                }),
+            )
+            .await?;
+        LAST_SHOUT_AT.store(now, Ordering::Relaxed);
+        if raw.trim() != message {
+            whisper(
+                &ctx,
+                " Your shout was sanitized (bad words censored and '/' removed).",
+            );
+        }
+        whisper(&ctx, " Shout sent to connected servers.");
+        Ok(())
+    })
+}
+
+fn sleep<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        ctx.bot.chat(" I couldn't find a bed :(");
+        Ok(())
+    })
+}
+
+fn survived<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let search = ctx.args.first().copied().unwrap_or(ctx.sender);
+        let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
+            whisper_no_record(&ctx, search, "deaths");
+            return Ok(());
+        };
+        let death = ctx
+            .state
+            .api
+            .get_deaths(&uuid, &ctx.state.mc_server, 1, "DESC", "all")
+            .await
+            .and_then(|mut rows| rows.pop());
+        let Some(death) = death else {
+            whisper_no_record(&ctx, search, "deaths");
+            return Ok(());
+        };
+        let Some(death_ms) = epoch_ms_from_string(&death.time.to_string()) else {
+            whisper(
+                &ctx,
+                &format!(" Unable to determine last death time for {search}."),
+            );
+            return Ok(());
+        };
+        let survived = time::dhms(now_millis().saturating_sub(death_ms))
+            .trim_end_matches('.')
+            .to_owned();
+        ctx.bot.chat(&format!(
+            " {search} has survived for {survived} since their last death."
+        ));
+        Ok(())
+    })
+}
+
+fn twerk<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let bot = ctx.bot.clone();
+        tokio::spawn(async move {
+            let end = now_millis().saturating_add(10_000);
+            let mut state = false;
+            while now_millis() < end {
+                state = !state;
+                bot.set_crouching(state);
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+            bot.set_crouching(false);
+        });
+        Ok(())
+    })
+}
+
+fn victims<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let search = ctx.args.first().copied().unwrap_or(ctx.sender);
+        let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
+            whisper_no_record(&ctx, search, "kills");
+            return Ok(());
+        };
+        let Some(kills) = ctx
+            .state
+            .api
+            .get_kills(&uuid, &ctx.state.mc_server, 10000, "DESC")
+            .await
+        else {
+            whisper_no_record(&ctx, search, "kills");
+            return Ok(());
+        };
+        let victims = kills
+            .iter()
+            .filter_map(extract_victim_name)
+            .filter(|victim| !victim.eq_ignore_ascii_case(search))
+            .map(|victim| victim.to_lowercase())
+            .collect::<HashSet<_>>();
+        if victims.is_empty() {
+            if search.eq_ignore_ascii_case(ctx.sender) {
+                whisper(
+                    &ctx,
+                    " I couldn't determine your unique victims, or unexpected error occurred.",
+                );
+            } else {
+                whisper(
+                    &ctx,
+                    &format!(
+                        " I couldn't determine {search}'s unique victims, or unexpected error occurred."
+                    ),
+                );
+            }
+            return Ok(());
+        }
+        ctx.bot.chat(&format!(
+            " {search} has killed {} unique player{}.",
+            victims.len(),
+            if victims.len() == 1 { "" } else { "s" }
+        ));
+        Ok(())
+    })
+}
+
+fn vs<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let [name1, name2] = match ctx.args.as_slice() {
+            [name1, name2] => [*name1, *name2],
+            _ => {
+                whisper(&ctx, " Usage: !vs <player1> <player2>");
+                return Ok(());
+            }
+        };
+        let (uuid1, uuid2) = tokio::join!(
+            ctx.state.api.convert_username_to_uuid(name1),
+            ctx.state.api.convert_username_to_uuid(name2)
+        );
+        let (Some(uuid1), Some(uuid2)) = (uuid1, uuid2) else {
+            whisper(&ctx, " Could not resolve one or both usernames.");
+            return Ok(());
+        };
+        let (kd1, kd2, pt1, pt2, mc1, mc2) = tokio::join!(
+            ctx.state.api.get_kd(&uuid1, &ctx.state.mc_server),
+            ctx.state.api.get_kd(&uuid2, &ctx.state.mc_server),
+            ctx.state.api.get_playtime(&uuid1, &ctx.state.mc_server),
+            ctx.state.api.get_playtime(&uuid2, &ctx.state.mc_server),
+            ctx.state.api.get_message_count(name1, &ctx.state.mc_server),
+            ctx.state.api.get_message_count(name2, &ctx.state.mc_server)
+        );
+        let (kills1, deaths1) = kd1.map(|kd| (kd.kills, kd.deaths)).unwrap_or_default();
+        let (kills2, deaths2) = kd2.map(|kd| (kd.kills, kd.deaths)).unwrap_or_default();
+        let kdr1 = if deaths1 > 0 {
+            kills1 as f64 / deaths1 as f64
+        } else {
+            kills1 as f64
+        };
+        let kdr2 = if deaths2 > 0 {
+            kills2 as f64 / deaths2 as f64
+        } else {
+            kills2 as f64
+        };
+        let pt_days1 = pt1.map(|pt| pt.playtime / 86_400_000).unwrap_or_default();
+        let pt_days2 = pt2.map(|pt| pt.playtime / 86_400_000).unwrap_or_default();
+        let msgs1 = mc1.map(|mc| mc.message_count).unwrap_or_default();
+        let msgs2 = mc2.map(|mc| mc.message_count).unwrap_or_default();
+        ctx.bot.chat(&format!(
+            " [VS] {name1} vs {name2} | K: {kills1} {} {kills2} | D: {deaths1} {} {deaths2} | KD: {kdr1:.2} {} {kdr2:.2} | PT: {pt_days1}d {} {pt_days2}d | Msgs: {msgs1} {} {msgs2}",
+            compare_u64(kills1, kills2),
+            compare_u64(deaths2, deaths1),
+            compare_f64(kdr1, kdr2),
+            compare_u64(pt_days1, pt_days2),
+            compare_u64(msgs1, msgs2),
+        ));
+        Ok(())
+    })
+}
+
 async fn parse_target_with_uuid<'a>(
     ctx: &CommandContext<'a>,
     usage_name: &str,
@@ -791,4 +1763,238 @@ fn value_to_string(value: &serde_json::Value) -> String {
         .or_else(|| value.as_f64().map(|v| v.to_string()))
         .or_else(|| value.as_str().map(str::to_owned))
         .unwrap_or_else(|| value.to_string())
+}
+
+fn active_cache() -> &'static Mutex<HashMap<String, ActiveCacheEntry>> {
+    ACTIVE_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn active_cached(server: &str, now: u64) -> Option<Vec<ActiveRow>> {
+    active_cache()
+        .lock()
+        .expect("active cache lock poisoned")
+        .get(server)
+        .filter(|entry| now < entry.expires_at)
+        .map(|entry| entry.data.clone())
+}
+
+fn send_active_rows(ctx: &CommandContext<'_>, rows: &[ActiveRow]) {
+    if rows.is_empty() {
+        whisper(ctx, " No players found active in the last 24 hours.");
+        return;
+    }
+    let formatted = rows
+        .iter()
+        .map(|row| format!("{}: {}", row.username, row.count))
+        .collect::<Vec<_>>()
+        .join(", ");
+    ctx.bot.chat(&format!(" [ACTIVE 24h]: {formatted}"));
+}
+
+#[derive(Debug, Clone)]
+struct CachedPlayer {
+    username: String,
+    latency: i32,
+}
+
+fn players_snapshot(ctx: &CommandContext<'_>) -> Vec<CachedPlayer> {
+    ctx.state
+        .players
+        .read()
+        .expect("player cache lock poisoned")
+        .values()
+        .map(|player| CachedPlayer {
+            username: player.username.clone(),
+            latency: player.latency,
+        })
+        .collect()
+}
+
+fn sender_whitelisted(ctx: &CommandContext<'_>) -> bool {
+    if ctx
+        .runtime
+        .user_whitelist
+        .iter()
+        .any(|entry| entry.eq_ignore_ascii_case(ctx.sender))
+    {
+        return true;
+    }
+    player_uuid(ctx, ctx.sender).is_some_and(|uuid| ctx.runtime.user_whitelist.contains(&uuid))
+}
+
+fn list_command<'a>(
+    ctx: CommandContext<'a>,
+    path: &'static str,
+    blacklist: bool,
+) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let list_name = if blacklist { "blacklist" } else { "whitelist" };
+        let action = ctx.args.first().copied().unwrap_or_default().to_lowercase();
+        if action != "add" && action != "remove" && action != "list" {
+            whisper(
+                &ctx,
+                &format!(" Invalid action. Use !{list_name} add|remove"),
+            );
+            return Ok(());
+        }
+        let mut list = load_user_list(path).await.unwrap_or_default();
+        if action == "list" {
+            whisper(&ctx, &format!(" {list_name}: {}", list.join(", ")));
+            return Ok(());
+        }
+        let Some(target) = ctx.args.get(1).copied() else {
+            whisper(
+                &ctx,
+                &format!(" Please specify a user to {action} from the {list_name}."),
+            );
+            return Ok(());
+        };
+        let uuid = match player_uuid(&ctx, target) {
+            Some(uuid) => Some(uuid),
+            None => ctx.state.api.convert_username_to_uuid(target).await,
+        };
+        let Some(uuid) = uuid else {
+            whisper(&ctx, &format!(" Could not resolve UUID for {target}."));
+            return Ok(());
+        };
+        if action == "add" {
+            if !list.iter().any(|entry| entry == &uuid) {
+                list.push(uuid.clone());
+            }
+        } else {
+            list.retain(|entry| entry != &uuid);
+        }
+        save_user_list(path, &list).await?;
+        {
+            let mut runtime = ctx
+                .state
+                .runtime
+                .write()
+                .expect("runtime config lock poisoned");
+            if blacklist {
+                runtime.user_blacklist = list.iter().cloned().collect();
+            } else {
+                runtime.user_whitelist = list.iter().cloned().collect();
+            }
+        }
+        let verb = if action == "add" { "Added" } else { "Removed" };
+        whisper(
+            &ctx,
+            &format!(
+                " {verb} {target} {} the {list_name}.",
+                if action == "add" { "to" } else { "from" }
+            ),
+        );
+        Ok(())
+    })
+}
+
+fn word_list_command<'a>(
+    ctx: CommandContext<'a>,
+    path: &'static str,
+    list_name: &'static str,
+) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let action = ctx.args.first().copied().unwrap_or_default().to_lowercase();
+        let word = ctx
+            .args
+            .iter()
+            .skip(1)
+            .copied()
+            .collect::<Vec<_>>()
+            .join(" ");
+        let word = word.trim();
+        if word.is_empty() || !matches!(action.as_str(), "add" | "remove" | "delete" | "rm") {
+            let command = if list_name == "bad words" {
+                "censor"
+            } else {
+                "wordwhitelist"
+            };
+            whisper(
+                &ctx,
+                &format!(" Usage: !{command} add <word> | !{command} remove <word>"),
+            );
+            return Ok(());
+        }
+        let mut words = load_word_list(path).await.unwrap_or_default();
+        let exists = words.iter().any(|entry| entry.eq_ignore_ascii_case(word));
+        if action == "add" {
+            if !exists {
+                words.push(word.to_owned());
+                save_word_list(path, &words).await?;
+                whisper(&ctx, &format!(" Added \"{word}\" to {list_name}."));
+            } else {
+                whisper(
+                    &ctx,
+                    &format!(" \"{word}\" is already in {list_name} or invalid."),
+                );
+            }
+        } else if exists {
+            words.retain(|entry| !entry.eq_ignore_ascii_case(word));
+            save_word_list(path, &words).await?;
+            whisper(&ctx, &format!(" Removed \"{word}\" from {list_name}."));
+        } else {
+            whisper(&ctx, &format!(" \"{word}\" was not found in {list_name}."));
+        }
+        Ok(())
+    })
+}
+
+fn extract_victim_name(
+    entry: &crate::structure::endpoints::endpoints::MinecraftPlayerDeathMessage,
+) -> Option<String> {
+    if !entry.victim.trim().is_empty() {
+        return Some(entry.victim.trim().to_owned());
+    }
+    entry
+        .death_message
+        .split_whitespace()
+        .next()
+        .map(|name| {
+            name.chars()
+                .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
+                .collect::<String>()
+        })
+        .filter(|name| !name.is_empty())
+}
+
+fn compare_u64(left: u64, right: u64) -> &'static str {
+    match left.cmp(&right) {
+        std::cmp::Ordering::Greater => ">",
+        std::cmp::Ordering::Less => "<",
+        std::cmp::Ordering::Equal => "=",
+    }
+}
+
+fn compare_f64(left: f64, right: f64) -> &'static str {
+    if left > right {
+        ">"
+    } else if left < right {
+        "<"
+    } else {
+        "="
+    }
+}
+
+fn percent_encode_path_segment(value: &str) -> String {
+    value
+        .bytes()
+        .flat_map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                vec![byte as char]
+            }
+            _ => format!("%{byte:02X}").chars().collect(),
+        })
+        .collect()
+}
+
+#[derive(Debug, Deserialize)]
+struct AshconProfile {
+    #[serde(default)]
+    username_history: Vec<AshconUsernameHistory>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AshconUsernameHistory {
+    username: Option<String>,
 }

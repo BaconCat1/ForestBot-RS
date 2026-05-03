@@ -41,7 +41,7 @@ pub async fn handle(bot: &Client, state: &AzaleaState, sender: &str, content: &s
         return;
     }
 
-    if command.whitelisted && !is_allowed_whitelisted_command(&runtime, sender, command) {
+    if command.whitelisted && !is_allowed_whitelisted_command(&runtime, sender, &state, command) {
         logger::info(format!(
             "Command blocked by whitelist: {command_name} from {sender}"
         ));
@@ -100,6 +100,7 @@ fn command_enabled(runtime: &RuntimeConfig, command: &CommandDefinition) -> bool
 fn is_allowed_whitelisted_command(
     runtime: &RuntimeConfig,
     sender: &str,
+    state: &AzaleaState,
     command: &CommandDefinition,
 ) -> bool {
     if command
@@ -110,10 +111,21 @@ fn is_allowed_whitelisted_command(
         return true;
     }
 
-    !runtime.use_whitelist
+    if !runtime.use_whitelist
         || runtime.user_whitelist.contains(sender)
         || runtime
             .user_whitelist
             .iter()
             .any(|username| username.eq_ignore_ascii_case(sender))
+    {
+        return true;
+    }
+
+    let uuid = state
+        .players
+        .read()
+        .expect("player cache lock poisoned")
+        .get(sender)
+        .map(|player| player.uuid.clone());
+    uuid.is_some_and(|uuid| runtime.user_whitelist.contains(&uuid))
 }
