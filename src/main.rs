@@ -24,6 +24,18 @@ async fn main() -> Result<()> {
 "#
         .green()
     );
+    println!(
+        "{}",
+        r#"
+    ██████╗  ███████╗
+    ██╔══██╗ ██╔════╝
+    ██████╔╝ ███████╗
+    ██╔══██╗ ╚════██║
+    ██║  ██║ ███████║
+    ╚═╝  ╚═╝ ╚══════╝
+    "#
+            .red()
+    );
 
     println!("               Made by Febzey#1854. Ported to Rust by bacon_cat_");
 
