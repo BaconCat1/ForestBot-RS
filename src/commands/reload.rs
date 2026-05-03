@@ -48,6 +48,11 @@ async fn reload_runtime(
             .whitelisted_commands
             .into_iter()
             .collect::<HashSet<_>>(),
+        disabled_events: app_state
+            .config
+            .disabled_events
+            .into_iter()
+            .collect::<HashSet<_>>(),
         allow_chatbridge_input: app_state.config.allow_chatbridge_input,
         welcome_messages: app_state.config.welcome_messages,
     };

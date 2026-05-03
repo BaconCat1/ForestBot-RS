@@ -11,7 +11,6 @@ Legend:
 ## Runtime And Config
 
 - [ ] Expand `reload` / `reloadconfig` so they refresh every live runtime field from `config.json`, not only command-facing config.
-- [ ] Implement `disabled_events` behavior for the Azalea event path.
 - [ ] Decide whether outbound websocket messages should queue while disconnected or keep failing fast.
 
 ---
@@ -28,7 +27,6 @@ Legend:
 ## Events
 
 - [ ] Port Node `end.ts` bot-leave websocket behavior.
-- [ ] Port Node `entitySpawn.ts` first-sight welcome behavior.
 - [ ] Port Node `error.ts`.
 - [ ] Port Node `kicked.ts`.
 - [ ] Port Node `physicsTick.ts`. - This not needed because azalea doesnt have the issues of mineflayer

@@ -10,6 +10,7 @@ use azalea::chat_signing::ChatSigningPlugin;
 use azalea::client_chat::ChatPacket;
 use azalea::prelude::*;
 use azalea_viaversion::ViaVersionPlugin;
+use uuid::Uuid;
 
 use crate::config::{AppState, BotConfig, load_offline_messages, save_offline_messages};
 use crate::structure::{
@@ -45,6 +46,7 @@ pub struct RuntimeConfig {
     pub custom_chat_formats: Vec<String>,
     pub command_toggles: HashMap<String, bool>,
     pub whitelisted_commands: HashSet<String>,
+    pub disabled_events: HashSet<String>,
     pub allow_chatbridge_input: bool,
     pub welcome_messages: bool,
 }
@@ -53,6 +55,7 @@ pub struct RuntimeConfig {
 pub struct PlayerSnapshot {
     pub username: String,
     pub uuid: String,
+    pub entity_uuid: Uuid,
     pub latency: i32,
 }
 
@@ -67,6 +70,7 @@ pub struct Bot {
     pub whitelisted_commands: HashSet<String>,
     pub commands: HashMap<String, Command>,
     pub command_toggles: HashMap<String, bool>,
+    pub disabled_events: HashSet<String>,
     pub prefix: String,
     pub custom_chat_formats: Vec<String>,
     pub allow_chatbridge_input: bool,
@@ -89,6 +93,7 @@ impl Bot {
             whitelisted_commands: state.config.whitelisted_commands.iter().cloned().collect(),
             commands: HashMap::new(),
             command_toggles: state.config.commands.clone(),
+            disabled_events: state.config.disabled_events.iter().cloned().collect(),
             prefix: state.config.prefix.clone(),
             custom_chat_formats: state.config.custom_chat_formats.clone(),
             allow_chatbridge_input: state.config.allow_chatbridge_input,
@@ -135,11 +140,14 @@ impl Bot {
                 custom_chat_formats: self.custom_chat_formats.clone(),
                 command_toggles: self.command_toggles.clone(),
                 whitelisted_commands: self.whitelisted_commands.clone(),
+                disabled_events: self.disabled_events.clone(),
                 allow_chatbridge_input: self.api.options.use_websocket
                     && self.allow_chatbridge_input,
                 welcome_messages: self.welcome_messages,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
+            seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
+            next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
         };
 
         let mut builder = if self.options.disable_chat_signing {
@@ -189,6 +197,8 @@ pub struct AzaleaState {
     pub api: Arc<ApiClient>,
     pub runtime: Arc<RwLock<RuntimeConfig>>,
     pub players: Arc<RwLock<HashMap<String, PlayerSnapshot>>>,
+    pub seen_entity_spawns: Arc<RwLock<HashSet<String>>>,
+    pub next_entity_spawn_scan_at: Arc<RwLock<i64>>,
 }
 
 impl Default for AzaleaState {
@@ -213,10 +223,13 @@ impl Default for AzaleaState {
                 custom_chat_formats: Vec::new(),
                 command_toggles: HashMap::new(),
                 whitelisted_commands: HashSet::new(),
+                disabled_events: HashSet::new(),
                 allow_chatbridge_input: false,
                 welcome_messages: false,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
+            seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
+            next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
         }
     }
 }
@@ -224,6 +237,9 @@ impl Default for AzaleaState {
 async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> anyhow::Result<()> {
     match event {
         Event::Init => {
+            if event_disabled(&state, &["init"]) {
+                return Ok(());
+            }
             logger::info("Azalea client initialized.");
 
             bot.set_client_information(ClientInformation {
@@ -232,15 +248,24 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             });
         }
         Event::Login => {
+            if event_disabled(&state, &["login"]) {
+                return Ok(());
+            }
             logger::info("Logged into Minecraft server.");
         }
         Event::Spawn => {
+            if event_disabled(&state, &["spawn"]) {
+                return Ok(());
+            }
             logger::success(format!("Spawned on {}.", state.mc_server));
             spawn_websocket_event_task(bot.clone(), state.clone());
             send_player_list_update(&state).await;
             spawn_player_list_update_task(state.clone());
         }
         Event::Chat(message) => {
+            if event_disabled(&state, &["message", "messagestr", "chat"]) {
+                return Ok(());
+            }
             let (sender, content) = parse_chat_message(&message, &state);
             if sender.is_none() && is_server_presence_message(&content) {
                 return Ok(());
@@ -290,6 +315,9 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             }
         }
         Event::AddPlayer(player) => {
+            if event_disabled(&state, &["playerJoined", "playerJoin", "addPlayer"]) {
+                return Ok(());
+            }
             logger::info(format!("Player joined: {}", player.profile.name));
             let username = player.profile.name.clone();
             let uuid = player.profile.uuid.to_string();
@@ -303,6 +331,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     PlayerSnapshot {
                         username: username.clone(),
                         uuid: uuid.clone(),
+                        entity_uuid: player.profile.uuid,
                         latency,
                     },
                 );
@@ -311,6 +340,9 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             deliver_offline_messages(&bot, &username).await;
         }
         Event::UpdatePlayer(player) => {
+            if event_disabled(&state, &["updatePlayer"]) {
+                return Ok(());
+            }
             state
                 .players
                 .write()
@@ -320,11 +352,15 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     PlayerSnapshot {
                         username: player.profile.name,
                         uuid: player.profile.uuid.to_string(),
+                        entity_uuid: player.profile.uuid,
                         latency: player.latency,
                     },
                 );
         }
         Event::RemovePlayer(player) => {
+            if event_disabled(&state, &["playerLeft", "playerLeave", "removePlayer"]) {
+                return Ok(());
+            }
             logger::info(format!("Player left: {}", player.profile.name));
             let username = player.profile.name.clone();
             let uuid = player.profile.uuid.to_string();
@@ -337,16 +373,141 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             send_player_list_update(&state).await;
         }
         Event::Disconnect(reason) => {
+            if event_disabled(&state, &["end", "disconnect"]) {
+                return Ok(());
+            }
             logger::warn(format!("Disconnected: {reason:?}"));
         }
         Event::ConnectionFailed(error) => {
+            if event_disabled(&state, &["error", "kicked", "connectionFailed"]) {
+                return Ok(());
+            }
             logger::warn(format!("Connection failed: {error}"));
         }
-        Event::Tick => {}
+        Event::Tick => {
+            // No direct Azalea equivalent exists for Mineflayer's entitySpawn.
+            // This scan is separately gated by entitySpawn to preserve Node config behavior.
+            handle_entity_spawn_first_sight(&bot, &state);
+        }
         _ => {}
     }
 
     Ok(())
+}
+
+const ENTITY_SPAWN_GREETING_TTL_MS: u64 = 500_000;
+const ENTITY_SPAWN_SCAN_INTERVAL_MS: i64 = 1_000;
+const ENTITY_SPAWN_GREETINGS: &[&str] = &[
+    "Hello {username}, Good day!",
+    "Hope you're doing well today!",
+    "Just wanted to say hi!",
+    "Hello, {username}!",
+    "Hi there, {username}!",
+    "Greetings, {username}!",
+    "Hey {username}, welcome!",
+    "Hi {username}, nice to see you!",
+    "Hello {username}, how's it going?",
+    "Hey {username}, hope you're having a great day!",
+];
+
+fn event_disabled(state: &AzaleaState, names: &[&str]) -> bool {
+    let disabled_events = state
+        .runtime
+        .read()
+        .expect("runtime config lock poisoned")
+        .disabled_events
+        .clone();
+    names.iter().any(|name| {
+        disabled_events
+            .iter()
+            .any(|disabled| disabled.eq_ignore_ascii_case(name))
+    })
+}
+
+fn handle_entity_spawn_first_sight(bot: &Client, state: &AzaleaState) {
+    if event_disabled(state, &["entitySpawn"]) {
+        return;
+    }
+
+    let now = now_millis_i64();
+    {
+        let mut next_scan = state
+            .next_entity_spawn_scan_at
+            .write()
+            .expect("entity spawn scan lock poisoned");
+        if now < *next_scan {
+            return;
+        }
+        *next_scan = now.saturating_add(ENTITY_SPAWN_SCAN_INTERVAL_MS);
+    }
+
+    let bot_username = bot.username();
+    let players = state
+        .players
+        .read()
+        .expect("player cache lock poisoned")
+        .values()
+        .cloned()
+        .collect::<Vec<_>>();
+
+    for player in players {
+        if player.username.eq_ignore_ascii_case(&bot_username) {
+            continue;
+        }
+
+        if state
+            .seen_entity_spawns
+            .read()
+            .expect("entity spawn seen lock poisoned")
+            .contains(&player.uuid)
+        {
+            continue;
+        }
+
+        let Some(entity) = bot.entity_by_uuid(player.entity_uuid) else {
+            continue;
+        };
+
+        {
+            let mut seen = state
+                .seen_entity_spawns
+                .write()
+                .expect("entity spawn seen lock poisoned");
+            if !seen.insert(player.uuid.clone()) {
+                continue;
+            }
+        }
+
+        let position = entity.position();
+        let x = round_one_decimal(position.x);
+        let y = round_one_decimal(position.y);
+        let z = round_one_decimal(position.z);
+        logger::info(format!(
+            "World: [{}] ({x:.1}, {y:.1}, {z:.1}) Spotted.",
+            player.username
+        ));
+
+        let greeting = entity_spawn_greeting(&player.username, now);
+        bot.chat(format!("/msg {} {}", player.username, greeting));
+
+        let seen = state.seen_entity_spawns.clone();
+        let uuid = player.uuid;
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(ENTITY_SPAWN_GREETING_TTL_MS)).await;
+            seen.write()
+                .expect("entity spawn seen lock poisoned")
+                .remove(&uuid);
+        });
+    }
+}
+
+fn entity_spawn_greeting(username: &str, now: i64) -> String {
+    let index = (now as usize).wrapping_add(username.len()) % ENTITY_SPAWN_GREETINGS.len();
+    ENTITY_SPAWN_GREETINGS[index].replace("{username}", username)
+}
+
+fn round_one_decimal(value: f64) -> f64 {
+    (value * 10.0).round() / 10.0
 }
 
 async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &str) {
