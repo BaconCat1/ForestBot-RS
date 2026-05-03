@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
             .green()
     );
 
-    println!("                  Made by Febzey#1854. Ported to Rust by bacon_cat_");
+    println!("               Made by Febzey#1854. Ported to Rust by bacon_cat_");
 
     let state = AppState::load().await?;
     let options = state.options()?;
