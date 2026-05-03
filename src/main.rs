@@ -8,6 +8,7 @@ mod structure;
 use anyhow::Result;
 use colored::Colorize;
 use config::AppState;
+use structure::{endpoints::endpoints::ApiHandler, mineflayer::bot::Bot};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,7 +22,7 @@ async fn main() -> Result<()> {
     ██║     ╚██████╔╝██║  ██║███████╗███████║   ██║   ██████╔╝╚██████╔╝   ██║
     ╚═╝      ╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝   ╚═╝   ╚═════╝  ╚═════╝    ╚═╝
 "#
-            .green()
+        .green()
     );
 
     println!("               Made by Febzey#1854. Ported to Rust by bacon_cat_");
@@ -29,7 +30,9 @@ async fn main() -> Result<()> {
     let state = AppState::load().await?;
     let options = state.options()?;
 
-    println!("{:#?}", options);
+    let _api = ApiHandler::new(options.api.clone());
+    let mut bot = Bot::new(options.bot, &state);
+    bot.start().await?;
 
     Ok(())
 }
