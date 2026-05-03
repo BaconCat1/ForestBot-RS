@@ -16,7 +16,13 @@ pub struct Config {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Colors {
-    // TODO: match colors.json
+    pub red: String,
+    pub green: String,
+    pub purple: String,
+    pub yellow: String,
+    pub gray: String,
+    pub pink: String,
+    pub blue: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
