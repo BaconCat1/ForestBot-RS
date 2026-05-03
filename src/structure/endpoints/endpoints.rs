@@ -1,6 +1,6 @@
 use crate::config::ApiConfig;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Result, anyhow};
 use futures_util::{SinkExt, StreamExt};
 use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 use tokio::sync::{broadcast, mpsc};
-use tokio::time::{Duration, interval};
+use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{client::IntoClientRequest, protocol::Message},
@@ -532,89 +532,154 @@ impl WebsocketClient {
         is_bot_client: bool,
         mc_server: String,
     ) -> Result<Self> {
-        let client_type = if is_bot_client {
-            "minecraft"
-        } else {
-            "discord"
-        };
-        let request_url = format!("{}/websocket/connect", websocket_url.trim_end_matches('/'));
-
-        let mut request = request_url
-            .into_client_request()
-            .context("failed to build websocket request")?;
-        {
-            let headers = request.headers_mut();
-            headers.insert("x-api-key", HeaderValue::from_str(&api_key)?);
-            headers.insert("client-type", HeaderValue::from_str(client_type)?);
-            headers.insert("mc_server", HeaderValue::from_str(&mc_server)?);
-        }
-
-        let (socket, _) = connect_async(request).await?;
-        let (mut write, mut read) = socket.split();
         let (sender, mut receiver) = mpsc::unbounded_channel::<Message>();
         let (events, _) = broadcast::channel(64);
         let connected = Arc::new(AtomicBool::new(true));
-        let connected_for_writer = connected.clone();
-        let connected_for_reader = connected.clone();
-        let events_for_reader = events.clone();
+        connected.store(false, Ordering::Relaxed);
 
+        let connected_for_task = connected.clone();
+        let events_for_task = events.clone();
+        let task_websocket_url = websocket_url.clone();
         tokio::spawn(async move {
-            let mut keepalive = interval(Duration::from_secs(5));
+            let client_type = if is_bot_client {
+                "minecraft"
+            } else {
+                "discord"
+            };
+            let request_url = format!(
+                "{}/websocket/connect",
+                task_websocket_url.trim_end_matches('/')
+            );
+            let mut reconnect_count = 0_u32;
+
             loop {
-                tokio::select! {
-                    maybe_message = receiver.recv() => {
-                        match maybe_message {
-                            Some(message) => {
-                                if write.send(message).await.is_err() {
-                                    break;
+                let mut request = match request_url.clone().into_client_request() {
+                    Ok(request) => request,
+                    Err(error) => {
+                        events_for_task
+                            .send(WebsocketEvent::Error(format!(
+                                "failed to build websocket request: {error}"
+                            )))
+                            .ok();
+                        sleep(Duration::from_secs(5)).await;
+                        continue;
+                    }
+                };
+
+                {
+                    let headers = request.headers_mut();
+                    match (
+                        HeaderValue::from_str(&api_key),
+                        HeaderValue::from_str(client_type),
+                        HeaderValue::from_str(&mc_server),
+                    ) {
+                        (Ok(api_key), Ok(client_type), Ok(mc_server)) => {
+                            headers.insert("x-api-key", api_key);
+                            headers.insert("client-type", client_type);
+                            headers.insert("mc_server", mc_server);
+                        }
+                        _ => {
+                            events_for_task
+                                .send(WebsocketEvent::Error(
+                                    "websocket headers contain invalid values".to_owned(),
+                                ))
+                                .ok();
+                            sleep(Duration::from_secs(5)).await;
+                            continue;
+                        }
+                    }
+                }
+
+                match connect_async(request).await {
+                    Ok((socket, _)) => {
+                        connected_for_task.store(true, Ordering::Relaxed);
+                        events_for_task.send(WebsocketEvent::Open).ok();
+                        reconnect_count = 0;
+
+                        let (mut write, mut read) = socket.split();
+                        let mut keepalive = interval(Duration::from_secs(5));
+
+                        loop {
+                            tokio::select! {
+                                maybe_message = receiver.recv() => {
+                                    match maybe_message {
+                                        Some(message) => {
+                                            if let Err(error) = write.send(message).await {
+                                                events_for_task
+                                                    .send(WebsocketEvent::Error(error.to_string()))
+                                                    .ok();
+                                                break;
+                                            }
+                                        }
+                                        None => return,
+                                    }
+                                }
+                                _ = keepalive.tick() => {
+                                    if let Err(error) = write.send(Message::Ping("pingdata".as_bytes().to_vec().into())).await {
+                                        events_for_task
+                                            .send(WebsocketEvent::Error(error.to_string()))
+                                            .ok();
+                                        break;
+                                    }
+                                }
+                                maybe_message = read.next() => {
+                                    match maybe_message {
+                                        Some(Ok(Message::Text(text))) => {
+                                            if let Some(event) = parse_inbound_message(&text) {
+                                                events_for_task.send(event).ok();
+                                            } else {
+                                                events_for_task
+                                                    .send(WebsocketEvent::UnknownMessage(text.to_string()))
+                                                    .ok();
+                                            }
+                                        }
+                                        Some(Ok(Message::Close(frame))) => {
+                                            events_for_task
+                                                .send(WebsocketEvent::Close(
+                                                    frame
+                                                        .map(|frame| frame.reason.to_string())
+                                                        .unwrap_or_else(|| "closed".to_owned()),
+                                                ))
+                                                .ok();
+                                            break;
+                                        }
+                                        Some(Ok(_)) => {}
+                                        Some(Err(error)) => {
+                                            events_for_task
+                                                .send(WebsocketEvent::Error(error.to_string()))
+                                                .ok();
+                                            break;
+                                        }
+                                        None => {
+                                            events_for_task
+                                                .send(WebsocketEvent::Close("closed".to_owned()))
+                                                .ok();
+                                            break;
+                                        }
+                                    }
                                 }
                             }
-                            None => break,
                         }
-                    }
-                    _ = keepalive.tick() => {
-                        if write.send(Message::Ping(Vec::new().into())).await.is_err() {
-                            break;
-                        }
-                    }
-                }
-            }
-            connected_for_writer.store(false, Ordering::Relaxed);
-        });
 
-        tokio::spawn(async move {
-            events_for_reader.send(WebsocketEvent::Open).ok();
-            while let Some(message) = read.next().await {
-                match message {
-                    Ok(Message::Text(text)) => {
-                        if let Some(event) = parse_inbound_message(&text) {
-                            events_for_reader.send(event).ok();
-                        } else {
-                            events_for_reader
-                                .send(WebsocketEvent::UnknownMessage(text.to_string()))
-                                .ok();
-                        }
+                        connected_for_task.store(false, Ordering::Relaxed);
                     }
-                    Ok(Message::Close(frame)) => {
-                        events_for_reader
-                            .send(WebsocketEvent::Close(
-                                frame
-                                    .map(|frame| frame.reason.to_string())
-                                    .unwrap_or_else(|| "closed".to_owned()),
-                            ))
-                            .ok();
-                        break;
-                    }
-                    Ok(_) => {}
                     Err(error) => {
-                        events_for_reader
+                        connected_for_task.store(false, Ordering::Relaxed);
+                        events_for_task
                             .send(WebsocketEvent::Error(error.to_string()))
                             .ok();
-                        break;
                     }
                 }
+
+                reconnect_count = reconnect_count.saturating_add(1);
+                let delay = if reconnect_count >= 5 { 60 } else { 5 };
+                events_for_task
+                    .send(WebsocketEvent::Close(format!(
+                        "reconnecting in {delay}s after {reconnect_count} failed/closed attempt(s)"
+                    )))
+                    .ok();
+                sleep(Duration::from_secs(delay)).await;
             }
-            connected_for_reader.store(false, Ordering::Relaxed);
         });
 
         Ok(Self {
@@ -634,6 +699,10 @@ impl WebsocketClient {
     }
 
     pub async fn send_message(&self, action: &str, data: Value) -> Result<()> {
+        if !self.is_client_connected() {
+            return Err(anyhow!("websocket is not connected"));
+        }
+
         let payload = OutboundWebsocketMessage {
             action: action.to_owned(),
             data,
@@ -699,6 +768,10 @@ pub struct MinecraftChatMessage {
     pub date: String,
     pub mc_server: String,
     pub uuid: String,
+    #[serde(default)]
+    pub relay_type: Option<String>,
+    #[serde(default)]
+    pub origin_server: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

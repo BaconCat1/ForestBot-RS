@@ -47,6 +47,8 @@ async fn reload_runtime(
             .whitelisted_commands
             .into_iter()
             .collect::<HashSet<_>>(),
+        allow_chatbridge_input: app_state.config.allow_chatbridge_input,
+        welcome_messages: app_state.config.welcome_messages,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;
