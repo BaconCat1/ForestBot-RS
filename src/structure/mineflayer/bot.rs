@@ -7,6 +7,7 @@ use azalea::app::PluginGroup;
 use azalea::bot::DefaultBotPlugins;
 use azalea::chat_signing::ChatSigningPlugin;
 use azalea::client_chat::ChatPacket;
+use azalea::ClientInformation;
 use azalea::prelude::*;
 use azalea_viaversion::ViaVersionPlugin;
 
@@ -208,6 +209,11 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
     match event {
         Event::Init => {
             logger::info("Azalea client initialized.");
+
+            bot.set_client_information(ClientInformation {
+                view_distance: 2,
+                ..Default::default()
+            });
         }
         Event::Login => {
             logger::info("Logged into Minecraft server.");
