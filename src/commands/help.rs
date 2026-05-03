@@ -1,6 +1,5 @@
 pub const NAMES: &[&str] = &["help", "commands"];
-pub const RESPONSE: &str =
-    "Commands: !ping, !help, !discord, !reload. More commands are still being ported.";
+pub const RESPONSE: &str = "Commands: !ping, !help, !discord, !reload, !lastseen, !msgcount, !playtime, !joins, !quote. More commands are still being ported.";
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 

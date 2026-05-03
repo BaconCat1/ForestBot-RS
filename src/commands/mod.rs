@@ -4,7 +4,12 @@ use azalea::prelude::Client;
 
 pub mod discord;
 pub mod help;
+pub mod joins;
+pub mod lastseen;
+pub mod msgcount;
 pub mod ping;
+pub mod playtime;
+pub mod quote;
 pub mod reload;
 pub mod utils;
 
@@ -34,6 +39,11 @@ pub fn registry() -> &'static [CommandDefinition] {
         help::COMMAND,
         discord::COMMAND,
         reload::COMMAND,
+        lastseen::COMMAND,
+        msgcount::COMMAND,
+        playtime::COMMAND,
+        joins::COMMAND,
+        quote::COMMAND,
     ]
 }
 

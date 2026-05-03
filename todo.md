@@ -9,7 +9,7 @@
 - [x] Add ViaVersion support
 - [x] Add `disableChatSigning` support
 - [x] Add basic runtime reload state
-- [ ] Replace scaffold warnings with wired modules 
+- [x] Replace scaffold warnings with wired modules 
 
 ## Chat
 - [x] Parse vanilla/Azalea chat
@@ -31,15 +31,16 @@
 - [ ] Port `coords`
 - [ ] Port `whitelist`
 - [ ] Port `wordwhitelist`
-- [ ] Port API read commands: `lastseen`, `msgcount`, `playtime`, `joins`
-- [ ] Port quote commands
+- [x] Port API read commands: `lastseen`, `msgcount`, `playtime`, `joins`
+- [x] Port quote commands
 - [ ] Port profanity/censor commands
 - [ ] Port complex stats/history commands
 
 ## API And Bridge
-- [ ] Port `forestbot-api-wrapper-v2` equivalent
-- [ ] Port REST endpoint client
-- [ ] Port WebSocket bridge
+- [x] Port `forestbot-api-wrapper-v2` equivalent
+- [x] Port REST endpoint client scaffold for copied command behavior
+- [x] Port API helpers for `convertUsernameToUuid`, `getStatsByUuid`, `getStatsByUsername`, `getLastSeen`, `getMessageCount`, `getPlaytime`, `getJoinCount`, `getQuote`, and related wrapper methods
+- [x] Port WebSocket bridge
 - [ ] Port chatbridge input/output behavior
 - [ ] Port offline messages
 

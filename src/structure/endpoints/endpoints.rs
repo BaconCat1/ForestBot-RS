@@ -1,12 +1,1071 @@
 use crate::config::ApiConfig;
 
+use anyhow::{Context, Result, anyhow};
+use futures_util::{SinkExt, StreamExt};
+use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+use tokio::sync::{broadcast, mpsc};
+use tokio::time::{Duration, interval};
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::{client::IntoClientRequest, protocol::Message},
+};
+
 #[derive(Debug, Clone)]
-pub struct ApiHandler {
+pub struct ApiClient {
     pub options: ApiConfig,
+    client: reqwest::Client,
+    pub websocket: Option<WebsocketClient>,
 }
 
-impl ApiHandler {
+impl ApiClient {
     pub fn new(options: ApiConfig) -> Self {
-        Self { options }
+        let mut headers = HeaderMap::new();
+        if !options.api_key.is_empty() {
+            if let Ok(value) = HeaderValue::from_str(&options.api_key) {
+                headers.insert("x-api-key", value);
+            }
+            if let Ok(value) = HeaderValue::from_str(&format!("Bearer {}", options.api_key)) {
+                headers.insert(AUTHORIZATION, value);
+            }
+        }
+
+        let client = reqwest::Client::builder()
+            .default_headers(headers)
+            .build()
+            .expect("request client should build");
+
+        Self {
+            options,
+            client,
+            websocket: None,
+        }
     }
+
+    pub async fn init_websocket(&mut self) -> Result<()> {
+        if !self.options.use_websocket || self.websocket.is_some() {
+            return Ok(());
+        }
+
+        let websocket = WebsocketClient::connect(
+            self.options.websocket_url.clone(),
+            self.options.api_key.clone(),
+            self.options.is_bot_client,
+            self.options.mc_server.clone(),
+        )
+        .await?;
+
+        self.websocket = Some(websocket);
+        Ok(())
+    }
+
+    pub async fn get_stats_by_uuid(&self, uuid: &str, server: &str) -> Option<AllPlayerStats> {
+        self.get_json("/user", &[("uuid", uuid), ("server", server)])
+            .await
+            .and_then(|value| stats_from_value(&value, server))
+    }
+
+    pub async fn get_stats_by_username(
+        &self,
+        username: &str,
+        server: &str,
+    ) -> Option<AllPlayerStats> {
+        self.get_json("/playername", &[("name", username), ("server", server)])
+            .await
+            .and_then(|value| stats_from_value(&value, server))
+    }
+
+    pub async fn convert_username_to_uuid(&self, username: &str) -> Option<String> {
+        self.get_json("/convert-username-to-uuid", &[("username", username)])
+            .await
+            .and_then(|value| string_field(&value, &["uuid"]))
+    }
+
+    pub async fn get_playtime(&self, uuid: &str, server: &str) -> Option<Playtime> {
+        self.get_stats_by_uuid(uuid, server)
+            .await
+            .and_then(|user| user.playtime.map(|playtime| Playtime { playtime }))
+    }
+
+    pub async fn get_join_date(&self, uuid: &str, server: &str) -> Option<JoinDate> {
+        self.get_stats_by_uuid(uuid, server)
+            .await
+            .and_then(|user| user.join_date.map(|join_date| JoinDate { join_date }))
+    }
+
+    pub async fn get_join_count(&self, uuid: &str, server: &str) -> Option<JoinCount> {
+        self.get_stats_by_uuid(uuid, server)
+            .await
+            .and_then(|user| user.joins.map(|join_count| JoinCount { join_count }))
+    }
+
+    pub async fn get_last_seen(&self, uuid: &str, server: &str) -> Option<LastSeen> {
+        self.get_stats_by_uuid(uuid, server)
+            .await
+            .and_then(|user| user.last_seen.map(|last_seen| LastSeen { last_seen }))
+    }
+
+    pub async fn get_kd(&self, uuid: &str, server: &str) -> Option<Kd> {
+        self.get_stats_by_uuid(uuid, server).await.and_then(|user| {
+            Some(Kd {
+                kills: user.kills?.try_into().ok()?,
+                deaths: user.deaths?.try_into().ok()?,
+            })
+        })
+    }
+
+    pub async fn get_deaths(
+        &self,
+        uuid: &str,
+        server: &str,
+        limit: usize,
+        order: &str,
+        kind: &str,
+    ) -> Option<Vec<MinecraftPlayerDeathMessage>> {
+        self.get_json(
+            "/deaths",
+            &[
+                ("uuid", uuid),
+                ("server", server),
+                ("limit", &limit.to_string()),
+                ("order", order),
+                ("type", kind),
+            ],
+        )
+        .await
+        .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_kills(
+        &self,
+        uuid: &str,
+        server: &str,
+        limit: usize,
+        order: &str,
+    ) -> Option<Vec<MinecraftPlayerDeathMessage>> {
+        self.get_json(
+            "/kills",
+            &[
+                ("uuid", uuid),
+                ("server", server),
+                ("limit", &limit.to_string()),
+                ("order", order),
+            ],
+        )
+        .await
+        .and_then(|value| {
+            value
+                .get("data")
+                .cloned()
+                .unwrap_or(value)
+                .as_array()
+                .cloned()
+        })
+        .and_then(|array| {
+            array
+                .into_iter()
+                .map(|item| serde_json::from_value(item).ok())
+                .collect::<Option<Vec<_>>>()
+        })
+    }
+
+    pub async fn get_messages(
+        &self,
+        username: &str,
+        server: &str,
+        limit: usize,
+        order: &str,
+        offset: usize,
+    ) -> Option<Vec<MinecraftChatMessage>> {
+        self.get_json(
+            "/messages",
+            &[
+                ("name", username),
+                ("server", server),
+                ("limit", &limit.to_string()),
+                ("order", order),
+                ("offset", &offset.to_string()),
+            ],
+        )
+        .await
+        .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_advancements(
+        &self,
+        uuid: &str,
+        server: &str,
+        limit: usize,
+        order: &str,
+    ) -> Option<Vec<MinecraftAdvancementMessage>> {
+        self.get_json(
+            "/advancements",
+            &[
+                ("uuid", uuid),
+                ("server", server),
+                ("limit", &limit.to_string()),
+                ("order", order),
+            ],
+        )
+        .await
+        .and_then(|value| value.get("advancements").cloned())
+        .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_total_advancements_count(&self, uuid: &str, server: &str) -> Option<u64> {
+        self.get_json("/advancements-count", &[("uuid", uuid), ("server", server)])
+            .await
+            .and_then(|value| number_field(&value, &["total_advancements"]))
+    }
+
+    pub async fn get_message_count(&self, username: &str, server: &str) -> Option<MessageCount> {
+        self.get_json(
+            "/messagecount",
+            &[("username", username), ("server", server)],
+        )
+        .await
+        .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_word_occurrence(
+        &self,
+        username: &str,
+        server: &str,
+        word: &str,
+    ) -> Option<WordOccurrence> {
+        self.get_json(
+            "/wordcount",
+            &[("username", username), ("server", server), ("word", word)],
+        )
+        .await
+        .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_name_finder(&self, username: &str, server: &str) -> Option<NameFind> {
+        self.get_json("/namesearch", &[("username", username), ("server", server)])
+            .await
+            .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_online_check(&self, username: &str) -> Option<OnlineCheck> {
+        self.get_json("/online", &[("username", username)])
+            .await
+            .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_who_is(&self, username: &str) -> Option<WhoIsData> {
+        self.get_json("/whois", &[("username", username)])
+            .await
+            .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_users_sorted_by_joindate(
+        &self,
+        server: &str,
+        limit: usize,
+        order: &str,
+        player_usernames: &[String],
+    ) -> Option<Vec<AllPlayerStats>> {
+        let usernames = player_usernames.join(",");
+        self.get_json(
+            "/users-sorted-by-joindate",
+            &[
+                ("server", server),
+                ("limit", &limit.to_string()),
+                ("order", order),
+                ("usernames", &usernames),
+            ],
+        )
+        .await
+        .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_unique_users(&self, server: &str) -> Option<Vec<UniqueUser>> {
+        self.get_json("/unique-users", &[("server", server)])
+            .await
+            .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_quote(
+        &self,
+        username: &str,
+        server: &str,
+        options: Option<QuoteOptions>,
+    ) -> Option<Quote> {
+        let mut params: Vec<(&str, String)> = vec![("server", server.to_owned())];
+        if let Some(options) = options {
+            if options.random {
+                params.push(("random", "true".to_owned()));
+                if let Some(phrase) = options.phrase {
+                    params.push(("phrase", phrase));
+                }
+            } else {
+                params.push(("name", username.to_owned()));
+            }
+        } else {
+            params.push(("name", username.to_owned()));
+        }
+
+        self.get_json_string_params("/quote", &params)
+            .await
+            .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_top_statistic(&self, stat: &str, server: &str, limit: usize) -> Option<Value> {
+        self.get_json(
+            "/top-statistic",
+            &[
+                ("statistic", stat),
+                ("server", server),
+                ("limit", &limit.to_string()),
+            ],
+        )
+        .await
+    }
+
+    pub async fn get_hourly_player_activity(
+        &self,
+        server: &str,
+    ) -> Option<PlayerActivityByHourResponse> {
+        self.get_json("/player-activity-by-hour", &[("server", server)])
+            .await
+            .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_total_daily_logins(
+        &self,
+        server: &str,
+    ) -> Option<PlayerActivityByWeekDayResponse> {
+        self.get_json("/player-activity-by-week-day", &[("server", server)])
+            .await
+            .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn get_faq(&self, id: Option<&str>, server: Option<&str>) -> Option<FaqData> {
+        match (id, server) {
+            (Some(id), Some(server)) => self
+                .get_json("/faq", &[("id", id), ("server", server)])
+                .await
+                .and_then(|value| serde_json::from_value(value).ok()),
+            _ => self
+                .get_json("/faq", &[])
+                .await
+                .and_then(|value| serde_json::from_value(value).ok()),
+        }
+    }
+
+    pub async fn post_who_is_description(
+        &self,
+        username: &str,
+        description: &str,
+    ) -> Option<Value> {
+        self.post_json(
+            "/whois-description",
+            json!({ "username": username, "description": description }),
+        )
+        .await
+    }
+
+    pub async fn post_new_faq(
+        &self,
+        username: &str,
+        faq: &str,
+        uuid: &str,
+        server: &str,
+    ) -> Option<PostFaqResult> {
+        let response = self
+            .post_json(
+                "/post-faq",
+                json!({ "username": username, "faq": faq, "uuid": uuid, "server": server }),
+            )
+            .await?;
+
+        if let Ok(result) = serde_json::from_value::<PostFaqResult>(response.clone()) {
+            return Some(result);
+        }
+
+        Some(PostFaqResult {
+            id: response.get("id").and_then(Value::as_i64).unwrap_or(-1) as i64,
+            error: response
+                .get("error")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+        })
+    }
+
+    pub async fn edit_faq(
+        &self,
+        id: i64,
+        username: &str,
+        faq: &str,
+        uuid: &str,
+        server: &str,
+    ) -> Option<EditFaqResult> {
+        self.post_json(
+            "/edit-faq",
+            json!({
+                "username": username,
+                "faq": faq,
+                "uuid": uuid,
+                "server": server,
+                "id": id
+            }),
+        )
+        .await
+        .and_then(|value| serde_json::from_value(value).ok())
+    }
+
+    pub async fn with_websocket(&mut self) -> Result<Option<WebsocketClient>> {
+        self.init_websocket().await?;
+        Ok(self.websocket.clone())
+    }
+
+    async fn get_json(&self, path: &str, query: &[(&str, &str)]) -> Option<Value> {
+        let url = self.make_url(path, query);
+        let response = self.client.get(url).send().await;
+        match response {
+            Ok(response) => match response.error_for_status() {
+                Ok(response) => response.json::<Value>().await.ok().map(unwrap_data),
+                Err(error) => {
+                    self.log_error(error);
+                    None
+                }
+            },
+            Err(error) => {
+                self.log_error(error);
+                None
+            }
+        }
+    }
+
+    async fn get_json_string_params(&self, path: &str, params: &[(&str, String)]) -> Option<Value> {
+        let url = self.make_url_string_params(path, params);
+        let response = self.client.get(url).send().await;
+        match response {
+            Ok(response) => match response.error_for_status() {
+                Ok(response) => response.json::<Value>().await.ok().map(unwrap_data),
+                Err(error) => {
+                    self.log_error(error);
+                    None
+                }
+            },
+            Err(error) => {
+                self.log_error(error);
+                None
+            }
+        }
+    }
+
+    async fn post_json(&self, path: &str, body: Value) -> Option<Value> {
+        let url = format!("{}{}", self.base_url(), path);
+        let response = self.client.post(url).json(&body).send().await;
+        match response {
+            Ok(response) => {
+                let status = response.status();
+                let value = response.json::<Value>().await.ok();
+                if status.is_success() {
+                    value
+                } else {
+                    self.log_error(anyhow!("POST {path} failed with status {status}"));
+                    value
+                }
+            }
+            Err(error) => {
+                self.log_error(error);
+                None
+            }
+        }
+    }
+
+    fn make_url(&self, path: &str, query: &[(&str, &str)]) -> String {
+        let mut url =
+            reqwest::Url::parse(&format!("{}{}", self.base_url(), path)).expect("valid api url");
+        {
+            let mut pairs = url.query_pairs_mut();
+            for (name, value) in query {
+                pairs.append_pair(name, value);
+            }
+        }
+        url.to_string()
+    }
+
+    fn make_url_string_params(&self, path: &str, query: &[(&str, String)]) -> String {
+        let mut url =
+            reqwest::Url::parse(&format!("{}{}", self.base_url(), path)).expect("valid api url");
+        {
+            let mut pairs = url.query_pairs_mut();
+            for (name, value) in query {
+                pairs.append_pair(name, value);
+            }
+        }
+        url.to_string()
+    }
+
+    fn base_url(&self) -> String {
+        self.options.api_url.trim_end_matches('/').to_owned()
+    }
+
+    fn log_error(&self, error: impl std::fmt::Display) {
+        if self.options.log_errors {
+            eprintln!("{error}");
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WebsocketClient {
+    sender: mpsc::UnboundedSender<Message>,
+    events: broadcast::Sender<WebsocketEvent>,
+    connected: Arc<AtomicBool>,
+    pub websocket_url: String,
+}
+
+impl WebsocketClient {
+    pub async fn connect(
+        websocket_url: String,
+        api_key: String,
+        is_bot_client: bool,
+        mc_server: String,
+    ) -> Result<Self> {
+        let client_type = if is_bot_client {
+            "minecraft"
+        } else {
+            "discord"
+        };
+        let request_url = format!("{}/websocket/connect", websocket_url.trim_end_matches('/'));
+
+        let mut request = request_url
+            .into_client_request()
+            .context("failed to build websocket request")?;
+        {
+            let headers = request.headers_mut();
+            headers.insert("x-api-key", HeaderValue::from_str(&api_key)?);
+            headers.insert("client-type", HeaderValue::from_str(client_type)?);
+            headers.insert("mc_server", HeaderValue::from_str(&mc_server)?);
+        }
+
+        let (socket, _) = connect_async(request).await?;
+        let (mut write, mut read) = socket.split();
+        let (sender, mut receiver) = mpsc::unbounded_channel::<Message>();
+        let (events, _) = broadcast::channel(64);
+        let connected = Arc::new(AtomicBool::new(true));
+        let connected_for_writer = connected.clone();
+        let connected_for_reader = connected.clone();
+        let events_for_reader = events.clone();
+
+        tokio::spawn(async move {
+            let mut keepalive = interval(Duration::from_secs(5));
+            loop {
+                tokio::select! {
+                    maybe_message = receiver.recv() => {
+                        match maybe_message {
+                            Some(message) => {
+                                if write.send(message).await.is_err() {
+                                    break;
+                                }
+                            }
+                            None => break,
+                        }
+                    }
+                    _ = keepalive.tick() => {
+                        if write.send(Message::Ping(Vec::new().into())).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+            connected_for_writer.store(false, Ordering::Relaxed);
+        });
+
+        tokio::spawn(async move {
+            events_for_reader.send(WebsocketEvent::Open).ok();
+            while let Some(message) = read.next().await {
+                match message {
+                    Ok(Message::Text(text)) => {
+                        if let Some(event) = parse_inbound_message(&text) {
+                            events_for_reader.send(event).ok();
+                        } else {
+                            events_for_reader
+                                .send(WebsocketEvent::UnknownMessage(text.to_string()))
+                                .ok();
+                        }
+                    }
+                    Ok(Message::Close(frame)) => {
+                        events_for_reader
+                            .send(WebsocketEvent::Close(
+                                frame
+                                    .map(|frame| frame.reason.to_string())
+                                    .unwrap_or_else(|| "closed".to_owned()),
+                            ))
+                            .ok();
+                        break;
+                    }
+                    Ok(_) => {}
+                    Err(error) => {
+                        events_for_reader
+                            .send(WebsocketEvent::Error(error.to_string()))
+                            .ok();
+                        break;
+                    }
+                }
+            }
+            connected_for_reader.store(false, Ordering::Relaxed);
+        });
+
+        Ok(Self {
+            sender,
+            events,
+            connected,
+            websocket_url,
+        })
+    }
+
+    pub fn subscribe(&self) -> broadcast::Receiver<WebsocketEvent> {
+        self.events.subscribe()
+    }
+
+    pub fn is_client_connected(&self) -> bool {
+        self.connected.load(Ordering::Relaxed)
+    }
+
+    pub async fn send_message(&self, action: &str, data: Value) -> Result<()> {
+        let payload = OutboundWebsocketMessage {
+            action: action.to_owned(),
+            data,
+        };
+        let message = Message::Text(serde_json::to_string(&payload)?.into());
+        self.sender
+            .send(message)
+            .map_err(|error| anyhow!("failed to send websocket message: {error}"))?;
+        Ok(())
+    }
+
+    pub async fn send_minecraft_chat_message(&self, msg_data: MinecraftChatMessage) -> Result<()> {
+        self.send_message("inbound_minecraft_chat", serde_json::to_value(msg_data)?)
+            .await
+    }
+
+    pub async fn send_discord_chat_message(&self, msg_data: DiscordChatMessage) -> Result<()> {
+        self.send_message("inbound_discord_chat", serde_json::to_value(msg_data)?)
+            .await
+    }
+
+    pub async fn send_player_list_update(&self, msg_data: Vec<Player>) -> Result<()> {
+        self.send_message("send_update_player_list", json!({ "players": msg_data }))
+            .await
+    }
+
+    pub async fn send_player_advancement(
+        &self,
+        msg_data: MinecraftAdvancementMessage,
+    ) -> Result<()> {
+        self.send_message("minecraft_advancement", serde_json::to_value(msg_data)?)
+            .await
+    }
+
+    pub async fn send_player_join(&self, msg_data: MinecraftPlayerJoinMessage) -> Result<()> {
+        self.send_message("minecraft_player_join", serde_json::to_value(msg_data)?)
+            .await
+    }
+
+    pub async fn send_player_leave(&self, msg_data: MinecraftPlayerLeaveMessage) -> Result<()> {
+        self.send_message("minecraft_player_leave", serde_json::to_value(msg_data)?)
+            .await
+    }
+
+    pub async fn send_player_death(&self, msg_data: MinecraftPlayerDeathMessage) -> Result<()> {
+        self.send_message("minecraft_player_death", serde_json::to_value(msg_data)?)
+            .await
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Player {
+    pub username: String,
+    pub uuid: String,
+    pub latency: i32,
+    pub server: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinecraftChatMessage {
+    pub name: String,
+    pub message: String,
+    pub date: String,
+    pub mc_server: String,
+    pub uuid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscordChatMessage {
+    pub message: String,
+    pub username: String,
+    pub timestamp: String,
+    pub mc_server: String,
+    pub channel_id: String,
+    pub guild_id: String,
+    pub guild_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinecraftAdvancementMessage {
+    pub username: String,
+    pub advancement: String,
+    pub time: i64,
+    pub mc_server: String,
+    pub id: Option<i64>,
+    pub uuid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinecraftPlayerJoinMessage {
+    pub username: String,
+    pub uuid: String,
+    pub timestamp: String,
+    pub server: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinecraftPlayerLeaveMessage {
+    pub username: String,
+    pub uuid: String,
+    pub timestamp: String,
+    pub server: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinecraftPlayerKillMessage {
+    pub username: String,
+    pub uuid: String,
+    pub timestamp: String,
+    pub server: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinecraftPlayerDeathMessage {
+    pub victim: String,
+    pub death_message: String,
+    pub murderer: Option<String>,
+    pub time: i64,
+    #[serde(rename = "type")]
+    pub death_type: String,
+    pub mc_server: String,
+    pub id: Option<i64>,
+    #[serde(rename = "victimUUID")]
+    pub victim_uuid: String,
+    #[serde(rename = "murdererUUID")]
+    pub murderer_uuid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AllPlayerStats {
+    pub username: Option<String>,
+    pub kills: Option<i64>,
+    pub deaths: Option<i64>,
+    #[serde(rename = "joindate")]
+    pub join_date: Option<String>,
+    #[serde(rename = "lastseen")]
+    pub last_seen: Option<String>,
+    #[serde(rename = "UUID")]
+    pub uuid: Option<String>,
+    pub playtime: Option<u64>,
+    pub joins: Option<u64>,
+    pub leaves: Option<u64>,
+    #[serde(rename = "lastdeathTime")]
+    pub last_death_time: Option<u64>,
+    #[serde(rename = "lastdeathString")]
+    pub last_death_string: Option<String>,
+    pub mc_server: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Playtime {
+    pub playtime: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JoinDate {
+    pub join_date: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JoinCount {
+    pub join_count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Kd {
+    pub kills: u64,
+    pub deaths: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LastSeen {
+    pub last_seen: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageCount {
+    pub name: String,
+    #[serde(rename = "count")]
+    pub message_count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WordOccurrence {
+    pub name: String,
+    pub count: u64,
+    pub word: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NameFind {
+    pub usernames: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnlineCheck {
+    pub online: bool,
+    pub server: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WhoIsData {
+    pub description: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UniqueUser {
+    pub username: String,
+    pub joindate: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Quote {
+    pub name: String,
+    pub message: String,
+    pub date: Option<String>,
+    pub mc_server: String,
+    pub uuid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerActivityByHourResponse {
+    pub player_activity_by_hour: Vec<PlayerActivityHourlyResults>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerActivityHourlyResults {
+    pub weekday: u64,
+    pub activity: Vec<HourlyActivity>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HourlyActivity {
+    pub hour: u64,
+    pub logins: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerActivityByWeekDayResponse {
+    pub player_activity_by_week_day: PlayerActivityByWeekDay,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerActivityByWeekDay {
+    #[serde(rename = "Monday")]
+    pub monday: u64,
+    #[serde(rename = "Tuesday")]
+    pub tuesday: u64,
+    #[serde(rename = "Wednesday")]
+    pub wednesday: u64,
+    #[serde(rename = "Thursday")]
+    pub thursday: u64,
+    #[serde(rename = "Friday")]
+    pub friday: u64,
+    #[serde(rename = "Saturday")]
+    pub saturday: u64,
+    #[serde(rename = "Sunday")]
+    pub sunday: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FaqData {
+    pub username: String,
+    pub uuid: String,
+    pub server: String,
+    pub id: i64,
+    pub faq: String,
+    pub timestamp: String,
+    pub total: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PostFaqResult {
+    pub id: i64,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EditFaqResult {
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuoteOptions {
+    pub random: bool,
+    pub phrase: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutboundWebsocketMessage {
+    pub action: String,
+    pub data: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InboundWebsocketMessage {
+    pub action: String,
+    pub data: Value,
+}
+
+#[derive(Debug, Clone)]
+pub enum WebsocketEvent {
+    Open,
+    Close(String),
+    Error(String),
+    UnknownMessage(String),
+    KeyAccepted(Value),
+    NewUser(NewUserData),
+    NewName(NewUserNameData),
+    InboundDiscordChat(DiscordChatMessage),
+    InboundMinecraftChat(MinecraftChatMessage),
+    MinecraftPlayerDeath(MinecraftPlayerDeathMessage),
+    MinecraftPlayerKill(MinecraftPlayerKillMessage),
+    MinecraftPlayerJoin(MinecraftPlayerJoinMessage),
+    MinecraftPlayerLeave(MinecraftPlayerLeaveMessage),
+    MinecraftAdvancement(MinecraftAdvancementMessage),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewUserData {
+    pub user: String,
+    pub server: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewUserNameData {
+    pub old_name: String,
+    pub new_name: String,
+    pub server: String,
+}
+
+fn unwrap_data(value: Value) -> Value {
+    value
+        .get("data")
+        .cloned()
+        .or_else(|| value.get("result").cloned())
+        .unwrap_or(value)
+}
+
+fn stats_from_value(value: &Value, server: &str) -> Option<AllPlayerStats> {
+    Some(AllPlayerStats {
+        username: string_or_null(value, &["username"]),
+        kills: int_or_string(value, &["kills"]),
+        deaths: int_or_string(value, &["deaths"]),
+        join_date: string_or_null(value, &["joindate"]),
+        last_seen: string_or_null(value, &["lastseen"]),
+        uuid: string_or_null(value, &["UUID", "uuid"]),
+        playtime: u64_or_string(value, &["playtime"]),
+        joins: u64_or_string(value, &["joins"]),
+        leaves: u64_or_string(value, &["leaves"]),
+        last_death_time: u64_or_string(value, &["lastdeathTime", "lastdeath_time"]),
+        last_death_string: string_or_null(value, &["lastdeathString", "lastdeath_string"]),
+        mc_server: Some(string_or_null(value, &["mc_server"]).unwrap_or_else(|| server.to_owned())),
+    })
+}
+
+fn parse_inbound_message(text: &str) -> Option<WebsocketEvent> {
+    let value: InboundWebsocketMessage = serde_json::from_str(text).ok()?;
+    match value.action.as_str() {
+        "new_user" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::NewUser),
+        "new_name" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::NewName),
+        "key-accepted" => Some(WebsocketEvent::KeyAccepted(value.data)),
+        "inbound_discord_chat" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::InboundDiscordChat),
+        "inbound_minecraft_chat" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::InboundMinecraftChat),
+        "minecraft_player_death" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::MinecraftPlayerDeath),
+        "minecraft_player_kill" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::MinecraftPlayerKill),
+        "minecraft_player_join" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::MinecraftPlayerJoin),
+        "minecraft_player_leave" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::MinecraftPlayerLeave),
+        "minecraft_advancement" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::MinecraftAdvancement),
+        "error" => Some(WebsocketEvent::Error(value.data.to_string())),
+        _ => Some(WebsocketEvent::UnknownMessage(text.to_owned())),
+    }
+}
+
+fn string_field(value: &Value, fields: &[&str]) -> Option<String> {
+    fields.iter().find_map(|field| {
+        value
+            .get(*field)
+            .and_then(|value| value.as_str().map(str::to_owned))
+    })
+}
+
+fn string_or_null(value: &Value, fields: &[&str]) -> Option<String> {
+    fields.iter().find_map(|field| {
+        let value = value.get(*field)?;
+        value
+            .as_str()
+            .map(str::to_owned)
+            .or_else(|| value.as_u64().map(|value| value.to_string()))
+            .or_else(|| value.as_i64().map(|value| value.to_string()))
+    })
+}
+
+fn int_or_string(value: &Value, fields: &[&str]) -> Option<i64> {
+    fields.iter().find_map(|field| {
+        let value = value.get(*field)?;
+        value
+            .as_i64()
+            .or_else(|| value.as_u64().map(|value| value as i64))
+            .or_else(|| value.as_str().and_then(|value| value.parse::<i64>().ok()))
+    })
+}
+
+fn u64_or_string(value: &Value, fields: &[&str]) -> Option<u64> {
+    fields.iter().find_map(|field| {
+        let value = value.get(*field)?;
+        value
+            .as_u64()
+            .or_else(|| value.as_i64().map(|value| value as u64))
+            .or_else(|| value.as_str().and_then(|value| value.parse::<u64>().ok()))
+    })
+}
+
+fn number_field(value: &Value, fields: &[&str]) -> Option<u64> {
+    u64_or_string(value, fields)
 }

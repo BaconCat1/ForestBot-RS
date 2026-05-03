@@ -8,7 +8,7 @@ mod structure;
 use anyhow::Result;
 use colored::Colorize;
 use config::AppState;
-use structure::{endpoints::endpoints::ApiHandler, mineflayer::bot::Bot};
+use structure::{endpoints::endpoints::ApiClient, mineflayer::bot::Bot};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,8 +30,9 @@ async fn main() -> Result<()> {
     let state = AppState::load().await?;
     let options = state.options()?;
 
-    let _api = ApiHandler::new(options.api.clone());
-    let mut bot = Bot::new(options.bot, &state);
+    let mut api = ApiClient::new(options.api.clone());
+    api.init_websocket().await?;
+    let mut bot = Bot::new(options.bot, &state, api);
     bot.start().await?;
 
     Ok(())

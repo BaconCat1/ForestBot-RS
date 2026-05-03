@@ -12,6 +12,7 @@ use azalea_viaversion::ViaVersionPlugin;
 
 use crate::config::{AppState, BotConfig};
 use crate::structure::{
+    endpoints::endpoints::ApiClient,
     logger,
     mineflayer::utils::{chat_format_parser, command_handler},
 };
@@ -64,10 +65,11 @@ pub struct Bot {
     pub restart_count: u32,
     pub is_connected: bool,
     pub allow_connection: bool,
+    pub api: ApiClient,
 }
 
 impl Bot {
-    pub fn new(options: BotConfig, state: &AppState) -> Self {
+    pub fn new(options: BotConfig, state: &AppState, api: ApiClient) -> Self {
         Self {
             options,
             use_whitelist: state.config.use_mc_whitelist,
@@ -84,6 +86,7 @@ impl Bot {
             restart_count: 0,
             is_connected: false,
             allow_connection: true,
+            api,
         }
     }
 
@@ -112,6 +115,7 @@ impl Bot {
         let address = format!("{}:{}", self.options.host, self.options.port);
         let state = AzaleaState {
             mc_server: self.mc_server.clone(),
+            api: Arc::new(self.api.clone()),
             runtime: Arc::new(RwLock::new(RuntimeConfig {
                 prefix: self.prefix.clone(),
                 whisper_command: "msg".to_owned(),
@@ -168,6 +172,7 @@ impl Bot {
 #[derive(Clone, Component)]
 pub struct AzaleaState {
     pub mc_server: String,
+    pub api: Arc<ApiClient>,
     pub runtime: Arc<RwLock<RuntimeConfig>>,
     pub players: Arc<RwLock<HashMap<String, PlayerSnapshot>>>,
 }
@@ -176,6 +181,15 @@ impl Default for AzaleaState {
     fn default() -> Self {
         Self {
             mc_server: String::new(),
+            api: Arc::new(ApiClient::new(crate::config::ApiConfig {
+                api_url: String::new(),
+                websocket_url: String::new(),
+                api_key: String::new(),
+                mc_server: String::new(),
+                is_bot_client: true,
+                log_errors: false,
+                use_websocket: false,
+            })),
             runtime: Arc::new(RwLock::new(RuntimeConfig {
                 prefix: "!".to_owned(),
                 whisper_command: "msg".to_owned(),
