@@ -34,6 +34,13 @@ pub async fn handle(bot: &Client, state: &AzaleaState, sender: &str, content: &s
         return;
     }
 
+    if !is_allowed_by_standing(&runtime, sender, &state, content) {
+        logger::info(format!(
+            "Command blocked by blacklist: {command_name} from {sender}"
+        ));
+        return;
+    }
+
     if command.whitelisted && !is_allowed_whitelisted_command(&runtime, sender, command) {
         logger::info(format!(
             "Command blocked by whitelist: {command_name} from {sender}"
@@ -58,6 +65,29 @@ pub async fn handle(bot: &Client, state: &AzaleaState, sender: &str, content: &s
             runtime.whisper_command
         ));
     }
+}
+
+fn is_allowed_by_standing(
+    runtime: &RuntimeConfig,
+    sender: &str,
+    state: &AzaleaState,
+    content: &str,
+) -> bool {
+    let uuid = state
+        .players
+        .read()
+        .expect("player cache lock poisoned")
+        .get(sender)
+        .map(|player| player.uuid.clone());
+    let Some(uuid) = uuid else {
+        return true;
+    };
+
+    !runtime.user_blacklist.contains(&uuid)
+        || crate::structure::mineflayer::utils::whisper_parser::is_self_standing_command(
+            content,
+            &runtime.prefix,
+        )
 }
 
 fn command_enabled(runtime: &RuntimeConfig, command: &CommandDefinition) -> bool {

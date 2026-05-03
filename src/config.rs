@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use tokio::fs;
@@ -98,6 +98,14 @@ struct UserList {
     users: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfflineMessage {
+    pub sender: String,
+    pub recipient: String,
+    pub message: String,
+    pub timestamp: u64,
+}
+
 #[derive(Debug, Clone)]
 pub struct BotConfig {
     pub host: String,
@@ -136,6 +144,17 @@ pub struct AppState {
     pub config: Config,
     pub mc_whitelist: Vec<String>,
     pub mc_blacklist: Vec<String>,
+}
+
+pub async fn load_offline_messages() -> Result<Vec<OfflineMessage>> {
+    read_json("./json/offline_messages.json").await
+}
+
+pub async fn save_offline_messages(messages: &[OfflineMessage]) -> Result<()> {
+    let data = serde_json::to_string_pretty(messages)?;
+    fs::write("./json/offline_messages.json", data)
+        .await
+        .context("Failed to write ./json/offline_messages.json")
 }
 
 impl AppState {

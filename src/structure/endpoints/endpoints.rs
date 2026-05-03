@@ -13,7 +13,7 @@ use tokio::sync::{broadcast, mpsc};
 use tokio::time::{Duration, interval, sleep};
 use tokio_tungstenite::{
     connect_async,
-    tungstenite::{client::IntoClientRequest, protocol::Message},
+    tungstenite::{client::IntoClientRequest, handshake::client::Request, protocol::Message},
 };
 
 #[derive(Debug, Clone)]
@@ -553,7 +553,12 @@ impl WebsocketClient {
             let mut reconnect_count = 0_u32;
 
             loop {
-                let mut request = match request_url.clone().into_client_request() {
+                let request = match build_websocket_request(
+                    &request_url,
+                    &api_key,
+                    client_type,
+                    &mc_server,
+                ) {
                     Ok(request) => request,
                     Err(error) => {
                         events_for_task
@@ -565,30 +570,6 @@ impl WebsocketClient {
                         continue;
                     }
                 };
-
-                {
-                    let headers = request.headers_mut();
-                    match (
-                        HeaderValue::from_str(&api_key),
-                        HeaderValue::from_str(client_type),
-                        HeaderValue::from_str(&mc_server),
-                    ) {
-                        (Ok(api_key), Ok(client_type), Ok(mc_server)) => {
-                            headers.insert("x-api-key", api_key);
-                            headers.insert("client-type", client_type);
-                            headers.insert("mc_server", mc_server);
-                        }
-                        _ => {
-                            events_for_task
-                                .send(WebsocketEvent::Error(
-                                    "websocket headers contain invalid values".to_owned(),
-                                ))
-                                .ok();
-                            sleep(Duration::from_secs(5)).await;
-                            continue;
-                        }
-                    }
-                }
 
                 match connect_async(request).await {
                     Ok((socket, _)) => {
@@ -703,11 +684,7 @@ impl WebsocketClient {
             return Err(anyhow!("websocket is not connected"));
         }
 
-        let payload = OutboundWebsocketMessage {
-            action: action.to_owned(),
-            data,
-        };
-        let message = Message::Text(serde_json::to_string(&payload)?.into());
+        let message = Message::Text(serialize_websocket_payload(action, data)?.into());
         self.sender
             .send(message)
             .map_err(|error| anyhow!("failed to send websocket message: {error}"))?;
@@ -753,6 +730,33 @@ impl WebsocketClient {
     }
 }
 
+fn build_websocket_request(
+    request_url: &str,
+    api_key: &str,
+    client_type: &str,
+    mc_server: &str,
+) -> Result<Request> {
+    let mut request = request_url
+        .to_owned()
+        .into_client_request()
+        .map_err(|error| anyhow!("failed to build websocket request: {error}"))?;
+    {
+        let headers = request.headers_mut();
+        headers.insert("x-api-key", HeaderValue::from_str(api_key)?);
+        headers.insert("client-type", HeaderValue::from_str(client_type)?);
+        headers.insert("mc_server", HeaderValue::from_str(mc_server)?);
+    }
+    Ok(request)
+}
+
+fn serialize_websocket_payload(action: &str, data: Value) -> Result<String> {
+    let payload = OutboundWebsocketMessage {
+        action: action.to_owned(),
+        data,
+    };
+    Ok(serde_json::to_string(&payload)?)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Player {
     pub username: String,
@@ -763,10 +767,14 @@ pub struct Player {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinecraftChatMessage {
+    #[serde(alias = "username")]
     pub name: String,
     pub message: String,
+    #[serde(alias = "timestamp")]
     pub date: String,
+    #[serde(default)]
     pub mc_server: String,
+    #[serde(default)]
     pub uuid: String,
     #[serde(default)]
     pub relay_type: Option<String>,
@@ -1141,4 +1149,46 @@ fn u64_or_string(value: &Value, fields: &[&str]) -> Option<u64> {
 
 fn number_field(value: &Value, fields: &[&str]) -> Option<u64> {
     u64_or_string(value, fields)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn websocket_uses_original_hub_headers_and_payload_shape() {
+        let request = build_websocket_request(
+            "ws://localhost:8001/websocket/connect",
+            "test-key",
+            "minecraft",
+            "RefinedVanilla",
+        )
+        .unwrap();
+        assert_eq!(request.uri().path(), "/websocket/connect");
+        assert_eq!(request.headers().get("x-api-key").unwrap(), "test-key");
+        assert_eq!(request.headers().get("client-type").unwrap(), "minecraft");
+        assert_eq!(
+            request.headers().get("mc_server").unwrap(),
+            "RefinedVanilla"
+        );
+
+        let payload = serialize_websocket_payload(
+            "minecraft_player_join",
+            serde_json::to_value(MinecraftPlayerJoinMessage {
+                username: "Steve".to_owned(),
+                uuid: "uuid-1".to_owned(),
+                timestamp: "123".to_owned(),
+                server: "RefinedVanilla".to_owned(),
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        let value: Value = serde_json::from_str(&payload).unwrap();
+        assert_eq!(value["action"], "minecraft_player_join");
+        assert_eq!(value["data"]["username"], "Steve");
+        assert_eq!(value["data"]["uuid"], "uuid-1");
+        assert_eq!(value["data"]["timestamp"], "123");
+        assert_eq!(value["data"]["server"], "RefinedVanilla");
+    }
 }

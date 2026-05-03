@@ -11,14 +11,15 @@ use azalea::client_chat::ChatPacket;
 use azalea::prelude::*;
 use azalea_viaversion::ViaVersionPlugin;
 
-use crate::config::{AppState, BotConfig};
+use crate::config::{AppState, BotConfig, load_offline_messages, save_offline_messages};
 use crate::structure::{
     endpoints::endpoints::{
-        ApiClient, DiscordChatMessage, MinecraftChatMessage, MinecraftPlayerJoinMessage,
-        MinecraftPlayerLeaveMessage, Player as WebsocketPlayer, WebsocketEvent,
+        ApiClient, DiscordChatMessage, MinecraftAdvancementMessage, MinecraftChatMessage,
+        MinecraftPlayerDeathMessage, MinecraftPlayerJoinMessage, MinecraftPlayerLeaveMessage,
+        Player as WebsocketPlayer, WebsocketEvent,
     },
     logger,
-    mineflayer::utils::{chat_format_parser, command_handler},
+    mineflayer::utils::{chat_format_parser, command_handler, whisper_parser},
 };
 
 #[derive(Debug, Clone)]
@@ -40,6 +41,7 @@ pub struct RuntimeConfig {
     pub whisper_command: String,
     pub use_whitelist: bool,
     pub user_whitelist: HashSet<String>,
+    pub user_blacklist: HashSet<String>,
     pub custom_chat_formats: Vec<String>,
     pub command_toggles: HashMap<String, bool>,
     pub whitelisted_commands: HashSet<String>,
@@ -129,6 +131,7 @@ impl Bot {
                 whisper_command: "msg".to_owned(),
                 use_whitelist: self.use_whitelist,
                 user_whitelist: self.user_whitelist.clone(),
+                user_blacklist: self.user_blacklist.clone(),
                 custom_chat_formats: self.custom_chat_formats.clone(),
                 command_toggles: self.command_toggles.clone(),
                 whitelisted_commands: self.whitelisted_commands.clone(),
@@ -206,6 +209,7 @@ impl Default for AzaleaState {
                 whisper_command: "msg".to_owned(),
                 use_whitelist: false,
                 user_whitelist: HashSet::new(),
+                user_blacklist: HashSet::new(),
                 custom_chat_formats: Vec::new(),
                 command_toggles: HashMap::new(),
                 whitelisted_commands: HashSet::new(),
@@ -247,6 +251,11 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 None => format!("Chat: {content}"),
             });
 
+            if sender.is_none() {
+                handle_fallback_message(&bot, &state, &content).await;
+                return Ok(());
+            }
+
             if let Some(sender) = sender {
                 if sender == bot.username() {
                     return Ok(());
@@ -260,7 +269,9 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     .clone();
 
                 if content.starts_with(&prefix) {
-                    command_handler::handle(&bot, &state, &sender, &content).await;
+                    if sender_allowed_for_command(&state, &sender, &content) {
+                        command_handler::handle(&bot, &state, &sender, &content).await;
+                    }
                     return Ok(());
                 }
 
@@ -271,7 +282,9 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     .get(&sender)
                     .map(|player| player.uuid.clone());
 
-                if let Some(uuid) = uuid {
+                if let Some(uuid) = uuid
+                    && !is_blacklisted(&state, &uuid)
+                {
                     send_minecraft_chat_message(&state, &sender, &content, &uuid).await;
                 }
             }
@@ -295,6 +308,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 );
             send_player_join(&state, &username, &uuid).await;
             send_player_list_update(&state).await;
+            deliver_offline_messages(&bot, &username).await;
         }
         Event::UpdatePlayer(player) => {
             state
@@ -333,6 +347,122 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
     }
 
     Ok(())
+}
+
+async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &str) {
+    let mut full_msg = strip_minecraft_formatting(content);
+    let words = split_right_carrot_in_first_word(&full_msg);
+    full_msg = words.join(" ");
+
+    let prefix = state
+        .runtime
+        .read()
+        .expect("runtime config lock poisoned")
+        .prefix
+        .clone();
+
+    let bot_username = bot.username();
+    if let Some(whisper) = whisper_parser::parse(&full_msg, &bot_username) {
+        let is_for_bot = whisper
+            .recipient
+            .as_deref()
+            .is_none_or(|recipient| recipient.eq_ignore_ascii_case(&bot_username));
+        if is_for_bot
+            && whisper.message.starts_with(&prefix)
+            && sender_allowed_for_command(state, &whisper.sender, &whisper.message)
+        {
+            command_handler::handle(bot, state, &whisper.sender, &whisper.message).await;
+        }
+        return;
+    }
+
+    if should_ignore_system_line(&full_msg) || full_msg.trim().is_empty() {
+        return;
+    }
+
+    let raw_first_word = words.first().map(String::as_str).unwrap_or_default();
+    let normalized_first_word = normalize_word(raw_first_word);
+    let players = state
+        .players
+        .read()
+        .expect("player cache lock poisoned")
+        .clone();
+
+    let custom_parsed = {
+        let formats = state
+            .runtime
+            .read()
+            .expect("runtime config lock poisoned")
+            .custom_chat_formats
+            .clone();
+        chat_format_parser::parse(&full_msg, &formats)
+            .map(|parsed| (parsed.username, parsed.message, true))
+    };
+    let divider_parsed = custom_parsed
+        .clone()
+        .or_else(|| parse_divider_message(&full_msg).map(|(p, m)| (p, m, true)));
+    let extracted = divider_parsed
+        .or_else(|| extract_player_message(&full_msg, &players).map(|(p, m)| (p, m, false)));
+
+    let Some((player, message, is_chat_divider)) = extracted else {
+        return;
+    };
+
+    let uuid = players
+        .get(&player)
+        .map(|player| player.uuid.clone())
+        .or_else(|| {
+            players
+                .values()
+                .find(|p| p.username == player)
+                .map(|p| p.uuid.clone())
+        });
+    let uuid = match uuid {
+        Some(uuid) => uuid,
+        None => match state.api.convert_username_to_uuid(&player).await {
+            Some(uuid) => uuid,
+            None => return,
+        },
+    };
+
+    let parsed_command_message = message.trim();
+    if is_blacklisted(state, &uuid)
+        && !whisper_parser::is_self_standing_command(parsed_command_message, &prefix)
+    {
+        return;
+    }
+
+    if is_advancement_message(&full_msg) {
+        if !full_msg.ends_with(']') || !full_msg.contains('[') {
+            return;
+        }
+        if !full_msg.starts_with(raw_first_word) && !full_msg.starts_with(&normalized_first_word) {
+            return;
+        }
+        send_player_advancement(state, &player, &uuid, &full_msg).await;
+        logger::info(format!("Advancement: {full_msg}"));
+        return;
+    }
+
+    if !is_chat_divider
+        && is_death_or_system_message(&full_msg, raw_first_word, &normalized_first_word)
+    {
+        let murderer = find_murderer(&words, &players, &player);
+        let murderer_uuid = murderer
+            .as_deref()
+            .and_then(|name| players.get(name).map(|player| player.uuid.clone()));
+        send_player_death(state, &player, &uuid, &full_msg, murderer, murderer_uuid).await;
+        logger::info(format!("Death: {full_msg}"));
+        return;
+    }
+
+    if parsed_command_message.starts_with(&prefix) {
+        command_handler::handle(bot, state, &player, parsed_command_message).await;
+        return;
+    }
+
+    send_minecraft_chat_message(state, &player, &message, &uuid).await;
+    logger::info(format!("{player}: {message}"));
 }
 
 fn spawn_websocket_event_task(bot: Client, state: AzaleaState) {
@@ -524,12 +654,278 @@ async fn send_player_list_update(state: &AzaleaState) {
     }
 }
 
+async fn send_player_advancement(
+    state: &AzaleaState,
+    username: &str,
+    uuid: &str,
+    advancement: &str,
+) {
+    let Some(websocket) = state.api.websocket.as_ref() else {
+        return;
+    };
+
+    if let Err(error) = websocket
+        .send_player_advancement(MinecraftAdvancementMessage {
+            username: username.to_owned(),
+            advancement: advancement.to_owned(),
+            time: now_millis_i64(),
+            mc_server: state.mc_server.clone(),
+            id: None,
+            uuid: uuid.to_owned(),
+        })
+        .await
+    {
+        logger::warn(format!("Failed to send websocket advancement: {error}"));
+    }
+}
+
+async fn send_player_death(
+    state: &AzaleaState,
+    victim: &str,
+    victim_uuid: &str,
+    death_message: &str,
+    murderer: Option<String>,
+    murderer_uuid: Option<String>,
+) {
+    let Some(websocket) = state.api.websocket.as_ref() else {
+        return;
+    };
+
+    let death_type = if murderer.is_some() { "pvp" } else { "pve" };
+    if let Err(error) = websocket
+        .send_player_death(MinecraftPlayerDeathMessage {
+            victim: victim.to_owned(),
+            death_message: death_message.to_owned(),
+            murderer,
+            time: now_millis_i64(),
+            death_type: death_type.to_owned(),
+            mc_server: state.mc_server.clone(),
+            id: None,
+            victim_uuid: victim_uuid.to_owned(),
+            murderer_uuid,
+        })
+        .await
+    {
+        logger::warn(format!("Failed to send websocket death: {error}"));
+    }
+}
+
+async fn deliver_offline_messages(bot: &Client, username: &str) {
+    let Ok(messages) = load_offline_messages().await else {
+        return;
+    };
+    let mut pending = Vec::new();
+    let mut remaining = Vec::new();
+
+    for message in messages {
+        if message.recipient.eq_ignore_ascii_case(username) {
+            pending.push(message);
+        } else {
+            remaining.push(message);
+        }
+    }
+
+    if pending.is_empty() {
+        return;
+    }
+
+    bot.chat(format!(
+        "/msg {username} You have {} pending offline messages, I will send them to you now.",
+        pending.len()
+    ));
+
+    for message in pending {
+        bot.chat(format!(
+            "/msg {username} From {}: {} | {}",
+            message.sender,
+            message.message,
+            crate::functions::utils::time::convert_unix_timestamp(message.timestamp / 1000)
+        ));
+    }
+
+    if let Err(error) = save_offline_messages(&remaining).await {
+        logger::warn(format!("Failed to save offline messages: {error:#}"));
+    }
+}
+
+fn sender_allowed_for_command(state: &AzaleaState, sender: &str, message: &str) -> bool {
+    let runtime = state.runtime.read().expect("runtime config lock poisoned");
+    let uuid = state
+        .players
+        .read()
+        .expect("player cache lock poisoned")
+        .get(sender)
+        .map(|player| player.uuid.clone());
+    let Some(uuid) = uuid else {
+        return true;
+    };
+    !runtime.user_blacklist.contains(&uuid)
+        || whisper_parser::is_self_standing_command(message, &runtime.prefix)
+}
+
+fn is_blacklisted(state: &AzaleaState, uuid: &str) -> bool {
+    state
+        .runtime
+        .read()
+        .expect("runtime config lock poisoned")
+        .user_blacklist
+        .contains(uuid)
+}
+
 fn now_millis_string() -> String {
+    now_millis_i64().to_string()
+}
+
+fn now_millis_i64() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis()
-        .to_string()
+        .try_into()
+        .unwrap_or(i64::MAX)
+}
+
+fn strip_minecraft_formatting(message: &str) -> String {
+    let mut output = String::with_capacity(message.len());
+    let mut skip = false;
+    for ch in message.chars() {
+        if skip {
+            skip = false;
+            continue;
+        }
+        if ch == '§' || ch == '&' {
+            skip = true;
+            continue;
+        }
+        output.push(ch);
+    }
+    output
+}
+
+fn split_right_carrot_in_first_word(message: &str) -> Vec<String> {
+    let mut words = message
+        .split_whitespace()
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    if let Some(first) = words.first()
+        && first.ends_with('>')
+        && first.len() > 1
+    {
+        let first = words.remove(0);
+        words.insert(0, ">".to_owned());
+        words.insert(0, first.trim_end_matches('>').to_owned());
+    }
+    words
+}
+
+fn should_ignore_system_line(message: &str) -> bool {
+    const IGNORE_CONTAINS: &[&str] = &[
+        "joined the game",
+        "left the game",
+        "joined the server",
+        "left the server",
+        "voted",
+        "kicked",
+        "banned",
+        "muted",
+        "tempbanned",
+        "temp-banned",
+        "has requested to teleport to you.",
+        "whisper",
+        "[Rcon]",
+    ];
+    IGNORE_CONTAINS
+        .iter()
+        .any(|phrase| message.contains(phrase))
+        || message.starts_with("From ")
+        || message.starts_with("To ")
+}
+
+fn parse_divider_message(message: &str) -> Option<(String, String)> {
+    for separator in [" » ", " >> ", " > "] {
+        if let Some((player, msg)) = message.split_once(separator) {
+            return Some((normalize_word(player.trim()), msg.trim().to_owned()));
+        }
+    }
+    None
+}
+
+fn extract_player_message(
+    message: &str,
+    players: &HashMap<String, PlayerSnapshot>,
+) -> Option<(String, String)> {
+    let words = message
+        .split_whitespace()
+        .take(2)
+        .map(normalize_word)
+        .collect::<Vec<_>>();
+
+    for word in words {
+        for real_name in players.keys() {
+            if word == *real_name {
+                return Some((
+                    real_name.clone(),
+                    remove_player_from_message(message, real_name),
+                ));
+            }
+        }
+    }
+    None
+}
+
+fn remove_player_from_message(message: &str, player: &str) -> String {
+    message
+        .replace(&format!("<{player}>"), " ")
+        .replace(&format!("{player}:"), " ")
+        .replace(player, " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn normalize_word(word: &str) -> String {
+    word.trim_matches(|ch| ch == '<' || ch == '>')
+        .trim_end_matches(':')
+        .to_owned()
+}
+
+fn is_advancement_message(message: &str) -> bool {
+    message.contains("has reached the goal")
+        || message.contains("has made the advancement")
+        || message.contains("has completed the challenge")
+}
+
+fn is_death_or_system_message(message: &str, raw_first_word: &str, normalized_first: &str) -> bool {
+    if raw_first_word.ends_with(':') {
+        return false;
+    }
+    if message.starts_with(&format!("<{normalized_first}>")) {
+        return false;
+    }
+    if message.contains('<') && message.contains('>') {
+        return false;
+    }
+    if !message.starts_with(normalized_first) {
+        return false;
+    }
+    matches!(
+        message.chars().nth(normalized_first.chars().count()),
+        None | Some(' ')
+    )
+}
+
+fn find_murderer(
+    words: &[String],
+    players: &HashMap<String, PlayerSnapshot>,
+    victim: &str,
+) -> Option<String> {
+    for word in words.iter().skip(1) {
+        let token = normalize_word(word);
+        if token != victim && players.contains_key(&token) {
+            return Some(token);
+        }
+    }
+    None
 }
 
 fn is_server_presence_message(content: &str) -> bool {
