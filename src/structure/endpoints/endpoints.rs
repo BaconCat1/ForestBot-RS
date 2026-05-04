@@ -3,6 +3,7 @@ use crate::config::ApiConfig;
 use anyhow::{Result, anyhow};
 use futures_util::{SinkExt, StreamExt};
 use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::sync::{
@@ -138,7 +139,7 @@ impl ApiClient {
             ],
         )
         .await
-        .and_then(|value| serde_json::from_value(value).ok())
+        .and_then(|value| self.parse_json("/deaths", value))
     }
 
     pub async fn get_kills(
@@ -169,7 +170,7 @@ impl ApiClient {
         .and_then(|array| {
             array
                 .into_iter()
-                .map(|item| serde_json::from_value(item).ok())
+                .map(|item| self.parse_json("/kills item", item))
                 .collect::<Option<Vec<_>>>()
         })
     }
@@ -193,7 +194,7 @@ impl ApiClient {
             ],
         )
         .await
-        .and_then(|value| serde_json::from_value(value).ok())
+        .and_then(|value| self.parse_json("/messages", value))
     }
 
     pub async fn get_advancements(
@@ -214,7 +215,7 @@ impl ApiClient {
         )
         .await
         .and_then(|value| value.get("advancements").cloned())
-        .and_then(|value| serde_json::from_value(value).ok())
+        .and_then(|value| self.parse_json("/advancements.advancements", value))
     }
 
     pub async fn get_total_advancements_count(&self, uuid: &str, server: &str) -> Option<u64> {
@@ -229,7 +230,7 @@ impl ApiClient {
             &[("username", username), ("server", server)],
         )
         .await
-        .and_then(|value| serde_json::from_value(value).ok())
+        .and_then(|value| self.parse_json("/messagecount", value))
     }
 
     pub async fn get_word_occurrence(
@@ -243,25 +244,25 @@ impl ApiClient {
             &[("username", username), ("server", server), ("word", word)],
         )
         .await
-        .and_then(|value| serde_json::from_value(value).ok())
+        .and_then(|value| self.parse_json("/wordcount", value))
     }
 
     pub async fn get_name_finder(&self, username: &str, server: &str) -> Option<NameFind> {
         self.get_json("/namesearch", &[("username", username), ("server", server)])
             .await
-            .and_then(|value| serde_json::from_value(value).ok())
+            .and_then(|value| self.parse_json("/namesearch", value))
     }
 
     pub async fn get_online_check(&self, username: &str) -> Option<OnlineCheck> {
         self.get_json("/online", &[("username", username)])
             .await
-            .and_then(|value| serde_json::from_value(value).ok())
+            .and_then(|value| self.parse_json("/online", value))
     }
 
     pub async fn get_who_is(&self, username: &str) -> Option<WhoIsData> {
         self.get_json("/whois", &[("username", username)])
             .await
-            .and_then(|value| serde_json::from_value(value).ok())
+            .and_then(|value| self.parse_json("/whois", value))
     }
 
     pub async fn get_users_sorted_by_joindate(
@@ -282,13 +283,13 @@ impl ApiClient {
             ],
         )
         .await
-        .and_then(|value| serde_json::from_value(value).ok())
+        .and_then(|value| self.parse_json("/users-sorted-by-joindate", value))
     }
 
     pub async fn get_unique_users(&self, server: &str) -> Option<Vec<UniqueUser>> {
         self.get_json("/unique-users", &[("server", server)])
             .await
-            .and_then(|value| serde_json::from_value(value).ok())
+            .and_then(|value| self.parse_json("/unique-users", value))
     }
 
     pub async fn get_quote(
@@ -313,7 +314,7 @@ impl ApiClient {
 
         self.get_json_string_params("/quote", &params)
             .await
-            .and_then(|value| serde_json::from_value(value).ok())
+            .and_then(|value| self.parse_json("/quote", value))
     }
 
     pub async fn get_top_statistic(&self, stat: &str, server: &str, limit: usize) -> Option<Value> {
@@ -334,7 +335,7 @@ impl ApiClient {
     ) -> Option<PlayerActivityByHourResponse> {
         self.get_json("/player-activity-by-hour", &[("server", server)])
             .await
-            .and_then(|value| serde_json::from_value(value).ok())
+            .and_then(|value| self.parse_json("/player-activity-by-hour", value))
     }
 
     pub async fn get_total_daily_logins(
@@ -343,7 +344,7 @@ impl ApiClient {
     ) -> Option<PlayerActivityByWeekDayResponse> {
         self.get_json("/player-activity-by-week-day", &[("server", server)])
             .await
-            .and_then(|value| serde_json::from_value(value).ok())
+            .and_then(|value| self.parse_json("/player-activity-by-week-day", value))
     }
 
     pub async fn get_faq(&self, id: Option<&str>, server: Option<&str>) -> Option<FaqData> {
@@ -351,11 +352,11 @@ impl ApiClient {
             (Some(id), Some(server)) => self
                 .get_json("/faq", &[("id", id), ("server", server)])
                 .await
-                .and_then(|value| serde_json::from_value(value).ok()),
+                .and_then(|value| self.parse_json("/faq", value)),
             _ => self
                 .get_json("/faq", &[])
                 .await
-                .and_then(|value| serde_json::from_value(value).ok()),
+                .and_then(|value| self.parse_json("/faq", value)),
         }
     }
 
@@ -417,7 +418,7 @@ impl ApiClient {
             }),
         )
         .await
-        .and_then(|value| serde_json::from_value(value).ok())
+        .and_then(|value| self.parse_json("/edit-faq", value))
     }
 
     pub async fn with_websocket(&mut self) -> Result<Option<WebsocketClient>> {
@@ -430,7 +431,17 @@ impl ApiClient {
         let response = self.client.get(url).send().await;
         match response {
             Ok(response) => match response.error_for_status() {
-                Ok(response) => response.json::<Value>().await.ok().map(unwrap_data),
+                Ok(response) => {
+                    let status = response.status();
+                    let url = response.url().to_string();
+                    match response.text().await {
+                        Ok(body) => self.parse_response_body("GET", path, &url, status, &body),
+                        Err(error) => {
+                            self.log_error(format!("GET {path} failed reading body: {error}"));
+                            None
+                        }
+                    }
+                }
                 Err(error) => {
                     self.log_error(error);
                     None
@@ -448,7 +459,17 @@ impl ApiClient {
         let response = self.client.get(url).send().await;
         match response {
             Ok(response) => match response.error_for_status() {
-                Ok(response) => response.json::<Value>().await.ok().map(unwrap_data),
+                Ok(response) => {
+                    let status = response.status();
+                    let url = response.url().to_string();
+                    match response.text().await {
+                        Ok(body) => self.parse_response_body("GET", path, &url, status, &body),
+                        Err(error) => {
+                            self.log_error(format!("GET {path} failed reading body: {error}"));
+                            None
+                        }
+                    }
+                }
                 Err(error) => {
                     self.log_error(error);
                     None
@@ -467,7 +488,14 @@ impl ApiClient {
         match response {
             Ok(response) => {
                 let status = response.status();
-                let value = response.json::<Value>().await.ok();
+                let url = response.url().to_string();
+                let value = match response.text().await {
+                    Ok(body) => self.parse_response_body("POST", path, &url, status, &body),
+                    Err(error) => {
+                        self.log_error(format!("POST {path} failed reading body: {error}"));
+                        None
+                    }
+                };
                 if status.is_success() {
                     value
                 } else {
@@ -512,7 +540,44 @@ impl ApiClient {
 
     fn log_error(&self, error: impl std::fmt::Display) {
         if self.options.log_errors {
-            eprintln!("{error}");
+            eprintln!("[API] {error}");
+        }
+    }
+
+    fn parse_response_body(
+        &self,
+        method: &str,
+        path: &str,
+        url: &str,
+        status: reqwest::StatusCode,
+        body: &str,
+    ) -> Option<Value> {
+        self.log_error(format!("{method} {url} -> {status} {}", preview_body(body)));
+        match serde_json::from_str::<Value>(body) {
+            Ok(value) => Some(unwrap_data(value)),
+            Err(error) => {
+                self.log_error(format!(
+                    "{method} {path} returned invalid JSON: {error}; body={}",
+                    preview_body(body)
+                ));
+                None
+            }
+        }
+    }
+
+    fn parse_json<T>(&self, path: &str, value: Value) -> Option<T>
+    where
+        T: DeserializeOwned,
+    {
+        match serde_json::from_value::<T>(value.clone()) {
+            Ok(value) => Some(value),
+            Err(error) => {
+                self.log_error(format!(
+                    "{path} JSON shape mismatch: {error}; body={}",
+                    preview_value(&value)
+                ));
+                None
+            }
         }
     }
 }
@@ -771,10 +836,11 @@ pub struct MinecraftChatMessage {
     pub name: String,
     pub message: String,
     #[serde(alias = "timestamp")]
+    #[serde(deserialize_with = "string_or_number")]
     pub date: String,
     #[serde(default)]
     pub mc_server: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "optional_string_or_number")]
     pub uuid: String,
     #[serde(default)]
     pub relay_type: Option<String>,
@@ -852,7 +918,7 @@ pub struct AllPlayerStats {
     pub join_date: Option<String>,
     #[serde(rename = "lastseen")]
     pub last_seen: Option<String>,
-    #[serde(rename = "UUID")]
+    #[serde(rename = "UUID", alias = "uuid")]
     pub uuid: Option<String>,
     pub playtime: Option<u64>,
     pub joins: Option<u64>,
@@ -892,6 +958,7 @@ pub struct LastSeen {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageCount {
+    #[serde(default)]
     pub name: String,
     #[serde(rename = "count")]
     pub message_count: u64,
@@ -917,6 +984,7 @@ pub struct OnlineCheck {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WhoIsData {
+    #[serde(deserialize_with = "string_or_vec_string")]
     pub description: Vec<String>,
 }
 
@@ -931,7 +999,9 @@ pub struct Quote {
     pub name: String,
     pub message: String,
     pub date: Option<String>,
+    #[serde(default)]
     pub mc_server: String,
+    #[serde(default)]
     pub uuid: String,
 }
 
@@ -982,6 +1052,7 @@ pub struct FaqData {
     pub server: String,
     pub id: i64,
     pub faq: String,
+    #[serde(deserialize_with = "string_or_number")]
     pub timestamp: String,
     pub total: i64,
 }
@@ -989,12 +1060,15 @@ pub struct FaqData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostFaqResult {
     pub id: i64,
+    #[serde(default)]
     pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EditFaqResult {
+    #[serde(default = "default_true")]
     pub success: bool,
+    #[serde(default)]
     pub error: Option<String>,
 }
 
@@ -1151,6 +1225,83 @@ fn number_field(value: &Value, fields: &[&str]) -> Option<u64> {
     u64_or_string(value, fields)
 }
 
+fn default_true() -> bool {
+    true
+}
+
+fn string_or_number<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    value
+        .as_str()
+        .map(str::to_owned)
+        .or_else(|| value.as_u64().map(|value| value.to_string()))
+        .or_else(|| value.as_i64().map(|value| value.to_string()))
+        .ok_or_else(|| serde::de::Error::custom("expected string or number"))
+}
+
+fn optional_string_or_number<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<Value>::deserialize(deserializer)?;
+    let Some(value) = value else {
+        return Ok(String::new());
+    };
+    if value.is_null() {
+        return Ok(String::new());
+    }
+    value
+        .as_str()
+        .map(str::to_owned)
+        .or_else(|| value.as_u64().map(|value| value.to_string()))
+        .or_else(|| value.as_i64().map(|value| value.to_string()))
+        .ok_or_else(|| serde::de::Error::custom("expected string, number, or null"))
+}
+
+fn string_or_vec_string<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    if let Some(value) = value.as_str() {
+        return Ok(vec![value.to_owned()]);
+    }
+    if let Some(values) = value.as_array() {
+        return values
+            .iter()
+            .map(|value| {
+                value
+                    .as_str()
+                    .map(str::to_owned)
+                    .ok_or_else(|| serde::de::Error::custom("expected string description item"))
+            })
+            .collect();
+    }
+    Err(serde::de::Error::custom(
+        "expected string or string array description",
+    ))
+}
+
+fn preview_body(body: &str) -> String {
+    const MAX_PREVIEW: usize = 600;
+    let compact = body.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.chars().count() > MAX_PREVIEW {
+        format!(
+            "{}...<truncated>",
+            compact.chars().take(MAX_PREVIEW).collect::<String>()
+        )
+    } else {
+        compact
+    }
+}
+
+fn preview_value(value: &Value) -> String {
+    preview_body(&value.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1190,5 +1341,75 @@ mod tests {
         assert_eq!(value["data"]["uuid"], "uuid-1");
         assert_eq!(value["data"]["timestamp"], "123");
         assert_eq!(value["data"]["server"], "RefinedVanilla");
+    }
+
+    #[test]
+    fn parses_original_hub_quote_payload_without_extra_fields() {
+        let quote: Quote = serde_json::from_value(json!({
+            "name": "Netherwhal",
+            "message": "this is a long enough quote from the database",
+            "date": "1710000000000"
+        }))
+        .unwrap();
+
+        assert_eq!(quote.name, "Netherwhal");
+        assert_eq!(
+            quote.message,
+            "this is a long enough quote from the database"
+        );
+        assert_eq!(quote.date.as_deref(), Some("1710000000000"));
+        assert_eq!(quote.mc_server, "");
+        assert_eq!(quote.uuid, "");
+    }
+
+    #[test]
+    fn parses_original_hub_whois_and_message_count_payloads() {
+        let whois: WhoIsData = serde_json::from_value(json!({
+            "username": "JollyCurve_",
+            "description": "known refinedvanilla player"
+        }))
+        .unwrap();
+        assert_eq!(whois.description, vec!["known refinedvanilla player"]);
+
+        let message_count: MessageCount = serde_json::from_value(json!({
+            "count": 42
+        }))
+        .unwrap();
+        assert_eq!(message_count.name, "");
+        assert_eq!(message_count.message_count, 42);
+    }
+
+    #[test]
+    fn parses_original_hub_message_faq_and_edit_faq_payloads() {
+        let message: MinecraftChatMessage = serde_json::from_value(json!({
+            "name": "CanadaBinny",
+            "message": "hello from the old hub",
+            "date": 1710000000000_i64,
+            "mc_server": "refinedvanilla",
+            "uuid": null
+        }))
+        .unwrap();
+        assert_eq!(message.date, "1710000000000");
+        assert_eq!(message.uuid, "");
+
+        let faq: FaqData = serde_json::from_value(json!({
+            "username": "CanadaBinny",
+            "uuid": "uuid-1",
+            "server": "refinedvanilla",
+            "id": 7,
+            "faq": "old hub faq text",
+            "timestamp": 1710000000000_i64,
+            "total": 9
+        }))
+        .unwrap();
+        assert_eq!(faq.timestamp, "1710000000000");
+
+        let edit: EditFaqResult = serde_json::from_value(json!({
+            "message": "FAQ updated successfully.",
+            "id": 7
+        }))
+        .unwrap();
+        assert!(edit.success);
+        assert_eq!(edit.error, None);
     }
 }
