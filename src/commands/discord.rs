@@ -11,7 +11,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
-        ctx.bot.chat(RESPONSE);
+        ctx.chat(RESPONSE);
         Ok(())
     })
 }

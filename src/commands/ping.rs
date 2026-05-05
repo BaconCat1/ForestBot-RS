@@ -28,7 +28,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                 .map(|player| player.latency)
         };
 
-        ctx.bot.chat(&response(target, latency));
+        ctx.chat(&response(target, latency));
         Ok(())
     })
 }

@@ -30,7 +30,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         };
 
         if !has_server_arg && server_arg == "all" {
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 "/{} {}  Usage: !quote all <username>",
                 ctx.runtime.whisper_command, ctx.sender
             ));
@@ -38,7 +38,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         }
 
         if has_server_arg && search.trim().is_empty() {
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 "/{} {}  Usage: !quote <server> <username>",
                 ctx.runtime.whisper_command, ctx.sender
             ));
@@ -46,7 +46,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         }
 
         if has_server_arg && server != "all" && !is_quote_server(server) {
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 "/{} {}  Unknown server \"{}\". Use !lq for the list.",
                 ctx.runtime.whisper_command, ctx.sender, server
             ));
@@ -91,7 +91,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                     "I have no quotes recorded for {search}{server_hint}, or unexpected error occurred."
                 )
             };
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 "/{} {} {}",
                 ctx.runtime.whisper_command, ctx.sender, text
             ));

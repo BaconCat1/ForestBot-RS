@@ -1,7 +1,7 @@
 use azalea::prelude::Client;
 
 use crate::{
-    commands::{self, CommandContext, CommandDefinition},
+    commands::{self, CommandContext, CommandDefinition, send_chat},
     structure::{
         logger,
         mineflayer::bot::{AzaleaState, RuntimeConfig},
@@ -60,10 +60,10 @@ pub async fn handle(bot: &Client, state: &AzaleaState, sender: &str, content: &s
 
     if let Err(error) = (command.execute)(ctx).await {
         logger::warn(format!("Command {command_name} failed: {error:#}"));
-        bot.chat(&format!(
-            "/{} {sender} Command failed.",
-            runtime.whisper_command
-        ));
+        send_chat(
+            bot,
+            &format!("/{} {sender} Command failed.", runtime.whisper_command),
+        );
     }
 }
 

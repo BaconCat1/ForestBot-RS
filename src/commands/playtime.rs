@@ -22,7 +22,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         let target = match parse_stats_target_args(&ctx.args, ctx.sender, &ctx.state.mc_server) {
             Ok(target) => target,
             Err(error) => {
-                ctx.bot.chat(&format!(
+                ctx.chat(&format!(
                     "/{} {}",
                     ctx.runtime.whisper_command,
                     usage(ctx.sender, error)
@@ -45,7 +45,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                     target.search, server_hint
                 )
             };
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 "/{} {} {}",
                 ctx.runtime.whisper_command, ctx.sender, text
             ));
@@ -65,7 +65,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                     target.search, server_hint
                 )
             };
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 "/{} {} {}",
                 ctx.runtime.whisper_command, ctx.sender, text
             ));
@@ -74,7 +74,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
 
         let playtime = time::dhms(data.playtime);
         let server_label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " {}{}'s total playtime is {}",
             target.search, server_label, playtime
         ));

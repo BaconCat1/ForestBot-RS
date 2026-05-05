@@ -34,6 +34,16 @@ pub struct CommandContext<'a> {
     pub args: Vec<&'a str>,
 }
 
+impl CommandContext<'_> {
+    pub fn chat(&self, message: impl AsRef<str>) {
+        send_chat(self.bot, message);
+    }
+}
+
+pub fn send_chat(bot: &Client, message: impl AsRef<str>) {
+    bot.chat(message.as_ref().trim_start());
+}
+
 pub fn registry() -> &'static [CommandDefinition] {
     &[
         ping::COMMAND,

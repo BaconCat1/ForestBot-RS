@@ -194,7 +194,7 @@ fn kd<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         };
         let ratio = data.kills as f64 / data.deaths as f64;
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " {}{}: Kills: {} Deaths: {} KD: {:.2}",
             target.search, label, data.kills, data.deaths, ratio
         ));
@@ -218,7 +218,7 @@ fn joindate<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             return Ok(());
         };
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " {}{}, joined on: {}",
             target.search,
             label,
@@ -258,7 +258,7 @@ fn jdpt<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             parts.push(format!("total playtime: {}", time::dhms(pt.playtime)));
         }
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " {}{}, {}",
             target.search,
             label,
@@ -300,7 +300,7 @@ fn wordcount<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             return Ok(());
         };
         let label = format_server_label(&server, &ctx.state.mc_server);
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " {search}{label} has said {word} {} times",
             data.count
         ));
@@ -322,7 +322,7 @@ fn namefind<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         if let Some(data) = data
             && !data.usernames.is_empty()
         {
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 " You could be looking for: {}",
                 data.usernames.join(", ")
             ));
@@ -335,7 +335,7 @@ fn unique_users<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
         let users = ctx.state.api.get_unique_users(&ctx.state.mc_server).await;
         let count = users.map(|users| users.len()).unwrap_or_default();
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " I have seen {count} different users on this server! api.forestbot.org/unique-users?server={}",
             ctx.state.mc_server
         ));
@@ -398,7 +398,7 @@ fn summary<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .map(member_days)
             .map(|days| format!("{days}d"))
             .unwrap_or_else(|| "?".to_owned());
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " [{search}] KD: {kills}/{deaths} ({kdr:.2}) | Playtime: {pt_days}d | Messages: {messages} | Advancements: {adv} | Member for: {age}"
         ));
         Ok(())
@@ -433,7 +433,7 @@ fn winrate<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         }
         let winrate = (kd.kills as f64 / total as f64) * 100.0;
         let deathrate = (kd.deaths as f64 / total as f64) * 100.0;
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " {search}: Win Rate: {winrate:.1}% | Death Rate: {deathrate:.1}% ({}K / {}D)",
             kd.kills, kd.deaths
         ));
@@ -486,7 +486,7 @@ fn death_or_kill<'a>(ctx: CommandContext<'a>, death: bool, first: bool) -> Comma
             );
             return Ok(());
         };
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " {}, {}",
             row.death_message,
             time::time_ago_str(row.time as u64)
@@ -509,7 +509,7 @@ fn last_advancement<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .await
             .and_then(|mut rows| rows.pop());
         if let Some(row) = row {
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 " {}: {} ({})",
                 search,
                 row.advancement,
@@ -620,7 +620,7 @@ fn top<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                 Some(format!("{username}: {}", value_to_string(number)))
             })
             .collect::<Vec<_>>();
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " [TOP {}]: {}",
             stat.to_uppercase(),
             formatted.join(", ")
@@ -656,7 +656,7 @@ fn standing<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             Some(uuid) if ctx.runtime.user_whitelist.contains(&uuid) => "whitelisted",
             _ => "regular",
         };
-        ctx.bot.chat(&format!(" {target} is {status}."));
+        ctx.chat(&format!(" {target} is {status}."));
         Ok(())
     })
 }
@@ -741,7 +741,7 @@ fn whois<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             ctx.bot
                 .chat(&format!(" {target}: {}", data.description.join(" ")));
         } else {
-            ctx.bot.chat(&format!(" {target} has no description."));
+            ctx.chat(&format!(" {target} has no description."));
         }
         Ok(())
     })
@@ -773,7 +773,7 @@ fn random_quote<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
 fn list_quote_servers<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
         let servers = crate::constants::quote_servers::QUOTE_SERVERS.join(", ");
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " Quotable servers ({}): all, {}",
             crate::constants::quote_servers::QUOTE_SERVERS.len() + 1,
             servers
@@ -908,12 +908,12 @@ fn best_ping<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             return Ok(());
         };
         if best.latency == 0 {
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 " Best ping: {}: {}ms (Most likely just joined.)",
                 best.username, best.latency
             ));
         } else {
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 " Best ping: {}: {}ms",
                 best.username, best.latency
             ));
@@ -929,7 +929,7 @@ fn worst_ping<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             whisper(&ctx, " No players are cached yet.");
             return Ok(());
         };
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " Worst Ping: {}: {}ms",
             worst.username, worst.latency
         ));
@@ -1075,7 +1075,7 @@ fn efficiency<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                 return Ok(());
             }
             let count = if stat == "kills" { kd.kills } else { kd.deaths };
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 " {search}: {count} {stat} over {hours:.1} hours = {:.3} {stat}/hr",
                 count as f64 / hours
             ));
@@ -1108,7 +1108,7 @@ fn efficiency<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                 );
                 return Ok(());
             }
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 " {search}: {} messages over {} days = {:.2} messages/day",
                 mc.message_count,
                 days.floor() as u64,
@@ -1126,7 +1126,7 @@ fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             whisper(&ctx, " Usage: !execute </command>");
             return Ok(());
         }
-        ctx.bot.chat(&command);
+        ctx.chat(&command);
         whisper(&ctx, &format!(" Executed: {command}"));
         Ok(())
     })
@@ -1147,16 +1147,16 @@ fn febzey<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .await;
         let online = player_uuid(&ctx, target).is_some();
         match last_seen.and_then(|row| epoch_ms_from_string(&row.last_seen)) {
-            Some(ts) if online => ctx.bot.chat(&format!(
+            Some(ts) if online => ctx.chat(&format!(
                 " {target} is online after being gone for {}. Someone check on the bot maintainer.",
                 time::time_ago_str(ts)
             )),
-            Some(ts) => ctx.bot.chat(&format!(
+            Some(ts) => ctx.chat(&format!(
                 " Last seen {target}: {} ({}). Still not maintaining his bot.",
                 time::convert_unix_timestamp(ts / 1000),
                 time::time_ago_str(ts)
             )),
-            None => ctx.bot.chat(&format!(
+            None => ctx.chat(&format!(
                 " No last seen data for {target}. The disappearance is complete."
             )),
         }
@@ -1226,11 +1226,11 @@ fn grudge<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             ctx.bot
                 .chat(&format!(" {killer} has never killed {victim}."));
         } else if count >= 30 {
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 " {killer} has killed {victim} {count} times. That's a grudge!"
             ));
         } else {
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 " {killer} has killed {victim} {count} time{}.",
                 if count == 1 { "" } else { "s" }
             ));
@@ -1290,7 +1290,7 @@ fn nickname<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             whisper(&ctx, " Usage: !nickname <nickname>");
             return Ok(());
         }
-        ctx.bot.chat(&format!(" /nick {nickname}"));
+        ctx.chat(&format!(" /nick {nickname}"));
         Ok(())
     })
 }
@@ -1330,9 +1330,9 @@ fn oldnames<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .collect::<Vec<_>>();
         names.dedup();
         if names.is_empty() {
-            ctx.bot.chat(" No name history was found for that user.");
+            ctx.chat(" No name history was found for that user.");
         } else {
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 " {target} has used the following names: {}",
                 names.join(", ")
             ));
@@ -1369,7 +1369,7 @@ fn owns_faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
 fn profile<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
-        ctx.bot.chat(&format!(" https://forestbot.org/u/{target}"));
+        ctx.chat(&format!(" https://forestbot.org/u/{target}"));
         Ok(())
     })
 }
@@ -1409,7 +1409,7 @@ fn random_quote_all<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .map(time::time_ago_str)
             .map(|date| format!(" ({date})"))
             .unwrap_or_default();
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " Quote from {} [{}]: \"{}\"{}",
             data.name, server, data.message, date
         ));
@@ -1428,7 +1428,7 @@ fn realname<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .iter()
             .any(|player| player.username.eq_ignore_ascii_case(target))
         {
-            ctx.bot.chat(&format!("{target} is the real username."));
+            ctx.chat(&format!("{target} is the real username."));
         } else {
             ctx.bot
                 .chat(&format!("No player found matching \"{target}\" online."));
@@ -1442,7 +1442,7 @@ fn set_preset<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         let Some(preset) = ctx.args.first() else {
             return Ok(());
         };
-        ctx.bot.chat(&format!("/nc preset {preset}"));
+        ctx.chat(&format!("/nc preset {preset}"));
         ctx.bot
             .chat(&format!(" Set the preset {preset} successfully!"));
         Ok(())
@@ -1474,7 +1474,7 @@ fn shout<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             "[Shout {}] {}: {}",
             ctx.state.mc_server, ctx.sender, message
         );
-        ctx.bot.chat(&shout_text);
+        ctx.chat(&shout_text);
         let Some(websocket) = ctx.state.api.websocket.as_ref() else {
             whisper(
                 &ctx,
@@ -1511,7 +1511,7 @@ fn shout<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
 
 fn sleep<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
-        ctx.bot.chat(" I couldn't find a bed :(");
+        ctx.chat(" I couldn't find a bed :(");
         Ok(())
     })
 }
@@ -1543,7 +1543,7 @@ fn survived<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         let survived = time::dhms(now_millis().saturating_sub(death_ms))
             .trim_end_matches('.')
             .to_owned();
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " {search} has survived for {survived} since their last death."
         ));
         Ok(())
@@ -1605,7 +1605,7 @@ fn victims<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             }
             return Ok(());
         }
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " {search} has killed {} unique player{}.",
             victims.len(),
             if victims.len() == 1 { "" } else { "s" }
@@ -1655,7 +1655,7 @@ fn vs<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         let pt_days2 = pt2.map(|pt| pt.playtime / 86_400_000).unwrap_or_default();
         let msgs1 = mc1.map(|mc| mc.message_count).unwrap_or_default();
         let msgs2 = mc2.map(|mc| mc.message_count).unwrap_or_default();
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " [VS] {name1} vs {name2} | K: {kills1} {} {kills2} | D: {deaths1} {} {deaths2} | KD: {kdr1:.2} {} {kdr2:.2} | PT: {pt_days1}d {} {pt_days2}d | Msgs: {msgs1} {} {msgs2}",
             compare_u64(kills1, kills2),
             compare_u64(deaths2, deaths1),
@@ -1697,7 +1697,7 @@ async fn parse_target_with_uuid<'a>(
 }
 
 fn whisper(ctx: &CommandContext<'_>, message: &str) {
-    ctx.bot.chat(&format!(
+    ctx.chat(&format!(
         "/{} {} {}",
         ctx.runtime.whisper_command, ctx.sender, message
     ));
@@ -1788,7 +1788,7 @@ fn send_active_rows(ctx: &CommandContext<'_>, rows: &[ActiveRow]) {
         .map(|row| format!("{}: {}", row.username, row.count))
         .collect::<Vec<_>>()
         .join(", ");
-    ctx.bot.chat(&format!(" [ACTIVE 24h]: {formatted}"));
+    ctx.chat(&format!(" [ACTIVE 24h]: {formatted}"));
 }
 
 #[derive(Debug, Clone)]

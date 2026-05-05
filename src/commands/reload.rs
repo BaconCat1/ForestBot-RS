@@ -17,7 +17,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
         reload_runtime(ctx.state).await?;
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             "/{} {} {}",
             ctx.runtime.whisper_command,
             ctx.sender,

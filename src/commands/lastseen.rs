@@ -22,7 +22,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         let target = match parse_stats_target_args(&ctx.args, ctx.sender, &ctx.state.mc_server) {
             Ok(target) => target,
             Err(error) => {
-                ctx.bot.chat(&format!(
+                ctx.chat(&format!(
                     "/{} {}",
                     ctx.runtime.whisper_command,
                     usage(ctx.sender, error)
@@ -52,7 +52,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                     )
                 )
             };
-            ctx.bot.chat(&format!(
+            ctx.chat(&format!(
                 "/{} {} {}",
                 ctx.runtime.whisper_command, ctx.sender, message
             ));
@@ -65,12 +65,12 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
 
         let Some(last_seen) = data.map(|data| data.last_seen) else {
             if target.search.eq_ignore_ascii_case(ctx.sender) {
-                ctx.bot.chat(&format!(
+                ctx.chat(&format!(
                     "/{} {} You haven't been seen by me{}, or unexpected error occurred.",
                     ctx.runtime.whisper_command, ctx.sender, server_hint
                 ));
             } else {
-                ctx.bot.chat(&format!(
+                ctx.chat(&format!(
                     "/{} {} {} has not been seen by me{}, or unexpected error occurred.",
                     ctx.runtime.whisper_command, ctx.sender, target.search, server_hint
                 ));
@@ -89,7 +89,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             last_seen
         };
 
-        ctx.bot.chat(&format!(
+        ctx.chat(&format!(
             " I last saw {}{} {}",
             target.search, server_label, last_seen_string
         ));
