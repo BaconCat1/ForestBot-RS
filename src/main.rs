@@ -6,8 +6,8 @@ mod functions;
 mod structure;
 
 use anyhow::Result;
-use config::AppState;
 use colored::Colorize;
+use config::AppState;
 use structure::{endpoints::endpoints::ApiClient, mineflayer::bot::Bot};
 
 #[tokio::main]
