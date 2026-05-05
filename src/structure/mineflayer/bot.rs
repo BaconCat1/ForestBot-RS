@@ -377,6 +377,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 return Ok(());
             }
             logger::warn(format!("Disconnected: {reason:?}"));
+            send_session_flush_leave(&state).await;
         }
         Event::ConnectionFailed(error) => {
             if event_disabled(&state, &["error", "kicked", "connectionFailed"]) {
@@ -808,9 +809,33 @@ async fn send_player_list_update(state: &AzaleaState) {
         })
         .collect::<Vec<_>>();
 
+    if players.is_empty() {
+        return;
+    }
+
     if let Err(error) = websocket.send_player_list_update(players).await {
         logger::warn(format!(
             "Failed to send websocket player list update: {error}"
+        ));
+    }
+}
+
+async fn send_session_flush_leave(state: &AzaleaState) {
+    let Some(websocket) = state.api.websocket.as_ref() else {
+        return;
+    };
+
+    if let Err(error) = websocket
+        .send_player_leave(MinecraftPlayerLeaveMessage {
+            username: "ForestBot".to_owned(),
+            uuid: String::new(),
+            timestamp: now_millis_string(),
+            server: state.mc_server.clone(),
+        })
+        .await
+    {
+        logger::warn(format!(
+            "Failed to send websocket session flush leave: {error}"
         ));
     }
 }
