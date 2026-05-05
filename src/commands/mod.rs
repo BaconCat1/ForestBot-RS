@@ -36,12 +36,16 @@ pub struct CommandContext<'a> {
 
 impl CommandContext<'_> {
     pub fn chat(&self, message: impl AsRef<str>) {
-        send_chat(self.bot, message);
+        enqueue_chat(self.state, message);
     }
 }
 
-pub fn send_chat(bot: &Client, message: impl AsRef<str>) {
-    bot.chat(message.as_ref().trim_start());
+pub fn enqueue_chat(state: &AzaleaState, message: impl AsRef<str>) {
+    state
+        .outbound_chat
+        .lock()
+        .expect("outbound chat queue lock poisoned")
+        .push_back(message.as_ref().trim_start().to_owned());
 }
 
 pub fn registry() -> &'static [CommandDefinition] {

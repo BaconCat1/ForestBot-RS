@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, RwLock};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
@@ -146,6 +146,7 @@ impl Bot {
                 welcome_messages: self.welcome_messages,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
+            outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
         };
@@ -197,6 +198,7 @@ pub struct AzaleaState {
     pub api: Arc<ApiClient>,
     pub runtime: Arc<RwLock<RuntimeConfig>>,
     pub players: Arc<RwLock<HashMap<String, PlayerSnapshot>>>,
+    pub outbound_chat: Arc<Mutex<VecDeque<String>>>,
     pub seen_entity_spawns: Arc<RwLock<HashSet<String>>>,
     pub next_entity_spawn_scan_at: Arc<RwLock<i64>>,
 }
@@ -228,6 +230,7 @@ impl Default for AzaleaState {
                 welcome_messages: false,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
+            outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
         }
@@ -386,6 +389,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             logger::warn(format!("Connection failed: {error}"));
         }
         Event::Tick => {
+            flush_outbound_chat(&bot, &state);
             // No direct Azalea equivalent exists for Mineflayer's entitySpawn.
             // This scan is separately gated by entitySpawn to preserve Node config behavior.
             handle_entity_spawn_first_sight(&bot, &state);
@@ -394,6 +398,21 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
     }
 
     Ok(())
+}
+
+fn flush_outbound_chat(bot: &Client, state: &AzaleaState) {
+    let mut queue = state
+        .outbound_chat
+        .lock()
+        .expect("outbound chat queue lock poisoned");
+
+    for _ in 0..3 {
+        let Some(message) = queue.pop_front() else {
+            break;
+        };
+        logger::info(format!("Sending chat reply: {message}"));
+        bot.chat(message);
+    }
 }
 
 const ENTITY_SPAWN_GREETING_TTL_MS: u64 = 500_000;
