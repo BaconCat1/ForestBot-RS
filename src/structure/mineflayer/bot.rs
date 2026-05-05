@@ -340,7 +340,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 );
             send_player_join(&state, &username, &uuid).await;
             send_player_list_update(&state).await;
-            deliver_offline_messages(&bot, &username).await;
+            deliver_offline_messages(&state, &username).await;
         }
         Event::UpdatePlayer(player) => {
             if event_disabled(&state, &["updatePlayer"]) {
@@ -915,7 +915,7 @@ async fn send_player_death(
     }
 }
 
-async fn deliver_offline_messages(bot: &Client, username: &str) {
+async fn deliver_offline_messages(state: &AzaleaState, username: &str) {
     let Ok(messages) = load_offline_messages().await else {
         return;
     };
@@ -934,23 +934,37 @@ async fn deliver_offline_messages(bot: &Client, username: &str) {
         return;
     }
 
-    bot.chat(format!(
-        "/msg {username} You have {} pending offline messages, I will send them to you now.",
-        pending.len()
-    ));
+    enqueue_outbound_chat(
+        state,
+        format!(
+            "/msg {username} You have {} pending offline messages, I will send them to you now.",
+            pending.len()
+        ),
+    );
 
     for message in pending {
-        bot.chat(format!(
-            "/msg {username} From {}: {} | {}",
-            message.sender,
-            message.message,
-            crate::functions::utils::time::convert_unix_timestamp(message.timestamp / 1000)
-        ));
+        enqueue_outbound_chat(
+            state,
+            format!(
+                "/msg {username} From {}: {} | {}",
+                message.sender,
+                message.message,
+                crate::functions::utils::time::convert_unix_timestamp(message.timestamp / 1000)
+            ),
+        );
     }
 
     if let Err(error) = save_offline_messages(&remaining).await {
         logger::warn(format!("Failed to save offline messages: {error:#}"));
     }
+}
+
+fn enqueue_outbound_chat(state: &AzaleaState, message: impl AsRef<str>) {
+    state
+        .outbound_chat
+        .lock()
+        .expect("outbound chat queue lock poisoned")
+        .push_back(message.as_ref().trim_start().to_owned());
 }
 
 fn sender_allowed_for_command(state: &AzaleaState, sender: &str, message: &str) -> bool {

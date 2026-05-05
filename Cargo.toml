@@ -8,6 +8,7 @@ anyhow = "1.0.102"
 azalea = { git = "https://github.com/azalea-rs/azalea" }
 azalea-viaversion = { git = "https://github.com/azalea-rs/azalea-viaversion" }
 colored = "3.1.1"
+chrono = { version = "0.4.44", default-features = false, features = ["clock"] }
 dotenvy = "0.15.7"
 futures-util = "0.3.31"
 reqwest = { version = "0.13.3", features = ["json"] }

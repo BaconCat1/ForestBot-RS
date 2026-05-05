@@ -23,9 +23,12 @@ use std::sync::{
 };
 
 const ACTIVE_CACHE_TTL_MS: u64 = 5 * 60 * 1000;
+const HISTORICAL_TOP_CACHE_TTL_MS: u64 = 15 * 60 * 1000;
 const ACTIVE_TOP_LIMIT: usize = 5;
 const ACTIVE_MSG_FETCH: usize = 100;
 const ACTIVE_CONCURRENCY: usize = 12;
+const TOP_LIMIT: usize = 5;
+const BACKFILL_CONCURRENCY: usize = 12;
 const ONE_DAY_MS: u64 = 24 * 60 * 60 * 1000;
 const SHOUT_COOLDOWN_MS: u64 = 60 * 1000;
 const MC_WHITELIST_PATH: &str = "./json/mc_whitelist.json";
@@ -46,7 +49,21 @@ struct ActiveRow {
 }
 
 static ACTIVE_CACHE: OnceLock<Mutex<HashMap<String, ActiveCacheEntry>>> = OnceLock::new();
+static HISTORICAL_TOP_CACHE: OnceLock<Mutex<HashMap<String, HistoricalTopCacheEntry>>> =
+    OnceLock::new();
 static LAST_SHOUT_AT: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Debug, Clone)]
+struct HistoricalTopCacheEntry {
+    expires_at: u64,
+    rows: Vec<TopRow>,
+}
+
+#[derive(Debug, Clone)]
+struct TopRow {
+    username: String,
+    value: u64,
+}
 
 macro_rules! command {
     ($const_name:ident, $names:expr, $execute:ident) => {
@@ -345,22 +362,85 @@ fn unique_users<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
 
 fn total_advancements<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
-        let search = ctx.args.first().copied().unwrap_or(ctx.sender);
-        let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
-            whisper(
-                &ctx,
-                &format!(" {search} has no advancements, or unexpected error occurred."),
+        let target = match parse_stats_target_args(&ctx.args, ctx.sender, &ctx.state.mc_server) {
+            Ok(target) => target,
+            Err(StatsTargetError::MissingUsernameForAll) => {
+                whisper(&ctx, " Usage: !advs all <username>");
+                return Ok(());
+            }
+            Err(StatsTargetError::UnknownServer(server)) => {
+                whisper(
+                    &ctx,
+                    &format!(" Unknown server \"{server}\". Use !lq for the list."),
+                );
+                return Ok(());
+            }
+            Err(StatsTargetError::MissingUsername) => {
+                whisper(&ctx, " Usage: !advs <server|all> <username>");
+                return Ok(());
+            }
+        };
+
+        let Some(uuid) = ctx.state.api.convert_username_to_uuid(&target.search).await else {
+            let hint = format_server_scope_hint(
+                target.has_server_arg,
+                &target.server,
+                &ctx.state.mc_server,
             );
+            if target.search.eq_ignore_ascii_case(ctx.sender) {
+                whisper(
+                    &ctx,
+                    &format!(
+                        " I have not seen any advancements from you{hint}, or unexpected error occurred."
+                    ),
+                );
+            } else {
+                whisper(
+                    &ctx,
+                    &format!(
+                        " I have not seen any advancements from {}{hint}, or unexpected error occurred.",
+                        target.search
+                    ),
+                );
+            }
             return Ok(());
         };
         let count = ctx
             .state
             .api
-            .get_total_advancements_count(&uuid, &ctx.state.mc_server)
+            .get_total_advancements_count(&uuid, &target.server)
             .await
             .unwrap_or_default();
-        ctx.bot
-            .chat(&format!(" {search} has {count} advancements."));
+        if count == 0 {
+            let hint = format_server_scope_hint(
+                target.has_server_arg,
+                &target.server,
+                &ctx.state.mc_server,
+            );
+            if target.search.eq_ignore_ascii_case(ctx.sender) {
+                whisper(
+                    &ctx,
+                    &format!(
+                        " I have not seen any advancements from you{hint}, or unexpected error occurred."
+                    ),
+                );
+            } else {
+                whisper(
+                    &ctx,
+                    &format!(
+                        " I have not seen any advancements from {}{hint}, or unexpected error occurred.",
+                        target.search
+                    ),
+                );
+            }
+            return Ok(());
+        }
+
+        let label = format_server_label(&target.server, &ctx.state.mc_server);
+        ctx.chat(&format!(
+            " I have seen {count} advancements from {}{}",
+            target.search, label
+        ));
         Ok(())
     })
 }
@@ -538,10 +618,19 @@ fn message_lookup<'a>(ctx: CommandContext<'a>, order: &'static str) -> CommandFu
             .await
             .and_then(|mut rows| rows.pop());
         if let Some(row) = row {
-            ctx.bot
-                .chat(&format!(" {}: {} ({})", row.name, row.message, row.date));
+            let date = epoch_ms_from_string(&row.date)
+                .map(time::time_ago_str)
+                .unwrap_or(row.date);
+            ctx.chat(&format!(" {search}: {}, {date}", row.message));
         } else {
-            whisper(&ctx, &format!(" I have no messages recorded for {search}."));
+            if search.eq_ignore_ascii_case(ctx.sender) {
+                whisper(&ctx, " You have no messages, or unexpected error occurred.");
+            } else {
+                whisper(
+                    &ctx,
+                    &format!(" {search} has no messages, or unexpected error occurred."),
+                );
+            }
         }
         Ok(())
     })
@@ -579,8 +668,7 @@ fn sorted_unique_users<'a>(ctx: CommandContext<'a>, oldest: bool) -> CommandFutu
                 )
             })
             .collect::<Vec<_>>();
-        ctx.bot
-            .chat(&format!(" The 3 {label} users are: {}", rows.join(", ")));
+        ctx.chat(&format!(" The 3 {label} users are: {}", rows.join(", ")));
         Ok(())
     })
 }
@@ -588,45 +676,269 @@ fn sorted_unique_users<'a>(ctx: CommandContext<'a>, oldest: bool) -> CommandFutu
 fn top<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
         let Some(stat) = ctx.args.first() else {
-            whisper(
-                &ctx,
-                " Usage: !top <kills/deaths/joins/playtime/advancements/messages>",
-            );
             return Ok(());
         };
-        let value = ctx
-            .state
-            .api
-            .get_top_statistic(stat, &ctx.state.mc_server, 5)
-            .await;
-        let Some(value) = value else {
-            whisper(&ctx, " Could not fetch top statistic right now.");
-            return Ok(());
-        };
-        let rows = value
-            .get("top_stat")
-            .or_else(|| value.get(*stat))
-            .and_then(|v| v.as_array())
-            .cloned()
-            .unwrap_or_default();
-        let formatted = rows
-            .into_iter()
-            .filter_map(|row| {
-                let username = row.get("username")?.as_str()?;
-                let number = row
-                    .get(*stat)
-                    .or_else(|| row.get("count"))
-                    .or_else(|| row.get("advancement_count"))?;
-                Some(format!("{username}: {}", value_to_string(number)))
-            })
-            .collect::<Vec<_>>();
-        ctx.chat(&format!(
-            " [TOP {}]: {}",
-            stat.to_uppercase(),
-            formatted.join(", ")
-        ));
-        Ok(())
+
+        match stat.to_lowercase().as_str() {
+            "kills" | "deaths" | "joins" | "playtime" => top_backend_stat(&ctx, stat).await,
+            "messages" => top_messages(&ctx).await,
+            "advancements" => top_advancements(&ctx).await,
+            _ => Ok(()),
+        }
     })
+}
+
+async fn top_backend_stat(ctx: &CommandContext<'_>, stat: &str) -> anyhow::Result<()> {
+    let value = ctx
+        .state
+        .api
+        .get_top_statistic(stat, &ctx.state.mc_server, TOP_LIMIT)
+        .await;
+    let Some(value) = value else {
+        whisper(ctx, "Api error");
+        return Ok(());
+    };
+    let rows = value
+        .get("top_stat")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let formatted = rows
+        .into_iter()
+        .filter_map(|row| {
+            let username = row.get("username")?.as_str()?;
+            let number = row.get(stat)?;
+            if stat == "playtime" {
+                let days = number.as_u64().unwrap_or_default() / ONE_DAY_MS;
+                Some(format!("{username}: {days} Days"))
+            } else {
+                Some(format!("{username}: {}", value_to_string(number)))
+            }
+        })
+        .collect::<Vec<_>>();
+    let title = if stat == "joins" {
+        "TOP JOINS/LEAVES".to_owned()
+    } else {
+        format!("TOP {}", stat.to_uppercase())
+    };
+    ctx.chat(&format!(" [{title}]: {}", formatted.join(", ")));
+    Ok(())
+}
+
+async fn top_messages(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
+    let rows = cached_top_rows(&ctx.state.mc_server, "messages");
+    let rows = match rows {
+        Some(rows) => rows,
+        None => {
+            whisper(ctx, "Running historical backfill for top messages...");
+            let rows = get_top_messages_historical(ctx).await;
+            if !rows.is_empty() {
+                cache_top_rows(&ctx.state.mc_server, "messages", rows.clone());
+            }
+            rows
+        }
+    };
+
+    if rows.is_empty() {
+        whisper(ctx, "Could not calculate top messages right now.");
+    } else {
+        send_top_rows(ctx, "TOP MESSAGES", &rows);
+    }
+    Ok(())
+}
+
+async fn top_advancements(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
+    if let Some(rows) = get_top_advancements_from_leaderboards(ctx).await
+        && !rows.is_empty()
+    {
+        send_top_rows(ctx, "TOP ADVANCEMENTS", &rows);
+        return Ok(());
+    }
+
+    let rows = cached_top_rows(&ctx.state.mc_server, "advancements");
+    let rows = match rows {
+        Some(rows) => rows,
+        None => {
+            whisper(ctx, "Running historical backfill for top advancements...");
+            let rows = get_top_advancements_historical(ctx).await;
+            if !rows.is_empty() {
+                cache_top_rows(&ctx.state.mc_server, "advancements", rows.clone());
+            }
+            rows
+        }
+    };
+
+    if rows.is_empty() {
+        whisper(ctx, "Could not calculate top advancements right now.");
+    } else {
+        send_top_rows(ctx, "TOP ADVANCEMENTS", &rows);
+    }
+    Ok(())
+}
+
+async fn get_top_messages_historical(ctx: &CommandContext<'_>) -> Vec<TopRow> {
+    let usernames = all_known_usernames(ctx).await;
+    let api = ctx.state.api.clone();
+    let server = ctx.state.mc_server.clone();
+    let mut rows = stream::iter(usernames)
+        .map(|username| {
+            let api = api.clone();
+            let server = server.clone();
+            async move {
+                api.get_message_count(&username, &server)
+                    .await
+                    .map(|data| TopRow {
+                        username,
+                        value: data.message_count,
+                    })
+            }
+        })
+        .buffer_unordered(BACKFILL_CONCURRENCY)
+        .filter_map(|row| async move { row })
+        .collect::<Vec<_>>()
+        .await;
+    sort_and_truncate_top_rows(&mut rows);
+    rows
+}
+
+async fn get_top_advancements_historical(ctx: &CommandContext<'_>) -> Vec<TopRow> {
+    let usernames = all_known_usernames(ctx).await;
+    let api = ctx.state.api.clone();
+    let server = ctx.state.mc_server.clone();
+    let mut rows = stream::iter(usernames)
+        .map(|username| {
+            let api = api.clone();
+            let server = server.clone();
+            async move {
+                let uuid = api.convert_username_to_uuid(&username).await?;
+                let value = api.get_total_advancements_count(&uuid, &server).await?;
+                Some(TopRow { username, value })
+            }
+        })
+        .buffer_unordered(BACKFILL_CONCURRENCY)
+        .filter_map(|row| async move { row })
+        .collect::<Vec<_>>()
+        .await;
+    sort_and_truncate_top_rows(&mut rows);
+    rows
+}
+
+async fn get_top_advancements_from_leaderboards(ctx: &CommandContext<'_>) -> Option<Vec<TopRow>> {
+    let value = ctx.state.api.get_leaderboards(&ctx.state.mc_server).await?;
+    let mut rows = value
+        .get("advancements")?
+        .as_array()?
+        .iter()
+        .filter_map(|row| {
+            let username = row.get("player_name")?.as_str()?.to_owned();
+            let value = row.get("advancement_count").and_then(number_from_value)?;
+            Some(TopRow { username, value })
+        })
+        .collect::<Vec<_>>();
+    rows.truncate(TOP_LIMIT);
+    Some(rows)
+}
+
+async fn all_known_usernames(ctx: &CommandContext<'_>) -> Vec<String> {
+    ctx.state
+        .api
+        .get_unique_users(&ctx.state.mc_server)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|user| user.username)
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn sort_and_truncate_top_rows(rows: &mut Vec<TopRow>) {
+    rows.sort_by(|a, b| {
+        b.value
+            .cmp(&a.value)
+            .then_with(|| a.username.cmp(&b.username))
+    });
+    rows.truncate(TOP_LIMIT);
+}
+
+fn send_top_rows(ctx: &CommandContext<'_>, title: &str, rows: &[TopRow]) {
+    let formatted = rows
+        .iter()
+        .map(|row| format!("{}: {}", row.username, row.value))
+        .collect::<Vec<_>>()
+        .join(", ");
+    ctx.chat(&format!(" [{title}]: {formatted}"));
+}
+
+fn cached_top_rows(server: &str, metric: &str) -> Option<Vec<TopRow>> {
+    let key = format!("{server}:{metric}");
+    let mut cache = historical_top_cache()
+        .lock()
+        .expect("historical top cache lock poisoned");
+    let now = now_millis();
+    match cache.get(&key) {
+        Some(entry) if entry.expires_at > now => Some(entry.rows.clone()),
+        Some(_) => {
+            cache.remove(&key);
+            None
+        }
+        None => None,
+    }
+}
+
+fn cache_top_rows(server: &str, metric: &str, rows: Vec<TopRow>) {
+    historical_top_cache()
+        .lock()
+        .expect("historical top cache lock poisoned")
+        .insert(
+            format!("{server}:{metric}"),
+            HistoricalTopCacheEntry {
+                expires_at: now_millis().saturating_add(HISTORICAL_TOP_CACHE_TTL_MS),
+                rows,
+            },
+        );
+}
+
+fn historical_top_cache() -> &'static Mutex<HashMap<String, HistoricalTopCacheEntry>> {
+    HISTORICAL_TOP_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn number_from_value(value: &serde_json::Value) -> Option<u64> {
+    value
+        .as_u64()
+        .or_else(|| value.as_i64().and_then(|value| value.try_into().ok()))
+        .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
+}
+
+fn quote_server_chunks(servers: &[&str]) -> Vec<String> {
+    const MAX_MESSAGE_LENGTH: usize = 230;
+    const CONTINUATION_PREFIX: &str = "More: ";
+
+    let intro = format!("Quotable servers ({}): ", servers.len());
+    let mut chunks = Vec::new();
+    let mut current = intro;
+    let mut has_server_in_chunk = false;
+
+    for server in servers {
+        let separator = if has_server_in_chunk { ", " } else { "" };
+        let next = format!("{current}{separator}{server}");
+
+        if next.len() > MAX_MESSAGE_LENGTH {
+            chunks.push(current);
+            current = format!("{CONTINUATION_PREFIX}{server}");
+            has_server_in_chunk = true;
+            continue;
+        }
+
+        current = next;
+        has_server_in_chunk = true;
+    }
+
+    if !current.is_empty() {
+        chunks.push(current);
+    }
+
+    chunks
 }
 
 fn standing<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
@@ -738,10 +1050,20 @@ fn whois<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         if let Some(data) = data
             && !data.description.is_empty()
         {
-            ctx.bot
-                .chat(&format!(" {target}: {}", data.description.join(" ")));
+            let description = data.description.join(" ");
+            let safe_description = description
+                .replace(['\r', '\n'], " ")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            ctx.chat(&format!("User {target} is {safe_description}"));
         } else {
-            ctx.chat(&format!(" {target} has no description."));
+            let message = if target.eq_ignore_ascii_case(ctx.sender) {
+                " You have not yet set a description with !iam".to_owned()
+            } else {
+                format!(" {target} has not yet set a description with !iam")
+            };
+            whisper(&ctx, &message);
         }
         Ok(())
     })
@@ -754,7 +1076,7 @@ fn random_quote<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .state
             .api
             .get_quote(
-                "",
+                "none",
                 &ctx.state.mc_server,
                 Some(crate::structure::endpoints::endpoints::QuoteOptions {
                     random: true,
@@ -763,8 +1085,19 @@ fn random_quote<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             )
             .await;
         if let Some(data) = data {
-            ctx.bot
-                .chat(&format!(" Quote from {}: \"{}\"", data.name, data.message));
+            let date = data
+                .date
+                .as_deref()
+                .and_then(epoch_ms_from_string)
+                .map(time::time_ago_str)
+                .map(|date| format!(" ({date})"))
+                .unwrap_or_default();
+            ctx.chat(&format!(
+                " Quote from {}: \"{}\"{}",
+                data.name, data.message, date
+            ));
+        } else {
+            whisper(&ctx, " unexpected error occurred.");
         }
         Ok(())
     })
@@ -772,12 +1105,21 @@ fn random_quote<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
 
 fn list_quote_servers<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
-        let servers = crate::constants::quote_servers::QUOTE_SERVERS.join(", ");
-        ctx.chat(&format!(
-            " Quotable servers ({}): all, {}",
-            crate::constants::quote_servers::QUOTE_SERVERS.len() + 1,
-            servers
-        ));
+        let servers = std::iter::once("all")
+            .chain(
+                crate::constants::quote_servers::QUOTE_SERVERS
+                    .iter()
+                    .copied(),
+            )
+            .collect::<Vec<_>>();
+        let chunks = quote_server_chunks(&servers);
+        if chunks.len() == 1 {
+            ctx.chat(&format!(" {}", chunks[0]));
+        } else {
+            for chunk in chunks {
+                whisper(&ctx, &format!(" {chunk}"));
+            }
+        }
         Ok(())
     })
 }
@@ -1136,8 +1478,7 @@ fn febzey<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
         let target = "Febzey_";
         let Some(uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
-            ctx.bot
-                .chat(&format!(" I couldn't even find {target}. Truly absent."));
+            ctx.chat(&format!(" I couldn't even find {target}. Truly absent."));
             return Ok(());
         };
         let last_seen = ctx
@@ -1182,8 +1523,7 @@ fn faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             );
             return Ok(());
         };
-        ctx.bot
-            .chat(&format!(" #{}/{}: {}", data.id, data.total, data.faq));
+        ctx.chat(&format!(" #{}/{}: {}", data.id, data.total, data.faq));
         Ok(())
     })
 }
@@ -1223,8 +1563,7 @@ fn grudge<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .filter(|name| name.eq_ignore_ascii_case(victim))
             .count();
         if count == 0 {
-            ctx.bot
-                .chat(&format!(" {killer} has never killed {victim}."));
+            ctx.chat(&format!(" {killer} has never killed {victim}."));
         } else if count >= 30 {
             ctx.chat(&format!(
                 " {killer} has killed {victim} {count} times. That's a grudge!"
@@ -1304,8 +1643,7 @@ fn oldnames<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         );
         let response = reqwest::get(url).await;
         let Ok(response) = response else {
-            ctx.bot
-                .chat(" An error occured while trying to look up the user.");
+            ctx.chat(" An error occured while trying to look up the user.");
             return Ok(());
         };
         if response.status().as_u16() == 404 {
@@ -1316,8 +1654,7 @@ fn oldnames<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             return Ok(());
         }
         if !response.status().is_success() {
-            ctx.bot
-                .chat(" An error occured while trying to look up the user.");
+            ctx.chat(" An error occured while trying to look up the user.");
             return Ok(());
         }
         let profile = response.json::<AshconProfile>().await.ok();
@@ -1360,8 +1697,7 @@ fn owns_faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             whisper(&ctx, &format!(" Could not find FAQ #{id}."));
             return Ok(());
         };
-        ctx.bot
-            .chat(&format!(" FAQ #{} owner: {}", data.id, data.username));
+        ctx.chat(&format!(" FAQ #{} owner: {}", data.id, data.username));
         Ok(())
     })
 }
@@ -1430,8 +1766,7 @@ fn realname<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         {
             ctx.chat(&format!("{target} is the real username."));
         } else {
-            ctx.bot
-                .chat(&format!("No player found matching \"{target}\" online."));
+            ctx.chat(&format!("No player found matching \"{target}\" online."));
         }
         Ok(())
     })
@@ -1443,8 +1778,7 @@ fn set_preset<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             return Ok(());
         };
         ctx.chat(&format!("/nc preset {preset}"));
-        ctx.bot
-            .chat(&format!(" Set the preset {preset} successfully!"));
+        ctx.chat(&format!(" Set the preset {preset} successfully!"));
         Ok(())
     })
 }

@@ -100,7 +100,8 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
 
         let date = data
             .date
-            .and_then(|date| date.parse::<u64>().ok())
+            .as_deref()
+            .and_then(epoch_ms_from_string)
             .map(time::time_ago_str)
             .map(|date| format!(" ({date})"))
             .unwrap_or_default();
@@ -110,9 +111,17 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             String::new()
         };
 
-        ctx.bot
-            .chat(&format!(" {search}{server_label}: {}{date}", data.message));
+        ctx.chat(&format!(" {search}{server_label}: {}{date}", data.message));
         Ok(())
+    })
+}
+
+fn epoch_ms_from_string(value: &str) -> Option<u64> {
+    let raw = value.parse::<u64>().ok()?;
+    Some(if raw < 1_000_000_000_000 {
+        raw * 1000
+    } else {
+        raw
     })
 }
 

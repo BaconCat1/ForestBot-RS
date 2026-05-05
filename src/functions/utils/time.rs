@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use chrono::{Datelike, Local, TimeZone, Timelike};
+
 pub async fn sleep(duration: Duration) {
     tokio::time::sleep(duration).await;
 }
@@ -17,7 +19,22 @@ pub fn dhms(milliseconds: u64) -> String {
 }
 
 pub fn convert_unix_timestamp(seconds: u64) -> String {
-    seconds.to_string()
+    let Some(date) = Local.timestamp_opt(seconds as i64, 0).single() else {
+        return seconds.to_string();
+    };
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let month = MONTHS[date.month0() as usize];
+    format!(
+        "{} {} {} {}:{}:{}",
+        month,
+        date.day(),
+        date.year(),
+        date.hour(),
+        date.minute(),
+        date.second()
+    )
 }
 
 pub fn time_ago_str(milliseconds: u64) -> String {
