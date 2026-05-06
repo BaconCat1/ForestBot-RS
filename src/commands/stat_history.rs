@@ -1507,16 +1507,8 @@ fn febzey<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
 
 fn faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     Box::pin(async move {
-        let Some(id) = ctx.args.first() else {
-            whisper(&ctx, " Usage: !faq <id>");
-            return Ok(());
-        };
-        let Some(data) = ctx
-            .state
-            .api
-            .get_faq(Some(id), Some(&ctx.state.mc_server))
-            .await
-        else {
+        let id = ctx.args.first().copied();
+        let Some(data) = ctx.state.api.get_faq(id, Some(&ctx.state.mc_server)).await else {
             whisper(
                 &ctx,
                 " There was an error getting your FAQ, it may not exist.",

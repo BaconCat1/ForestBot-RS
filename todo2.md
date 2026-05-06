@@ -23,6 +23,4 @@
 * 🆕 Add support for !q \<username> \<keyword>
 * 🆕 !q \<server>, without username specified, shows random quote from specified server
 
-**!faq**
-* 🔎 Should pull a random faq if run without an id number, would match pre rewrite.
 

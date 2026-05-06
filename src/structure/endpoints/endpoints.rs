@@ -357,6 +357,14 @@ impl ApiClient {
                 .get_json("/faq", &[("id", id), ("server", server)])
                 .await
                 .and_then(|value| self.parse_json("/faq", value)),
+            (Some(id), None) => self
+                .get_json("/faq", &[("id", id)])
+                .await
+                .and_then(|value| self.parse_json("/faq", value)),
+            (None, Some(server)) => self
+                .get_json("/faq", &[("server", server)])
+                .await
+                .and_then(|value| self.parse_json("/faq", value)),
             _ => self
                 .get_json("/faq", &[])
                 .await
