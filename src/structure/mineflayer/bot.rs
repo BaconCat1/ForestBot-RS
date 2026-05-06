@@ -557,7 +557,8 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
             && whisper.message.starts_with(&prefix)
             && sender_allowed_for_command(state, &whisper.sender, &whisper.message)
         {
-            command_handler::handle(bot, state, &whisper.sender, &whisper.message).await;
+            command_handler::handle_as_whisper(bot, state, &whisper.sender, &whisper.message)
+                .await;
         }
         return;
     }

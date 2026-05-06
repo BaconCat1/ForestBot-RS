@@ -32,11 +32,20 @@ pub struct CommandContext<'a> {
     pub runtime: &'a RuntimeConfig,
     pub sender: &'a str,
     pub args: Vec<&'a str>,
+    pub reply_as_whisper: bool,
 }
 
 impl CommandContext<'_> {
     pub fn chat(&self, message: impl AsRef<str>) {
-        enqueue_chat(self.state, message);
+        enqueue_chat(
+            self.state,
+            route_chat_message(
+                message.as_ref(),
+                self.reply_as_whisper,
+                &self.runtime.whisper_command,
+                self.sender,
+            ),
+        );
     }
 }
 
@@ -46,6 +55,59 @@ pub fn enqueue_chat(state: &AzaleaState, message: impl AsRef<str>) {
         .lock()
         .expect("outbound chat queue lock poisoned")
         .push_back(message.as_ref().trim_start().to_owned());
+}
+
+fn is_whisper_command(message: &str, whisper_command: &str) -> bool {
+    let Some(command) = message.strip_prefix('/') else {
+        return false;
+    };
+    command
+        .split_whitespace()
+        .next()
+        .is_some_and(|name| name.eq_ignore_ascii_case(whisper_command))
+}
+
+fn route_chat_message(
+    message: &str,
+    reply_as_whisper: bool,
+    whisper_command: &str,
+    sender: &str,
+) -> String {
+    let message = message.trim_start();
+    if reply_as_whisper && !is_whisper_command(message, whisper_command) {
+        return format!("/{whisper_command} {sender} {message}");
+    }
+
+    message.to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::route_chat_message;
+
+    #[test]
+    fn routes_whisper_invoked_chat_replies_back_to_sender() {
+        assert_eq!(
+            route_chat_message(" pong", true, "msg", "Alice"),
+            "/msg Alice pong"
+        );
+    }
+
+    #[test]
+    fn does_not_double_wrap_explicit_whispers() {
+        assert_eq!(
+            route_chat_message("/msg Alice already private", true, "msg", "Alice"),
+            "/msg Alice already private"
+        );
+    }
+
+    #[test]
+    fn leaves_normal_chat_replies_public() {
+        assert_eq!(
+            route_chat_message(" pong", false, "msg", "Alice"),
+            "pong"
+        );
+    }
 }
 
 pub fn registry() -> &'static [CommandDefinition] {

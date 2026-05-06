@@ -9,6 +9,20 @@ use crate::{
 };
 
 pub async fn handle(bot: &Client, state: &AzaleaState, sender: &str, content: &str) {
+    handle_with_reply_mode(bot, state, sender, content, false).await;
+}
+
+pub async fn handle_as_whisper(bot: &Client, state: &AzaleaState, sender: &str, content: &str) {
+    handle_with_reply_mode(bot, state, sender, content, true).await;
+}
+
+async fn handle_with_reply_mode(
+    bot: &Client,
+    state: &AzaleaState,
+    sender: &str,
+    content: &str,
+    reply_as_whisper: bool,
+) {
     let runtime = state
         .runtime
         .read()
@@ -67,6 +81,7 @@ pub async fn handle(bot: &Client, state: &AzaleaState, sender: &str, content: &s
         runtime: &runtime,
         sender,
         args: parts.collect(),
+        reply_as_whisper,
     };
 
     if let Err(error) = (command.execute)(ctx).await {
