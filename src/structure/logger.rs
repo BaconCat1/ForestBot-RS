@@ -12,6 +12,7 @@ pub fn warn(message: impl AsRef<str>) {
     println!("{}", message.as_ref().yellow());
 }
 
+#[allow(dead_code)]
 pub fn error(message: impl AsRef<str>) {
     eprintln!("{}", message.as_ref().red());
 }

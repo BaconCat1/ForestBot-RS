@@ -1078,7 +1078,7 @@ fn random_quote(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .get_quote(
                 "none",
                 &ctx.state.mc_server,
-                Some(crate::structure::endpoints::endpoints::QuoteOptions {
+                Some(QuoteOptions {
                     random: true,
                     phrase,
                 }),
@@ -1882,7 +1882,7 @@ fn twerk(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             while now_millis() < end {
                 state = !state;
                 bot.set_crouching(state);
-                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                tokio::time::sleep(time::Duration::from_millis(100)).await;
             }
             bot.set_crouching(false);
         });

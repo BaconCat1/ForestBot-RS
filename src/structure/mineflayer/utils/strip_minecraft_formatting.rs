@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 pub fn strip_minecraft_formatting(message: &str) -> String {
     let mut stripped = String::with_capacity(message.len());
     let mut chars = message.chars();

@@ -45,6 +45,7 @@ pub struct Config {
     pub websocket_url: String,
 
     #[serde(rename = "useLogger")]
+    #[allow(dead_code)]
     pub use_logger: bool,
     pub prefix: String,
     #[serde(rename = "useCustomChatPrefix")]
@@ -53,13 +54,17 @@ pub struct Config {
     pub custom_chat_prefix: String,
     #[serde(rename = "whisperCommand")]
     pub whisper_command: String,
+    #[allow(dead_code)]
     pub announce: bool,
+    #[allow(dead_code)]
     pub antiafk: bool,
     pub use_mc_whitelist: bool,
     pub reconnect_time: u64,
+    #[allow(dead_code)]
     pub anti_spam_cooldown: u64,
     #[serde(default)]
     pub anti_spam_global_cooldown: u64,
+    #[allow(dead_code)]
     pub anti_spam_msg_limit: u32,
     #[serde(default)]
     pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
@@ -70,19 +75,24 @@ pub struct Config {
     pub disabled_events: Vec<String>,
     pub allow_chatbridge_input: bool,
     #[serde(rename = "rotateHeadOnJoin")]
+    #[allow(dead_code)]
     pub rotate_head_on_join: bool,
     pub smart_censoring: bool,
     pub together_api_key: String,
     #[serde(rename = "useLegacyChat")]
+    #[allow(dead_code)]
     pub use_legacy_chat: bool,
     #[serde(rename = "useCustomChatFormatParser")]
+    #[allow(dead_code)]
     pub use_custom_chat_format_parser: bool,
     #[serde(rename = "customChatFormats")]
     pub custom_chat_formats: Vec<String>,
     pub commands: HashMap<String, bool>,
     #[serde(rename = "usePViewer")]
+    #[allow(dead_code)]
     pub use_p_viewer: bool,
     #[serde(rename = "pViewerPort")]
+    #[allow(dead_code)]
     pub p_viewer_port: u16,
 }
 
@@ -103,6 +113,7 @@ fn default_cooldown_reset_multiplier() -> u64 {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct Colors {
     pub red: String,
     pub green: String,
@@ -132,6 +143,7 @@ pub struct OfflineMessage {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct BotConfig {
     pub host: String,
     pub port: u16,
@@ -165,6 +177,7 @@ pub struct Options {
 
 #[derive(Debug, Clone)]
 pub struct AppState {
+    #[allow(dead_code)]
     pub colors: Colors,
     pub config: Config,
     pub mc_whitelist: Vec<String>,
@@ -229,6 +242,7 @@ impl AppState {
         })
     }
 
+    #[allow(dead_code)]
     pub async fn reload_config(&mut self) -> Result<()> {
         self.config = read_json("./config.json").await?;
         self.mc_whitelist = read_json::<UserList>("./json/mc_whitelist.json")

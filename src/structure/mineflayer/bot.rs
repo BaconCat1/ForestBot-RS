@@ -40,10 +40,12 @@ static WARNED_SMART_CENSOR_FAILURE: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone)]
 pub struct Command {
+    #[allow(dead_code)]
     pub names: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Player {
     pub username: String,
     pub uuid: String,
@@ -90,6 +92,7 @@ pub struct Bot {
     pub user_whitelist: HashSet<String>,
     pub user_blacklist: HashSet<String>,
     pub whitelisted_commands: HashSet<String>,
+    #[allow(dead_code)]
     pub commands: HashMap<String, Command>,
     pub command_toggles: HashMap<String, bool>,
     pub disabled_events: HashSet<String>,
@@ -106,6 +109,7 @@ pub struct Bot {
     pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub reconnect_time_ms: u64,
     pub restart_count: u32,
+    #[allow(dead_code)]
     pub is_connected: bool,
     pub allow_connection: bool,
     pub api: ApiClient,
@@ -229,12 +233,13 @@ impl Bot {
 
         Ok(())
     }
-
+    #[allow(dead_code)]
     pub async fn end_and_restart(&mut self) -> anyhow::Result<()> {
         self.is_connected = false;
         self.start().await
     }
 
+    #[allow(dead_code)]
     pub fn get_players(&self) -> Vec<Player> {
         Vec::new()
     }

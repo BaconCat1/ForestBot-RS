@@ -70,7 +70,7 @@ impl ApiClient {
             .await
             .and_then(|value| stats_from_value(&value, server))
     }
-
+    #[allow(dead_code)]
     pub async fn get_stats_by_username(
         &self,
         username: &str,
@@ -252,7 +252,7 @@ impl ApiClient {
             .await
             .and_then(|value| self.parse_json("/namesearch", value))
     }
-
+    #[allow(dead_code)]
     pub async fn get_online_check(&self, username: &str) -> Option<OnlineCheck> {
         self.get_json("/online", &[("username", username)])
             .await
@@ -264,7 +264,7 @@ impl ApiClient {
             .await
             .and_then(|value| self.parse_json("/whois", value))
     }
-
+    #[allow(dead_code)]
     pub async fn get_users_sorted_by_joindate(
         &self,
         server: &str,
@@ -332,7 +332,7 @@ impl ApiClient {
     pub async fn get_leaderboards(&self, server: &str) -> Option<Value> {
         self.get_json("/leaderboards", &[("server", server)]).await
     }
-
+    #[allow(dead_code)]
     pub async fn get_hourly_player_activity(
         &self,
         server: &str,
@@ -341,7 +341,7 @@ impl ApiClient {
             .await
             .and_then(|value| self.parse_json("/player-activity-by-hour", value))
     }
-
+    #[allow(dead_code)]
     pub async fn get_total_daily_logins(
         &self,
         server: &str,
@@ -403,7 +403,7 @@ impl ApiClient {
         }
 
         Some(PostFaqResult {
-            id: response.get("id").and_then(Value::as_i64).unwrap_or(-1) as i64,
+            id: response.get("id").and_then(Value::as_i64).unwrap_or(-1),
             error: response
                 .get("error")
                 .and_then(Value::as_str)
@@ -432,7 +432,7 @@ impl ApiClient {
         .await
         .and_then(|value| self.parse_json("/edit-faq", value))
     }
-
+    #[allow(dead_code)]
     pub async fn with_websocket(&mut self) -> Result<Option<WebsocketClient>> {
         self.init_websocket().await?;
         Ok(self.websocket.clone())
@@ -599,6 +599,7 @@ pub struct WebsocketClient {
     sender: mpsc::UnboundedSender<Message>,
     events: broadcast::Sender<WebsocketEvent>,
     connected: Arc<AtomicBool>,
+    #[allow(dead_code)]
     pub websocket_url: String,
 }
 
@@ -772,7 +773,7 @@ impl WebsocketClient {
         self.send_message("inbound_minecraft_chat", serde_json::to_value(msg_data)?)
             .await
     }
-
+    #[allow(dead_code)]
     pub async fn send_discord_chat_message(&self, msg_data: DiscordChatMessage) -> Result<()> {
         self.send_message("inbound_discord_chat", serde_json::to_value(msg_data)?)
             .await
@@ -1095,15 +1096,21 @@ pub enum WebsocketEvent {
     Close(String),
     Error(String),
     UnknownMessage(String),
+    #[allow(dead_code)]
     KeyAccepted(Value),
     NewUser(NewUserData),
     NewName(NewUserNameData),
     InboundDiscordChat(DiscordChatMessage),
     InboundMinecraftChat(MinecraftChatMessage),
+    #[allow(dead_code)]
     MinecraftPlayerDeath(MinecraftPlayerDeathMessage),
+    #[allow(dead_code)]
     MinecraftPlayerKill(MinecraftPlayerKillMessage),
+    #[allow(dead_code)]
     MinecraftPlayerJoin(MinecraftPlayerJoinMessage),
+    #[allow(dead_code)]
     MinecraftPlayerLeave(MinecraftPlayerLeaveMessage),
+    #[allow(dead_code)]
     MinecraftAdvancement(MinecraftAdvancementMessage),
 }
 
