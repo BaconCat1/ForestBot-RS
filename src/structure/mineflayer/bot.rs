@@ -1170,15 +1170,22 @@ fn is_server_presence_message(content: &str) -> bool {
 }
 
 fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<String>, String) {
+    let full_message = message.message().to_string();
     let (sender, content) = message.split_sender_and_content();
     if let Some(sender) = sender {
+        if sender.eq_ignore_ascii_case("PM")
+            && content.contains(" → ")
+            && content.contains(" » ")
+        {
+            return (None, full_message);
+        }
+
         return (
             Some(chat_format_parser::normalize_username(&sender)),
             content,
         );
     }
 
-    let full_message = message.message().to_string();
     let formats = state
         .runtime
         .read()
