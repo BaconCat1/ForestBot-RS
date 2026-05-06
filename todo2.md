@@ -14,7 +14,7 @@
 * 🆕 !advancementcount \<advancement>, shows the number of times an advancement has been reached
 * 🆕 !averageping, !ap, shows the average ping of the server as well as best and worst.
 * 🔎 **bug**(?) don't record redundant advancements (from the queue or ever) // THIS IS HARD
-* 🔎 **bug**: fix discord bug where it fails to show /playtimegraph for a user without a join date
+* 🔎 **bug**: fix discord bug where it fails to show /playtimegraph for a user without a join date // OUT OF SCOPE
 * 🔎 **bug**: fix discord bug(?) where blacklisted people's messages don't get sent to discord
 
 **!quote**
