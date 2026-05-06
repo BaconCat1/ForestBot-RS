@@ -1,4 +1,4 @@
-use crate::constants::quote_servers;
+use crate::{commands::CommandContext, constants::quote_servers};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatsTarget {
@@ -56,6 +56,33 @@ pub fn parse_stats_target_args(
         search: search.to_owned(),
         has_server_arg: true,
     })
+}
+
+pub fn parse_stats_target_or_reply(
+    ctx: &CommandContext<'_>,
+    command_name: &str,
+) -> Option<StatsTarget> {
+    match parse_stats_target_args(&ctx.args, ctx.sender, &ctx.state.mc_server) {
+        Ok(target) => Some(target),
+        Err(error) => {
+            ctx.whisper(stats_target_usage(command_name, error));
+            None
+        }
+    }
+}
+
+pub fn stats_target_usage(command_name: &str, error: StatsTargetError) -> String {
+    match error {
+        StatsTargetError::MissingUsernameForAll => {
+            format!(" Usage: !{command_name} all <username>")
+        }
+        StatsTargetError::UnknownServer(server) => {
+            format!(" Unknown server \"{server}\". Use !lq for the list.")
+        }
+        StatsTargetError::MissingUsername => {
+            format!(" Usage: !{command_name} <server|all> <username>")
+        }
+    }
 }
 
 pub fn format_server_label(resolved_server: &str, default_server: &str) -> String {

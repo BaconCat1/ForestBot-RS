@@ -19,7 +19,7 @@ use crate::structure::{
     endpoints::endpoints::{
         ApiClient, DiscordChatMessage, MinecraftAdvancementMessage, MinecraftChatMessage,
         MinecraftPlayerDeathMessage, MinecraftPlayerJoinMessage, MinecraftPlayerLeaveMessage,
-        Player as WebsocketPlayer, WebsocketEvent,
+        Player as WebsocketPlayer, WebsocketClient, WebsocketEvent,
     },
     logger,
     mineflayer::utils::{chat_format_parser, command_handler, whisper_parser},
@@ -163,6 +163,7 @@ impl Bot {
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
+            background_tasks_started: Arc::new(Mutex::new(false)),
             last_command_at: Arc::new(Mutex::new(None)),
             player_command_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
@@ -217,6 +218,7 @@ pub struct AzaleaState {
     pub runtime: Arc<RwLock<RuntimeConfig>>,
     pub players: Arc<RwLock<HashMap<String, PlayerSnapshot>>>,
     pub outbound_chat: Arc<Mutex<VecDeque<String>>>,
+    pub background_tasks_started: Arc<Mutex<bool>>,
     pub last_command_at: Arc<Mutex<Option<Instant>>>,
     pub player_command_cooldowns: Arc<Mutex<HashMap<String, PlayerCommandCooldown>>>,
     pub seen_entity_spawns: Arc<RwLock<HashSet<String>>>,
@@ -260,6 +262,7 @@ impl Default for AzaleaState {
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
+            background_tasks_started: Arc::new(Mutex::new(false)),
             last_command_at: Arc::new(Mutex::new(None)),
             player_command_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
@@ -292,9 +295,11 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 return Ok(());
             }
             logger::success(format!("Spawned on {}.", state.mc_server));
-            spawn_websocket_event_task(bot.clone(), state.clone());
+            if mark_background_tasks_started(&state) {
+                spawn_websocket_event_task(bot.clone(), state.clone());
+                spawn_player_list_update_task(state.clone());
+            }
             send_player_list_update(&state).await;
-            spawn_player_list_update_task(state.clone());
         }
         Event::Chat(message) => {
             if event_disabled(&state, &["message", "messagestr", "chat"]) {
@@ -442,6 +447,19 @@ fn flush_outbound_chat(bot: &Client, state: &AzaleaState) {
         logger::info(format!("Sending chat reply: {message}"));
         bot.chat(message);
     }
+}
+
+fn mark_background_tasks_started(state: &AzaleaState) -> bool {
+    let mut started = state
+        .background_tasks_started
+        .lock()
+        .expect("background task state lock poisoned");
+    if *started {
+        return false;
+    }
+
+    *started = true;
+    true
 }
 
 const ENTITY_SPAWN_GREETING_TTL_MS: u64 = 500_000;
@@ -771,13 +789,30 @@ fn handle_inbound_minecraft_chat(bot: &Client, state: &AzaleaState, data: Minecr
     }
 }
 
+fn websocket(state: &AzaleaState) -> Option<&WebsocketClient> {
+    state.api.websocket.as_ref()
+}
+
+fn player_presence_fields(
+    state: &AzaleaState,
+    username: &str,
+    uuid: &str,
+) -> (String, String, String, String) {
+    (
+        username.to_owned(),
+        uuid.to_owned(),
+        now_millis_string(),
+        state.mc_server.clone(),
+    )
+}
+
 async fn send_minecraft_chat_message(
     state: &AzaleaState,
     username: &str,
     message: &str,
     uuid: &str,
 ) {
-    let Some(websocket) = state.api.websocket.as_ref() else {
+    let Some(websocket) = websocket(state) else {
         return;
     };
 
@@ -798,16 +833,19 @@ async fn send_minecraft_chat_message(
 }
 
 async fn send_player_join(state: &AzaleaState, username: &str, uuid: &str) {
-    let Some(websocket) = state.api.websocket.as_ref() else {
+    let Some(websocket) = websocket(state) else {
         return;
     };
 
     if let Err(error) = websocket
-        .send_player_join(MinecraftPlayerJoinMessage {
-            username: username.to_owned(),
-            uuid: uuid.to_owned(),
-            timestamp: now_millis_string(),
-            server: state.mc_server.clone(),
+        .send_player_join({
+            let (username, uuid, timestamp, server) = player_presence_fields(state, username, uuid);
+            MinecraftPlayerJoinMessage {
+                username,
+                uuid,
+                timestamp,
+                server,
+            }
         })
         .await
     {
@@ -816,16 +854,19 @@ async fn send_player_join(state: &AzaleaState, username: &str, uuid: &str) {
 }
 
 async fn send_player_leave(state: &AzaleaState, username: &str, uuid: &str) {
-    let Some(websocket) = state.api.websocket.as_ref() else {
+    let Some(websocket) = websocket(state) else {
         return;
     };
 
     if let Err(error) = websocket
-        .send_player_leave(MinecraftPlayerLeaveMessage {
-            username: username.to_owned(),
-            uuid: uuid.to_owned(),
-            timestamp: now_millis_string(),
-            server: state.mc_server.clone(),
+        .send_player_leave({
+            let (username, uuid, timestamp, server) = player_presence_fields(state, username, uuid);
+            MinecraftPlayerLeaveMessage {
+                username,
+                uuid,
+                timestamp,
+                server,
+            }
         })
         .await
     {
@@ -834,7 +875,7 @@ async fn send_player_leave(state: &AzaleaState, username: &str, uuid: &str) {
 }
 
 async fn send_player_list_update(state: &AzaleaState) {
-    let Some(websocket) = state.api.websocket.as_ref() else {
+    let Some(websocket) = websocket(state) else {
         return;
     };
 
@@ -863,16 +904,20 @@ async fn send_player_list_update(state: &AzaleaState) {
 }
 
 async fn send_session_flush_leave(state: &AzaleaState) {
-    let Some(websocket) = state.api.websocket.as_ref() else {
+    let Some(websocket) = websocket(state) else {
         return;
     };
 
     if let Err(error) = websocket
-        .send_player_leave(MinecraftPlayerLeaveMessage {
-            username: "ForestBot".to_owned(),
-            uuid: String::new(),
-            timestamp: now_millis_string(),
-            server: state.mc_server.clone(),
+        .send_player_leave({
+            let (username, uuid, timestamp, server) =
+                player_presence_fields(state, "ForestBot", "");
+            MinecraftPlayerLeaveMessage {
+                username,
+                uuid,
+                timestamp,
+                server,
+            }
         })
         .await
     {
@@ -888,7 +933,7 @@ async fn send_player_advancement(
     uuid: &str,
     advancement: &str,
 ) {
-    let Some(websocket) = state.api.websocket.as_ref() else {
+    let Some(websocket) = websocket(state) else {
         return;
     };
 
@@ -915,7 +960,7 @@ async fn send_player_death(
     murderer: Option<String>,
     murderer_uuid: Option<String>,
 ) {
-    let Some(websocket) = state.api.websocket.as_ref() else {
+    let Some(websocket) = websocket(state) else {
         return;
     };
 
@@ -1173,9 +1218,7 @@ fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<Stri
     let full_message = message.message().to_string();
     let (sender, content) = message.split_sender_and_content();
     if let Some(sender) = sender {
-        if sender.eq_ignore_ascii_case("PM")
-            && content.contains(" → ")
-            && content.contains(" » ")
+        if sender.eq_ignore_ascii_case("PM") && content.contains(" → ") && content.contains(" » ")
         {
             return (None, full_message);
         }

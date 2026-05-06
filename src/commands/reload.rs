@@ -14,10 +14,10 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     execute,
 };
 
-pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         reload_runtime(ctx.state).await?;
-        ctx.chat(&format!(
+        ctx.chat(format!(
             "/{} {} {}",
             ctx.runtime.whisper_command,
             ctx.sender,

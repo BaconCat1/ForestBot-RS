@@ -3,7 +3,7 @@ use crate::{
         CommandContext, CommandDefinition, CommandFuture,
         utils::stats_target::{
             StatsTargetError, format_server_label, format_server_scope_hint,
-            parse_stats_target_args,
+            parse_stats_target_args, parse_stats_target_or_reply,
         },
     },
     config::{
@@ -193,7 +193,7 @@ admin_command!(
 );
 command!(WORST_PING_COMMAND, &["wp", "worstping"], worst_ping);
 
-fn kd<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn kd(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some((target, uuid)) = parse_target_with_uuid(&ctx, "kd").await? else {
             return Ok(());
@@ -211,7 +211,7 @@ fn kd<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         };
         let ratio = data.kills as f64 / data.deaths as f64;
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " {}{}: Kills: {} Deaths: {} KD: {:.2}",
             target.search, label, data.kills, data.deaths, ratio
         ));
@@ -219,7 +219,7 @@ fn kd<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn joindate<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn joindate(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some((target, uuid)) = parse_target_with_uuid(&ctx, "joindate").await? else {
             return Ok(());
@@ -235,7 +235,7 @@ fn joindate<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             return Ok(());
         };
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " {}{}, joined on: {}",
             target.search,
             label,
@@ -245,7 +245,7 @@ fn joindate<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn jdpt<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn jdpt(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some((target, uuid)) = parse_target_with_uuid(&ctx, "jdpt").await? else {
             return Ok(());
@@ -275,7 +275,7 @@ fn jdpt<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             parts.push(format!("total playtime: {}", time::dhms(pt.playtime)));
         }
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " {}{}, {}",
             target.search,
             label,
@@ -285,7 +285,7 @@ fn jdpt<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn wordcount<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn wordcount(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let (server, search, word, has_server_arg) = match ctx.args.as_slice() {
             [server, search, word, ..] => ((*server).to_lowercase(), *search, *word, true),
@@ -317,7 +317,7 @@ fn wordcount<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             return Ok(());
         };
         let label = format_server_label(&server, &ctx.state.mc_server);
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " {search}{label} has said {word} {} times",
             data.count
         ));
@@ -325,7 +325,7 @@ fn wordcount<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn namefind<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn namefind(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(search) = ctx.args.first() else {
             whisper(&ctx, " Usage: !find <username>");
@@ -339,7 +339,7 @@ fn namefind<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         if let Some(data) = data
             && !data.usernames.is_empty()
         {
-            ctx.chat(&format!(
+            ctx.chat(format!(
                 " You could be looking for: {}",
                 data.usernames.join(", ")
             ));
@@ -348,11 +348,11 @@ fn namefind<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn unique_users<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn unique_users(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let users = ctx.state.api.get_unique_users(&ctx.state.mc_server).await;
         let count = users.map(|users| users.len()).unwrap_or_default();
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " I have seen {count} different users on this server! api.forestbot.org/unique-users?server={}",
             ctx.state.mc_server
         ));
@@ -360,7 +360,7 @@ fn unique_users<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn total_advancements<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn total_advancements(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = match parse_stats_target_args(&ctx.args, ctx.sender, &ctx.state.mc_server) {
             Ok(target) => target,
@@ -437,7 +437,7 @@ fn total_advancements<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         }
 
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " I have seen {count} advancements from {}{}",
             target.search, label
         ));
@@ -445,7 +445,7 @@ fn total_advancements<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn summary<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn summary(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let search = ctx.args.first().copied().unwrap_or(ctx.sender);
         let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
@@ -478,14 +478,14 @@ fn summary<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .map(member_days)
             .map(|days| format!("{days}d"))
             .unwrap_or_else(|| "?".to_owned());
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " [{search}] KD: {kills}/{deaths} ({kdr:.2}) | Playtime: {pt_days}d | Messages: {messages} | Advancements: {adv} | Member for: {age}"
         ));
         Ok(())
     })
 }
 
-fn winrate<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn winrate(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let search = ctx.args.first().copied().unwrap_or(ctx.sender);
         let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
@@ -513,7 +513,7 @@ fn winrate<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         }
         let winrate = (kd.kills as f64 / total as f64) * 100.0;
         let deathrate = (kd.deaths as f64 / total as f64) * 100.0;
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " {search}: Win Rate: {winrate:.1}% | Death Rate: {deathrate:.1}% ({}K / {}D)",
             kd.kills, kd.deaths
         ));
@@ -521,23 +521,23 @@ fn winrate<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn first_death<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn first_death(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     death_or_kill(ctx, true, true)
 }
 
-fn last_death<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn last_death(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     death_or_kill(ctx, true, false)
 }
 
-fn first_kill<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn first_kill(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     death_or_kill(ctx, false, true)
 }
 
-fn last_kill<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn last_kill(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     death_or_kill(ctx, false, false)
 }
 
-fn death_or_kill<'a>(ctx: CommandContext<'a>, death: bool, first: bool) -> CommandFuture<'a> {
+fn death_or_kill(ctx: CommandContext<'_>, death: bool, first: bool) -> CommandFuture<'_> {
     Box::pin(async move {
         let search = ctx.args.first().copied().unwrap_or(ctx.sender);
         let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
@@ -566,7 +566,7 @@ fn death_or_kill<'a>(ctx: CommandContext<'a>, death: bool, first: bool) -> Comma
             );
             return Ok(());
         };
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " {}, {}",
             row.death_message,
             time::time_ago_str(row.time as u64)
@@ -575,7 +575,7 @@ fn death_or_kill<'a>(ctx: CommandContext<'a>, death: bool, first: bool) -> Comma
     })
 }
 
-fn last_advancement<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn last_advancement(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let search = ctx.args.first().copied().unwrap_or(ctx.sender);
         let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
@@ -589,7 +589,7 @@ fn last_advancement<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .await
             .and_then(|mut rows| rows.pop());
         if let Some(row) = row {
-            ctx.chat(&format!(
+            ctx.chat(format!(
                 " {}: {} ({})",
                 search,
                 row.advancement,
@@ -600,11 +600,11 @@ fn last_advancement<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn first_message<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn first_message(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     message_lookup(ctx, "ASC")
 }
 
-fn last_message<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn last_message(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     message_lookup(ctx, "DESC")
 }
 
@@ -621,7 +621,7 @@ fn message_lookup<'a>(ctx: CommandContext<'a>, order: &'static str) -> CommandFu
             let date = epoch_ms_from_string(&row.date)
                 .map(time::time_ago_str)
                 .unwrap_or(row.date);
-            ctx.chat(&format!(" {search}: {}, {date}", row.message));
+            ctx.chat(format!(" {search}: {}, {date}", row.message));
         } else {
             if search.eq_ignore_ascii_case(ctx.sender) {
                 whisper(&ctx, " You have no messages, or unexpected error occurred.");
@@ -636,15 +636,15 @@ fn message_lookup<'a>(ctx: CommandContext<'a>, order: &'static str) -> CommandFu
     })
 }
 
-fn oldheads<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn oldheads(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     sorted_unique_users(ctx, true)
 }
 
-fn noobs<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn noobs(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     sorted_unique_users(ctx, false)
 }
 
-fn sorted_unique_users<'a>(ctx: CommandContext<'a>, oldest: bool) -> CommandFuture<'a> {
+fn sorted_unique_users(ctx: CommandContext<'_>, oldest: bool) -> CommandFuture<'_> {
     Box::pin(async move {
         let mut users = ctx
             .state
@@ -668,12 +668,12 @@ fn sorted_unique_users<'a>(ctx: CommandContext<'a>, oldest: bool) -> CommandFutu
                 )
             })
             .collect::<Vec<_>>();
-        ctx.chat(&format!(" The 3 {label} users are: {}", rows.join(", ")));
+        ctx.chat(format!(" The 3 {label} users are: {}", rows.join(", ")));
         Ok(())
     })
 }
 
-fn top<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn top(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(stat) = ctx.args.first() else {
             return Ok(());
@@ -721,7 +721,7 @@ async fn top_backend_stat(ctx: &CommandContext<'_>, stat: &str) -> anyhow::Resul
     } else {
         format!("TOP {}", stat.to_uppercase())
     };
-    ctx.chat(&format!(" [{title}]: {}", formatted.join(", ")));
+    ctx.chat(format!(" [{title}]: {}", formatted.join(", ")));
     Ok(())
 }
 
@@ -867,7 +867,7 @@ fn send_top_rows(ctx: &CommandContext<'_>, title: &str, rows: &[TopRow]) {
         .map(|row| format!("{}: {}", row.username, row.value))
         .collect::<Vec<_>>()
         .join(", ");
-    ctx.chat(&format!(" [{title}]: {formatted}"));
+    ctx.chat(format!(" [{title}]: {formatted}"));
 }
 
 fn cached_top_rows(server: &str, metric: &str) -> Option<Vec<TopRow>> {
@@ -941,7 +941,7 @@ fn quote_server_chunks(servers: &[&str]) -> Vec<String> {
     chunks
 }
 
-fn standing<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn standing(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
         let requester_uuid = match player_uuid(&ctx, ctx.sender) {
@@ -968,12 +968,12 @@ fn standing<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             Some(uuid) if ctx.runtime.user_whitelist.contains(&uuid) => "whitelisted",
             _ => "regular",
         };
-        ctx.chat(&format!(" {target} is {status}."));
+        ctx.chat(format!(" {target} is {status}."));
         Ok(())
     })
 }
 
-fn offline_msg<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn offline_msg(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(recipient) = ctx.args.first().copied() else {
             whisper(&ctx, " Usage: !offlinemsg <username> <message>");
@@ -1043,7 +1043,7 @@ fn offline_msg<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn whois<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn whois(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
         let data = ctx.state.api.get_who_is(target).await;
@@ -1056,7 +1056,7 @@ fn whois<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                 .split_whitespace()
                 .collect::<Vec<_>>()
                 .join(" ");
-            ctx.chat(&format!("User {target} is {safe_description}"));
+            ctx.chat(format!("User {target} is {safe_description}"));
         } else {
             let message = if target.eq_ignore_ascii_case(ctx.sender) {
                 " You have not yet set a description with !iam".to_owned()
@@ -1069,7 +1069,7 @@ fn whois<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn random_quote<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn random_quote(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let phrase = ctx.args.first().map(|s| (*s).to_owned());
         let data = ctx
@@ -1092,7 +1092,7 @@ fn random_quote<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                 .map(time::time_ago_str)
                 .map(|date| format!(" ({date})"))
                 .unwrap_or_default();
-            ctx.chat(&format!(
+            ctx.chat(format!(
                 " Quote from {}: \"{}\"{}",
                 data.name, data.message, date
             ));
@@ -1103,7 +1103,7 @@ fn random_quote<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn list_quote_servers<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn list_quote_servers(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let servers = std::iter::once("all")
             .chain(
@@ -1114,7 +1114,7 @@ fn list_quote_servers<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .collect::<Vec<_>>();
         let chunks = quote_server_chunks(&servers);
         if chunks.len() == 1 {
-            ctx.chat(&format!(" {}", chunks[0]));
+            ctx.chat(format!(" {}", chunks[0]));
         } else {
             for chunk in chunks {
                 whisper(&ctx, &format!(" {chunk}"));
@@ -1124,7 +1124,7 @@ fn list_quote_servers<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn active<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn active(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let key = ctx.state.mc_server.clone();
         let now = now_millis();
@@ -1193,7 +1193,7 @@ fn active<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn add_faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn add_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let faq = ctx.args.join(" ").trim().to_owned();
         if faq.is_empty() {
@@ -1229,15 +1229,15 @@ fn add_faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn blacklist<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn blacklist(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     list_command(ctx, MC_BLACKLIST_PATH, true)
 }
 
-fn whitelist<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn whitelist(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     list_command(ctx, MC_WHITELIST_PATH, false)
 }
 
-fn best_ping<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn best_ping(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let players = players_snapshot(&ctx);
         let Some(best) = players
@@ -1250,28 +1250,25 @@ fn best_ping<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             return Ok(());
         };
         if best.latency == 0 {
-            ctx.chat(&format!(
+            ctx.chat(format!(
                 " Best ping: {}: {}ms (Most likely just joined.)",
                 best.username, best.latency
             ));
         } else {
-            ctx.chat(&format!(
-                " Best ping: {}: {}ms",
-                best.username, best.latency
-            ));
+            ctx.chat(format!(" Best ping: {}: {}ms", best.username, best.latency));
         }
         Ok(())
     })
 }
 
-fn worst_ping<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn worst_ping(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let players = players_snapshot(&ctx);
         let Some(worst) = players.iter().max_by_key(|player| player.latency) else {
             whisper(&ctx, " No players are cached yet.");
             return Ok(());
         };
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " Worst Ping: {}: {}ms",
             worst.username, worst.latency
         ));
@@ -1279,15 +1276,15 @@ fn worst_ping<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn censor<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn censor(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     word_list_command(ctx, BAD_WORDS_PATH, "bad words")
 }
 
-fn word_whitelist<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn word_whitelist(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     word_list_command(ctx, WORD_WHITELIST_PATH, "word whitelist")
 }
 
-fn coords<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn coords(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         if ctx.runtime.use_whitelist && !sender_whitelisted(&ctx) {
             return Ok(());
@@ -1306,7 +1303,7 @@ fn coords<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn drop_items<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn drop_items(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         whisper(
             &ctx,
@@ -1316,7 +1313,7 @@ fn drop_items<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn edit_faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn edit_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(id_raw) = ctx.args.first() else {
             whisper(
@@ -1372,7 +1369,7 @@ fn edit_faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn efficiency<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn efficiency(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let (search, stat) = match ctx.args.as_slice() {
             [stat] => (ctx.sender, stat.to_lowercase()),
@@ -1417,7 +1414,7 @@ fn efficiency<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                 return Ok(());
             }
             let count = if stat == "kills" { kd.kills } else { kd.deaths };
-            ctx.chat(&format!(
+            ctx.chat(format!(
                 " {search}: {count} {stat} over {hours:.1} hours = {:.3} {stat}/hr",
                 count as f64 / hours
             ));
@@ -1450,7 +1447,7 @@ fn efficiency<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                 );
                 return Ok(());
             }
-            ctx.chat(&format!(
+            ctx.chat(format!(
                 " {search}: {} messages over {} days = {:.2} messages/day",
                 mc.message_count,
                 days.floor() as u64,
@@ -1461,7 +1458,7 @@ fn efficiency<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let command = ctx.args.join(" ").trim().to_owned();
         if command.is_empty() {
@@ -1474,11 +1471,11 @@ fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn febzey<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn febzey(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = "Febzey_";
         let Some(uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
-            ctx.chat(&format!(" I couldn't even find {target}. Truly absent."));
+            ctx.chat(format!(" I couldn't even find {target}. Truly absent."));
             return Ok(());
         };
         let last_seen = ctx
@@ -1488,16 +1485,16 @@ fn febzey<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .await;
         let online = player_uuid(&ctx, target).is_some();
         match last_seen.and_then(|row| epoch_ms_from_string(&row.last_seen)) {
-            Some(ts) if online => ctx.chat(&format!(
+            Some(ts) if online => ctx.chat(format!(
                 " {target} is online after being gone for {}. Someone check on the bot maintainer.",
                 time::time_ago_str(ts)
             )),
-            Some(ts) => ctx.chat(&format!(
+            Some(ts) => ctx.chat(format!(
                 " Last seen {target}: {} ({}). Still not maintaining his bot.",
                 time::convert_unix_timestamp(ts / 1000),
                 time::time_ago_str(ts)
             )),
-            None => ctx.chat(&format!(
+            None => ctx.chat(format!(
                 " No last seen data for {target}. The disappearance is complete."
             )),
         }
@@ -1505,7 +1502,7 @@ fn febzey<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let id = ctx.args.first().copied();
         let Some(data) = ctx.state.api.get_faq(id, Some(&ctx.state.mc_server)).await else {
@@ -1515,12 +1512,12 @@ fn faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             );
             return Ok(());
         };
-        ctx.chat(&format!(" #{}/{}: {}", data.id, data.total, data.faq));
+        ctx.chat(format!(" #{}/{}: {}", data.id, data.total, data.faq));
         Ok(())
     })
 }
 
-fn grudge<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn grudge(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let (killer, victim) = match ctx.args.as_slice() {
             [victim] => (ctx.sender, *victim),
@@ -1555,13 +1552,13 @@ fn grudge<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .filter(|name| name.eq_ignore_ascii_case(victim))
             .count();
         if count == 0 {
-            ctx.chat(&format!(" {killer} has never killed {victim}."));
+            ctx.chat(format!(" {killer} has never killed {victim}."));
         } else if count >= 30 {
-            ctx.chat(&format!(
+            ctx.chat(format!(
                 " {killer} has killed {victim} {count} times. That's a grudge!"
             ));
         } else {
-            ctx.chat(&format!(
+            ctx.chat(format!(
                 " {killer} has killed {victim} {count} time{}.",
                 if count == 1 { "" } else { "s" }
             ));
@@ -1570,7 +1567,7 @@ fn grudge<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn iam<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn iam(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let description = ctx
             .args
@@ -1604,7 +1601,7 @@ fn iam<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn mount<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn mount(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         whisper(
             &ctx,
@@ -1614,19 +1611,19 @@ fn mount<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn nickname<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn nickname(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let nickname = ctx.args.join(" ").trim().to_owned();
         if nickname.is_empty() {
             whisper(&ctx, " Usage: !nickname <nickname>");
             return Ok(());
         }
-        ctx.chat(&format!(" /nick {nickname}"));
+        ctx.chat(format!(" /nick {nickname}"));
         Ok(())
     })
 }
 
-fn oldnames<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn oldnames(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
         let url = format!(
@@ -1661,7 +1658,7 @@ fn oldnames<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         if names.is_empty() {
             ctx.chat(" No name history was found for that user.");
         } else {
-            ctx.chat(&format!(
+            ctx.chat(format!(
                 " {target} has used the following names: {}",
                 names.join(", ")
             ));
@@ -1670,7 +1667,7 @@ fn oldnames<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn owns_faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn owns_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(id) = ctx.args.first() else {
             whisper(&ctx, " Usage: !ownsfaq <id>");
@@ -1689,20 +1686,20 @@ fn owns_faq<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             whisper(&ctx, &format!(" Could not find FAQ #{id}."));
             return Ok(());
         };
-        ctx.chat(&format!(" FAQ #{} owner: {}", data.id, data.username));
+        ctx.chat(format!(" FAQ #{} owner: {}", data.id, data.username));
         Ok(())
     })
 }
 
-fn profile<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn profile(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
-        ctx.chat(&format!(" https://forestbot.org/u/{target}"));
+        ctx.chat(format!(" https://forestbot.org/u/{target}"));
         Ok(())
     })
 }
 
-fn random_quote_all<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn random_quote_all(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let phrase = ctx.args.first().map(|s| (*s).to_owned());
         let servers = crate::constants::quote_servers::QUOTE_SERVERS;
@@ -1737,7 +1734,7 @@ fn random_quote_all<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .map(time::time_ago_str)
             .map(|date| format!(" ({date})"))
             .unwrap_or_default();
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " Quote from {} [{}]: \"{}\"{}",
             data.name, server, data.message, date
         ));
@@ -1745,7 +1742,7 @@ fn random_quote_all<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn realname<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn realname(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(target) = ctx.args.first() else {
             whisper(&ctx, " Please provide a username to check.");
@@ -1756,26 +1753,26 @@ fn realname<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             .iter()
             .any(|player| player.username.eq_ignore_ascii_case(target))
         {
-            ctx.chat(&format!("{target} is the real username."));
+            ctx.chat(format!("{target} is the real username."));
         } else {
-            ctx.chat(&format!("No player found matching \"{target}\" online."));
+            ctx.chat(format!("No player found matching \"{target}\" online."));
         }
         Ok(())
     })
 }
 
-fn set_preset<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn set_preset(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(preset) = ctx.args.first() else {
             return Ok(());
         };
-        ctx.chat(&format!("/nc preset {preset}"));
-        ctx.chat(&format!(" Set the preset {preset} successfully!"));
+        ctx.chat(format!("/nc preset {preset}"));
+        ctx.chat(format!(" Set the preset {preset} successfully!"));
         Ok(())
     })
 }
 
-fn shout<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn shout(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let raw = ctx.args.join(" ");
         let message = raw.replace('/', "").trim().to_owned();
@@ -1835,14 +1832,14 @@ fn shout<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn sleep<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn sleep(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         ctx.chat(" I couldn't find a bed :(");
         Ok(())
     })
 }
 
-fn survived<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn survived(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let search = ctx.args.first().copied().unwrap_or(ctx.sender);
         let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
@@ -1869,14 +1866,14 @@ fn survived<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         let survived = time::dhms(now_millis().saturating_sub(death_ms))
             .trim_end_matches('.')
             .to_owned();
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " {search} has survived for {survived} since their last death."
         ));
         Ok(())
     })
 }
 
-fn twerk<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn twerk(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let bot = ctx.bot.clone();
         tokio::spawn(async move {
@@ -1893,7 +1890,7 @@ fn twerk<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn victims<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn victims(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let search = ctx.args.first().copied().unwrap_or(ctx.sender);
         let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
@@ -1931,7 +1928,7 @@ fn victims<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             }
             return Ok(());
         }
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " {search} has killed {} unique player{}.",
             victims.len(),
             if victims.len() == 1 { "" } else { "s" }
@@ -1940,7 +1937,7 @@ fn victims<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-fn vs<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+fn vs(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let [name1, name2] = match ctx.args.as_slice() {
             [name1, name2] => [*name1, *name2],
@@ -1981,7 +1978,7 @@ fn vs<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
         let pt_days2 = pt2.map(|pt| pt.playtime / 86_400_000).unwrap_or_default();
         let msgs1 = mc1.map(|mc| mc.message_count).unwrap_or_default();
         let msgs2 = mc2.map(|mc| mc.message_count).unwrap_or_default();
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " [VS] {name1} vs {name2} | K: {kills1} {} {kills2} | D: {deaths1} {} {deaths2} | KD: {kdr1:.2} {} {kdr2:.2} | PT: {pt_days1}d {} {pt_days2}d | Msgs: {msgs1} {} {msgs2}",
             compare_u64(kills1, kills2),
             compare_u64(deaths2, deaths1),
@@ -1993,27 +1990,12 @@ fn vs<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
     })
 }
 
-async fn parse_target_with_uuid<'a>(
-    ctx: &CommandContext<'a>,
+async fn parse_target_with_uuid(
+    ctx: &CommandContext<'_>,
     usage_name: &str,
 ) -> anyhow::Result<Option<(crate::commands::utils::stats_target::StatsTarget, String)>> {
-    let target = match parse_stats_target_args(&ctx.args, ctx.sender, &ctx.state.mc_server) {
-        Ok(target) => target,
-        Err(error) => {
-            let msg = match error {
-                StatsTargetError::MissingUsernameForAll => {
-                    format!(" Usage: !{usage_name} all <username>")
-                }
-                StatsTargetError::MissingUsername => {
-                    format!(" Usage: !{usage_name} <server|all> <username>")
-                }
-                StatsTargetError::UnknownServer(server) => {
-                    format!(" Unknown server \"{server}\". Use !lq for the list.")
-                }
-            };
-            whisper(ctx, &msg);
-            return Ok(None);
-        }
+    let Some(target) = parse_stats_target_or_reply(ctx, usage_name) else {
+        return Ok(None);
     };
     let Some(uuid) = ctx.state.api.convert_username_to_uuid(&target.search).await else {
         whisper_no_record(ctx, &target.search, "stats");
@@ -2023,10 +2005,7 @@ async fn parse_target_with_uuid<'a>(
 }
 
 fn whisper(ctx: &CommandContext<'_>, message: &str) {
-    ctx.chat(&format!(
-        "/{} {} {}",
-        ctx.runtime.whisper_command, ctx.sender, message
-    ));
+    ctx.whisper(message);
 }
 
 fn whisper_no_record(ctx: &CommandContext<'_>, search: &str, thing: &str) {
@@ -2114,7 +2093,7 @@ fn send_active_rows(ctx: &CommandContext<'_>, rows: &[ActiveRow]) {
         .map(|row| format!("{}: {}", row.username, row.count))
         .collect::<Vec<_>>()
         .join(", ");
-    ctx.chat(&format!(" [ACTIVE 24h]: {formatted}"));
+    ctx.chat(format!(" [ACTIVE 24h]: {formatted}"));
 }
 
 #[derive(Debug, Clone)]

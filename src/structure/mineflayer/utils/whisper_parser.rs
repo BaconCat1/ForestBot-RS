@@ -118,7 +118,10 @@ mod tests {
     #[test]
     fn parses_common_from_whispers() {
         assert_eq!(
-            parse("PM: JollyCurve_ → JollyCurves_Wife » !q", "JollyCurves_Wife"),
+            parse(
+                "PM: JollyCurve_ → JollyCurves_Wife » !q",
+                "JollyCurves_Wife"
+            ),
             Some(Whisper {
                 sender: "JollyCurve_".to_owned(),
                 recipient: Some("JollyCurves_Wife".to_owned()),

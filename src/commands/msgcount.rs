@@ -3,7 +3,7 @@ pub const NAMES: &[&str] = &["msgcount", "messages"];
 use crate::commands::{
     CommandContext, CommandDefinition, CommandFuture,
     utils::stats_target::{
-        StatsTargetError, format_server_label, format_server_scope_hint, parse_stats_target_args,
+        format_server_label, format_server_scope_hint, parse_stats_target_or_reply,
     },
 };
 
@@ -13,18 +13,10 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     execute,
 };
 
-pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let target = match parse_stats_target_args(&ctx.args, ctx.sender, &ctx.state.mc_server) {
-            Ok(target) => target,
-            Err(error) => {
-                ctx.chat(&format!(
-                    "/{} {}",
-                    ctx.runtime.whisper_command,
-                    usage(ctx.sender, error)
-                ));
-                return Ok(());
-            }
+        let Some(target) = parse_stats_target_or_reply(&ctx, NAMES[0]) else {
+            return Ok(());
         };
 
         let data = ctx
@@ -46,32 +38,15 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                     target.search, server_hint
                 )
             };
-            ctx.chat(&format!(
-                "/{} {} {}",
-                ctx.runtime.whisper_command, ctx.sender, text
-            ));
+            ctx.whisper(text);
             return Ok(());
         };
 
         let server_label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " {}{}: {} messages",
             target.search, server_label, data.message_count
         ));
         Ok(())
     })
-}
-
-fn usage(sender: &str, error: StatsTargetError) -> String {
-    match error {
-        StatsTargetError::MissingUsernameForAll => {
-            format!("{sender}  Usage: !msgcount all <username>")
-        }
-        StatsTargetError::UnknownServer(server) => {
-            format!("{sender}  Unknown server \"{server}\". Use !lq for the list.")
-        }
-        StatsTargetError::MissingUsername => {
-            format!("{sender}  Usage: !msgcount <server|all> <username>")
-        }
-    }
 }

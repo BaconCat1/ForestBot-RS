@@ -47,6 +47,15 @@ impl CommandContext<'_> {
             ),
         );
     }
+
+    pub fn whisper(&self, message: impl AsRef<str>) {
+        self.chat(format!(
+            "/{} {} {}",
+            self.runtime.whisper_command,
+            self.sender,
+            message.as_ref()
+        ));
+    }
 }
 
 pub fn enqueue_chat(state: &AzaleaState, message: impl AsRef<str>) {
@@ -103,10 +112,7 @@ mod tests {
 
     #[test]
     fn leaves_normal_chat_replies_public() {
-        assert_eq!(
-            route_chat_message(" pong", false, "msg", "Alice"),
-            "pong"
-        );
+        assert_eq!(route_chat_message(" pong", false, "msg", "Alice"), "pong");
     }
 }
 

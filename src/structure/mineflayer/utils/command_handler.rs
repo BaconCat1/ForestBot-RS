@@ -51,24 +51,23 @@ async fn handle_with_reply_mode(
 
     if !command_enabled(&runtime, command, command_name) {
         logger::info(format!("Command disabled: {command_name}"));
-        enqueue_chat(
+        enqueue_command_whisper(
             state,
-            &format!(
-                "/{} {sender} Sorry, {sender}, that command is disabled.",
-                runtime.whisper_command
-            ),
+            &runtime,
+            sender,
+            format!("Sorry, {sender}, that command is disabled."),
         );
         return;
     }
 
-    if !is_allowed_by_standing(&runtime, sender, &state, content) {
+    if !is_allowed_by_standing(&runtime, sender, state, content) {
         logger::info(format!(
             "Command blocked by blacklist: {command_name} from {sender}"
         ));
         return;
     }
 
-    if command.whitelisted && !is_allowed_whitelisted_command(&runtime, sender, &state, command) {
+    if command.whitelisted && !is_allowed_whitelisted_command(&runtime, sender, state, command) {
         logger::info(format!(
             "Command blocked by whitelist: {command_name} from {sender}"
         ));
@@ -81,12 +80,11 @@ async fn handle_with_reply_mode(
         logger::info(format!(
             "Command blocked by cooldown: {command_name} from {sender}, {remaining}s remaining"
         ));
-        enqueue_chat(
+        enqueue_command_whisper(
             state,
-            &format!(
-                "/{} {sender} Commands are on cooldown. Try again in {remaining}s.",
-                runtime.whisper_command
-            ),
+            &runtime,
+            sender,
+            format!("Commands are on cooldown. Try again in {remaining}s."),
         );
         return;
     }
@@ -104,11 +102,25 @@ async fn handle_with_reply_mode(
 
     if let Err(error) = (command.execute)(ctx).await {
         logger::warn(format!("Command {command_name} failed: {error:#}"));
-        enqueue_chat(
-            state,
-            &format!("/{} {sender} Command failed.", runtime.whisper_command),
-        );
+        enqueue_command_whisper(state, &runtime, sender, "Command failed.");
     }
+}
+
+fn enqueue_command_whisper(
+    state: &AzaleaState,
+    runtime: &RuntimeConfig,
+    sender: &str,
+    message: impl AsRef<str>,
+) {
+    enqueue_chat(
+        state,
+        format!(
+            "/{} {} {}",
+            runtime.whisper_command,
+            sender,
+            message.as_ref()
+        ),
+    );
 }
 
 fn command_cooldown_remaining(

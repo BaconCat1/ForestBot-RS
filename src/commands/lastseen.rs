@@ -4,8 +4,7 @@ use crate::{
     commands::{
         CommandContext, CommandDefinition, CommandFuture,
         utils::stats_target::{
-            StatsTargetError, format_server_label, format_server_scope_hint,
-            parse_stats_target_args,
+            format_server_label, format_server_scope_hint, parse_stats_target_or_reply,
         },
     },
     functions::utils::time,
@@ -17,18 +16,10 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     execute,
 };
 
-pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let target = match parse_stats_target_args(&ctx.args, ctx.sender, &ctx.state.mc_server) {
-            Ok(target) => target,
-            Err(error) => {
-                ctx.chat(&format!(
-                    "/{} {}",
-                    ctx.runtime.whisper_command,
-                    usage(ctx.sender, error)
-                ));
-                return Ok(());
-            }
+        let Some(target) = parse_stats_target_or_reply(&ctx, NAMES[0]) else {
+            return Ok(());
         };
 
         let Some(uuid) = ctx.state.api.convert_username_to_uuid(&target.search).await else {
@@ -52,10 +43,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                     )
                 )
             };
-            ctx.chat(&format!(
-                "/{} {} {}",
-                ctx.runtime.whisper_command, ctx.sender, message
-            ));
+            ctx.whisper(message);
             return Ok(());
         };
 
@@ -65,14 +53,13 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
 
         let Some(last_seen) = data.map(|data| data.last_seen) else {
             if target.search.eq_ignore_ascii_case(ctx.sender) {
-                ctx.chat(&format!(
-                    "/{} {} You haven't been seen by me{}, or unexpected error occurred.",
-                    ctx.runtime.whisper_command, ctx.sender, server_hint
+                ctx.whisper(format!(
+                    "You haven't been seen by me{server_hint}, or unexpected error occurred."
                 ));
             } else {
-                ctx.chat(&format!(
-                    "/{} {} {} has not been seen by me{}, or unexpected error occurred.",
-                    ctx.runtime.whisper_command, ctx.sender, target.search, server_hint
+                ctx.whisper(format!(
+                    "{} has not been seen by me{}, or unexpected error occurred.",
+                    target.search, server_hint
                 ));
             }
             return Ok(());
@@ -89,24 +76,10 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
             last_seen
         };
 
-        ctx.chat(&format!(
+        ctx.chat(format!(
             " I last saw {}{} {}",
             target.search, server_label, last_seen_string
         ));
         Ok(())
     })
-}
-
-fn usage(sender: &str, error: StatsTargetError) -> String {
-    match error {
-        StatsTargetError::MissingUsernameForAll => {
-            format!("{sender}  Usage: !lastseen all <username>")
-        }
-        StatsTargetError::UnknownServer(server) => {
-            format!("{sender}  Unknown server \"{server}\". Use !lq for the list.")
-        }
-        StatsTargetError::MissingUsername => {
-            format!("{sender}  Usage: !lastseen <server|all> <username>")
-        }
-    }
 }

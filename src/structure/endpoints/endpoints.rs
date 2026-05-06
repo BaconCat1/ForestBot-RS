@@ -889,21 +889,8 @@ pub struct MinecraftPlayerJoinMessage {
     pub server: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MinecraftPlayerLeaveMessage {
-    pub username: String,
-    pub uuid: String,
-    pub timestamp: String,
-    pub server: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MinecraftPlayerKillMessage {
-    pub username: String,
-    pub uuid: String,
-    pub timestamp: String,
-    pub server: String,
-}
+pub type MinecraftPlayerLeaveMessage = MinecraftPlayerJoinMessage;
+pub type MinecraftPlayerKillMessage = MinecraftPlayerJoinMessage;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinecraftPlayerDeathMessage {

@@ -8,7 +8,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     execute,
 };
 
-pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
+pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
         let latency = {
@@ -28,7 +28,7 @@ pub fn execute<'a>(ctx: CommandContext<'a>) -> CommandFuture<'a> {
                 .map(|player| player.latency)
         };
 
-        ctx.chat(&response(target, latency));
+        ctx.chat(response(target, latency));
         Ok(())
     })
 }
