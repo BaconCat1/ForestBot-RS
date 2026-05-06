@@ -317,9 +317,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     .get(&sender)
                     .map(|player| player.uuid.clone());
 
-                if let Some(uuid) = uuid
-                    && !is_blacklisted(&state, &uuid)
-                {
+                if let Some(uuid) = uuid {
                     send_minecraft_chat_message(&state, &sender, &content, &uuid).await;
                 }
             }
@@ -613,13 +611,6 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
         },
     };
 
-    let parsed_command_message = message.trim();
-    if is_blacklisted(state, &uuid)
-        && !whisper_parser::is_self_standing_command(parsed_command_message, &prefix)
-    {
-        return;
-    }
-
     if is_advancement_message(&full_msg) {
         if !full_msg.ends_with(']') || !full_msg.contains('[') {
             return;
@@ -644,6 +635,7 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
         return;
     }
 
+    let parsed_command_message = message.trim();
     if parsed_command_message.starts_with(&prefix) {
         command_handler::handle(bot, state, &player, parsed_command_message).await;
         return;
@@ -987,15 +979,6 @@ fn sender_allowed_for_command(state: &AzaleaState, sender: &str, message: &str) 
     };
     !runtime.user_blacklist.contains(&uuid)
         || whisper_parser::is_self_standing_command(message, &runtime.prefix)
-}
-
-fn is_blacklisted(state: &AzaleaState, uuid: &str) -> bool {
-    state
-        .runtime
-        .read()
-        .expect("runtime config lock poisoned")
-        .user_blacklist
-        .contains(uuid)
 }
 
 fn now_millis_string() -> String {
