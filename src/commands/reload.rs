@@ -39,6 +39,8 @@ async fn reload_runtime(
         prefix: app_state.config.prefix,
         whisper_command: app_state.config.whisper_command,
         use_commands: app_state.config.use_commands,
+        anti_spam_global_cooldown_ms: app_state.config.anti_spam_global_cooldown,
+        command_cooldowns: app_state.config.command_cooldowns,
         use_whitelist: app_state.config.use_mc_whitelist,
         user_whitelist: app_state.mc_whitelist.into_iter().collect::<HashSet<_>>(),
         user_blacklist: app_state.mc_blacklist.into_iter().collect::<HashSet<_>>(),

@@ -58,7 +58,11 @@ pub struct Config {
     pub use_mc_whitelist: bool,
     pub reconnect_time: u64,
     pub anti_spam_cooldown: u64,
+    #[serde(default)]
+    pub anti_spam_global_cooldown: u64,
     pub anti_spam_msg_limit: u32,
+    #[serde(default)]
+    pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub welcome_messages: bool,
     pub whitelisted_commands: Vec<String>,
     #[serde(rename = "useCommands")]
@@ -80,6 +84,22 @@ pub struct Config {
     pub use_p_viewer: bool,
     #[serde(rename = "pViewerPort")]
     pub p_viewer_port: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandCooldownConfig {
+    #[serde(default)]
+    pub cooldown_ms: u64,
+    #[serde(default)]
+    pub increment_ms: u64,
+    #[serde(default = "default_cooldown_reset_multiplier")]
+    pub reset_multiplier: u64,
+    #[serde(default)]
+    pub max_cooldown_ms: u64,
+}
+
+fn default_cooldown_reset_multiplier() -> u64 {
+    2
 }
 
 #[derive(Debug, Clone, Deserialize)]

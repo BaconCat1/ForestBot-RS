@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
 use azalea::ClientInformation;
@@ -12,7 +12,9 @@ use azalea::prelude::*;
 use azalea_viaversion::ViaVersionPlugin;
 use uuid::Uuid;
 
-use crate::config::{AppState, BotConfig, load_offline_messages, save_offline_messages};
+use crate::config::{
+    AppState, BotConfig, CommandCooldownConfig, load_offline_messages, save_offline_messages,
+};
 use crate::structure::{
     endpoints::endpoints::{
         ApiClient, DiscordChatMessage, MinecraftAdvancementMessage, MinecraftChatMessage,
@@ -41,6 +43,8 @@ pub struct RuntimeConfig {
     pub prefix: String,
     pub whisper_command: String,
     pub use_commands: bool,
+    pub anti_spam_global_cooldown_ms: u64,
+    pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub use_whitelist: bool,
     pub user_whitelist: HashSet<String>,
     pub user_blacklist: HashSet<String>,
@@ -77,6 +81,8 @@ pub struct Bot {
     pub whisper_command: String,
     pub custom_chat_formats: Vec<String>,
     pub allow_chatbridge_input: bool,
+    pub anti_spam_global_cooldown_ms: u64,
+    pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub reconnect_time_ms: u64,
     pub restart_count: u32,
     pub is_connected: bool,
@@ -102,6 +108,8 @@ impl Bot {
             whisper_command: state.config.whisper_command.clone(),
             custom_chat_formats: state.config.custom_chat_formats.clone(),
             allow_chatbridge_input: state.config.allow_chatbridge_input,
+            anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown,
+            command_cooldowns: state.config.command_cooldowns.clone(),
             reconnect_time_ms: state.config.reconnect_time,
             restart_count: 0,
             is_connected: false,
@@ -140,6 +148,8 @@ impl Bot {
                 prefix: self.prefix.clone(),
                 whisper_command: self.whisper_command.clone(),
                 use_commands: self.use_commands,
+                anti_spam_global_cooldown_ms: self.anti_spam_global_cooldown_ms,
+                command_cooldowns: self.command_cooldowns.clone(),
                 use_whitelist: self.use_whitelist,
                 user_whitelist: self.user_whitelist.clone(),
                 user_blacklist: self.user_blacklist.clone(),
@@ -153,6 +163,8 @@ impl Bot {
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
+            last_command_at: Arc::new(Mutex::new(None)),
+            player_command_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
         };
@@ -205,8 +217,16 @@ pub struct AzaleaState {
     pub runtime: Arc<RwLock<RuntimeConfig>>,
     pub players: Arc<RwLock<HashMap<String, PlayerSnapshot>>>,
     pub outbound_chat: Arc<Mutex<VecDeque<String>>>,
+    pub last_command_at: Arc<Mutex<Option<Instant>>>,
+    pub player_command_cooldowns: Arc<Mutex<HashMap<String, PlayerCommandCooldown>>>,
     pub seen_entity_spawns: Arc<RwLock<HashSet<String>>>,
     pub next_entity_spawn_scan_at: Arc<RwLock<i64>>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct PlayerCommandCooldown {
+    pub last_attempt_at: Instant,
+    pub cooldown_ms: u64,
 }
 
 impl Default for AzaleaState {
@@ -226,6 +246,8 @@ impl Default for AzaleaState {
                 prefix: "!".to_owned(),
                 whisper_command: "msg".to_owned(),
                 use_commands: true,
+                anti_spam_global_cooldown_ms: 1_000,
+                command_cooldowns: HashMap::new(),
                 use_whitelist: false,
                 user_whitelist: HashSet::new(),
                 user_blacklist: HashSet::new(),
@@ -238,6 +260,8 @@ impl Default for AzaleaState {
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
+            last_command_at: Arc::new(Mutex::new(None)),
+            player_command_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
         }
@@ -557,8 +581,7 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
             && whisper.message.starts_with(&prefix)
             && sender_allowed_for_command(state, &whisper.sender, &whisper.message)
         {
-            command_handler::handle_as_whisper(bot, state, &whisper.sender, &whisper.message)
-                .await;
+            command_handler::handle_as_whisper(bot, state, &whisper.sender, &whisper.message).await;
         }
         return;
     }

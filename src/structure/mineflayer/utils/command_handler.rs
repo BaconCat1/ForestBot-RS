@@ -1,10 +1,12 @@
 use azalea::prelude::Client;
+use std::time::{Duration, Instant};
 
 use crate::{
     commands::{self, CommandContext, CommandDefinition, enqueue_chat},
+    config::CommandCooldownConfig,
     structure::{
         logger,
-        mineflayer::bot::{AzaleaState, RuntimeConfig},
+        mineflayer::bot::{AzaleaState, PlayerCommandCooldown, RuntimeConfig},
     },
 };
 
@@ -73,6 +75,22 @@ async fn handle_with_reply_mode(
         return;
     }
 
+    if let Some(remaining) =
+        command_cooldown_remaining(state, &runtime, command, command_name, sender)
+    {
+        logger::info(format!(
+            "Command blocked by cooldown: {command_name} from {sender}, {remaining}s remaining"
+        ));
+        enqueue_chat(
+            state,
+            &format!(
+                "/{} {sender} Commands are on cooldown. Try again in {remaining}s.",
+                runtime.whisper_command
+            ),
+        );
+        return;
+    }
+
     logger::info(format!("Executing command: {command_name} from {sender}"));
 
     let ctx = CommandContext {
@@ -91,6 +109,113 @@ async fn handle_with_reply_mode(
             &format!("/{} {sender} Command failed.", runtime.whisper_command),
         );
     }
+}
+
+fn command_cooldown_remaining(
+    state: &AzaleaState,
+    runtime: &RuntimeConfig,
+    command: &CommandDefinition,
+    invoked_alias: &str,
+    sender: &str,
+) -> Option<u64> {
+    let now = Instant::now();
+
+    let mut last_command_at = state
+        .last_command_at
+        .lock()
+        .expect("global command cooldown lock poisoned");
+    let mut player_command_cooldowns = state
+        .player_command_cooldowns
+        .lock()
+        .expect("player command cooldown lock poisoned");
+
+    if let Some(remaining) =
+        remaining_seconds(*last_command_at, now, runtime.anti_spam_global_cooldown_ms)
+    {
+        return Some(remaining);
+    }
+
+    if runtime.anti_spam_global_cooldown_ms > 0 {
+        *last_command_at = Some(now);
+    }
+
+    let Some(policy) = command_cooldown_config(runtime, command, invoked_alias) else {
+        return None;
+    };
+
+    if policy.cooldown_ms == 0 {
+        return None;
+    }
+
+    let command_key = command.names.first().copied().unwrap_or(invoked_alias);
+    let cooldown_key = format!("{}\u{0}{}", sender.to_ascii_lowercase(), command_key);
+    if let Some(state) = player_command_cooldowns.get_mut(&cooldown_key) {
+        let elapsed = now.duration_since(state.last_attempt_at);
+        let reset_after = reset_after_duration(state.cooldown_ms, policy.reset_multiplier);
+        let should_increase = elapsed < reset_after;
+
+        if elapsed < Duration::from_millis(state.cooldown_ms) {
+            if should_increase {
+                state.cooldown_ms = increased_cooldown(state.cooldown_ms, policy);
+                state.last_attempt_at = now;
+            }
+            return Some(duration_seconds(Duration::from_millis(state.cooldown_ms)));
+        }
+
+        state.cooldown_ms = if should_increase {
+            increased_cooldown(state.cooldown_ms, policy)
+        } else {
+            policy.cooldown_ms
+        };
+        state.last_attempt_at = now;
+        return None;
+    }
+
+    player_command_cooldowns.insert(
+        cooldown_key,
+        PlayerCommandCooldown {
+            last_attempt_at: now,
+            cooldown_ms: policy.cooldown_ms,
+        },
+    );
+    None
+}
+
+fn command_cooldown_config<'a>(
+    runtime: &'a RuntimeConfig,
+    command: &CommandDefinition,
+    invoked_alias: &str,
+) -> Option<&'a CommandCooldownConfig> {
+    std::iter::once(invoked_alias)
+        .chain(command.names.iter().copied())
+        .find_map(|alias| runtime.command_cooldowns.get(&alias.to_ascii_lowercase()))
+}
+
+fn increased_cooldown(current_ms: u64, policy: &CommandCooldownConfig) -> u64 {
+    let increased = current_ms.saturating_add(policy.increment_ms);
+    if policy.max_cooldown_ms > 0 {
+        increased.min(policy.max_cooldown_ms)
+    } else {
+        increased
+    }
+}
+
+fn reset_after_duration(cooldown_ms: u64, reset_multiplier: u64) -> Duration {
+    Duration::from_millis(cooldown_ms.saturating_mul(reset_multiplier.max(1)))
+}
+
+fn remaining_seconds(last: Option<Instant>, now: Instant, cooldown_ms: u64) -> Option<u64> {
+    let elapsed = now.duration_since(last?);
+    let cooldown = Duration::from_millis(cooldown_ms);
+    if elapsed >= cooldown {
+        return None;
+    }
+
+    Some(duration_seconds(cooldown - elapsed))
+}
+
+fn duration_seconds(duration: Duration) -> u64 {
+    duration.as_millis().div_ceil(1_000) as u64
 }
 
 fn is_allowed_by_standing(
