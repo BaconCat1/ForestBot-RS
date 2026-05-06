@@ -6,6 +6,5 @@ pub mod command_handler;
 pub mod command_toggle;
 pub mod parse_username;
 pub mod profanity_filter;
-pub mod secondary_profanity_filter;
 pub mod strip_minecraft_formatting;
 pub mod whisper_parser;

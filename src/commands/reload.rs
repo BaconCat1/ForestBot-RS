@@ -58,6 +58,10 @@ async fn reload_runtime(
             .collect::<HashSet<_>>(),
         allow_chatbridge_input: app_state.config.allow_chatbridge_input,
         welcome_messages: app_state.config.welcome_messages,
+        use_custom_chat_prefix: app_state.config.use_custom_chat_prefix,
+        custom_chat_prefix: app_state.config.custom_chat_prefix,
+        smart_censoring: app_state.config.smart_censoring,
+        together_api_key: app_state.config.together_api_key,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;

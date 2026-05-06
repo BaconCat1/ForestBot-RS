@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -10,10 +11,12 @@ use azalea::chat_signing::ChatSigningPlugin;
 use azalea::client_chat::ChatPacket;
 use azalea::prelude::*;
 use azalea_viaversion::ViaVersionPlugin;
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::config::{
-    AppState, BotConfig, CommandCooldownConfig, load_offline_messages, save_offline_messages,
+    AppState, BotConfig, CommandCooldownConfig, load_offline_messages, load_word_list,
+    save_offline_messages,
 };
 use crate::structure::{
     endpoints::endpoints::{
@@ -22,8 +25,18 @@ use crate::structure::{
         Player as WebsocketPlayer, WebsocketClient, WebsocketEvent,
     },
     logger,
-    mineflayer::utils::{chat_format_parser, command_handler, whisper_parser},
+    mineflayer::utils::{chat_format_parser, command_handler, profanity_filter, whisper_parser},
 };
+
+const BAD_WORDS_PATH: &str = "./json/bad_words.json";
+const WORD_WHITELIST_PATH: &str = "./json/word_whitelist.json";
+const TOGETHER_MODEL: &str = "ServiceNow-AI/Apriel-1.6-15b-Thinker";
+const SMART_CENSOR_TIMEOUT_MS: u64 = 5_000;
+const SMART_CENSOR_MAX_INPUT_LENGTH: usize = 280;
+const SMART_CENSOR_MAX_OUTPUT_LENGTH: usize = 280;
+
+static WARNED_MISSING_TOGETHER_KEY: AtomicBool = AtomicBool::new(false);
+static WARNED_SMART_CENSOR_FAILURE: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone)]
 pub struct Command {
@@ -54,6 +67,10 @@ pub struct RuntimeConfig {
     pub disabled_events: HashSet<String>,
     pub allow_chatbridge_input: bool,
     pub welcome_messages: bool,
+    pub use_custom_chat_prefix: bool,
+    pub custom_chat_prefix: String,
+    pub smart_censoring: bool,
+    pub together_api_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -80,7 +97,11 @@ pub struct Bot {
     pub prefix: String,
     pub whisper_command: String,
     pub custom_chat_formats: Vec<String>,
+    pub use_custom_chat_prefix: bool,
+    pub custom_chat_prefix: String,
     pub allow_chatbridge_input: bool,
+    pub smart_censoring: bool,
+    pub together_api_key: String,
     pub anti_spam_global_cooldown_ms: u64,
     pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub reconnect_time_ms: u64,
@@ -107,7 +128,11 @@ impl Bot {
             prefix: state.config.prefix.clone(),
             whisper_command: state.config.whisper_command.clone(),
             custom_chat_formats: state.config.custom_chat_formats.clone(),
+            use_custom_chat_prefix: state.config.use_custom_chat_prefix,
+            custom_chat_prefix: state.config.custom_chat_prefix.clone(),
             allow_chatbridge_input: state.config.allow_chatbridge_input,
+            smart_censoring: state.config.smart_censoring,
+            together_api_key: state.config.together_api_key.clone(),
             anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown,
             command_cooldowns: state.config.command_cooldowns.clone(),
             reconnect_time_ms: state.config.reconnect_time,
@@ -160,6 +185,10 @@ impl Bot {
                 allow_chatbridge_input: self.api.options.use_websocket
                     && self.allow_chatbridge_input,
                 welcome_messages: self.welcome_messages,
+                use_custom_chat_prefix: self.use_custom_chat_prefix,
+                custom_chat_prefix: self.custom_chat_prefix.clone(),
+                smart_censoring: self.smart_censoring,
+                together_api_key: self.together_api_key.clone(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -259,6 +288,10 @@ impl Default for AzaleaState {
                 disabled_events: HashSet::new(),
                 allow_chatbridge_input: false,
                 welcome_messages: false,
+                use_custom_chat_prefix: false,
+                custom_chat_prefix: String::new(),
+                smart_censoring: false,
+                together_api_key: String::new(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -296,7 +329,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             }
             logger::success(format!("Spawned on {}.", state.mc_server));
             if mark_background_tasks_started(&state) {
-                spawn_websocket_event_task(bot.clone(), state.clone());
+                spawn_websocket_event_task(state.clone());
                 spawn_player_list_update_task(state.clone());
             }
             send_player_list_update(&state).await;
@@ -423,7 +456,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             logger::warn(format!("Connection failed: {error}"));
         }
         Event::Tick => {
-            flush_outbound_chat(&bot, &state);
+            flush_outbound_chat(&bot, &state).await;
             // No direct Azalea equivalent exists for Mineflayer's entitySpawn.
             // This scan is separately gated by entitySpawn to preserve Node config behavior.
             handle_entity_spawn_first_sight(&bot, &state);
@@ -434,16 +467,24 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
     Ok(())
 }
 
-fn flush_outbound_chat(bot: &Client, state: &AzaleaState) {
-    let mut queue = state
-        .outbound_chat
-        .lock()
-        .expect("outbound chat queue lock poisoned");
+async fn flush_outbound_chat(bot: &Client, state: &AzaleaState) {
+    let messages = {
+        let mut queue = state
+            .outbound_chat
+            .lock()
+            .expect("outbound chat queue lock poisoned");
+        let mut messages = Vec::new();
+        for _ in 0..3 {
+            let Some(message) = queue.pop_front() else {
+                break;
+            };
+            messages.push(message);
+        }
+        messages
+    };
 
-    for _ in 0..3 {
-        let Some(message) = queue.pop_front() else {
-            break;
-        };
+    for message in messages {
+        let message = filter_outgoing_message(state, &message).await;
         logger::info(format!("Sending chat reply: {message}"));
         bot.chat(message);
     }
@@ -555,7 +596,7 @@ fn handle_entity_spawn_first_sight(bot: &Client, state: &AzaleaState) {
         ));
 
         let greeting = entity_spawn_greeting(&player.username, now);
-        bot.chat(format!("/msg {} {}", player.username, greeting));
+        enqueue_outbound_chat(state, format!("/msg {} {}", player.username, greeting));
 
         let seen = state.seen_entity_spawns.clone();
         let uuid = player.uuid;
@@ -575,6 +616,163 @@ fn entity_spawn_greeting(username: &str, now: i64) -> String {
 
 fn round_one_decimal(value: f64) -> f64 {
     (value * 10.0).round() / 10.0
+}
+
+async fn filter_outgoing_message(state: &AzaleaState, message: &str) -> String {
+    let runtime = state
+        .runtime
+        .read()
+        .expect("runtime config lock poisoned")
+        .clone();
+    let is_slash_command = message.trim_start().starts_with('/');
+
+    let bad_words = load_word_list(BAD_WORDS_PATH).await.unwrap_or_default();
+    let word_whitelist = load_word_list(WORD_WHITELIST_PATH)
+        .await
+        .unwrap_or_default();
+    let regular_censored = profanity_filter::censor_bad_words(message, &bad_words, &word_whitelist);
+
+    let censored = if is_slash_command || !runtime.smart_censoring {
+        regular_censored
+    } else {
+        maybe_smart_censor_message(message, &runtime)
+            .await
+            .map(|smart_censored| {
+                profanity_filter::censor_bad_words(&smart_censored, &bad_words, &word_whitelist)
+            })
+            .unwrap_or(regular_censored)
+    };
+
+    if runtime.use_custom_chat_prefix && !is_slash_command {
+        format!("{} {censored}", runtime.custom_chat_prefix)
+    } else {
+        censored
+    }
+}
+
+async fn maybe_smart_censor_message(message: &str, runtime: &RuntimeConfig) -> Option<String> {
+    let api_key = runtime.together_api_key.trim();
+    if api_key.is_empty() {
+        if !WARNED_MISSING_TOGETHER_KEY.swap(true, Ordering::Relaxed) {
+            logger::warn(
+                "Smart censor enabled but together_api_key is blank. Falling back to regular censor.",
+            );
+        }
+        return None;
+    }
+
+    let user_text = sanitize_smart_censor_input(message);
+    if user_text.is_empty() {
+        return None;
+    }
+
+    let prompt = [
+        "You are a strict Minecraft chat censor.",
+        "Censor any text that would violate Mojang/Microsoft Minecraft EULA, Minecraft Usage Guidelines, or Minecraft community standards.",
+        "Treat as unsafe: profanity, hate speech, slurs, sexual content, harassment, self-harm encouragement, threats, fraud/scams, extremist content, and suspicious obfuscated variants.",
+        "If content is unsafe, censor the unsafe words/phrases so the final message is compliant and non-actionable.",
+        "For each unsafe word, replace it with: first character + asterisks for the rest.",
+        "Keep safe words as-is and preserve message structure as much as possible.",
+        "Return exactly one line in this format: FINAL: <censored text>.",
+    ]
+    .join(" ");
+
+    let request = reqwest::Client::new()
+        .post("https://api.together.xyz/v1/chat/completions")
+        .bearer_auth(api_key)
+        .json(&json!({
+            "model": TOGETHER_MODEL,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You output only policy-compliant censored Minecraft chat text and must never emit uncensored text that violates the Minecraft EULA, Usage Guidelines, or community standards."
+                },
+                {
+                    "role": "user",
+                    "content": format!("{prompt} Input: \"{user_text}\"")
+                }
+            ],
+            "max_tokens": 5000,
+            "temperature": 0.1,
+            "top_p": 0.9
+        }));
+
+    let response = match tokio::time::timeout(
+        Duration::from_millis(SMART_CENSOR_TIMEOUT_MS),
+        request.send(),
+    )
+    .await
+    {
+        Ok(Ok(response)) => response,
+        Ok(Err(error)) => {
+            warn_smart_censor_failure(format!("Smart censor request failed ({error})."));
+            return None;
+        }
+        Err(_) => {
+            warn_smart_censor_failure("Smart censor request timed out.".to_owned());
+            return None;
+        }
+    };
+
+    let value = match response.json::<serde_json::Value>().await {
+        Ok(value) => value,
+        Err(error) => {
+            warn_smart_censor_failure(format!("Smart censor response parse failed ({error})."));
+            return None;
+        }
+    };
+
+    let raw = value
+        .get("choices")
+        .and_then(|choices| choices.get(0))
+        .and_then(|choice| choice.get("message"))
+        .and_then(|message| message.get("content"))
+        .and_then(|content| content.as_str())?;
+    let parsed = extract_smart_censor_final_reply(raw);
+    if parsed.is_empty() {
+        None
+    } else {
+        Some(parsed)
+    }
+}
+
+fn sanitize_smart_censor_input(text: &str) -> String {
+    text.chars()
+        .map(|ch| if ch.is_control() { ' ' } else { ch })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(SMART_CENSOR_MAX_INPUT_LENGTH)
+        .collect()
+}
+
+fn extract_smart_censor_final_reply(raw: &str) -> String {
+    for line in raw
+        .lines()
+        .rev()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        let value = line
+            .strip_prefix("FINAL:")
+            .or_else(|| line.strip_prefix("Final answer:"))
+            .unwrap_or(line)
+            .trim()
+            .trim_matches('"')
+            .trim_matches('\'');
+        if !value.is_empty() {
+            return value.chars().take(SMART_CENSOR_MAX_OUTPUT_LENGTH).collect();
+        }
+    }
+    String::new()
+}
+
+fn warn_smart_censor_failure(message: String) {
+    if !WARNED_SMART_CENSOR_FAILURE.swap(true, Ordering::Relaxed) {
+        logger::warn(format!("{message} Falling back to regular censor."));
+    }
 }
 
 async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &str) {
@@ -687,7 +885,7 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
     logger::info(format!("{player}: {message}"));
 }
 
-fn spawn_websocket_event_task(bot: Client, state: AzaleaState) {
+fn spawn_websocket_event_task(state: AzaleaState) {
     let Some(websocket) = state.api.websocket.clone() else {
         return;
     };
@@ -712,10 +910,13 @@ fn spawn_websocket_event_task(bot: Client, state: AzaleaState) {
                         runtime.welcome_messages && data.server == state.mc_server
                     };
                     if should_welcome {
-                        bot.chat(format!(
-                            "{}, previously known as {} joined the server!",
-                            data.new_name, data.old_name
-                        ));
+                        enqueue_outbound_chat(
+                            &state,
+                            format!(
+                                "{}, previously known as {} joined the server!",
+                                data.new_name, data.old_name
+                            ),
+                        );
                     }
                 }
                 WebsocketEvent::NewUser(data) => {
@@ -724,14 +925,17 @@ fn spawn_websocket_event_task(bot: Client, state: AzaleaState) {
                         runtime.welcome_messages && data.server == state.mc_server
                     };
                     if should_welcome {
-                        bot.chat(format!("{}, First time here? Welcome!", data.user));
+                        enqueue_outbound_chat(
+                            &state,
+                            format!("{}, First time here? Welcome!", data.user),
+                        );
                     }
                 }
                 WebsocketEvent::InboundDiscordChat(data) => {
-                    handle_inbound_discord_chat(&bot, &state, data);
+                    handle_inbound_discord_chat(&state, data);
                 }
                 WebsocketEvent::InboundMinecraftChat(data) => {
-                    handle_inbound_minecraft_chat(&bot, &state, data);
+                    handle_inbound_minecraft_chat(&state, data);
                 }
                 WebsocketEvent::UnknownMessage(message) => {
                     logger::warn(format!("Unknown websocket message: {message}"));
@@ -756,7 +960,7 @@ fn spawn_player_list_update_task(state: AzaleaState) {
     });
 }
 
-fn handle_inbound_discord_chat(bot: &Client, state: &AzaleaState, data: DiscordChatMessage) {
+fn handle_inbound_discord_chat(state: &AzaleaState, data: DiscordChatMessage) {
     let allow_chatbridge_input = state
         .runtime
         .read()
@@ -764,11 +968,14 @@ fn handle_inbound_discord_chat(bot: &Client, state: &AzaleaState, data: DiscordC
         .allow_chatbridge_input;
 
     if allow_chatbridge_input && data.mc_server == state.mc_server {
-        bot.chat(format!("[Discord] {}: {}", data.username, data.message));
+        enqueue_outbound_chat(
+            state,
+            format!("[Discord] {}: {}", data.username, data.message),
+        );
     }
 }
 
-fn handle_inbound_minecraft_chat(bot: &Client, state: &AzaleaState, data: MinecraftChatMessage) {
+fn handle_inbound_minecraft_chat(state: &AzaleaState, data: MinecraftChatMessage) {
     let allow_chatbridge_input = state
         .runtime
         .read()
@@ -785,7 +992,7 @@ fn handle_inbound_minecraft_chat(bot: &Client, state: &AzaleaState, data: Minecr
     let is_shout = data.relay_type.as_deref() == Some("shout");
 
     if allow_chatbridge_input && is_shout && is_for_this_server && !is_own_origin {
-        bot.chat(data.message);
+        enqueue_outbound_chat(state, data.message);
     }
 }
 

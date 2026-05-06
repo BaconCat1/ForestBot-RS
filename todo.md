@@ -1,85 +1,46 @@
-# ForestBot Rust Port Remaining Work
+# ForestBot Rust Port Remaining TypeScript Parity
 
-This list only tracks work still needed after the Rust/Azalea port work already completed.
+Only behavior still missing or partial compared to `ForestBot/src` is listed here.
 
-Legend:
-- `[ ]` Not done.
-- `[~]` Registered or partially implemented, but not functionally identical to Node yet.
+## Commands
 
----
+- [ ] `drop`: TypeScript drops the held item or every inventory item via Mineflayer `tossStack`; Rust currently only replies that Azalea inventory-drop parity is not wired.
+- [ ] `mount` / `ride` / `mush`: TypeScript finds the nearest mountable entity or vehicle, applies cooldowns, and mounts it; Rust currently only replies that mounting is not wired.
+- [ ] `sleep`: TypeScript finds and activates a bed; Rust currently only replies that sleeping is not wired.
+- [ ] `twerk` / `bootyshake` / `booty` / `dance`: TypeScript toggles sneak for 10 seconds; Rust command is registered but still needs equivalent Azalea control-state behavior verified.
+- [ ] `realname`: TypeScript resolves visible display/nickname data from Mineflayer player state; Rust needs equivalent display-name data in the player cache for exact parity.
+- [ ] `febzey`: Rust has equivalent last-seen-style behavior, but it is not byte-for-byte identical to the TypeScript command text.
 
-## Runtime And Config
+## Bot Runtime Behavior
 
-- [ ] Expand `reload` / `reloadconfig` so they refresh every live runtime field from `config.json`, not only command-facing config.
-- [ ] Decide whether outbound websocket messages should queue while disconnected or keep failing fast.
+- [x] Port the TypeScript outgoing message filter except the secondary filter, which is intentionally not planned for the Rust port:
+  - `useCustomChatPrefix` / `customChatPrefix`
+  - `json/bad_words.json` profanity filter
+  - `json/word_whitelist.json`
+  - `smart_censoring` / Together API censor path
+  - queued outgoing send behavior
+- [ ] Port `announce`: TypeScript periodically advertises enabled non-whitelisted command descriptions after spawn.
+- [ ] Port `antiafk`: TypeScript starts anti-AFK on spawn when enabled.
+- [ ] Port `usePViewer` / `pViewerPort`.
+- [ ] Port startup ping/retry behavior from TypeScript `Bot.startBot()`, including the 10-failure long backoff.
+- [ ] Port TypeScript reconnect lifecycle exactly: `endAndRestart()`, `isConnected`, and explicit bot quit/end handling.
+- [ ] Port TypeScript logger categories and message wording where runtime parity matters.
 
----
+## Chat Parsing And Message Handling
 
-## Chat Parsing
-
-- [ ] Port legacy Node `messagestr.ts` behavior if `useLegacyChat` is enabled.
-- [ ] Fully honor `useCustomChatFormatParser` instead of always trying custom/fallback parsing.
-- [ ] Port outgoing custom chat prefix behavior.
-- [~] Collapse duplicated parser helpers into the standalone utility modules: `chat_divider_parser`, `parse_username`, `chat_sender_resolver`, and `strip_minecraft_formatting`.
-
----
+- [ ] Honor `useLegacyChat` with the TypeScript `messagestr.ts` behavior.
+- [ ] Fully honor `useCustomChatFormatParser`; Rust still attempts custom/fallback parsing rather than matching the config switch exactly.
+- [ ] Verify Rust whisper parsing covers both TypeScript `whisperFrom.ts` and `whisperTo.ts` cases.
 
 ## Events
 
-- [ ] Port Node `end.ts` bot-leave websocket behavior.
-- [ ] Port Node `error.ts`.
-- [ ] Port Node `kicked.ts`.
-- [ ] Port Node `physicsTick.ts`. - This not needed because azalea doesnt have the issues of mineflayer
-- [ ] Port Node `whisperFrom.ts` / `whisperTo.ts` if the direct Azalea chat/whisper path still misses any Node cases.
-- [ ] Remove or finish inactive stubs under `src/events/mineflayer`.
-
----
+- [ ] `end.ts`: TypeScript marks the bot disconnected, quits, restarts, logs end args, and sends the bot leave websocket packet.
+- [ ] `error.ts`: TypeScript event behavior is not separately represented in Rust.
+- [ ] `kicked.ts`: TypeScript logs the full kick payload and ends the bot.
+- [ ] `spawn.ts`: Rust sends player-list updates and starts websocket listeners, but still lacks TypeScript spawn extras: pViewer, anti-AFK, announce interval, outgoing robot marker hook, and `restartCount` / `isConnected` state updates.
+- [ ] `physicsTick.ts`: TypeScript writes `tick_end` packets; confirm whether Azalea truly makes this unnecessary, then either document or port.
 
 ## Moderation
 
-- [ ] Fully port MC whitelist enforcement beyond command/admin gating.
-- [ ] Implement main profanity filtering using `json/bad_words.json`.
-- [ ] Implement secondary profanity filtering.
-- [ ] Wire `json/word_whitelist.json` into the actual profanity filter, not only the list edit command.
-- [ ] Port smart AI censoring.
-- [ ] Port anti-spam cooldown and message-limit behavior.
-
----
-
-## Commands Still Partial
-
-- [~] `drop`: registered, but Mineflayer `tossStack` parity still needs Azalea inventory packet work.
-- [~] `mount`, `ride`, `mush`: registered, but entity mounting/riding still needs Azalea interaction work.
-- [~] `sleep`: registered, but bed finding/activation still needs Azalea block interaction work.
-- [~] `realname`: registered, but exact nickname/display-name matching needs display-name data in the Rust player cache.
-- [~] `febzey`: registered with equivalent last-seen behavior, but not byte-for-byte identical to the obfuscated Node text.
-- [ ] Update `help` / `commands` so command output is generated dynamically from the Rust registry.
-- [ ] Audit original `ForestBot/src/commands` once more for any command files or aliases not represented in `commands::registry()`.
-
----
-
-## Bot Behavior Utilities
-
-- [ ] Port anti-AFK behavior.
-- [ ] Port pViewer.
-- [ ] Mirror Node logger categories for chat, advancement, death, join, leave, kick, login, logout, move, spawn, world, command, and websocket.
-- [ ] Port custom chat suffix / robot marker behavior from the Node spawn hook.
-- [~] Finish time utilities where output still differs from Node formatting.
-
----
-
-## Tests
-
-- [ ] Add command handler tests for whitelist/blacklist gating and command enable toggles.
-- [ ] Add tests for the newly ported command behavior where mocking is practical.
-- [ ] Add config loading tests for Node-compatible aliases and JSON list files.
-- [ ] Add API client normalization tests for original wrapper/database response shapes.
-- [ ] Add a local Minecraft/websocket harness for command-to-hub payload regression testing.
-
----
-
-## Runtime Proof
-
-- [ ] Live-test websocket compatibility against the original ForestBot hub.
-- [ ] Live-test REST command behavior against the original ForestBot database/API.
-- [ ] Runtime-test against a real Minecraft server and save proof logs.
+- [ ] Fully port MC whitelist enforcement beyond command/admin gating
+- [ ] Port TypeScript `anti_spam_cooldown` and `anti_spam_msg_limit`; Rust currently only has command cooldown handling.
