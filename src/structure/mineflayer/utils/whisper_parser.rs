@@ -11,7 +11,10 @@ pub fn parse(message: &str, bot_username: &str) -> Option<Whisper> {
         return None;
     }
 
-    if let Some(rest) = message.strip_prefix("[PM] ") {
+    if let Some(rest) = message
+        .strip_prefix("[PM] ")
+        .or_else(|| message.strip_prefix("PM: "))
+    {
         let (sender, rest) = rest.split_once(" → ")?;
         let (recipient, msg) = rest.split_once(" » ")?;
         return Some(Whisper {
@@ -114,6 +117,22 @@ mod tests {
 
     #[test]
     fn parses_common_from_whispers() {
+        assert_eq!(
+            parse("PM: JollyCurve_ → JollyCurves_Wife » !q", "JollyCurves_Wife"),
+            Some(Whisper {
+                sender: "JollyCurve_".to_owned(),
+                recipient: Some("JollyCurves_Wife".to_owned()),
+                message: "!q".to_owned(),
+            })
+        );
+        assert_eq!(
+            parse("[PM] Steve → Bot » !help", "Bot"),
+            Some(Whisper {
+                sender: "Steve".to_owned(),
+                recipient: Some("Bot".to_owned()),
+                message: "!help".to_owned(),
+            })
+        );
         assert_eq!(
             parse("From: Steve » !ping", "Bot"),
             Some(Whisper {
