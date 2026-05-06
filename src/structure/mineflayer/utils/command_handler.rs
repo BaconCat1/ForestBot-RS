@@ -135,31 +135,31 @@ fn command_cooldown_remaining(
         return Some(remaining);
     }
 
-    if runtime.anti_spam_global_cooldown_ms > 0 {
-        *last_command_at = Some(now);
-    }
-
     let Some(policy) = command_cooldown_config(runtime, command, invoked_alias) else {
+        if runtime.anti_spam_global_cooldown_ms > 0 {
+            *last_command_at = Some(now);
+        }
         return None;
     };
 
     if policy.cooldown_ms == 0 {
+        if runtime.anti_spam_global_cooldown_ms > 0 {
+            *last_command_at = Some(now);
+        }
         return None;
     }
 
     let command_key = command.names.first().copied().unwrap_or(invoked_alias);
     let cooldown_key = format!("{}\u{0}{}", sender.to_ascii_lowercase(), command_key);
     if let Some(state) = player_command_cooldowns.get_mut(&cooldown_key) {
-        let elapsed = now.duration_since(state.last_attempt_at);
+        let elapsed = now.duration_since(state.last_success_at);
         let reset_after = reset_after_duration(state.cooldown_ms, policy.reset_multiplier);
         let should_increase = elapsed < reset_after;
 
         if elapsed < Duration::from_millis(state.cooldown_ms) {
-            if should_increase {
-                state.cooldown_ms = increased_cooldown(state.cooldown_ms, policy);
-                state.last_attempt_at = now;
-            }
-            return Some(duration_seconds(Duration::from_millis(state.cooldown_ms)));
+            return Some(duration_seconds(
+                Duration::from_millis(state.cooldown_ms) - elapsed,
+            ));
         }
 
         state.cooldown_ms = if should_increase {
@@ -167,17 +167,23 @@ fn command_cooldown_remaining(
         } else {
             policy.cooldown_ms
         };
-        state.last_attempt_at = now;
+        state.last_success_at = now;
+        if runtime.anti_spam_global_cooldown_ms > 0 {
+            *last_command_at = Some(now);
+        }
         return None;
     }
 
     player_command_cooldowns.insert(
         cooldown_key,
         PlayerCommandCooldown {
-            last_attempt_at: now,
+            last_success_at: now,
             cooldown_ms: policy.cooldown_ms,
         },
     );
+    if runtime.anti_spam_global_cooldown_ms > 0 {
+        *last_command_at = Some(now);
+    }
     None
 }
 

@@ -225,7 +225,7 @@ pub struct AzaleaState {
 
 #[derive(Debug, Clone, Copy)]
 pub struct PlayerCommandCooldown {
-    pub last_attempt_at: Instant,
+    pub last_success_at: Instant,
     pub cooldown_ms: u64,
 }
 
