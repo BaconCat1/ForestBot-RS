@@ -24,13 +24,24 @@ pub async fn handle(bot: &Client, state: &AzaleaState, sender: &str, content: &s
         return;
     };
 
+    if !runtime.use_commands {
+        return;
+    }
+
     let Some(command) = commands::find(command_name) else {
         logger::info(format!("Unknown command: {command_name}"));
         return;
     };
 
-    if !command_enabled(&runtime, command) {
+    if !command_enabled(&runtime, command, command_name) {
         logger::info(format!("Command disabled: {command_name}"));
+        enqueue_chat(
+            state,
+            &format!(
+                "/{} {sender} Sorry, {sender}, that command is disabled.",
+                runtime.whisper_command
+            ),
+        );
         return;
     }
 
@@ -90,11 +101,44 @@ fn is_allowed_by_standing(
         )
 }
 
-fn command_enabled(runtime: &RuntimeConfig, command: &CommandDefinition) -> bool {
-    command
-        .names
-        .iter()
-        .any(|name| runtime.command_toggles.get(*name).copied().unwrap_or(true))
+fn command_enabled(
+    runtime: &RuntimeConfig,
+    command: &CommandDefinition,
+    invoked_alias: &str,
+) -> bool {
+    let mut saw_true = false;
+    let mut saw_any_explicit = false;
+
+    for alias in std::iter::once(invoked_alias).chain(command.names.iter().copied()) {
+        let Some(value) = read_command_toggle(runtime, alias) else {
+            continue;
+        };
+        saw_any_explicit = true;
+        if !value {
+            return false;
+        }
+        saw_true = true;
+    }
+
+    !saw_any_explicit || saw_true
+}
+
+fn read_command_toggle(runtime: &RuntimeConfig, alias: &str) -> Option<bool> {
+    let normalized = alias
+        .trim()
+        .trim_start_matches(&runtime.prefix)
+        .to_lowercase();
+    if normalized.is_empty() {
+        return None;
+    }
+
+    runtime.command_toggles.iter().find_map(|(key, value)| {
+        (normalize_command_key(&runtime.prefix, key) == normalized).then_some(*value)
+    })
+}
+
+fn normalize_command_key(prefix: &str, key: &str) -> String {
+    key.trim().trim_start_matches(prefix).to_lowercase()
 }
 
 fn is_allowed_whitelisted_command(
