@@ -11,7 +11,7 @@
 **General**
 * 🔎 **bug**(?) don't record redundant advancements (from the queue or ever) // THIS IS HARD
 	* If the bot can detect the queue and both record no data and also take no commands, I think that would be good enough.
-* 🔎 Discord chat bridge
+* 🔎 ~~Discord chat bridge~~
 * 🆕 Make faqs backfillable
 * 🆕 Add cross server functionality to stats commands (this is mostly done, !lk, !ld, !vicitims, !fm, !lm, !ladv, and !top are missing, if this is intentional I can mark this one complete)
 * 🆕 !delfaq aka !deletefaq, deletes the faq, freeing up the number. Should be done after faqs are backfillable. Should confirm in whisper.
