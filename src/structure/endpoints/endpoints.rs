@@ -865,10 +865,18 @@ pub struct MinecraftChatMessage {
 pub struct DiscordChatMessage {
     pub message: String,
     pub username: String,
+    #[serde(
+        default,
+        alias = "time",
+        deserialize_with = "optional_string_or_number"
+    )]
     pub timestamp: String,
     pub mc_server: String,
+    #[serde(default)]
     pub channel_id: String,
+    #[serde(default)]
     pub guild_id: String,
+    #[serde(default)]
     pub guild_name: String,
 }
 
@@ -1417,5 +1425,44 @@ mod tests {
         .unwrap();
         assert!(edit.success);
         assert_eq!(edit.error, None);
+    }
+
+    #[test]
+    fn parses_original_hub_discord_bridge_payload() {
+        let event = parse_inbound_message(
+            r#"{"action":"inbound_discord_chat","data":{"username":"DiscordUser","message":"hello from discord","mc_server":"refinedvanilla"}}"#,
+        )
+        .unwrap();
+
+        let WebsocketEvent::InboundDiscordChat(message) = event else {
+            panic!("expected inbound discord chat event");
+        };
+
+        assert_eq!(message.username, "DiscordUser");
+        assert_eq!(message.message, "hello from discord");
+        assert_eq!(message.mc_server, "refinedvanilla");
+        assert_eq!(message.timestamp, "");
+        assert_eq!(message.channel_id, "");
+        assert_eq!(message.guild_id, "");
+        assert_eq!(message.guild_name, "");
+    }
+
+    #[test]
+    fn parses_wrapper_discord_bridge_payload_with_time_alias() {
+        let message: DiscordChatMessage = serde_json::from_value(json!({
+            "username": "DiscordUser",
+            "message": "hello from discord",
+            "time": 1710000000000_i64,
+            "mc_server": "refinedvanilla",
+            "channel_id": "channel-1",
+            "guild_id": "guild-1",
+            "guild_name": "Forest"
+        }))
+        .unwrap();
+
+        assert_eq!(message.timestamp, "1710000000000");
+        assert_eq!(message.channel_id, "channel-1");
+        assert_eq!(message.guild_id, "guild-1");
+        assert_eq!(message.guild_name, "Forest");
     }
 }
