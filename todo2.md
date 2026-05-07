@@ -1,4 +1,3 @@
-
 ## Todo 2 (jolly is bad at lists)
 🔎 = Feature/functionality missing that was present in ts forest
 
@@ -12,6 +11,7 @@
 * 🔎 **bug**(?) don't record redundant advancements (from the queue or ever) // THIS IS HARD
 	* If the bot can detect the queue and both record no data and also take no commands, I think that would be good enough.
 * 🔎 ~~Discord chat bridge~~
+	* The chat bridge is functional. Previously, you would see your own messages as a server message on discord. This wouldn't matter, except the bridge is pretty iffy and doesn't deliver messages reliably, which is probably the discord side being buggy, it's always been like that. Just showing the bot's messages is good enough unless you really want to deep dive this, which I wouldn't blame you for not wanting to.
 * 🆕 Make faqs backfillable
 * 🆕 Add cross server functionality to stats commands (this is mostly done, !lk, !ld, !vicitims, !fm, !lm, !ladv, and !top are missing, if this is intentional I can mark this one complete)
 * 🆕 !delfaq aka !deletefaq, deletes the faq, freeing up the number. Should be done after faqs are backfillable. Should confirm in whisper.
