@@ -552,35 +552,40 @@ fn last_kill(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn death_or_kill(ctx: CommandContext<'_>, death: bool, first: bool) -> CommandFuture<'_> {
     Box::pin(async move {
-        let search = ctx.args.first().copied().unwrap_or(ctx.sender);
-        let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
-            whisper(
-                &ctx,
-                &format!(" {search} has no deaths, or unexpected error occurred."),
-            );
+        let command_name = match (death, first) {
+            (true, true) => "firstdeath",
+            (true, false) => "lastdeath",
+            (false, true) => "firstkill",
+            (false, false) => "lastkill",
+        };
+        let Some(target) = parse_stats_target_or_reply(&ctx, command_name) else {
+            return Ok(());
+        };
+        let Some(uuid) = ctx.state.api.convert_username_to_uuid(&target.search).await else {
+            whisper_no_record(&ctx, &target.search, if death { "deaths" } else { "kills" });
             return Ok(());
         };
         let order = if first { "ASC" } else { "DESC" };
         let rows = if death {
             ctx.state
                 .api
-                .get_deaths(&uuid, &ctx.state.mc_server, 1, order, "all")
+                .get_deaths(&uuid, &target.server, 1, order, "all")
                 .await
         } else {
             ctx.state
                 .api
-                .get_kills(&uuid, &ctx.state.mc_server, 1, order)
+                .get_kills(&uuid, &target.server, 1, order)
                 .await
         };
         let Some(row) = rows.and_then(|mut rows| rows.pop()) else {
-            whisper(
-                &ctx,
-                &format!(" {search} has no deaths, or unexpected error occurred."),
-            );
+            whisper_no_record(&ctx, &target.search, if death { "deaths" } else { "kills" });
             return Ok(());
         };
+        let label = format_server_label(&target.server, &ctx.state.mc_server);
         ctx.chat(format!(
-            " {}, {}",
+            " {}{}: {}, {}",
+            target.search,
+            label,
             row.death_message,
             time::time_ago_str(row.time as u64)
         ));
@@ -640,21 +645,25 @@ fn advancement_count(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn last_advancement(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let search = ctx.args.first().copied().unwrap_or(ctx.sender);
-        let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
-            whisper(&ctx, &format!(" {search} has no advancements."));
+        let Some(target) = parse_stats_target_or_reply(&ctx, "lastadvancement") else {
+            return Ok(());
+        };
+        let Some(uuid) = ctx.state.api.convert_username_to_uuid(&target.search).await else {
+            whisper(&ctx, &format!(" {} has no advancements.", target.search));
             return Ok(());
         };
         let row = ctx
             .state
             .api
-            .get_advancements(&uuid, &ctx.state.mc_server, 1, "DESC")
+            .get_advancements(&uuid, &target.server, 1, "DESC")
             .await
             .and_then(|mut rows| rows.pop());
         if let Some(row) = row {
+            let label = format_server_label(&target.server, &ctx.state.mc_server);
             ctx.chat(format!(
-                " {}: {} ({})",
-                search,
+                " {}{}: {} ({})",
+                target.search,
+                label,
                 row.advancement,
                 time::time_ago_str(row.time as u64)
             ));
@@ -673,25 +682,39 @@ fn last_message(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn message_lookup<'a>(ctx: CommandContext<'a>, order: &'static str) -> CommandFuture<'a> {
     Box::pin(async move {
-        let search = ctx.args.first().copied().unwrap_or(ctx.sender);
+        let command_name = if order == "ASC" {
+            "firstmessage"
+        } else {
+            "lastmessage"
+        };
+        let Some(target) = parse_stats_target_or_reply(&ctx, command_name) else {
+            return Ok(());
+        };
         let row = ctx
             .state
             .api
-            .get_messages(search, &ctx.state.mc_server, 1, order, 0)
+            .get_messages(&target.search, &target.server, 1, order, 0)
             .await
             .and_then(|mut rows| rows.pop());
         if let Some(row) = row {
             let date = epoch_ms_from_string(&row.date)
                 .map(time::time_ago_str)
                 .unwrap_or(row.date);
-            ctx.chat(format!(" {search}: {}, {date}", row.message));
+            let label = format_server_label(&target.server, &ctx.state.mc_server);
+            ctx.chat(format!(
+                " {}{}: {}, {date}",
+                target.search, label, row.message
+            ));
         } else {
-            if search.eq_ignore_ascii_case(ctx.sender) {
+            if target.search.eq_ignore_ascii_case(ctx.sender) {
                 whisper(&ctx, " You have no messages, or unexpected error occurred.");
             } else {
                 whisper(
                     &ctx,
-                    &format!(" {search} has no messages, or unexpected error occurred."),
+                    &format!(
+                        " {} has no messages, or unexpected error occurred.",
+                        target.search
+                    ),
                 );
             }
         }
@@ -741,21 +764,50 @@ fn top(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let Some(stat) = ctx.args.first() else {
             return Ok(());
         };
+        let server = match parse_top_server(&ctx) {
+            Ok(server) => server,
+            Err(message) => {
+                whisper(&ctx, &message);
+                return Ok(());
+            }
+        };
 
         match stat.to_lowercase().as_str() {
-            "kills" | "deaths" | "joins" | "playtime" => top_backend_stat(&ctx, stat).await,
-            "messages" => top_messages(&ctx).await,
-            "advancements" => top_advancements(&ctx).await,
+            "kills" | "deaths" | "joins" | "playtime" => {
+                top_backend_stat(&ctx, stat, &server).await
+            }
+            "messages" => top_messages(&ctx, &server).await,
+            "advancements" => top_advancements(&ctx, &server).await,
             _ => Ok(()),
         }
     })
 }
 
-async fn top_backend_stat(ctx: &CommandContext<'_>, stat: &str) -> anyhow::Result<()> {
+fn parse_top_server(ctx: &CommandContext<'_>) -> Result<String, String> {
+    let Some(server) = ctx.args.get(1) else {
+        return Ok(ctx.state.mc_server.clone());
+    };
+    let server = server.to_lowercase();
+    if server == "all" {
+        return Err(" !top all is not available without hub-side aggregate support.".to_owned());
+    }
+    if !crate::constants::quote_servers::is_quote_server(&server) {
+        return Err(format!(
+            " Unknown server \"{server}\". Use !lq for the list."
+        ));
+    }
+    Ok(server)
+}
+
+async fn top_backend_stat(
+    ctx: &CommandContext<'_>,
+    stat: &str,
+    server: &str,
+) -> anyhow::Result<()> {
     let value = ctx
         .state
         .api
-        .get_top_statistic(stat, &ctx.state.mc_server, TOP_LIMIT)
+        .get_top_statistic(stat, server, TOP_LIMIT)
         .await;
     let Some(value) = value else {
         whisper(ctx, "Api error");
@@ -784,19 +836,20 @@ async fn top_backend_stat(ctx: &CommandContext<'_>, stat: &str) -> anyhow::Resul
     } else {
         format!("TOP {}", stat.to_uppercase())
     };
-    ctx.chat(format!(" [{title}]: {}", formatted.join(", ")));
+    let label = format_server_label(server, &ctx.state.mc_server);
+    ctx.chat(format!(" [{title}{label}]: {}", formatted.join(", ")));
     Ok(())
 }
 
-async fn top_messages(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
-    let rows = cached_top_rows(&ctx.state.mc_server, "messages");
+async fn top_messages(ctx: &CommandContext<'_>, server: &str) -> anyhow::Result<()> {
+    let rows = cached_top_rows(server, "messages");
     let rows = match rows {
         Some(rows) => rows,
         None => {
             whisper(ctx, "Running historical backfill for top messages...");
-            let rows = get_top_messages_historical(ctx).await;
+            let rows = get_top_messages_historical(ctx, server).await;
             if !rows.is_empty() {
-                cache_top_rows(&ctx.state.mc_server, "messages", rows.clone());
+                cache_top_rows(server, "messages", rows.clone());
             }
             rows
         }
@@ -805,27 +858,35 @@ async fn top_messages(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     if rows.is_empty() {
         whisper(ctx, "Could not calculate top messages right now.");
     } else {
-        send_top_rows(ctx, "TOP MESSAGES", &rows);
+        let title = format!(
+            "TOP MESSAGES{}",
+            format_server_label(server, &ctx.state.mc_server)
+        );
+        send_top_rows(ctx, &title, &rows);
     }
     Ok(())
 }
 
-async fn top_advancements(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
-    if let Some(rows) = get_top_advancements_from_leaderboards(ctx).await
+async fn top_advancements(ctx: &CommandContext<'_>, server: &str) -> anyhow::Result<()> {
+    if let Some(rows) = get_top_advancements_from_leaderboards(ctx, server).await
         && !rows.is_empty()
     {
-        send_top_rows(ctx, "TOP ADVANCEMENTS", &rows);
+        let title = format!(
+            "TOP ADVANCEMENTS{}",
+            format_server_label(server, &ctx.state.mc_server)
+        );
+        send_top_rows(ctx, &title, &rows);
         return Ok(());
     }
 
-    let rows = cached_top_rows(&ctx.state.mc_server, "advancements");
+    let rows = cached_top_rows(server, "advancements");
     let rows = match rows {
         Some(rows) => rows,
         None => {
             whisper(ctx, "Running historical backfill for top advancements...");
-            let rows = get_top_advancements_historical(ctx).await;
+            let rows = get_top_advancements_historical(ctx, server).await;
             if !rows.is_empty() {
-                cache_top_rows(&ctx.state.mc_server, "advancements", rows.clone());
+                cache_top_rows(server, "advancements", rows.clone());
             }
             rows
         }
@@ -834,15 +895,19 @@ async fn top_advancements(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     if rows.is_empty() {
         whisper(ctx, "Could not calculate top advancements right now.");
     } else {
-        send_top_rows(ctx, "TOP ADVANCEMENTS", &rows);
+        let title = format!(
+            "TOP ADVANCEMENTS{}",
+            format_server_label(server, &ctx.state.mc_server)
+        );
+        send_top_rows(ctx, &title, &rows);
     }
     Ok(())
 }
 
-async fn get_top_messages_historical(ctx: &CommandContext<'_>) -> Vec<TopRow> {
-    let usernames = all_known_usernames(ctx).await;
+async fn get_top_messages_historical(ctx: &CommandContext<'_>, server: &str) -> Vec<TopRow> {
+    let usernames = all_known_usernames_for_server(ctx, server).await;
     let api = ctx.state.api.clone();
-    let server = ctx.state.mc_server.clone();
+    let server = server.to_owned();
     let mut rows = stream::iter(usernames)
         .map(|username| {
             let api = api.clone();
@@ -864,10 +929,10 @@ async fn get_top_messages_historical(ctx: &CommandContext<'_>) -> Vec<TopRow> {
     rows
 }
 
-async fn get_top_advancements_historical(ctx: &CommandContext<'_>) -> Vec<TopRow> {
-    let usernames = all_known_usernames(ctx).await;
+async fn get_top_advancements_historical(ctx: &CommandContext<'_>, server: &str) -> Vec<TopRow> {
+    let usernames = all_known_usernames_for_server(ctx, server).await;
     let api = ctx.state.api.clone();
-    let server = ctx.state.mc_server.clone();
+    let server = server.to_owned();
     let mut rows = stream::iter(usernames)
         .map(|username| {
             let api = api.clone();
@@ -886,8 +951,11 @@ async fn get_top_advancements_historical(ctx: &CommandContext<'_>) -> Vec<TopRow
     rows
 }
 
-async fn get_top_advancements_from_leaderboards(ctx: &CommandContext<'_>) -> Option<Vec<TopRow>> {
-    let value = ctx.state.api.get_leaderboards(&ctx.state.mc_server).await?;
+async fn get_top_advancements_from_leaderboards(
+    ctx: &CommandContext<'_>,
+    server: &str,
+) -> Option<Vec<TopRow>> {
+    let value = ctx.state.api.get_leaderboards(server).await?;
     let mut rows = value
         .get("advancements")?
         .as_array()?
@@ -903,9 +971,13 @@ async fn get_top_advancements_from_leaderboards(ctx: &CommandContext<'_>) -> Opt
 }
 
 async fn all_known_usernames(ctx: &CommandContext<'_>) -> Vec<String> {
+    all_known_usernames_for_server(ctx, &ctx.state.mc_server).await
+}
+
+async fn all_known_usernames_for_server(ctx: &CommandContext<'_>, server: &str) -> Vec<String> {
     ctx.state
         .api
-        .get_unique_users(&ctx.state.mc_server)
+        .get_unique_users(server)
         .await
         .unwrap_or_default()
         .into_iter()
@@ -2060,28 +2132,30 @@ fn twerk(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn victims(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let search = ctx.args.first().copied().unwrap_or(ctx.sender);
-        let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
-            whisper_no_record(&ctx, search, "kills");
+        let Some(target) = parse_stats_target_or_reply(&ctx, "victims") else {
+            return Ok(());
+        };
+        let Some(uuid) = ctx.state.api.convert_username_to_uuid(&target.search).await else {
+            whisper_no_record(&ctx, &target.search, "kills");
             return Ok(());
         };
         let Some(kills) = ctx
             .state
             .api
-            .get_kills(&uuid, &ctx.state.mc_server, 10000, "DESC")
+            .get_kills(&uuid, &target.server, 10000, "DESC")
             .await
         else {
-            whisper_no_record(&ctx, search, "kills");
+            whisper_no_record(&ctx, &target.search, "kills");
             return Ok(());
         };
         let victims = kills
             .iter()
             .filter_map(extract_victim_name)
-            .filter(|victim| !victim.eq_ignore_ascii_case(search))
+            .filter(|victim| !victim.eq_ignore_ascii_case(&target.search))
             .map(|victim| victim.to_lowercase())
             .collect::<HashSet<_>>();
         if victims.is_empty() {
-            if search.eq_ignore_ascii_case(ctx.sender) {
+            if target.search.eq_ignore_ascii_case(ctx.sender) {
                 whisper(
                     &ctx,
                     " I couldn't determine your unique victims, or unexpected error occurred.",
@@ -2090,14 +2164,18 @@ fn victims(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 whisper(
                     &ctx,
                     &format!(
-                        " I couldn't determine {search}'s unique victims, or unexpected error occurred."
+                        " I couldn't determine {}'s unique victims, or unexpected error occurred.",
+                        target.search
                     ),
                 );
             }
             return Ok(());
         }
+        let label = format_server_label(&target.server, &ctx.state.mc_server);
         ctx.chat(format!(
-            " {search} has killed {} unique player{}.",
+            " {}{} has killed {} unique player{}.",
+            target.search,
+            label,
             victims.len(),
             if victims.len() == 1 { "" } else { "s" }
         ));

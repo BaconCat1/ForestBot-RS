@@ -13,7 +13,7 @@
 * 🔎 ~~Discord chat bridge~~
 	* The chat bridge is functional. Previously, you would see your own messages as a server message on discord. This wouldn't matter, except the bridge is pretty iffy and doesn't deliver messages reliably, which is probably the discord side being buggy, it's always been like that. Just showing the bot's messages is good enough unless you really want to deep dive this, which I wouldn't blame you for not wanting to.
 * 🆕 Make faqs backfillable // NEEDS HUB CHANGES
-* 🆕 Add cross server functionality to stats commands (this is mostly done, !lk, !ld, !vicitims, !fm, !lm, !ladv, and !top are missing, if this is intentional I can mark this one complete)
+* 🆕 ~~Add cross server functionality to stats commands (this is mostly done, !lk, !ld, !vicitims, !fm, !lm, !ladv, and !top are missing, if this is intentional I can mark this one complete)~~
 * 🆕 !delfaq aka !deletefaq, deletes the faq, freeing up the number. Should be done after faqs are backfillable. Should confirm in whisper. // NEEDS HUB CHANGES
 * 🆕 ~~!servers \<username> (not sure on the name), lists servers forest has data of the player on
 * 🆕 ~~!advancementcount \<advancement>, shows the number of times an advancement has been reached~~
