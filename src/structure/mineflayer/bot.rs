@@ -839,6 +839,10 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
         return;
     };
 
+    if player.eq_ignore_ascii_case(&bot_username) {
+        return;
+    }
+
     let uuid = players
         .get(&player)
         .map(|player| player.uuid.clone())
