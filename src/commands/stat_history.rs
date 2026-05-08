@@ -148,6 +148,7 @@ command!(
 command!(ACTIVE_COMMAND, &["active"], active);
 command!(ADD_FAQ_COMMAND, &["addfaq"], add_faq);
 admin_command!(BLACKLIST_COMMAND, &["blacklist"], blacklist);
+command!(AVERAGE_PING_COMMAND, &["averageping", "ap"], average_ping);
 command!(BEST_PING_COMMAND, &["bp", "bestping"], best_ping);
 admin_command!(CENSOR_COMMAND, &["censor"], censor);
 command!(COORDS_COMMAND, &["coords"], coords);
@@ -1235,6 +1236,45 @@ fn blacklist(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn whitelist(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     list_command(ctx, MC_WHITELIST_PATH, false)
+}
+
+fn average_ping(ctx: CommandContext<'_>) -> CommandFuture<'_> {
+    Box::pin(async move {
+        let players = players_snapshot(&ctx);
+        if players.is_empty() {
+            whisper(&ctx, " No players are cached yet.");
+            return Ok(());
+        }
+
+        let measured = players
+            .iter()
+            .filter(|player| player.latency > 0)
+            .collect::<Vec<_>>();
+        let ping_players = if measured.is_empty() {
+            players.iter().collect::<Vec<_>>()
+        } else {
+            measured
+        };
+        let total = ping_players
+            .iter()
+            .map(|player| player.latency as i64)
+            .sum::<i64>();
+        let average = total as f64 / ping_players.len() as f64;
+        let best = ping_players
+            .iter()
+            .min_by_key(|player| player.latency)
+            .expect("ping_players is not empty");
+        let worst = ping_players
+            .iter()
+            .max_by_key(|player| player.latency)
+            .expect("ping_players is not empty");
+
+        ctx.chat(format!(
+            " Average ping: {:.1}ms | Best: {}: {}ms | Worst: {}: {}ms",
+            average, best.username, best.latency, worst.username, worst.latency
+        ));
+        Ok(())
+    })
 }
 
 fn best_ping(ctx: CommandContext<'_>) -> CommandFuture<'_> {

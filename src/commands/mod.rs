@@ -154,6 +154,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::ACTIVE_COMMAND,
         stat_history::ADD_FAQ_COMMAND,
         stat_history::BLACKLIST_COMMAND,
+        stat_history::AVERAGE_PING_COMMAND,
         stat_history::BEST_PING_COMMAND,
         stat_history::CENSOR_COMMAND,
         stat_history::COORDS_COMMAND,
