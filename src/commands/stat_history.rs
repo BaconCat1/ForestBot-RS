@@ -26,6 +26,7 @@ const ACTIVE_CACHE_TTL_MS: u64 = 5 * 60 * 1000;
 const HISTORICAL_TOP_CACHE_TTL_MS: u64 = 15 * 60 * 1000;
 const ACTIVE_TOP_LIMIT: usize = 5;
 const ACTIVE_MSG_FETCH: usize = 100;
+const ADVANCEMENT_COUNT_FETCH_LIMIT: usize = 1000;
 const ACTIVE_CONCURRENCY: usize = 12;
 const TOP_LIMIT: usize = 5;
 const BACKFILL_CONCURRENCY: usize = 12;
@@ -147,6 +148,11 @@ command!(
 );
 command!(ACTIVE_COMMAND, &["active"], active);
 command!(ADD_FAQ_COMMAND, &["addfaq"], add_faq);
+command!(
+    ADVANCEMENT_COUNT_COMMAND,
+    &["advancement", "advancementcount"],
+    advancement_count
+);
 admin_command!(BLACKLIST_COMMAND, &["blacklist"], blacklist);
 command!(AVERAGE_PING_COMMAND, &["averageping", "ap"], average_ping);
 command!(BEST_PING_COMMAND, &["bp", "bestping"], best_ping);
@@ -571,6 +577,56 @@ fn death_or_kill(ctx: CommandContext<'_>, death: bool, first: bool) -> CommandFu
             " {}, {}",
             row.death_message,
             time::time_ago_str(row.time as u64)
+        ));
+        Ok(())
+    })
+}
+
+fn advancement_count(ctx: CommandContext<'_>) -> CommandFuture<'_> {
+    Box::pin(async move {
+        let search = ctx.args.join(" ").trim().to_owned();
+        if search.is_empty() {
+            whisper(&ctx, " Usage: !advancement <advancement>");
+            return Ok(());
+        }
+
+        whisper(
+            &ctx,
+            " Counting advancement matches, this may take a moment...",
+        );
+        let needle = search.to_ascii_lowercase();
+        let server = ctx.state.mc_server.clone();
+        let api = ctx.state.api.clone();
+        let usernames = all_known_usernames(&ctx).await;
+        let count = stream::iter(usernames)
+            .map(|username| {
+                let api = api.clone();
+                let server = server.clone();
+                let needle = needle.clone();
+                async move {
+                    let uuid = api.convert_username_to_uuid(&username).await?;
+                    let advancements = api
+                        .get_advancements(&uuid, &server, ADVANCEMENT_COUNT_FETCH_LIMIT, "DESC")
+                        .await
+                        .unwrap_or_default();
+                    Some(
+                        advancements
+                            .into_iter()
+                            .filter(|row| row.advancement.to_ascii_lowercase().contains(&needle))
+                            .count(),
+                    )
+                }
+            })
+            .buffer_unordered(BACKFILL_CONCURRENCY)
+            .fold(0usize, |total, count| async move {
+                total + count.unwrap_or_default()
+            })
+            .await;
+
+        ctx.chat(format!(
+            " Advancement \"{search}\" has been reached {count} time{} on {}.",
+            if count == 1 { "" } else { "s" },
+            ctx.state.mc_server
         ));
         Ok(())
     })
