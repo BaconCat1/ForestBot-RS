@@ -177,6 +177,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::SET_PRESET_COMMAND,
         stat_history::SHOUT_COMMAND,
         stat_history::SLEEP_COMMAND,
+        stat_history::SERVERS_COMMAND,
         stat_history::SURVIVED_COMMAND,
         stat_history::TWERK_COMMAND,
         stat_history::VICTIMS_COMMAND,
