@@ -1,4 +1,5 @@
 
+
 ## Todo 2 (jolly is bad at lists)
 🔎 = Feature/functionality missing that was present in ts forest
 
@@ -12,6 +13,7 @@
 
 **General**
 * 🔎 Movement commands, !mount, !sleep, and !drop are unimplemented. !twerk does run but it doesn't really match the ts behavior. The bot does dismount things it's riding so it is crouching, probably too fast to be visible when observed. Maybe replace with !crouch where it just does it once?
+* 🐛 **bug** !setpreset doesn't work in /msg
 * 🐛 **bug** !oldest and !newest show incorrect dates. !oldest also shows the oldest users ever, while it should only compare the join dates of who's online.
 * 🐛 **bug**(?) don't record redundant advancements (from the queue or ever) // THIS IS HARD
 	* If the bot can detect the queue and both record no data and also take no commands, I think that would be good enough. //Detecting this is the issue and why i said this is hard
