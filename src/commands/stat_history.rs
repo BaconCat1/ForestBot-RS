@@ -159,7 +159,6 @@ command!(AVERAGE_PING_COMMAND, &["averageping", "ap"], average_ping);
 command!(BEST_PING_COMMAND, &["bp", "bestping"], best_ping);
 admin_command!(CENSOR_COMMAND, &["censor"], censor);
 command!(COORDS_COMMAND, &["coords"], coords);
-command!(DROP_COMMAND, &["drop"], drop_items);
 command!(EDIT_FAQ_COMMAND, &["editfaq"], edit_faq);
 command!(EFFICIENCY_COMMAND, &["efficiency", "eff"], efficiency);
 admin_command!(EXECUTE_COMMAND, &["execute", "exec", "run"], execute);
@@ -1472,16 +1471,6 @@ fn coords(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 pos.y.floor() as i64,
                 pos.z.floor() as i64
             ),
-        );
-        Ok(())
-    })
-}
-
-fn drop_items(ctx: CommandContext<'_>) -> CommandFuture<'_> {
-    Box::pin(async move {
-        whisper(
-            &ctx,
-            " Drop is registered, but Azalea does not expose Mineflayer tossStack parity here yet.",
         );
         Ok(())
     })

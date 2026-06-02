@@ -3,6 +3,7 @@ use std::{future::Future, pin::Pin};
 use azalea::prelude::Client;
 
 pub mod discord;
+pub mod drop;
 pub mod help;
 pub mod joins;
 pub mod lastseen;
@@ -159,7 +160,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::BEST_PING_COMMAND,
         stat_history::CENSOR_COMMAND,
         stat_history::COORDS_COMMAND,
-        stat_history::DROP_COMMAND,
+        drop::COMMAND,
         stat_history::EDIT_FAQ_COMMAND,
         stat_history::EFFICIENCY_COMMAND,
         stat_history::EXECUTE_COMMAND,

@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.102"
 azalea = { git = "https://github.com/azalea-rs/azalea" }
+azalea-inventory = { git = "https://github.com/azalea-rs/azalea" }
 azalea-viaversion = { git = "https://github.com/azalea-rs/azalea-viaversion" }
 colored = "3.1.1"
 chrono = { version = "0.4.44", default-features = false, features = ["clock"] }
