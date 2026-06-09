@@ -12,7 +12,7 @@ const TRADE_REJECT_PENALTY_COOLDOWN: Duration = Duration::from_secs(600);
 // ===== !trade [confirm | reject | <player> <desc>] =====
 
 pub const TRADE_COMMAND: CommandDefinition = CommandDefinition {
-    names: &["trade"],
+    names: &["trade", "t"],
     whitelisted: false,
     execute: execute_trade,
 };
@@ -20,8 +20,8 @@ pub const TRADE_COMMAND: CommandDefinition = CommandDefinition {
 pub fn execute_trade(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         match ctx.args.first().copied() {
-            Some("confirm") => confirm_trade(&ctx).await,
-            Some("reject") => reject_trade(&ctx).await,
+            Some("confirm") | Some("c") => confirm_trade(&ctx).await,
+            Some("reject") | Some("r") => reject_trade(&ctx).await,
             _ => propose_trade(&ctx).await,
         }
     })

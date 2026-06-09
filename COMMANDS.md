@@ -104,9 +104,9 @@
 
 | Command | Description |
 |---|---|
-| `!trade <player> <description>` | Propose a trade; whispers the recipient |
-| `!trade confirm` | Confirm the pending trade addressed to you |
-| `!trade reject` | Reject a pending trade you're part of |
+| `!trade <player> <description>` / `!t <player> <description>` | Propose a trade; whispers the recipient |
+| `!trade confirm` / `!t c` | Confirm the pending trade addressed to you |
+| `!trade reject` / `!t r` | Reject a pending trade you're part of |
 | `!trades [player?]` | Show last 3 trades (whispered) |
 | `!tradestats [player?]` | Show trade statistics (whispered) |
 

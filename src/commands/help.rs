@@ -1,5 +1,5 @@
 pub const NAMES: &[&str] = &["help", "commands"];
-pub const RESPONSE: &str = "See all commands: https://github.com/BaconCat1/ForestBot-RS/blob/master/COMMANDS.md";
+pub const RESPONSE: &str = "See all commands: tiny.cc/forcoms";
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 
