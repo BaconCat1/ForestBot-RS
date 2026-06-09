@@ -201,6 +201,7 @@ impl Bot {
             player_command_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
+            trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
         };
 
         let mut builder = if self.options.disable_chat_signing {
@@ -257,6 +258,7 @@ pub struct AzaleaState {
     pub player_command_cooldowns: Arc<Mutex<HashMap<String, PlayerCommandCooldown>>>,
     pub seen_entity_spawns: Arc<RwLock<HashSet<String>>>,
     pub next_entity_spawn_scan_at: Arc<RwLock<i64>>,
+    pub trade_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -305,6 +307,7 @@ impl Default for AzaleaState {
             player_command_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
+            trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }

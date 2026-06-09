@@ -3,3 +3,7 @@
 /ForestBot
 /forestbot-wrapper-v2-master
 /Hub-master
+*.bat
+*.ps1
+CLAUDE.md
+config.json

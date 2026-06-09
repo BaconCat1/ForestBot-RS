@@ -432,6 +432,79 @@ impl ApiClient {
         .await
         .and_then(|value| self.parse_json("/edit-faq", value))
     }
+    pub async fn tradebot_get_trade(&self, trade_id: i64) -> Option<TradebotTrade> {
+        self.get_json(&format!("/tradebot/trade/{trade_id}"), &[])
+            .await
+            .and_then(|v| self.parse_json("/tradebot/trade", v))
+    }
+
+    pub async fn tradebot_create_trade(
+        &self,
+        initiator_id: &str,
+        recipient_id: &str,
+        description: &str,
+        server: &str,
+    ) -> Option<i64> {
+        self.post_json(
+            "/tradebot/trade",
+            json!({
+                "initiator_id": initiator_id,
+                "recipient_id": recipient_id,
+                "description": description,
+                "guild_id": server,
+                "channel_id": "minecraft",
+            }),
+        )
+        .await
+        .and_then(|v| v.get("id").and_then(Value::as_i64))
+    }
+
+    pub async fn tradebot_confirm_trade(&self, trade_id: i64) -> Result<(), String> {
+        match self
+            .post_json(&format!("/tradebot/trade/{trade_id}/confirm"), json!({}))
+            .await
+        {
+            Some(v) => match v.get("error").and_then(Value::as_str) {
+                Some(err) => Err(err.to_owned()),
+                None => Ok(()),
+            },
+            None => Err("request failed".to_owned()),
+        }
+    }
+
+    pub async fn tradebot_reject_trade(&self, trade_id: i64) -> Result<(), String> {
+        match self
+            .post_json(&format!("/tradebot/trade/{trade_id}/reject"), json!({}))
+            .await
+        {
+            Some(v) => match v.get("error").and_then(Value::as_str) {
+                Some(err) => Err(err.to_owned()),
+                None => Ok(()),
+            },
+            None => Err("request failed".to_owned()),
+        }
+    }
+
+    pub async fn tradebot_get_user_trades(&self, user_id: &str) -> Vec<TradebotTrade> {
+        self.get_json(&format!("/tradebot/user/{user_id}/trades"), &[])
+            .await
+            .and_then(|v| self.parse_json("/tradebot/user/trades", v))
+            .unwrap_or_default()
+    }
+
+    pub async fn tradebot_get_stats(&self, user_id: &str) -> Option<TradebotStatsResponse> {
+        self.get_json(&format!("/tradebot/user/{user_id}/trade-stats"), &[])
+            .await
+            .and_then(|v| self.parse_json("/tradebot/user/trade-stats", v))
+    }
+
+    pub async fn tradebot_is_scammer(&self, user_id: &str) -> bool {
+        self.get_json(&format!("/tradebot/user/{user_id}/scammer"), &[])
+            .await
+            .and_then(|v| v.get("scammer").cloned())
+            .map_or(false, |v| !v.is_null())
+    }
+
     #[allow(dead_code)]
     pub async fn with_websocket(&mut self) -> Result<Option<WebsocketClient>> {
         self.init_websocket().await?;
@@ -1133,6 +1206,40 @@ pub struct NewUserNameData {
     pub old_name: String,
     pub new_name: String,
     pub server: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TradebotTrade {
+    pub id: i64,
+    pub initiator_id: String,
+    pub recipient_id: String,
+    pub description: String,
+    pub status: String,
+    #[serde(default)]
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TradebotStats {
+    pub total_trades: i64,
+    pub confirmed_trades: i64,
+    pub rejected_trades: i64,
+    pub initiated_trades: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TradebotPartner {
+    pub partner_id: String,
+    pub trade_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TradebotStatsResponse {
+    pub stats: TradebotStats,
+    #[serde(default)]
+    pub partners: Vec<TradebotPartner>,
+    #[serde(rename = "scammerStatus")]
+    pub scammer_status: Option<Value>,
 }
 
 fn unwrap_data(value: Value) -> Value {
