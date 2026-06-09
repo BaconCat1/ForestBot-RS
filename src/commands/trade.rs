@@ -235,7 +235,7 @@ pub fn execute_trades(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             trades
                 .iter()
                 .rev()
-                .take(5)
+                .take(3)
                 .map(|t| {
                     let init_name = if t.initiator_id == target_uuid {
                         target.to_owned()
@@ -263,6 +263,7 @@ pub fn execute_trades(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 .collect()
         };
 
+        ctx.whisper(format!("Trades for {} ({} shown):", target, lines.len().min(3)));
         for line in &lines {
             ctx.whisper(line);
         }
