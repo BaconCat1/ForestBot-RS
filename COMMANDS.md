@@ -109,6 +109,7 @@
 | `!trade reject` / `!t r` | Reject a pending trade you're part of |
 | `!trades [player?]` | Show last 3 trades (whispered) |
 | `!tradestats [player?]` | Show trade statistics (whispered) |
+| `!link` | Generate a one-time code to link your Minecraft account to Discord via `/link` in Discord |
 
 Cooldowns: 60s to re-propose after a trade. If someone rejects your proposal, you're locked out for 10 minutes.
 

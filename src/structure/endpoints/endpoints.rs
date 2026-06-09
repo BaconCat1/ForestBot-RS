@@ -505,6 +505,19 @@ impl ApiClient {
             .map_or(false, |v| !v.is_null())
     }
 
+    pub async fn tradebot_request_link_code(&self, mc_uuid: &str, code: &str) -> bool {
+        match self
+            .post_json(
+                "/tradebot/link-code",
+                json!({ "mc_uuid": mc_uuid, "code": code }),
+            )
+            .await
+        {
+            Some(v) => v.get("success").and_then(|v| v.as_bool()).unwrap_or(false),
+            None => false,
+        }
+    }
+
     #[allow(dead_code)]
     pub async fn with_websocket(&mut self) -> Result<Option<WebsocketClient>> {
         self.init_websocket().await?;
