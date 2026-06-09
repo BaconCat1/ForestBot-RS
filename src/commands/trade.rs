@@ -262,7 +262,7 @@ pub fn execute_trades(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                         t.status,
                         init_name,
                         recv_name,
-                        truncate(&t.description, 30)
+                        truncate(&t.description, 190)
                     )
                 })
                 .collect()
