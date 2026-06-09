@@ -83,11 +83,11 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         },
     };
 
-    if ctx.state.api.tradebot_is_scammer(&sender_uuid).await {
-        ctx.whisper("Warning: You are marked as a scammer.");
+    if let Some(_s) = ctx.state.api.tradebot_get_scammer(&sender_uuid).await {
+        ctx.chat(format!("🚨 {} is a known scammer, proceed with caution 🚨", ctx.sender));
     }
-    if ctx.state.api.tradebot_is_scammer(&recipient_uuid).await {
-        ctx.whisper(format!("Warning: {recipient_name} is marked as a scammer."));
+    if let Some(_s) = ctx.state.api.tradebot_get_scammer(&recipient_uuid).await {
+        ctx.chat(format!("🚨 {recipient_name} is a known scammer, proceed with caution 🚨"));
     }
 
     let server = ctx.state.mc_server.clone();
@@ -223,6 +223,11 @@ pub fn execute_trades(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             },
         };
 
+        if let Some(_s) = ctx.state.api.tradebot_get_scammer(&target_uuid).await {
+            ctx.chat(format!("🚨 {target} is a known scammer, trade counts not reported 🚨"));
+            return Ok(());
+        }
+
         let trades = ctx.state.api.tradebot_get_user_trades(&target_uuid).await;
 
         if trades.is_empty() {
@@ -310,18 +315,22 @@ pub fn execute_tradestats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         let s = &data.stats;
         let scammer = data.scammer_status.as_ref().map_or(false, |v| !v.is_null());
-        let tag = if scammer { " [SCAMMER]" } else { "" };
+
+        if scammer {
+            ctx.chat(format!("🚨 {target} is a known scammer, trade counts not reported 🚨"));
+            return Ok(());
+        }
 
         if !full {
             ctx.chat(format!(
-                "{target}{tag} | {} confirmed, {} rejected trades",
+                "{target} | {} confirmed, {} rejected trades",
                 s.confirmed_trades, s.rejected_trades
             ));
             return Ok(());
         }
 
         ctx.whisper(format!(
-            "{target}{tag} | {} total, {} confirmed, {} rejected",
+            "{target} | {} total, {} confirmed, {} rejected",
             s.total_trades, s.confirmed_trades, s.rejected_trades
         ));
 

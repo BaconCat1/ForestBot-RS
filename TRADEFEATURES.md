@@ -6,21 +6,15 @@ Tradebot (Discord) is the reference implementation. This tracks what craftbot (M
 
 | Feature | Tradebot | Craftbot |
 |---|---|---|
-| `!report` command | `/report` — trade or user, reason choices | ❌ absent |
+| `!report` command | `/report` — trade or user, reason choices | ✅ done — `!report <player> [reason]`; posts to modlogs |
 | Warning display in tradestats | Shows warnings with count, reason, date | ❌ no warnings field in struct or display |
-| Scammer details | Shows reason + who marked + when | ⚠️ only `[SCAMMER]` tag |
-| `confirmed_at` in trade list | Shows relative timestamp | ❌ struct missing field |
+| Scammer details | Shows reason + who marked + when | ✅ done — public 🚨 warning on trade initiation; `!trades`/`!tradestats` return "trade counts not reported" |
+| `confirmed_at` in trade list | Shows relative timestamp | ✅ struct fixed — `confirmed_at: Option<i64>` added |
 
 ## Struct gaps to fix
 
-`TradebotTrade` in `endpoints.rs` is missing:
-- `confirmed_at: Option<i64>` (BIGINT unix ms)
-- `expires_at: Option<i64>`
-
 `TradebotStatsResponse` missing:
 - `warnings: Vec<TradebotWarning>` with `reason: String`, `created_at: i64`
-
-Scammer check currently returns `bool` — needs `Option<TradebotScammer>` with `reason`, `moderator_id`, `created_at` to show details.
 
 ## Minor display gaps
 
@@ -30,4 +24,6 @@ Scammer check currently returns `bool` — needs `Option<TradebotScammer>` with 
 ## Already working (no gap)
 
 - Hub broadcasts `trade_confirmed`/`trade_rejected` WebSocket events on craftbot-side confirms, tradebot's `listenForMcConfirms` catches them and posts to `#verified-trade` — pipeline intact
+- Hub broadcasts `report_created` WS event; tradebot `listenForMcReports` posts MC-origin reports to modlogs with action buttons
+- Hub broadcasts `scammer_marked`/`scammer_unmarked` WS events; craftbot announces in public chat
 - `!link` → `/link` account linking — both sides implemented

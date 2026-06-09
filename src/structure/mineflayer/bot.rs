@@ -956,10 +956,31 @@ fn spawn_websocket_event_task(state: AzaleaState) {
                 WebsocketEvent::InboundMinecraftChat(data) => {
                     handle_inbound_minecraft_chat(&state, data);
                 }
+                WebsocketEvent::ScammerMarked(data) => {
+                    let state_clone = state.clone();
+                    tokio::spawn(async move {
+                        let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
+                        enqueue_outbound_chat(
+                            &state_clone,
+                            format!("📢 {} has been marked as a scammer by trading mods, proceed with caution 📢", display_name),
+                        );
+                    });
+                }
+                WebsocketEvent::ScammerUnmarked(data) => {
+                    let state_clone = state.clone();
+                    tokio::spawn(async move {
+                        let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
+                        enqueue_outbound_chat(
+                            &state_clone,
+                            format!("📢 {} has had their scammer mark removed by trading mods 📢", display_name),
+                        );
+                    });
+                }
                 WebsocketEvent::UnknownMessage(message) => {
                     logger::warn(format!("Unknown websocket message: {message}"));
                 }
-                WebsocketEvent::MinecraftPlayerDeath(_)
+                WebsocketEvent::Ignored
+                | WebsocketEvent::MinecraftPlayerDeath(_)
                 | WebsocketEvent::MinecraftPlayerKill(_)
                 | WebsocketEvent::MinecraftPlayerJoin(_)
                 | WebsocketEvent::MinecraftPlayerLeave(_)
@@ -977,6 +998,18 @@ fn spawn_player_list_update_task(state: AzaleaState) {
             send_player_list_update(&state).await;
         }
     });
+}
+
+async fn resolve_scammer_display(state: &AzaleaState, user_id: &str) -> String {
+    if user_id.contains('-') {
+        state.api.tradebot_mc_username(user_id).await
+            .unwrap_or_else(|| user_id.to_owned())
+    } else if let Some(linked_uuid) = state.api.tradebot_linked_mc_uuid(user_id).await {
+        state.api.tradebot_mc_username(&linked_uuid).await
+            .unwrap_or(linked_uuid)
+    } else {
+        user_id.to_owned()
+    }
 }
 
 fn handle_inbound_discord_chat(state: &AzaleaState, data: DiscordChatMessage) {

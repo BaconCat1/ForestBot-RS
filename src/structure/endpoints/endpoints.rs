@@ -498,11 +498,32 @@ impl ApiClient {
             .and_then(|v| self.parse_json("/tradebot/user/trade-stats", v))
     }
 
-    pub async fn tradebot_is_scammer(&self, user_id: &str) -> bool {
-        self.get_json(&format!("/tradebot/user/{user_id}/scammer"), &[])
-            .await
-            .and_then(|v| v.get("scammer").cloned())
-            .map_or(false, |v| !v.is_null())
+    pub async fn tradebot_get_scammer(&self, user_id: &str) -> Option<TradebotScammer> {
+        let v = self.get_json(&format!("/tradebot/user/{user_id}/scammer"), &[]).await?;
+        let scammer = v.get("scammer")?.clone();
+        if scammer.is_null() { return None; }
+        self.parse_json("/tradebot/user/scammer", scammer)
+    }
+
+    pub async fn tradebot_report_user(
+        &self,
+        reporter_id: &str,
+        reported_user_id: &str,
+        reason: &str,
+        server: &str,
+    ) -> bool {
+        self.post_json(
+            "/tradebot/report",
+            json!({
+                "reporter_id": reporter_id,
+                "reported_user_id": reported_user_id,
+                "reason": "other",
+                "description": reason,
+                "guild_id": server,
+            }),
+        )
+        .await
+        .is_some()
     }
 
     pub async fn tradebot_mc_username(&self, uuid: &str) -> Option<String> {
@@ -1216,6 +1237,9 @@ pub enum WebsocketEvent {
     NewName(NewUserNameData),
     InboundDiscordChat(DiscordChatMessage),
     InboundMinecraftChat(MinecraftChatMessage),
+    ScammerMarked(ScammerMarkedData),
+    ScammerUnmarked(ScammerMarkedData),
+    Ignored,
     #[allow(dead_code)]
     MinecraftPlayerDeath(MinecraftPlayerDeathMessage),
     #[allow(dead_code)]
@@ -1226,6 +1250,13 @@ pub enum WebsocketEvent {
     MinecraftPlayerLeave(MinecraftPlayerLeaveMessage),
     #[allow(dead_code)]
     MinecraftAdvancement(MinecraftAdvancementMessage),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScammerMarkedData {
+    pub user_id: String,
+    pub reason: String,
+    pub guild_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1248,8 +1279,9 @@ pub struct TradebotTrade {
     pub recipient_id: String,
     pub description: String,
     pub status: String,
-    #[serde(default)]
-    pub created_at: String,
+    pub created_at: i64,
+    pub confirmed_at: Option<i64>,
+    pub expires_at: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1273,6 +1305,15 @@ pub struct TradebotStatsResponse {
     pub partners: Vec<TradebotPartner>,
     #[serde(rename = "scammerStatus")]
     pub scammer_status: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TradebotScammer {
+    pub reason: String,
+    #[serde(default)]
+    pub moderator_id: String,
+    #[serde(default)]
+    pub created_at: i64,
 }
 
 fn unwrap_data(value: Value) -> Value {
@@ -1331,6 +1372,13 @@ fn parse_inbound_message(text: &str) -> Option<WebsocketEvent> {
         "minecraft_advancement" => serde_json::from_value(value.data)
             .ok()
             .map(WebsocketEvent::MinecraftAdvancement),
+        "scammer_marked" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::ScammerMarked),
+        "scammer_unmarked" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::ScammerUnmarked),
+        "report_created" | "trade_confirmed" | "trade_rejected" => Some(WebsocketEvent::Ignored),
         "error" => Some(WebsocketEvent::Error(value.data.to_string())),
         _ => Some(WebsocketEvent::UnknownMessage(text.to_owned())),
     }

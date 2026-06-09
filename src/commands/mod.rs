@@ -6,6 +6,7 @@ pub mod discord;
 pub mod drop;
 pub mod help;
 pub mod link;
+pub mod report;
 pub mod trade;
 pub mod joins;
 pub mod lastseen;
@@ -189,6 +190,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::WORD_WHITELIST_COMMAND,
         stat_history::WORST_PING_COMMAND,
         link::LINK_COMMAND,
+        report::REPORT_COMMAND,
         trade::TRADE_COMMAND,
         trade::TRADES_COMMAND,
         trade::TRADESTATS_COMMAND,
