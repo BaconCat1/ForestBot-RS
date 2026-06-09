@@ -202,6 +202,7 @@ impl Bot {
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
             trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            initial_spawn_done: Arc::new(AtomicBool::new(false)),
         };
 
         let mut builder = if self.options.disable_chat_signing {
@@ -259,6 +260,7 @@ pub struct AzaleaState {
     pub seen_entity_spawns: Arc<RwLock<HashSet<String>>>,
     pub next_entity_spawn_scan_at: Arc<RwLock<i64>>,
     pub trade_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
+    pub initial_spawn_done: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -308,6 +310,7 @@ impl Default for AzaleaState {
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
             trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            initial_spawn_done: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -336,6 +339,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 return Ok(());
             }
             logger::success(format!("Spawned on {}.", state.mc_server));
+            state.initial_spawn_done.store(true, Ordering::Relaxed);
             if mark_background_tasks_started(&state) {
                 spawn_websocket_event_task(state.clone());
                 spawn_player_list_update_task(state.clone());
@@ -413,9 +417,11 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                         latency,
                     },
                 );
-            send_player_join(&state, &username, &uuid).await;
             send_player_list_update(&state).await;
             deliver_offline_messages(&state, &username).await;
+            if state.initial_spawn_done.load(Ordering::Relaxed) {
+                send_player_join(&state, &username, &uuid).await;
+            }
         }
         Event::UpdatePlayer(player) => {
             if event_disabled(&state, &["updatePlayer"]) {
@@ -455,6 +461,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 return Ok(());
             }
             logger::warn(format!("Disconnected: {reason:?}"));
+            state.initial_spawn_done.store(false, Ordering::Relaxed);
             send_session_flush_leave(&state).await;
         }
         Event::ConnectionFailed(error) => {
