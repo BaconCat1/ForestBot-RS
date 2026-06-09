@@ -282,7 +282,11 @@ pub const TRADESTATS_COMMAND: CommandDefinition = CommandDefinition {
 
 pub fn execute_tradestats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let target = ctx.args.first().copied().unwrap_or(ctx.sender);
+        let full = ctx.args.iter().any(|a| a.eq_ignore_ascii_case("full"));
+        let target = ctx.args.iter()
+            .copied()
+            .find(|a| !a.eq_ignore_ascii_case("full"))
+            .unwrap_or(ctx.sender);
 
         let target_uuid = {
             let players = ctx.state.players.read().expect("player cache lock poisoned");
@@ -308,22 +312,54 @@ pub fn execute_tradestats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let scammer = data.scammer_status.as_ref().map_or(false, |v| !v.is_null());
         let tag = if scammer { " [SCAMMER]" } else { "" };
 
+        if !full {
+            ctx.chat(format!(
+                "{target}{tag} | {} confirmed, {} rejected trades",
+                s.confirmed_trades, s.rejected_trades
+            ));
+            return Ok(());
+        }
+
         ctx.whisper(format!(
             "{target}{tag} | {} total, {} confirmed, {} rejected",
             s.total_trades, s.confirmed_trades, s.rejected_trades
         ));
 
         if !data.partners.is_empty() {
-            let players = ctx.state.players.read().expect("player cache lock poisoned");
-            let names: Vec<String> = data
-                .partners
-                .iter()
-                .map(|p| {
-                    uuid_to_name(&p.partner_id, &players)
-                        .map(|s| s.to_owned())
-                        .unwrap_or_else(|| p.partner_id.chars().take(8).collect())
-                })
-                .collect();
+            let mut names = Vec::new();
+            for p in &data.partners {
+                let name = if p.partner_id.chars().all(|c| c.is_ascii_digit()) {
+                    // Discord ID — try to resolve via linked MC account
+                    if let Some(mc_uuid) = ctx.state.api.tradebot_linked_mc_uuid(&p.partner_id).await {
+                        let online = {
+                            let players = ctx.state.players.read().expect("player cache lock poisoned");
+                            uuid_to_name(&mc_uuid, &players).map(str::to_owned)
+                        };
+                        if let Some(n) = online {
+                            n
+                        } else {
+                            ctx.state.api.tradebot_mc_username(&mc_uuid).await
+                                .unwrap_or_else(|| format!("@{}", p.partner_id))
+                        }
+                    } else {
+                        ctx.state.api.tradebot_discord_username(&p.partner_id).await
+                            .map(|name| format!("@{name}"))
+                            .unwrap_or_else(|| format!("@{}", p.partner_id))
+                    }
+                } else {
+                    let online = {
+                        let players = ctx.state.players.read().expect("player cache lock poisoned");
+                        uuid_to_name(&p.partner_id, &players).map(str::to_owned)
+                    };
+                    if let Some(n) = online {
+                        n
+                    } else {
+                        ctx.state.api.tradebot_mc_username(&p.partner_id).await
+                            .unwrap_or_else(|| p.partner_id.chars().take(8).collect())
+                    }
+                };
+                names.push(name);
+            }
             ctx.whisper(format!("Top partners: {}", names.join(", ")));
         }
 

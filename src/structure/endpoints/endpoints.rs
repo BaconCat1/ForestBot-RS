@@ -505,6 +505,26 @@ impl ApiClient {
             .map_or(false, |v| !v.is_null())
     }
 
+    pub async fn tradebot_mc_username(&self, uuid: &str) -> Option<String> {
+        self.get_json(&format!("/tradebot/mc-username/{uuid}"), &[])
+            .await
+            .and_then(|v| v.get("username").and_then(|u| u.as_str()).map(str::to_owned))
+    }
+
+    pub async fn tradebot_discord_username(&self, user_id: &str) -> Option<String> {
+        self.get_json(&format!("/tradebot/discord-username/{user_id}"), &[])
+            .await
+            .and_then(|v| v.get("username").and_then(|u| u.as_str()).map(str::to_owned))
+    }
+
+    pub async fn tradebot_linked_mc_uuid(&self, discord_id: &str) -> Option<String> {
+        self.get_json(&format!("/tradebot/link/{discord_id}"), &[])
+            .await
+            .and_then(|v| {
+                v.get("link")?.get("mc_uuid")?.as_str().map(str::to_owned)
+            })
+    }
+
     pub async fn tradebot_request_link_code(&self, mc_uuid: &str, code: &str) -> bool {
         match self
             .post_json(
