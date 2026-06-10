@@ -332,6 +332,10 @@ impl ApiClient {
     pub async fn get_leaderboards(&self, server: &str) -> Option<Value> {
         self.get_json("/leaderboards", &[("server", server)]).await
     }
+
+    pub async fn get_trade_leaderboard(&self) -> Option<Value> {
+        self.get_json("/tradebot/leaderboard", &[]).await
+    }
     #[allow(dead_code)]
     pub async fn get_hourly_player_activity(
         &self,
