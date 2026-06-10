@@ -546,6 +546,13 @@ impl ApiClient {
             })
     }
 
+    pub async fn tradebot_unlink(&self, mc_uuid: &str) -> bool {
+        self.delete_json(&format!("/tradebot/link/{mc_uuid}"))
+            .await
+            .and_then(|v| v.get("success")?.as_bool())
+            .unwrap_or(false)
+    }
+
     pub async fn tradebot_request_link_code(&self, mc_uuid: &str, code: &str) -> bool {
         match self
             .post_json(
@@ -614,6 +621,32 @@ impl ApiClient {
                     None
                 }
             },
+            Err(error) => {
+                self.log_error(error);
+                None
+            }
+        }
+    }
+
+    async fn delete_json(&self, path: &str) -> Option<Value> {
+        let url = format!("{}{}", self.base_url(), path);
+        let response = self.client.delete(url).send().await;
+        match response {
+            Ok(response) => {
+                let status = response.status();
+                let url = response.url().to_string();
+                let value = match response.text().await {
+                    Ok(body) => self.parse_response_body("DELETE", path, &url, status, &body),
+                    Err(error) => {
+                        self.log_error(format!("DELETE {path} failed reading body: {error}"));
+                        None
+                    }
+                };
+                if status.is_success() { value } else {
+                    self.log_error(anyhow!("DELETE {path} failed with status {status}"));
+                    value
+                }
+            }
             Err(error) => {
                 self.log_error(error);
                 None

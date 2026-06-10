@@ -190,6 +190,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::WORD_WHITELIST_COMMAND,
         stat_history::WORST_PING_COMMAND,
         link::LINK_COMMAND,
+        link::UNLINK_COMMAND,
         report::REPORT_COMMAND,
         trade::TRADE_COMMAND,
         trade::TRADES_COMMAND,

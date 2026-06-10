@@ -4,6 +4,44 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::mineflayer::bot::PlayerSnapshot;
 
+pub const UNLINK_COMMAND: CommandDefinition = CommandDefinition {
+    names: &["unlink"],
+    whitelisted: false,
+    execute: execute_unlink,
+};
+
+pub fn execute_unlink(ctx: CommandContext<'_>) -> CommandFuture<'_> {
+    Box::pin(async move {
+        if !ctx.args.first().map(|s| s.eq_ignore_ascii_case("UNLINK")).unwrap_or(false) {
+            ctx.whisper("Type !unlink UNLINK to confirm removing your Discord account link.");
+            return Ok(());
+        }
+
+        let sender_uuid = {
+            let players = ctx.state.players.read().expect("player cache lock poisoned");
+            resolve_uuid(ctx.sender, &players)
+        };
+        let sender_uuid = match sender_uuid {
+            Some(u) => u,
+            None => match ctx.state.api.convert_username_to_uuid(ctx.sender).await {
+                Some(u) => u,
+                None => {
+                    ctx.whisper("Could not resolve your UUID.");
+                    return Ok(());
+                }
+            },
+        };
+
+        if ctx.state.api.tradebot_unlink(&sender_uuid).await {
+            ctx.whisper("Your Discord account has been unlinked.");
+        } else {
+            ctx.whisper("No linked Discord account found.");
+        }
+
+        Ok(())
+    })
+}
+
 pub const LINK_COMMAND: CommandDefinition = CommandDefinition {
     names: &["link"],
     whitelisted: false,
