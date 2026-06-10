@@ -790,7 +790,7 @@ fn parse_top_server(ctx: &CommandContext<'_>) -> Result<String, String> {
     };
     let server = server.to_lowercase();
     if server == "all" {
-        return Err(" !top all is not available without hub-side aggregate support.".to_owned());
+        return Ok("all".to_owned());
     }
     if !crate::constants::quote_servers::is_quote_server(&server) {
         return Err(format!(
