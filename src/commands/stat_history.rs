@@ -778,6 +778,7 @@ fn top(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "messages" => top_messages(&ctx, &server).await,
             "advancements" => top_advancements(&ctx, &server).await,
             "trades" => top_trades(&ctx, &server).await,
+            "rejects" => top_rejects(&ctx).await,
             _ => Ok(()),
         }
     })
@@ -926,6 +927,32 @@ async fn top_trades(ctx: &CommandContext<'_>, _server: &str) -> anyhow::Result<(
         whisper(ctx, "No trade data yet.");
     } else {
         send_top_rows(ctx, "TOP TRADES", &rows);
+    }
+    Ok(())
+}
+
+async fn top_rejects(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
+    let Some(value) = ctx.state.api.get_trade_leaderboard().await else {
+        whisper(ctx, "Api error");
+        return Ok(());
+    };
+    let rows: Vec<_> = value
+        .get("rejects")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|row| {
+                    let username = row.get("player_name")?.as_str()?.to_owned();
+                    let value = row.get("reject_count").and_then(number_from_value)?;
+                    Some(TopRow { username, value })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if rows.is_empty() {
+        whisper(ctx, "No reject data yet.");
+    } else {
+        send_top_rows(ctx, "TOP REJECTS", &rows);
     }
     Ok(())
 }
