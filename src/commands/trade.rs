@@ -389,6 +389,71 @@ fn uuid_to_name<'a>(uuid: &str, players: &'a HashMap<String, PlayerSnapshot>) ->
         .map(|p| p.username.as_str())
 }
 
+// ===== !scammers =====
+
+pub const SCAMMERS_COMMAND: CommandDefinition = CommandDefinition {
+    names: &["scammers"],
+    whitelisted: false,
+    execute: execute_scammers,
+};
+
+pub fn execute_scammers(ctx: CommandContext<'_>) -> CommandFuture<'_> {
+    Box::pin(async move {
+        let Some(data) = ctx.state.api.get_scammers().await else {
+            ctx.whisper("Api error");
+            return Ok(());
+        };
+
+        let scammers = match data.get("scammers").and_then(|v| v.as_array()) {
+            Some(s) if !s.is_empty() => s.clone(),
+            _ => {
+                ctx.whisper("No scammers on record.");
+                return Ok(());
+            }
+        };
+
+        let mut online: Vec<String> = Vec::new();
+        let mut offline: Vec<String> = Vec::new();
+
+        for scammer in &scammers {
+            let Some(user_id) = scammer.get("user_id").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            let player_name = scammer
+                .get("player_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or(user_id)
+                .to_owned();
+
+            let is_online = if user_id.chars().all(|c| c.is_ascii_digit()) {
+                match ctx.state.api.tradebot_linked_mc_uuid(user_id).await {
+                    Some(mc_uuid) => {
+                        let players = ctx.state.players.read().expect("player cache lock poisoned");
+                        uuid_to_name(&mc_uuid, &players).is_some()
+                    }
+                    None => false,
+                }
+            } else {
+                let players = ctx.state.players.read().expect("player cache lock poisoned");
+                uuid_to_name(user_id, &players).is_some()
+            };
+
+            if is_online {
+                online.push(format!("{player_name} (online)"));
+            } else {
+                offline.push(player_name);
+            }
+        }
+
+        let mut result = online;
+        let remaining = 5usize.saturating_sub(result.len());
+        result.extend(offline.into_iter().take(remaining));
+
+        ctx.chat(format!(" [SCAMMERS]: {}", result.join(", ")));
+        Ok(())
+    })
+}
+
 fn truncate(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         s.to_owned()

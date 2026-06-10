@@ -195,6 +195,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         trade::TRADE_COMMAND,
         trade::TRADES_COMMAND,
         trade::TRADESTATS_COMMAND,
+        trade::SCAMMERS_COMMAND,
     ]
 }
 

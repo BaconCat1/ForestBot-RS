@@ -49,7 +49,7 @@
 
 | Command | Description |
 |---|---|
-| `!top <stat>` | Top 5 players — stats: `kills`, `deaths`, `joins`, `playtime`, `advancements`, `messages` |
+| `!top <stat>` | Top players — stats: `kills`, `deaths`, `joins`, `playtime`, `advancements`, `messages`, `trades`, `rejects` |
 | `!oldest` / `!oldheads` | Oldest users on the server |
 | `!noobs` / `!newest` | Newest users on the server |
 | `!efficiency` / `!eff <player> <stat>` | Rate of a stat per time period |
@@ -111,6 +111,8 @@
 | `!tradestats [player?]` | Show confirmed/rejected count in public chat |
 | `!tradestats full [player?]` | Full trade statistics (whispered) |
 | `!link` | Generate a one-time code to link your Minecraft account to Discord via `/link` in Discord |
+| `!unlink` | Remove your Discord account link (`!unlink UNLINK` to confirm) |
+| `!scammers` | List up to 5 known scammers — online players first (`name (online)`), then most recently marked |
 
 Cooldowns: 60s to re-propose after a trade. If someone rejects your proposal, you're locked out for 10 minutes.
 
