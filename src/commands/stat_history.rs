@@ -731,12 +731,21 @@ fn noobs(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn sorted_unique_users(ctx: CommandContext<'_>, oldest: bool) -> CommandFuture<'_> {
     Box::pin(async move {
+        let online: std::collections::HashSet<String> = {
+            let players = ctx.state.players.read().expect("player cache lock poisoned");
+            players.keys().map(|k| k.to_lowercase()).collect()
+        };
         let mut users = ctx
             .state
             .api
             .get_unique_users(&ctx.state.mc_server)
             .await
             .unwrap_or_default();
+        users.retain(|user| online.contains(&user.username.to_lowercase()));
+        if users.is_empty() {
+            ctx.whisper("No online players found in database.");
+            return Ok(());
+        }
         users.sort_by_key(|user| user.joindate.parse::<u64>().unwrap_or_default());
         if !oldest {
             users.reverse();
@@ -753,7 +762,7 @@ fn sorted_unique_users(ctx: CommandContext<'_>, oldest: bool) -> CommandFuture<'
                 )
             })
             .collect::<Vec<_>>();
-        ctx.chat(format!(" The 3 {label} users are: {}", rows.join(", ")));
+        ctx.chat(format!(" The 3 {label} online players are: {}", rows.join(", ")));
         Ok(())
     })
 }
