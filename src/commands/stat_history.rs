@@ -1,6 +1,6 @@
 use crate::{
     commands::{
-        CommandContext, CommandDefinition, CommandFuture,
+        CommandContext, CommandDefinition, CommandFuture, enqueue_chat,
         utils::stats_target::{
             StatsTargetError, format_server_label, format_server_scope_hint,
             parse_stats_target_args, parse_stats_target_or_reply,
@@ -1994,7 +1994,7 @@ fn set_preset(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let Some(preset) = ctx.args.first() else {
             return Ok(());
         };
-        ctx.chat(format!("/nc preset {preset}"));
+        enqueue_chat(&ctx.state, format!("/nc preset {preset}"));
         ctx.chat(format!(" Set the preset {preset} successfully!"));
         Ok(())
     })
@@ -2102,12 +2102,31 @@ fn servers(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         }
 
-        ctx.chat(format!(
-            " I have data for {search} on {} server{}: {}",
+        const CHAT_LIMIT: usize = 250;
+        let header = format!(
+            " I have data for {search} on {} server{}: ",
             servers.len(),
             if servers.len() == 1 { "" } else { "s" },
-            servers.join(", ")
-        ));
+        );
+        let mut current = header;
+        let mut first = true;
+        for (i, server) in servers.iter().enumerate() {
+            let part = if i + 1 < servers.len() {
+                format!("{server}, ")
+            } else {
+                server.clone()
+            };
+            if !first && current.len() + part.len() > CHAT_LIMIT {
+                ctx.chat(&current);
+                current = format!(" (cont.): {part}");
+            } else {
+                current.push_str(&part);
+            }
+            first = false;
+        }
+        if !current.is_empty() {
+            ctx.chat(&current);
+        }
         Ok(())
     })
 }
