@@ -7,6 +7,7 @@
 | `!help` / `!commands` | Links here |
 | `!alias <command>` | Show aliases for a command |
 | `!hardware` / `!hw` | Show OS and hardware info |
+| `!health` | Show bot health, hunger, armor, and active effects |
 | `!discord` | Discord server invite link |
 | `!ping <player?>` | Show a player's ping |
 | `!ap` / `!averageping` | Average server ping |

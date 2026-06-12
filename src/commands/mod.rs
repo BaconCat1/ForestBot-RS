@@ -7,6 +7,7 @@ pub mod crouch;
 pub mod discord;
 pub mod drop;
 pub mod hardware;
+pub mod health;
 pub mod help;
 pub mod link;
 pub mod report;
@@ -131,6 +132,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         alias::COMMAND,
         crouch::COMMAND,
         hardware::COMMAND,
+        health::COMMAND,
         discord::COMMAND,
         reload::COMMAND,
         lastseen::COMMAND,
