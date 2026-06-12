@@ -20,8 +20,10 @@ use serde_json::json;
 use std::collections::{HashMap, HashSet};
 use std::sync::{
     Mutex, OnceLock,
-    atomic::{AtomicU64, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
 };
+
+pub static BOT_SLEEPING: AtomicBool = AtomicBool::new(false);
 
 const ACTIVE_CACHE_TTL_MS: u64 = 5 * 60 * 1000;
 const HISTORICAL_TOP_CACHE_TTL_MS: u64 = 15 * 60 * 1000;
@@ -2344,7 +2346,53 @@ fn shout(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn sleep(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        ctx.chat(" I couldn't find a bed :(");
+        use azalea::block::BlockStates;
+        use azalea::core::direction::Direction;
+        use azalea::core::position::Vec3;
+        use azalea::protocol::packets::game::s_interact::InteractionHand;
+        use azalea::protocol::packets::game::s_player_command::{
+            Action, ServerboundPlayerCommand,
+        };
+        use azalea::protocol::packets::game::s_use_item_on::{BlockHit, ServerboundUseItemOn};
+        use azalea::registry::tags::blocks;
+
+        if BOT_SLEEPING.load(Ordering::Relaxed) {
+            ctx.bot.write_packet(ServerboundPlayerCommand {
+                id: ctx.bot.minecraft_id(),
+                action: Action::StopSleeping,
+                data: 0,
+            });
+            BOT_SLEEPING.store(false, Ordering::Relaxed);
+            ctx.whisper(" Good morning!");
+            return Ok(());
+        }
+
+        let bed_states = BlockStates::from(&blocks::BEDS);
+        let bed_pos = ctx.bot.world().read().find_block(ctx.bot.position(), &bed_states);
+
+        let Some(bed_pos) = bed_pos else {
+            ctx.whisper(" I couldn't find a bed :(");
+            return Ok(());
+        };
+
+        ctx.bot.write_packet(ServerboundUseItemOn {
+            hand: InteractionHand::MainHand,
+            block_hit: BlockHit {
+                block_pos: bed_pos,
+                direction: Direction::Up,
+                location: Vec3 {
+                    x: bed_pos.x as f64 + 0.5,
+                    y: bed_pos.y as f64 + 0.5,
+                    z: bed_pos.z as f64 + 0.5,
+                },
+                inside: false,
+                world_border: false,
+            },
+            seq: 0,
+        });
+        BOT_SLEEPING.store(true, Ordering::Relaxed);
+
+        ctx.whisper(" goodnight zzz");
         Ok(())
     })
 }
@@ -2470,6 +2518,18 @@ fn survived(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn twerk(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
+        use azalea::protocol::packets::game::s_player_command::{Action, ServerboundPlayerCommand};
+
+        if BOT_SLEEPING.load(Ordering::Relaxed) {
+            ctx.bot.write_packet(ServerboundPlayerCommand {
+                id: ctx.bot.minecraft_id(),
+                action: Action::StopSleeping,
+                data: 0,
+            });
+            BOT_SLEEPING.store(false, Ordering::Relaxed);
+            tokio::time::sleep(time::Duration::from_millis(100)).await;
+        }
+
         let bot = ctx.bot.clone();
         tokio::spawn(async move {
             let end = now_millis().saturating_add(10_000);

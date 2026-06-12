@@ -16,6 +16,18 @@ static HOLD_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
+        use azalea::protocol::packets::game::s_player_command::{Action, ServerboundPlayerCommand};
+
+        if crate::commands::stat_history::BOT_SLEEPING.load(std::sync::atomic::Ordering::Relaxed) {
+            ctx.bot.write_packet(ServerboundPlayerCommand {
+                id: ctx.bot.minecraft_id(),
+                action: Action::StopSleeping,
+                data: 0,
+            });
+            crate::commands::stat_history::BOT_SLEEPING.store(false, std::sync::atomic::Ordering::Relaxed);
+            return Ok(());
+        }
+
         let is_hold = ctx.args.first().is_some_and(|a| a.eq_ignore_ascii_case("hold"));
 
         if HOLD_ACTIVE.load(Ordering::Relaxed) {

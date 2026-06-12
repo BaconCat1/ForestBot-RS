@@ -24,7 +24,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~`drop`: TypeScript drops the held item or every inventory item via Mineflayer `tossStack`; Rust currently only replies that Azalea inventory-drop parity is not wired.~~
 * ✅ ~~`mount` / `ride` / `mush`: TypeScript finds the nearest mountable entity or vehicle, applies cooldowns, and mounts it; Rust currently only replies that mounting is not wired.~~ // `nearest_entities_by` + `EntityRef::interact()` implemented; Azalea has a TODO for full riding state tracking so mount success cannot be confirmed, but the interact packet is sent
   * 🆕 Add `logger::move_log` category to `logger.rs` once movement commands are implemented
-* 🔎 `sleep`: TypeScript finds and activates a bed; Rust currently only replies that sleeping is not wired.
+* ✅ ~~`sleep`: TypeScript finds and activates a bed; Rust currently only replies that sleeping is not wired.~~ // `find_block` + `ServerboundUseItemOn`; toggle via `BOT_SLEEPING` static; `!sleep`/`!crouch`/`!twerk` all send `StopSleeping` when in bed
 * ✅ ~~`twerk` / `bootyshake` / `booty` / `dance`: TypeScript toggles sneak for 10 seconds; Rust command is registered but still needs equivalent Azalea control-state behavior verified.~~ // timing matches TS (100ms interval, 10s duration)
 * ✅ ~~`realname`: display_name: Option<String> added to PlayerSnapshot, populated from PlayerInfo.display_name (FormattedText→plain string) on AddPlayer/UpdatePlayer; !realname resolves display name → real username~~
 * ✅ `febzey`: ~~Rust has equivalent last-seen-style behavior, but it is not byte-for-byte identical to the TypeScript command text.~~
@@ -69,7 +69,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 # `todo2.md` (jolly is bad at lists)
 
 ## General
-* 🔎 Movement commands, !sleep, and !drop are unimplemented. ~~!mount~~ ✅
+* 🔎 Movement commands, !sleep, and ~~!drop~~ are unimplemented. ~~!mount~~ ✅
 	* ✅ ~~!twerk does run but it doesn't really match the ts behavior. The bot does dismount things it's riding so it is crouching, probably too fast to be visible when observed. Maybe replace with !crouch where it just does it once?~~
 * 🐛 ~~**bug** !setpreset doesn't work in /msg~~
 	* *Should be working, needs to be tested in prod to confirm, pending hw migration*
@@ -94,6 +94,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~**bug**: fix discord bug(?) where blacklisted people's messages don't get sent to discord~~
 * ❌ ~~**bug**: fix discord bug where it fails to show /playtimegraph for a user without a join date~~ // OUT OF SCOPE
 * 🆕 pivot from ashcon api to crafty api for username history lookups
+* 🆕 need some kind of alert system in discord for bad behavior that requires manual intervention
 
 
 ## !quote
@@ -110,8 +111,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!crouch — single press/release; !crouch hold crouches for up to 10min, whispers instructions, !crouch releases~~
 * 🆕 !slurcount, checks a user's message history for slurs and presents a total. Should not count messages that were commands (ie, a player checking another's word count for a slur shouldn't be counted against them)
 * 🆕 !health, display bot's health, hunger, armor stats
-
-
+* 🆕 !askgod, logically translate TempleOS's talk to god stuff lol
+	* God's messages are based on source texts, you can ask different gods (ie: `!askgod buddha`) by using different source texts!
 
 ---
 
