@@ -419,6 +419,15 @@ impl ApiClient {
         })
     }
 
+    pub async fn delete_faq(&self, id: i64, username: &str) -> Option<DeleteFaqResult> {
+        self.post_json(
+            "/delete-faq",
+            json!({ "id": id, "username": username }),
+        )
+        .await
+        .and_then(|value| self.parse_json("/delete-faq", value))
+    }
+
     pub async fn edit_faq(
         &self,
         id: i64,
@@ -1242,6 +1251,14 @@ pub struct PostFaqResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EditFaqResult {
+    #[serde(default = "default_true")]
+    pub success: bool,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteFaqResult {
     #[serde(default = "default_true")]
     pub success: bool,
     #[serde(default)]

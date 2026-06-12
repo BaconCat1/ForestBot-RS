@@ -14,6 +14,7 @@ use azalea_viaversion::ViaVersionPlugin;
 use serde_json::json;
 use uuid::Uuid;
 
+use crate::commands::stat_history;
 use crate::config::{
     AppState, BotConfig, CommandCooldownConfig, load_offline_messages, load_word_list,
     save_offline_messages,
@@ -453,6 +454,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 .write()
                 .expect("player cache lock poisoned")
                 .remove(&username);
+            stat_history::clear_delete_faq_pending(&username);
             send_player_leave(&state, &username, &uuid).await;
             send_player_list_update(&state).await;
         }

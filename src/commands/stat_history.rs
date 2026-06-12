@@ -150,6 +150,11 @@ command!(
 command!(ACTIVE_COMMAND, &["active"], active);
 command!(ADD_FAQ_COMMAND, &["addfaq"], add_faq);
 command!(
+    DELETE_FAQ_COMMAND,
+    &["delfaq", "deletefaq"],
+    delete_faq
+);
+command!(
     ADVANCEMENT_COUNT_COMMAND,
     &["advancement", "advancementcount"],
     advancement_count
@@ -1421,6 +1426,74 @@ fn add_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 &ctx,
                 &format!(" Your FAQ has been added. Your entry ID is {}.", data.id),
             );
+        }
+        Ok(())
+    })
+}
+
+static DELETE_FAQ_PENDING: OnceLock<Mutex<HashMap<String, i64>>> = OnceLock::new();
+
+pub fn clear_delete_faq_pending(username: &str) {
+    if let Some(pending) = DELETE_FAQ_PENDING.get() {
+        pending
+            .lock()
+            .expect("delete faq pending lock poisoned")
+            .remove(username);
+    }
+}
+
+fn delete_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
+    Box::pin(async move {
+        let pending = DELETE_FAQ_PENDING.get_or_init(|| Mutex::new(HashMap::new()));
+        match ctx.args.first().copied() {
+            Some("confirm") => {
+                let id = {
+                    let map = pending.lock().expect("delete faq pending lock poisoned");
+                    map.get(ctx.sender).copied()
+                };
+                let Some(id) = id else {
+                    whisper(&ctx, " No pending deletion. Run !delfaq <id> first.");
+                    return Ok(());
+                };
+                let Some(data) = ctx.state.api.delete_faq(id, ctx.sender).await else {
+                    whisper(&ctx, " An error occurred while deleting the FAQ.");
+                    return Ok(());
+                };
+                pending
+                    .lock()
+                    .expect("delete faq pending lock poisoned")
+                    .remove(ctx.sender);
+                if let Some(error) = data.error {
+                    whisper(&ctx, &format!(" {error}"));
+                } else {
+                    whisper(&ctx, &format!(" FAQ #{id} has been deleted."));
+                }
+            }
+            Some(id_raw) => {
+                let Ok(id) = id_raw.parse::<i64>() else {
+                    whisper(&ctx, " Usage: !delfaq <id> | !delfaq confirm");
+                    return Ok(());
+                };
+                let Some(faq) = ctx.state.api.get_faq(Some(&id.to_string()), None).await else {
+                    whisper(&ctx, " FAQ not found.");
+                    return Ok(());
+                };
+                if faq.username != ctx.sender {
+                    whisper(&ctx, " You do not own this FAQ.");
+                    return Ok(());
+                }
+                pending
+                    .lock()
+                    .expect("delete faq pending lock poisoned")
+                    .insert(ctx.sender.to_owned(), id);
+                whisper(
+                    &ctx,
+                    &format!(" Run !delfaq confirm to delete FAQ #{id}."),
+                );
+            }
+            None => {
+                whisper(&ctx, " Usage: !delfaq <id> | !delfaq confirm");
+            }
         }
         Ok(())
     })
