@@ -339,7 +339,7 @@ fn wordcount(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let data = ctx
             .state
             .api
-            .get_word_occurrence(search, &server, word)
+            .get_word_occurrence(search, &server, word, false)
             .await;
         let Some(data) = data else {
             let hint = if has_server_arg {

@@ -19,6 +19,7 @@ pub mod ping;
 pub mod playtime;
 pub mod quote;
 pub mod reload;
+pub mod slurcount;
 pub mod stat_history;
 pub mod utils;
 
@@ -133,6 +134,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         crouch::COMMAND,
         hardware::COMMAND,
         health::COMMAND,
+        slurcount::COMMAND,
         discord::COMMAND,
         reload::COMMAND,
         lastseen::COMMAND,

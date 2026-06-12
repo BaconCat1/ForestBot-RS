@@ -238,10 +238,16 @@ impl ApiClient {
         username: &str,
         server: &str,
         word: &str,
+        exclude_commands: bool,
     ) -> Option<WordOccurrence> {
         self.get_json(
             "/wordcount",
-            &[("username", username), ("server", server), ("word", word)],
+            &[
+                ("username", username),
+                ("server", server),
+                ("word", word),
+                ("exclude_commands", if exclude_commands { "true" } else { "false" }),
+            ],
         )
         .await
         .and_then(|value| self.parse_json("/wordcount", value))

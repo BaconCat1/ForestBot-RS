@@ -105,6 +105,7 @@
 | `!shout <message>` | Broadcast to all connected servers (not enabled) |
 | `!nickname <name>` | Change bot's in-game nickname |
 | `!febzey` | 🤷 |
+| `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
 
 ## Trades
 

@@ -111,7 +111,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~
 * ✅ ~~!alias - lists aliases of a command~~
 * ✅ ~~!crouch — single press/release; !crouch hold crouches for up to 10min, whispers instructions, !crouch releases~~
-* 🆕 !slurcount, checks a user's message history for slurs and presents a total. Should not count messages that were commands (ie, a player checking another's word count for a slur shouldn't be counted against them)
+* ✅ ~~!slurcount, checks a user's message history for slurs and presents a total. Should not count messages that were commands (ie, a player checking another's word count for a slur shouldn't be counted against them)~~ // Hub `/wordcount` updated: whole-word REGEXP, `exclude_commands=true` adds `AND message NOT LIKE '!%'`; slur list in `json/slurcount_list.json` (bare array, populate manually); parallel requests per slur, counts summed
 * ✅ ~~!health, display bot's health, hunger, armor stats~~ // whispers `Health: X/20 | Hunger: X/20 (sat: X) | Armor: X | Effects: ...`; mount health skipped (azalea `set_passengers` is a no-op stub)
 * 🆕 !askgod, logically translate TempleOS's talk to god stuff lol
 	* God's messages are based on source texts, you can ask different gods (ie: `!askgod buddha`) by using different source texts!
