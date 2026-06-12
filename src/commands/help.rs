@@ -5,6 +5,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
+    description: "See all the commands I have to offer. Usage: {prefix}commands",
     whitelisted: false,
     execute,
 };

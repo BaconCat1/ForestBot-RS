@@ -5,6 +5,7 @@ use sysinfo::{Disks, System};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
+    description: "Shows hardware information. Usage: {prefix}hardware",
     whitelisted: false,
     execute,
 };

@@ -6,6 +6,7 @@ use crate::structure::mineflayer::bot::PlayerSnapshot;
 
 pub const UNLINK_COMMAND: CommandDefinition = CommandDefinition {
     names: &["unlink"],
+    description: "Unlinks your Discord account from your Minecraft account. Usage: {prefix}unlink",
     whitelisted: false,
     execute: execute_unlink,
 };
@@ -44,6 +45,7 @@ pub fn execute_unlink(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 pub const LINK_COMMAND: CommandDefinition = CommandDefinition {
     names: &["link"],
+    description: "Links your Discord account to your Minecraft account. Usage: {prefix}link",
     whitelisted: false,
     execute: execute_link,
 };

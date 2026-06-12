@@ -7,6 +7,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
+    description: "Crouches down. Usage: {prefix}crouch or {prefix}crouch hold",
     whitelisted: false,
     execute,
 };

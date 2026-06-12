@@ -29,6 +29,7 @@ pub type CommandExecutor = for<'a> fn(CommandContext<'a>) -> CommandFuture<'a>;
 #[derive(Clone, Copy)]
 pub struct CommandDefinition {
     pub names: &'static [&'static str],
+    pub description: &'static str,
     pub whitelisted: bool,
     pub execute: CommandExecutor,
 }

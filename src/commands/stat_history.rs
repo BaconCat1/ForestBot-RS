@@ -68,9 +68,10 @@ struct TopRow {
 }
 
 macro_rules! command {
-    ($const_name:ident, $names:expr, $execute:ident) => {
+    ($const_name:ident, $names:expr, $description:expr, $execute:ident) => {
         pub const $const_name: CommandDefinition = CommandDefinition {
             names: $names,
+            description: $description,
             whitelisted: false,
             execute: $execute,
         };
@@ -78,137 +79,154 @@ macro_rules! command {
 }
 
 macro_rules! admin_command {
-    ($const_name:ident, $names:expr, $execute:ident) => {
+    ($const_name:ident, $names:expr, $description:expr, $execute:ident) => {
         pub const $const_name: CommandDefinition = CommandDefinition {
             names: $names,
+            description: $description,
             whitelisted: true,
             execute: $execute,
         };
     };
 }
 
-command!(KD_COMMAND, &["kd", "kills", "deaths"], kd);
-command!(JOINDATE_COMMAND, &["joindate", "jd", "firstseen"], joindate);
+command!(KD_COMMAND, &["kd", "kills", "deaths"], "Displays the kill/death ratio of a user. Usage: {prefix}kd <username> or {prefix}kd <server|all> <username>", kd);
+command!(JOINDATE_COMMAND, &["joindate", "jd", "firstseen"], "Retrieves the join date of a user. Usage: {prefix}joindate <username> or {prefix}joindate <server|all> <username>", joindate);
 command!(
     JDPT_COMMAND,
     &["jdpt", "ptjd", "joindateplaytime", "playtimejoindate"],
+    "Retrieves join date and total playtime. Usage: {prefix}jdpt <username> or {prefix}jdpt <server|all> <username>",
     jdpt
 );
 command!(
     WORDCOUNT_COMMAND,
     &["wordcount", "words", "count"],
+    "Shows the number of times a user has said a word. Usage: {prefix}wordcount <username> <word> or {prefix}wordcount <server|all> <username> <word>",
     wordcount
 );
-command!(NAMEFIND_COMMAND, &["search", "lookup", "find"], namefind);
+command!(NAMEFIND_COMMAND, &["search", "lookup", "find"], "Retrieves likely usernames related to your search. Usage: {prefix}find <username>", namefind);
 command!(
     UNIQUE_USERS_COMMAND,
     &["users", "uniqueusers"],
+    "See the unique user count: {prefix}users",
     unique_users
 );
 command!(
     TOTAL_ADVANCEMENTS_COMMAND,
     &["advancements", "totaladvancements", "advs", "adv"],
+    "Retrieves the number of advancements a user has. Usage: {prefix}advs <username> or {prefix}advs <server|all> <username>",
     total_advancements
 );
-command!(SUMMARY_COMMAND, &["summary", "sum"], summary);
-command!(WINRATE_COMMAND, &["winrate", "wr"], winrate);
-command!(FIRST_DEATH_COMMAND, &["firstdeath", "fd"], first_death);
-command!(LAST_DEATH_COMMAND, &["lastdeath", "ld"], last_death);
-command!(FIRST_KILL_COMMAND, &["firstkill", "fk"], first_kill);
-command!(LAST_KILL_COMMAND, &["lastkill", "lk"], last_kill);
+command!(SUMMARY_COMMAND, &["summary", "sum"], "Single-line stats overview for a player. Usage: {prefix}summary [username]", summary);
+command!(WINRATE_COMMAND, &["winrate", "wr"], "Shows a player's kill win rate: kills/(kills+deaths)%. Usage: {prefix}winrate [username]", winrate);
+command!(FIRST_DEATH_COMMAND, &["firstdeath", "fd"], "Retrieves the first death a user got. Usage: {prefix}firstdeath <username>", first_death);
+command!(LAST_DEATH_COMMAND, &["lastdeath", "ld"], "Retrieves the last death of a user. Usage: {prefix}lastdeath <username>", last_death);
+command!(FIRST_KILL_COMMAND, &["firstkill", "fk"], "Retrieves the first kill a user got. Usage: {prefix}firstkill <username>", first_kill);
+command!(LAST_KILL_COMMAND, &["lastkill", "lk"], "Retrieves the last kill a user got. Usage: {prefix}lastkill <username>", last_kill);
 command!(
     LAST_ADVANCEMENT_COMMAND,
     &["lastadvancement", "ladv"],
+    "Retrieves the most recent advancement of a user. Usage: {prefix}lastadvancement <username>",
     last_advancement
 );
 command!(
     FIRST_MESSAGE_COMMAND,
     &["firstmessage", "fm"],
+    "Retrieves the first message of a user. Usage: {prefix}firstmessage <username>",
     first_message
 );
-command!(LAST_MESSAGE_COMMAND, &["lastmessage", "lm"], last_message);
+command!(LAST_MESSAGE_COMMAND, &["lastmessage", "lm"], "Retrieves the last message of a user. Usage: {prefix}lastmessage <username>", last_message);
 command!(
     OLDHEADS_COMMAND,
     &["oldest", "oldheads", "oldusers", "oldestusers", "oldfags"],
+    "Retrieves the 3 oldest users. Usage: {prefix}oldest",
     oldheads
 );
 command!(
     NOOBS_COMMAND,
     &["noobs", "noob", "newest", "newusers", "newbs", "newb"],
+    "Retrieves the 3 newest users. Usage: {prefix}noobs",
     noobs
 );
-command!(TOP_COMMAND, &["top"], top);
-command!(STANDING_COMMAND, &["standing", "status"], standing);
-command!(OFFLINE_MSG_COMMAND, &["offlinemsg"], offline_msg);
-command!(WHOIS_COMMAND, &["whois"], whois);
-command!(RANDOM_QUOTE_COMMAND, &["rq", "randomquote"], random_quote);
+command!(TOP_COMMAND, &["top"], "Shows the top 5 players in a certain statistic. Usage: {prefix}top <kills/deaths/joins/playtime/advancements/messages>", top);
+command!(STANDING_COMMAND, &["standing", "status"], "Shows blacklist/regular/whitelist status. Usage: {prefix}standing <username>(optional)", standing);
+command!(OFFLINE_MSG_COMMAND, &["offlinemsg"], "Store a message to be delivered when the player next comes online. Usage: {prefix}offlinemsg <username> <message>", offline_msg);
+command!(WHOIS_COMMAND, &["whois"], "Shows the description of a user. Usage: {prefix}whois <username>", whois);
+command!(RANDOM_QUOTE_COMMAND, &["rq", "randomquote"], "Retrieves a random quote. Usage: {prefix}rq <phrase>(optional)", random_quote);
 command!(
     LIST_QUOTE_SERVERS_COMMAND,
     &["lq", "listquoteservers"],
+    "Lists servers you can quote from. Usage: {prefix}lq",
     list_quote_servers
 );
-command!(ACTIVE_COMMAND, &["active"], active);
-command!(ADD_FAQ_COMMAND, &["addfaq"], add_faq);
+command!(ACTIVE_COMMAND, &["active"], "Shows the most active players in the last 24 hours by message count. Usage: {prefix}active", active);
+command!(ADD_FAQ_COMMAND, &["addfaq"], "Adds a new FAQ entry. Usage: {prefix}addfaq <text>", add_faq);
 command!(
     DELETE_FAQ_COMMAND,
     &["delfaq", "deletefaq"],
+    "Deletes an existing FAQ entry. Usage: {prefix}deletefaq <id>",
     delete_faq
 );
 command!(
     ADVANCEMENT_COUNT_COMMAND,
     &["advancement", "advancementcount"],
+    "Shows the number of advancements a user has made. Usage: {prefix}advancement <username>",
     advancement_count
 );
-admin_command!(BLACKLIST_COMMAND, &["blacklist"], blacklist);
-command!(AVERAGE_PING_COMMAND, &["averageping", "ap"], average_ping);
-command!(BEST_PING_COMMAND, &["bp", "bestping"], best_ping);
-admin_command!(CENSOR_COMMAND, &["censor"], censor);
-command!(COORDS_COMMAND, &["coords"], coords);
-command!(EDIT_FAQ_COMMAND, &["editfaq"], edit_faq);
-command!(EFFICIENCY_COMMAND, &["efficiency", "eff"], efficiency);
-admin_command!(EXECUTE_COMMAND, &["execute", "exec", "run"], execute);
-command!(FEBZEY_COMMAND, &["febzey"], febzey);
-command!(FAQ_COMMAND, &["faq", "getfaq"], faq);
-command!(GRUDGE_COMMAND, &["grudge"], grudge);
-command!(IAM_COMMAND, &["iam"], iam);
-command!(MOUNT_COMMAND, &["mount", "ride", "mush"], mount);
-command!(NICKNAME_COMMAND, &["nickname"], nickname);
-command!(OLDNAMES_COMMAND, &["oldnames", "dox", "doxx"], oldnames);
+admin_command!(BLACKLIST_COMMAND, &["blacklist"], "Use {prefix}blacklist add|remove to add, remove, or list users from the blacklist.", blacklist);
+command!(AVERAGE_PING_COMMAND, &["averageping", "ap"], "Shows the average ping for the server. Usage: {prefix}averageping <username>", average_ping);
+command!(BEST_PING_COMMAND, &["bp", "bestping"], "See who has the best ping. Usage: {prefix}bp", best_ping);
+admin_command!(CENSOR_COMMAND, &["censor"], "Manage bad-words list. Usage: {prefix}censor add <word> | {prefix}censor remove <word>", censor);
+command!(COORDS_COMMAND, &["coords"], "Use {prefix}coords to get the coordinates of the bot.", coords);
+command!(EDIT_FAQ_COMMAND, &["editfaq"], "Edits an existing FAQ entry. Usage: {prefix}editfaq <id> <new text>", edit_faq);
+command!(EFFICIENCY_COMMAND, &["efficiency", "eff"], "Shows rate-based efficiency stats. Usage: {prefix}efficiency [username] <kills|deaths|messages>", efficiency);
+admin_command!(EXECUTE_COMMAND, &["execute", "exec", "run"], "Executes a raw server command as the bot. Usage: {prefix}execute </command>", execute);
+command!(FEBZEY_COMMAND, &["febzey"], "Bully Febzey for being AWOL and not maintaining his bot! Usage: {prefix}febzey", febzey);
+command!(FAQ_COMMAND, &["faq", "getfaq"], "Retrieves a FAQ entry by ID. Usage: {prefix}faq <id>(optional)", faq);
+command!(GRUDGE_COMMAND, &["grudge"], "Shows how many times a player has killed a specific victim. Usage: {prefix}grudge [killer] <victim>", grudge);
+command!(IAM_COMMAND, &["iam"], "Use {prefix}iam to set your {prefix}whois description.", iam);
+command!(MOUNT_COMMAND, &["mount", "ride", "mush"], "Mount the nearest rideable entity. Usage: {prefix}mount <entity>(optional)", mount);
+command!(NICKNAME_COMMAND, &["nickname"], "Set the bots nickname in the server. Usage: {prefix}nickname <nickname>", nickname);
+command!(OLDNAMES_COMMAND, &["oldnames", "dox", "doxx"], "See a users name history! Usage: {prefix}oldnames <username>", oldnames);
 command!(
     OWNS_FAQ_COMMAND,
     &["ownsfaq", "ownfaq", "faqowner"],
+    "Says the owner of a FAQ in public chat. Usage: {prefix}ownsfaq <id>",
     owns_faq
 );
-command!(PROFILE_COMMAND, &["profile"], profile);
+command!(PROFILE_COMMAND, &["profile"], "Shares a link to your ForestBot Profile. Usage: {prefix}profile <user>", profile);
 command!(
     RANDOM_QUOTE_ALL_COMMAND,
     &["rqa", "randomquoteall"],
+    "Retrieves a random quote from all servers. Usage: {prefix}rqa",
     random_quote_all
 );
-command!(REALNAME_COMMAND, &["realname"], realname);
-command!(SET_PRESET_COMMAND, &["setpreset"], set_preset);
-command!(SHOUT_COMMAND, &["shout"], shout);
-command!(SLEEP_COMMAND, &["sleep"], sleep);
+command!(REALNAME_COMMAND, &["realname"], "See through someones nickname! Usage: {prefix}realname <username>", realname);
+command!(SET_PRESET_COMMAND, &["setpreset"], "Sets the namechalk preset, only on refinedvanilla. Usage: {prefix}setPreset <preset>", set_preset);
+command!(SHOUT_COMMAND, &["shout"], "Broadcasts a message to all connected Forest servers. Usage: {prefix}shout <message>", shout);
+command!(SLEEP_COMMAND, &["sleep"], "Put the bot to sleep. Usage: {prefix}sleep", sleep);
 command!(
     SERVERS_COMMAND,
     &["servers", "playerservers", "seenservers"],
+    "Shows which servers a user has been seen on. Usage: {prefix}servers <username>",
     servers
 );
-command!(SURVIVED_COMMAND, &["survived"], survived);
+command!(SURVIVED_COMMAND, &["survived"], "Shows how long since a user's last death. Usage: {prefix}survived <username>", survived);
 command!(
     TWERK_COMMAND,
     &["twerk", "bootyshake", "booty", "dance"],
+    "I will twerk for 10 seconds on your command. Usage: {prefix}twerk",
     twerk
 );
-command!(VICTIMS_COMMAND, &["victims", "murders", "bested"], victims);
-command!(VS_COMMAND, &["vs"], vs);
-admin_command!(WHITELIST_COMMAND, &["whitelist"], whitelist);
+command!(VICTIMS_COMMAND, &["victims", "murders", "bested"], "Shows how many unique players a user has killed. Usage: {prefix}victims <username>", victims);
+command!(VS_COMMAND, &["vs"], "Head-to-head stat comparison between two players. Usage: {prefix}vs <player1> <player2>", vs);
+admin_command!(WHITELIST_COMMAND, &["whitelist"], "Use {prefix}whitelist add|remove to modify the command whitelist.", whitelist);
 admin_command!(
     WORD_WHITELIST_COMMAND,
     &["wordwhitelist", "wwl"],
+    "Manage always-allowed words. Usage: {prefix}wordwhitelist add <word> | {prefix}wordwhitelist remove <word>",
     word_whitelist
 );
-command!(WORST_PING_COMMAND, &["wp", "worstping"], worst_ping);
+command!(WORST_PING_COMMAND, &["wp", "worstping"], "See who has the worst ping. Usage: {prefix}wp", worst_ping);
 
 fn kd(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
