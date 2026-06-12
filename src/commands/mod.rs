@@ -2,8 +2,10 @@ use std::{future::Future, pin::Pin};
 
 use azalea::prelude::Client;
 
+pub mod alias;
 pub mod discord;
 pub mod drop;
+pub mod hardware;
 pub mod help;
 pub mod link;
 pub mod report;
@@ -124,6 +126,8 @@ pub fn registry() -> &'static [CommandDefinition] {
     &[
         ping::COMMAND,
         help::COMMAND,
+        alias::COMMAND,
+        hardware::COMMAND,
         discord::COMMAND,
         reload::COMMAND,
         lastseen::COMMAND,
