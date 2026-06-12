@@ -214,6 +214,7 @@ impl Bot {
             announce: self.announce,
             announce_active: Arc::new(AtomicBool::new(false)),
             consecutive_failures: Arc::new(AtomicU32::new(0)),
+            seen_advancements: Arc::new(Mutex::new(HashMap::new())),
         };
 
         let mut builder = if self.options.disable_chat_signing {
@@ -277,6 +278,7 @@ pub struct AzaleaState {
     pub announce: bool,
     pub announce_active: Arc<AtomicBool>,
     pub consecutive_failures: Arc<AtomicU32>,
+    pub seen_advancements: Arc<Mutex<HashMap<String, HashSet<String>>>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -331,6 +333,7 @@ impl Default for AzaleaState {
             announce: false,
             announce_active: Arc::new(AtomicBool::new(false)),
             consecutive_failures: Arc::new(AtomicU32::new(0)),
+            seen_advancements: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -1239,12 +1242,80 @@ async fn send_session_flush_leave(state: &AzaleaState) {
     }
 }
 
+fn extract_advancement_key(message: &str) -> Option<&str> {
+    let start = message.rfind('[')?;
+    let end = message.rfind(']')?;
+    if end > start {
+        Some(&message[start..=end])
+    } else {
+        None
+    }
+}
+
 async fn send_player_advancement(
     state: &AzaleaState,
     username: &str,
     uuid: &str,
     advancement: &str,
 ) {
+    let Some(key) = extract_advancement_key(advancement) else {
+        return;
+    };
+
+    let needs_fetch = {
+        let seen = state
+            .seen_advancements
+            .lock()
+            .expect("seen_advancements lock poisoned");
+        !seen.contains_key(uuid)
+    };
+
+    if needs_fetch {
+        let existing = state
+            .api
+            .get_advancements(uuid, &state.mc_server, 500, "ASC")
+            .await
+            .unwrap_or_default();
+        let keys: HashSet<String> = existing
+            .iter()
+            .filter_map(|a| extract_advancement_key(&a.advancement).map(str::to_owned))
+            .collect();
+        state
+            .seen_advancements
+            .lock()
+            .expect("seen_advancements lock poisoned")
+            .insert(uuid.to_owned(), keys);
+    }
+
+    let is_duplicate = {
+        let mut seen = state
+            .seen_advancements
+            .lock()
+            .expect("seen_advancements lock poisoned");
+        let player_seen = seen.entry(uuid.to_owned()).or_default();
+        if player_seen.contains(key) {
+            true
+        } else {
+            player_seen.insert(key.to_owned());
+            false
+        }
+    };
+
+    if is_duplicate {
+        logger::advancement(format!(
+            "Redundant advancement skipped for {username}: {key}"
+        ));
+        crate::commands::enqueue_chat(
+            state,
+            format!(
+                "/{} {} Your advancement will not be recorded by me, as you already have that advancement on this server.",
+                state.runtime.read().expect("runtime lock poisoned").whisper_command,
+                username
+            ),
+        );
+        return;
+    }
+
     let Some(websocket) = websocket(state) else {
         return;
     };

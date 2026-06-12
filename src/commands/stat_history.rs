@@ -1929,7 +1929,7 @@ fn mount(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         use azalea::ecs::query::Without;
         use azalea::entity::{EntityKindComponent, LocalEntity};
-        use azalea::registry::EntityKind;
+        use azalea::registry::builtin::EntityKind;
 
         fn is_mountable(kind: EntityKind) -> bool {
             matches!(

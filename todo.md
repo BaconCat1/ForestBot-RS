@@ -23,7 +23,6 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 * ✅ ~~`drop`: TypeScript drops the held item or every inventory item via Mineflayer `tossStack`; Rust currently only replies that Azalea inventory-drop parity is not wired.~~
 * ✅ ~~`mount` / `ride` / `mush`: TypeScript finds the nearest mountable entity or vehicle, applies cooldowns, and mounts it; Rust currently only replies that mounting is not wired.~~ // `nearest_entities_by` + `EntityRef::interact()` implemented; Azalea has a TODO for full riding state tracking so mount success cannot be confirmed, but the interact packet is sent
-  * 🆕 Add `logger::move_log` category to `logger.rs` once movement commands are implemented
 * ✅ ~~`sleep`: TypeScript finds and activates a bed; Rust currently only replies that sleeping is not wired.~~ // `find_block` + `ServerboundUseItemOn`; toggle via `BOT_SLEEPING` static; `!sleep`/`!crouch`/`!twerk` all send `StopSleeping` when in bed
 * ✅ ~~`twerk` / `bootyshake` / `booty` / `dance`: TypeScript toggles sneak for 10 seconds; Rust command is registered but still needs equivalent Azalea control-state behavior verified.~~ // timing matches TS (100ms interval, 10s duration)
 * ✅ ~~`realname`: display_name: Option<String> added to PlayerSnapshot, populated from PlayerInfo.display_name (FormattedText→plain string) on AddPlayer/UpdatePlayer; !realname resolves display name → real username~~
@@ -43,8 +42,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~Port `antiafk`: TypeScript starts anti-AFK on spawn when enabled.~~ // tokio::spawn loop on Event::Spawn, cancelled on Event::Disconnect via Arc<AtomicBool>
 * ❌ ~~Port `usePViewer` / `pViewerPort`.~~ // prismarine-viewer is Mineflayer-only, no Azalea equivalent
 * ✅ ~~Port startup ping/retry behavior from TypeScript `Bot.startBot()`, including the 10-failure long backoff.~~ // consecutive_failures AtomicU32 on AzaleaState; reset on Spawn, increment on ConnectionFailed/Disconnect; 10th failure sleeps 10 min — confirmed working in live test
-* 🔎 Port TypeScript reconnect lifecycle exactly: `endAndRestart()`, `isConnected`, and explicit bot quit/end handling.
-* 🔎 Port TypeScript logger categories and message wording where runtime parity matters.
+* ✅ ~~Port TypeScript reconnect lifecycle exactly: `endAndRestart()`, `isConnected`, and explicit bot quit/end handling.~~ // `isConnected` has no consumers; `endAndRestart()` covered by Azalea `.reconnect_after()`; `sendPlayerLeave` WS packet sent on `Disconnect` via `send_session_flush_leave`
+* ✅ ~~Port TypeScript logger categories and message wording where runtime parity matters.~~ // Rust has all TS categories; TS `move` category has no callers in either codebase
 
 ## Chat Parsing And Message Handling
 
@@ -74,8 +73,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🐛 ~~**bug** !setpreset doesn't work in /msg~~
 	* *Should be working, needs to be tested in prod to confirm, pending hw migration*
 * ✅ ~~**bug** !oldest and !newest show incorrect dates. !oldest also shows the oldest users ever, while it should only compare the join dates of who's online.~~
-* 🐛 **bug**(?) don't record redundant advancements (from the queue or ever) // THIS IS HARD
-	* If the bot can detect the queue and both record no data and also take no commands, I think that would be good enough. //Detecting this is the issue and why i said this is hard
+* ✅ ~~**bug**(?) don't record redundant advancements (from the queue or ever)~~ // on `send_player_advancement`, lazy-fetch existing advancements for uuid on first encounter, extract `[bracket-key]` (name-change-proof), skip + whisper if duplicate
 * 🐛 ~~Discord chat bridge~~
 	* The chat bridge is functional. Previously, you would see your own messages as a server message on discord. This wouldn't matter, except the bridge is pretty iffy and doesn't deliver messages reliably, which is probably the discord side being buggy, it's always been like that. Just showing the bot's messages is good enough unless you really want to deep dive this, which I wouldn't blame you for not wanting to.
 	* Bot doesn't show it's own messages still as of commit 6dd5efe58c92b116acebe6d938e0f86af6fcf1bf.
