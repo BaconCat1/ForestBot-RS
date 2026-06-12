@@ -11,6 +11,7 @@ use azalea::protocol::packets::game::s_player_action::{
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
+    description: "I will drop items in my hand, or all of my items. Usage: {prefix}drop <all>(optional)",
     whitelisted: false,
     execute,
 };

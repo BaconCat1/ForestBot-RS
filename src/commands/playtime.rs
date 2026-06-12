@@ -12,6 +12,7 @@ use crate::{
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
+    description: "Retrieves the total playtime of a user. Usage: {prefix}playtime <username> or {prefix}playtime <server|all> <username>",
     whitelisted: false,
     execute,
 };

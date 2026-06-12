@@ -4,6 +4,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
+    description: "Check your ping or another user's. Usage: {prefix}ping <username>",
     whitelisted: false,
     execute,
 };

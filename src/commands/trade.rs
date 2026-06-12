@@ -13,6 +13,7 @@ const TRADE_REJECT_PENALTY_COOLDOWN: Duration = Duration::from_secs(600);
 
 pub const TRADE_COMMAND: CommandDefinition = CommandDefinition {
     names: &["trade", "t"],
+    description: "Proposes a trade with another player. Usage: {prefix}trade <player> <description>",
     whitelisted: false,
     execute: execute_trade,
 };
@@ -200,6 +201,7 @@ async fn reject_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 pub const TRADES_COMMAND: CommandDefinition = CommandDefinition {
     names: &["trades"],
+    description: "Shows a player's trade history. Usage: {prefix}trades <player>",
     whitelisted: false,
     execute: execute_trades,
 };
@@ -281,6 +283,7 @@ pub fn execute_trades(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 pub const TRADESTATS_COMMAND: CommandDefinition = CommandDefinition {
     names: &["tradestats"],
+    description: "Shows a player's trade statistics. Usage: {prefix}tradestats <player>",
     whitelisted: false,
     execute: execute_tradestats,
 };
@@ -393,6 +396,7 @@ fn uuid_to_name<'a>(uuid: &str, players: &'a HashMap<String, PlayerSnapshot>) ->
 
 pub const SCAMMERS_COMMAND: CommandDefinition = CommandDefinition {
     names: &["scammers"],
+    description: "Shows a list of known scammers. Usage: {prefix}scammers",
     whitelisted: false,
     execute: execute_scammers,
 };

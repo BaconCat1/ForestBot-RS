@@ -2,6 +2,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 
 pub const REPORT_COMMAND: CommandDefinition = CommandDefinition {
     names: &["report"],
+    description: "Reports a scammer. Usage: {prefix}report <player> <reason>",
     whitelisted: false,
     execute: execute_report,
 };
