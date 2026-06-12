@@ -12,6 +12,11 @@ use structure::{endpoints::endpoints::ApiClient, mineflayer::bot::Bot};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if std::env::args().any(|a| a == "--debug") {
+        // SAFETY: set before any threads spawn
+        unsafe { std::env::set_var("DEBUG", "1") };
+    }
+
     print_banner();
 
     println!("               Made by Febzey#1854. Ported to Rust by bacon_cat_");

@@ -26,7 +26,7 @@ use crate::structure::{
         Player as WebsocketPlayer, WebsocketClient, WebsocketEvent,
     },
     logger,
-    mineflayer::utils::{chat_format_parser, command_handler, profanity_filter, whisper_parser},
+    mineflayer::utils::{announce, anti_afk, chat_format_parser, command_handler, profanity_filter, whisper_parser},
 };
 
 const BAD_WORDS_PATH: &str = "./json/bad_words.json";
@@ -114,6 +114,8 @@ pub struct Bot {
     pub is_connected: bool,
     pub allow_connection: bool,
     pub api: ApiClient,
+    pub antiafk: bool,
+    pub announce: bool,
 }
 
 impl Bot {
@@ -145,6 +147,8 @@ impl Bot {
             is_connected: false,
             allow_connection: true,
             api,
+            antiafk: state.config.antiafk,
+            announce: state.config.announce,
         }
     }
 
@@ -204,6 +208,10 @@ impl Bot {
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
             trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             initial_spawn_done: Arc::new(AtomicBool::new(false)),
+            antiafk: self.antiafk,
+            antiafk_active: Arc::new(AtomicBool::new(false)),
+            announce: self.announce,
+            announce_active: Arc::new(AtomicBool::new(false)),
         };
 
         let mut builder = if self.options.disable_chat_signing {
@@ -262,6 +270,10 @@ pub struct AzaleaState {
     pub next_entity_spawn_scan_at: Arc<RwLock<i64>>,
     pub trade_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
     pub initial_spawn_done: Arc<AtomicBool>,
+    pub antiafk: bool,
+    pub antiafk_active: Arc<AtomicBool>,
+    pub announce: bool,
+    pub announce_active: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -312,6 +324,10 @@ impl Default for AzaleaState {
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
             trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             initial_spawn_done: Arc::new(AtomicBool::new(false)),
+            antiafk: false,
+            antiafk_active: Arc::new(AtomicBool::new(false)),
+            announce: false,
+            announce_active: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -346,6 +362,16 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 spawn_player_list_update_task(state.clone());
             }
             send_player_list_update(&state).await;
+            if state.antiafk {
+                state.antiafk_active.store(true, Ordering::Relaxed);
+                anti_afk::spawn_antiafk_loop(bot.clone(), Arc::clone(&state.antiafk_active));
+                logger::info("AntiAFK started.");
+            }
+            if state.announce {
+                state.announce_active.store(true, Ordering::Relaxed);
+                announce::spawn_announce_loop(state.clone(), Arc::clone(&state.announce_active));
+                logger::info("Announce loop started.");
+            }
         }
         Event::Chat(message) => {
             if event_disabled(&state, &["message", "messagestr", "chat"]) {
@@ -468,6 +494,8 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             logger::kick(format!("Kicked/disconnected: {reason_str}"));
             logger::logout("Bot has ended, attempting to restart soon.");
             state.initial_spawn_done.store(false, Ordering::Relaxed);
+            state.antiafk_active.store(false, Ordering::Relaxed);
+            state.announce_active.store(false, Ordering::Relaxed);
             send_session_flush_leave(&state).await;
         }
         Event::ConnectionFailed(error) => {

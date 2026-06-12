@@ -1,6 +1,7 @@
 
 
 
+
 # ForestBot Rust Port Remaining TypeScript Parity (``todo.md``)
 
 Only behavior still missing or partial compared to `ForestBot/src` is listed here.
@@ -25,7 +26,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~`twerk` / `bootyshake` / `booty` / `dance`: TypeScript toggles sneak for 10 seconds; Rust command is registered but still needs equivalent Azalea control-state behavior verified.~~ // timing matches TS (100ms interval, 10s duration)
 * 🔎 `realname`: TypeScript resolves visible display/nickname data from Mineflayer player state; Rust needs equivalent display-name data in the player cache for exact parity.
 * ✅ `febzey`: ~~Rust has equivalent last-seen-style behavior, but it is not byte-for-byte identical to the TypeScript command text.~~
-	* Working as intended afaik
+	* *Working as intended afaik*
 
 ## Bot Runtime Behavior
 
@@ -35,8 +36,9 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
   * ~~`json/word_whitelist.json`~~
   * ~~`smart_censoring` / Together API censor path~~
   * ~~queued outgoing send behavior~~
-* 🔎 Port `announce`: TypeScript periodically advertises enabled non-whitelisted command descriptions after spawn.
-* 🔎 Port `antiafk`: TypeScript starts anti-AFK on spawn when enabled.
+* ✅ ~~Port `announce`: TypeScript periodically advertises enabled non-whitelisted command descriptions after spawn.~~
+  * ✅ ~~`description: &'static str` added to `CommandDefinition`; all commands have descriptions with `{prefix}` placeholder~~
+* ✅ ~~Port `antiafk`: TypeScript starts anti-AFK on spawn when enabled.~~ // tokio::spawn loop on Event::Spawn, cancelled on Event::Disconnect via Arc<AtomicBool>
 * ❌ ~~Port `usePViewer` / `pViewerPort`.~~ // prismarine-viewer is Mineflayer-only, no Azalea equivalent
 * 🔎 Port startup ping/retry behavior from TypeScript `Bot.startBot()`, including the 10-failure long backoff.
 * 🔎 Port TypeScript reconnect lifecycle exactly: `endAndRestart()`, `isConnected`, and explicit bot quit/end handling.
@@ -52,7 +54,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 * 🔎 `end.ts`: TypeScript marks the bot disconnected, quits, restarts, logs end args, and sends the bot leave websocket packet.
 * ✅ ~~`kicked.ts` / `error.ts`: Both register as `name: 'kicked'` in TS — log kick reason, call bot.end(). Not handled in Rust.~~ // Rust `Event::Disconnect` logs readable reason + restart message; reconnect handled natively by Azalea `.reconnect_after()`
-* 🔎 `spawn.ts`: Rust sends player-list updates and starts websocket listeners, but still lacks TypeScript spawn extras: anti-AFK, announce interval, outgoing robot marker hook, and `restartCount` / `isConnected` state updates.
+* 🔎 `spawn.ts`: Rust sends player-list updates and starts websocket listeners, but still lacks TypeScript spawn extras: outgoing robot marker hook, and `restartCount` / `isConnected` state updates. // anti-AFK and announce loop now wired
 * ✅ ~~`physicsTick.ts`: TypeScript writes `tick_end` packets; confirm whether Azalea truly makes this unnecessary, then either document or port.~~ // TS handler is a no-op stub (only commented-out look-at-entity code)
 
 ## Moderation
@@ -62,18 +64,20 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 ---
 
-## `todo2.md` (jolly is bad at lists)
+# `todo2.md` (jolly is bad at lists)
 
-**General**
-* 🔎 Movement commands, !mount, !sleep, and !drop are unimplemented. !twerk does run but it doesn't really match the ts behavior. The bot does dismount things it's riding so it is crouching, probably too fast to be visible when observed. Maybe replace with !crouch where it just does it once?
+## General
+* 🔎 Movement commands, !mount, !sleep, and !drop are unimplemented.
+	* ✅ ~~!twerk does run but it doesn't really match the ts behavior. The bot does dismount things it's riding so it is crouching, probably too fast to be visible when observed. Maybe replace with !crouch where it just does it once?~~
 * 🐛 ~~**bug** !setpreset doesn't work in /msg~~
-	* Should be working, needs to be tested in prod to confirm, pending hw migration
+	* *Should be working, needs to be tested in prod to confirm, pending hw migration*
 * ✅ ~~**bug** !oldest and !newest show incorrect dates. !oldest also shows the oldest users ever, while it should only compare the join dates of who's online.~~
 * 🐛 **bug**(?) don't record redundant advancements (from the queue or ever) // THIS IS HARD
 	* If the bot can detect the queue and both record no data and also take no commands, I think that would be good enough. //Detecting this is the issue and why i said this is hard
 * 🐛 ~~Discord chat bridge~~
 	* The chat bridge is functional. Previously, you would see your own messages as a server message on discord. This wouldn't matter, except the bridge is pretty iffy and doesn't deliver messages reliably, which is probably the discord side being buggy, it's always been like that. Just showing the bot's messages is good enough unless you really want to deep dive this, which I wouldn't blame you for not wanting to.
 	* Bot doesn't show it's own messages still as of commit 6dd5efe58c92b116acebe6d938e0f86af6fcf1bf.
+	* *Will have to wait till post hw migration*
 * ✅ ~~!servers \<username> (not sure on the name), lists servers forest has data of the player on~~
 	* ~~slightly bugged, just needs to break up lists that are too long~~
 * ✅ ~~Add cross server functionality to stats commands (this is mostly done, !lk, !ld, !vicitims, !fm, !lm, !ladv, and !top are missing, if this is intentional I can mark this one complete)~~
@@ -90,15 +94,15 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🆕 pivot from ashcon api to crafty api for username history lookups
 
 
-**!quote**
+## !quote
 * ✅ ~~Add support for !q <username> <keyword>~~
 * ✅ ~~!q <server>, without username specified, shows random quote from specified server~~
 * ✅ ~~Missing the basic 10 second cooldown from pre rewrite. (also needs some extra stuff noted in General)~~
 
-**!faq**
+## !faq
 * ✅ ~~Should pull a random faq if run without an id number, would match pre rewrite.~~
 
-**new commands**
+## new commands
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~
 * ✅ ~~!alias - lists aliases of a command~~
 * ✅ ~~!crouch — single press/release; !crouch hold crouches for up to 10min, whispers instructions, !crouch releases~~

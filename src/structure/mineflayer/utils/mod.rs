@@ -1,3 +1,4 @@
+pub mod announce;
 pub mod anti_afk;
 pub mod chat_divider_parser;
 pub mod chat_format_parser;
