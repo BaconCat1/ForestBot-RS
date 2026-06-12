@@ -14,7 +14,7 @@ pub const UNLINK_COMMAND: CommandDefinition = CommandDefinition {
 pub fn execute_unlink(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         if !ctx.args.first().map(|s| s.eq_ignore_ascii_case("UNLINK")).unwrap_or(false) {
-            ctx.whisper("Type !unlink UNLINK to confirm removing your Discord account link.");
+            ctx.whisper(&format!("Type {}unlink UNLINK to confirm removing your Discord account link.", ctx.runtime.prefix));
             return Ok(());
         }
 

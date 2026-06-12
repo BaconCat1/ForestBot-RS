@@ -27,16 +27,16 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         if matches!(query.mode, QuoteQueryMode::MissingAllTarget) {
             ctx.chat(format!(
-                "/{} {}  Usage: !quote all <username>",
-                ctx.runtime.whisper_command, ctx.sender
+                "/{} {}  Usage: {}quote all <username>",
+                ctx.runtime.whisper_command, ctx.sender, ctx.runtime.prefix
             ));
             return Ok(());
         }
 
         if query.mode == QuoteQueryMode::Server && search.trim().is_empty() {
             ctx.chat(format!(
-                "/{} {}  Usage: !quote <server> <username>",
-                ctx.runtime.whisper_command, ctx.sender
+                "/{} {}  Usage: {}quote <server> <username>",
+                ctx.runtime.whisper_command, ctx.sender, ctx.runtime.prefix
             ));
             return Ok(());
         }

@@ -30,7 +30,8 @@ pub fn execute_trade(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     if ctx.args.len() < 2 {
-        ctx.whisper("Usage: !trade <player> <description>  |  !trade confirm  |  !trade reject");
+        let p = &ctx.runtime.prefix;
+        ctx.whisper(&format!("Usage: {p}trade <player> <description>  |  {p}trade confirm  |  {p}trade reject"));
         return Ok(());
     }
 
@@ -65,7 +66,7 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let existing = ctx.state.api.tradebot_get_user_trades(&sender_uuid).await;
     if existing.iter().any(|t| t.status == "pending" && t.initiator_id == sender_uuid) {
-        ctx.whisper("You already have a pending trade. Cancel it with !trade reject.");
+        ctx.whisper(&format!("You already have a pending trade. Cancel it with {}trade reject.", ctx.runtime.prefix));
         return Ok(());
     }
 
@@ -111,8 +112,8 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     enqueue_chat(
         ctx.state,
         format!(
-            "/msg {} {} has proposed a trade: \"{}\". Run !trade confirm or !trade reject.",
-            recipient_name, ctx.sender, description
+            "/msg {} {} has proposed a trade: \"{}\". Run {}trade confirm or {}trade reject.",
+            recipient_name, ctx.sender, description, ctx.runtime.prefix, ctx.runtime.prefix
         ),
     );
 

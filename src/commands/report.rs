@@ -10,7 +10,7 @@ pub const REPORT_COMMAND: CommandDefinition = CommandDefinition {
 pub fn execute_report(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         if ctx.args.is_empty() {
-            ctx.whisper("Usage: !report <player> [reason]");
+            ctx.whisper(&format!("Usage: {}report <player> [reason]", ctx.runtime.prefix));
             return Ok(());
         }
 

@@ -326,9 +326,10 @@ fn wordcount(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             [server, search, word, ..] => ((*server).to_lowercase(), *search, *word, true),
             [search, word] => (ctx.state.mc_server.clone(), *search, *word, false),
             _ => {
+                let p = &ctx.runtime.prefix;
                 whisper(
                     &ctx,
-                    " Usage: !wordcount <username> <word> or !wordcount <server|all> <username> <word>",
+                    &format!(" Usage: {p}wordcount <username> <word> or {p}wordcount <server|all> <username> <word>"),
                 );
                 return Ok(());
             }
@@ -363,7 +364,7 @@ fn wordcount(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 fn namefind(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(search) = ctx.args.first() else {
-            whisper(&ctx, " Usage: !find <username>");
+            whisper(&ctx, &format!(" Usage: {}find <username>", ctx.runtime.prefix));
             return Ok(());
         };
         let data = ctx
@@ -400,18 +401,18 @@ fn total_advancements(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let target = match parse_stats_target_args(&ctx.args, ctx.sender, &ctx.state.mc_server) {
             Ok(target) => target,
             Err(StatsTargetError::MissingUsernameForAll) => {
-                whisper(&ctx, " Usage: !advs all <username>");
+                whisper(&ctx, &format!(" Usage: {}advs all <username>", ctx.runtime.prefix));
                 return Ok(());
             }
             Err(StatsTargetError::UnknownServer(server)) => {
                 whisper(
                     &ctx,
-                    &format!(" Unknown server \"{server}\". Use !lq for the list."),
+                    &format!(" Unknown server \"{server}\". Use {}lq for the list.", ctx.runtime.prefix),
                 );
                 return Ok(());
             }
             Err(StatsTargetError::MissingUsername) => {
-                whisper(&ctx, " Usage: !advs <server|all> <username>");
+                whisper(&ctx, &format!(" Usage: {}advs <server|all> <username>", ctx.runtime.prefix));
                 return Ok(());
             }
         };
@@ -619,7 +620,7 @@ fn advancement_count(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let search = ctx.args.join(" ").trim().to_owned();
         if search.is_empty() {
-            whisper(&ctx, " Usage: !advancement <advancement>");
+            whisper(&ctx, &format!(" Usage: {}advancement <advancement>", ctx.runtime.prefix));
             return Ok(());
         }
 
@@ -826,7 +827,7 @@ fn parse_top_server(ctx: &CommandContext<'_>) -> Result<String, String> {
     }
     if !crate::constants::quote_servers::is_quote_server(&server) {
         return Err(format!(
-            " Unknown server \"{server}\". Use !lq for the list."
+            " Unknown server \"{server}\". Use {}lq for the list.", ctx.runtime.prefix
         ));
     }
     Ok(server)
@@ -1196,7 +1197,7 @@ fn standing(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 fn offline_msg(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(recipient) = ctx.args.first().copied() else {
-            whisper(&ctx, " Usage: !offlinemsg <username> <message>");
+            whisper(&ctx, &format!(" Usage: {}offlinemsg <username> <message>", ctx.runtime.prefix));
             return Ok(());
         };
         let message = ctx
@@ -1279,9 +1280,9 @@ fn whois(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             ctx.chat(format!("User {target} is {safe_description}"));
         } else {
             let message = if target.eq_ignore_ascii_case(ctx.sender) {
-                " You have not yet set a description with !iam".to_owned()
+                format!(" You have not yet set a description with {}iam", ctx.runtime.prefix)
             } else {
-                format!(" {target} has not yet set a description with !iam")
+                format!(" {target} has not yet set a description with {}iam", ctx.runtime.prefix)
             };
             whisper(&ctx, &message);
         }
@@ -1417,7 +1418,7 @@ fn add_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let faq = ctx.args.join(" ").trim().to_owned();
         if faq.is_empty() {
-            whisper(&ctx, " Add a FAQ with !addfaq <text>");
+            whisper(&ctx, &format!(" Add a FAQ with {}addfaq <text>", ctx.runtime.prefix));
             return Ok(());
         }
         if faq.contains('/') {
@@ -1470,7 +1471,7 @@ fn delete_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     map.get(ctx.sender).copied()
                 };
                 let Some(id) = id else {
-                    whisper(&ctx, " No pending deletion. Run !delfaq <id> first.");
+                    whisper(&ctx, &format!(" No pending deletion. Run {}delfaq <id> first.", ctx.runtime.prefix));
                     return Ok(());
                 };
                 let Some(data) = ctx.state.api.delete_faq(id, ctx.sender).await else {
@@ -1489,7 +1490,8 @@ fn delete_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             }
             Some(id_raw) => {
                 let Ok(id) = id_raw.parse::<i64>() else {
-                    whisper(&ctx, " Usage: !delfaq <id> | !delfaq confirm");
+                    let p = &ctx.runtime.prefix;
+                    whisper(&ctx, &format!(" Usage: {p}delfaq <id> | {p}delfaq confirm"));
                     return Ok(());
                 };
                 let Some(faq) = ctx.state.api.get_faq(Some(&id.to_string()), None).await else {
@@ -1506,11 +1508,12 @@ fn delete_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     .insert(ctx.sender.to_owned(), id);
                 whisper(
                     &ctx,
-                    &format!(" Run !delfaq confirm to delete FAQ #{id}."),
+                    &format!(" Run {}delfaq confirm to delete FAQ #{id}.", ctx.runtime.prefix),
                 );
             }
             None => {
-                whisper(&ctx, " Usage: !delfaq <id> | !delfaq confirm");
+                let p = &ctx.runtime.prefix;
+                whisper(&ctx, &format!(" Usage: {p}delfaq <id> | {p}delfaq confirm"));
             }
         }
         Ok(())
@@ -1635,14 +1638,14 @@ fn edit_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let Some(id_raw) = ctx.args.first() else {
             whisper(
                 &ctx,
-                " Please provide a valid FAQ ID. Usage: !editfaq <id> <new text>",
+                &format!(" Please provide a valid FAQ ID. Usage: {}editfaq <id> <new text>", ctx.runtime.prefix),
             );
             return Ok(());
         };
         let Ok(id) = id_raw.parse::<i64>() else {
             whisper(
                 &ctx,
-                " Please provide a valid FAQ ID. Usage: !editfaq <id> <new text>",
+                &format!(" Please provide a valid FAQ ID. Usage: {}editfaq <id> <new text>", ctx.runtime.prefix),
             );
             return Ok(());
         };
@@ -1694,7 +1697,7 @@ fn efficiency(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             _ => {
                 whisper(
                     &ctx,
-                    " Valid stats: kills, deaths, messages. Usage: !efficiency [username] <stat>",
+                    &format!(" Valid stats: kills, deaths, messages. Usage: {}efficiency [username] <stat>", ctx.runtime.prefix),
                 );
                 return Ok(());
             }
@@ -1702,7 +1705,7 @@ fn efficiency(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         if !matches!(stat.as_str(), "kills" | "deaths" | "messages") {
             whisper(
                 &ctx,
-                " Valid stats: kills, deaths, messages. Usage: !efficiency [username] <stat>",
+                &format!(" Valid stats: kills, deaths, messages. Usage: {}efficiency [username] <stat>", ctx.runtime.prefix),
             );
             return Ok(());
         }
@@ -1779,7 +1782,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let command = ctx.args.join(" ").trim().to_owned();
         if command.is_empty() {
-            whisper(&ctx, " Usage: !execute </command>");
+            whisper(&ctx, &format!(" Usage: {}execute </command>", ctx.runtime.prefix));
             return Ok(());
         }
         ctx.chat(&command);
@@ -1842,7 +1845,7 @@ fn grudge(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             [victim] => (ctx.sender, *victim),
             [killer, victim, ..] => (*killer, *victim),
             _ => {
-                whisper(&ctx, " Usage: !grudge [killer] <victim>");
+                whisper(&ctx, &format!(" Usage: {}grudge [killer] <victim>", ctx.runtime.prefix));
                 return Ok(());
             }
         };
@@ -1895,7 +1898,7 @@ fn iam(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .collect::<Vec<_>>()
             .join(" ");
         if description.is_empty() {
-            whisper(&ctx, " View descriptions with !whois or set one with !iam");
+            whisper(&ctx, &format!(" View descriptions with {}whois or set one with {}iam", ctx.runtime.prefix, ctx.runtime.prefix));
             return Ok(());
         }
         if description.contains('/') {
@@ -1909,7 +1912,7 @@ fn iam(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .await
             .is_some()
         {
-            whisper(&ctx, " your !whois has been set.");
+            whisper(&ctx, &format!(" your {}whois has been set.", ctx.runtime.prefix));
         } else {
             whisper(
                 &ctx,
@@ -1934,7 +1937,7 @@ fn nickname(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let nickname = ctx.args.join(" ").trim().to_owned();
         if nickname.is_empty() {
-            whisper(&ctx, " Usage: !nickname <nickname>");
+            whisper(&ctx, &format!(" Usage: {}nickname <nickname>", ctx.runtime.prefix));
             return Ok(());
         }
         ctx.chat(format!(" /nick {nickname}"));
@@ -1989,11 +1992,11 @@ fn oldnames(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 fn owns_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(id) = ctx.args.first() else {
-            whisper(&ctx, " Usage: !ownsfaq <id>");
+            whisper(&ctx, &format!(" Usage: {}ownsfaq <id>", ctx.runtime.prefix));
             return Ok(());
         };
         if id.parse::<i64>().is_err() {
-            whisper(&ctx, " Usage: !ownsfaq <id>");
+            whisper(&ctx, &format!(" Usage: {}ownsfaq <id>", ctx.runtime.prefix));
             return Ok(());
         }
         let Some(data) = ctx
@@ -2096,7 +2099,7 @@ fn shout(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let raw = ctx.args.join(" ");
         let message = raw.replace('/', "").trim().to_owned();
         if message.is_empty() {
-            whisper(&ctx, " Usage: !shout <message>");
+            whisper(&ctx, &format!(" Usage: {}shout <message>", ctx.runtime.prefix));
             return Ok(());
         }
         let now = now_millis();
@@ -2352,7 +2355,7 @@ fn vs(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let [name1, name2] = match ctx.args.as_slice() {
             [name1, name2] => [*name1, *name2],
             _ => {
-                whisper(&ctx, " Usage: !vs <player1> <player2>");
+                whisper(&ctx, &format!(" Usage: {}vs <player1> <player2>", ctx.runtime.prefix));
                 return Ok(());
             }
         };

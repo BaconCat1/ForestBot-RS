@@ -65,22 +65,22 @@ pub fn parse_stats_target_or_reply(
     match parse_stats_target_args(&ctx.args, ctx.sender, &ctx.state.mc_server) {
         Ok(target) => Some(target),
         Err(error) => {
-            ctx.whisper(stats_target_usage(command_name, error));
+            ctx.whisper(stats_target_usage(&ctx.runtime.prefix, command_name, error));
             None
         }
     }
 }
 
-pub fn stats_target_usage(command_name: &str, error: StatsTargetError) -> String {
+pub fn stats_target_usage(prefix: &str, command_name: &str, error: StatsTargetError) -> String {
     match error {
         StatsTargetError::MissingUsernameForAll => {
-            format!(" Usage: !{command_name} all <username>")
+            format!(" Usage: {prefix}{command_name} all <username>")
         }
         StatsTargetError::UnknownServer(server) => {
-            format!(" Unknown server \"{server}\". Use !lq for the list.")
+            format!(" Unknown server \"{server}\". Use {prefix}lq for the list.")
         }
         StatsTargetError::MissingUsername => {
-            format!(" Usage: !{command_name} <server|all> <username>")
+            format!(" Usage: {prefix}{command_name} <server|all> <username>")
         }
     }
 }

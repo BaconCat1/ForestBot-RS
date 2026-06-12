@@ -12,7 +12,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(name) = ctx.args.first().copied() else {
-            ctx.whisper(" Usage: !alias <command>");
+            ctx.whisper(&format!(" Usage: {}alias <command>", ctx.runtime.prefix));
             return Ok(());
         };
         match crate::commands::find(name) {
