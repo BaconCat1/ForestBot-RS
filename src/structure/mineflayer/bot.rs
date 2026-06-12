@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -212,6 +212,7 @@ impl Bot {
             antiafk_active: Arc::new(AtomicBool::new(false)),
             announce: self.announce,
             announce_active: Arc::new(AtomicBool::new(false)),
+            consecutive_failures: Arc::new(AtomicU32::new(0)),
         };
 
         let mut builder = if self.options.disable_chat_signing {
@@ -274,6 +275,7 @@ pub struct AzaleaState {
     pub antiafk_active: Arc<AtomicBool>,
     pub announce: bool,
     pub announce_active: Arc<AtomicBool>,
+    pub consecutive_failures: Arc<AtomicU32>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -328,6 +330,7 @@ impl Default for AzaleaState {
             antiafk_active: Arc::new(AtomicBool::new(false)),
             announce: false,
             announce_active: Arc::new(AtomicBool::new(false)),
+            consecutive_failures: Arc::new(AtomicU32::new(0)),
         }
     }
 }
@@ -356,6 +359,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 return Ok(());
             }
             logger::spawn(format!("Spawned on {}.", state.mc_server));
+            state.consecutive_failures.store(0, Ordering::Relaxed);
             state.initial_spawn_done.store(true, Ordering::Relaxed);
             if mark_background_tasks_started(&state) {
                 spawn_websocket_event_task(state.clone());
@@ -497,12 +501,24 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             state.antiafk_active.store(false, Ordering::Relaxed);
             state.announce_active.store(false, Ordering::Relaxed);
             send_session_flush_leave(&state).await;
+            let failures = state.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
+            if failures >= 10 {
+                state.consecutive_failures.store(0, Ordering::Relaxed);
+                logger::warn("Server unreachable after 10 consecutive failures. Waiting 10 minutes before reconnect.");
+                tokio::time::sleep(Duration::from_secs(10 * 60)).await;
+            }
         }
         Event::ConnectionFailed(error) => {
             if event_disabled(&state, &["error", "kicked", "connectionFailed"]) {
                 return Ok(());
             }
             logger::warn(format!("Connection failed: {error}"));
+            let failures = state.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
+            if failures >= 10 {
+                state.consecutive_failures.store(0, Ordering::Relaxed);
+                logger::warn("Server unreachable after 10 consecutive failures. Waiting 10 minutes before reconnect.");
+                tokio::time::sleep(Duration::from_secs(10 * 60)).await;
+            }
         }
         Event::Tick => {
             flush_outbound_chat(&bot, &state).await;
