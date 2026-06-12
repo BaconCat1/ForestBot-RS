@@ -45,12 +45,12 @@ async fn handle_with_reply_mode(
     }
 
     let Some(command) = commands::find(command_name) else {
-        logger::info(format!("Unknown command: {command_name}"));
+        logger::command(format!("Unknown command: {command_name}"));
         return;
     };
 
     if !command_enabled(&runtime, command, command_name) {
-        logger::info(format!("Command disabled: {command_name}"));
+        logger::command(format!("Command disabled: {command_name}"));
         enqueue_command_whisper(
             state,
             &runtime,
@@ -61,14 +61,14 @@ async fn handle_with_reply_mode(
     }
 
     if !is_allowed_by_standing(&runtime, sender, state, content) {
-        logger::info(format!(
+        logger::command(format!(
             "Command blocked by blacklist: {command_name} from {sender}"
         ));
         return;
     }
 
     if command.whitelisted && !is_allowed_whitelisted_command(&runtime, sender, state, command) {
-        logger::info(format!(
+        logger::command(format!(
             "Command blocked by whitelist: {command_name} from {sender}"
         ));
         return;
@@ -77,7 +77,7 @@ async fn handle_with_reply_mode(
     if let Some(remaining) =
         command_cooldown_remaining(state, &runtime, command, command_name, sender)
     {
-        logger::info(format!(
+        logger::command(format!(
             "Command blocked by cooldown: {command_name} from {sender}, {remaining}s remaining"
         ));
         enqueue_command_whisper(
@@ -89,7 +89,7 @@ async fn handle_with_reply_mode(
         return;
     }
 
-    logger::info(format!("Executing command: {command_name} from {sender}"));
+    logger::command(format!("Executing command: {command_name} from {sender}"));
 
     let ctx = CommandContext {
         bot,
@@ -101,7 +101,7 @@ async fn handle_with_reply_mode(
     };
 
     if let Err(error) = (command.execute)(ctx).await {
-        logger::warn(format!("Command {command_name} failed: {error:#}"));
+        logger::command(format!("Command {command_name} failed: {error:#}"));
         enqueue_command_whisper(state, &runtime, sender, "Command failed.");
     }
 }

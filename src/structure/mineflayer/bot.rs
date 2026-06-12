@@ -155,14 +155,14 @@ impl Bot {
         }
 
         self.restart_count += 1;
-        logger::info(format!(
+        logger::login(format!(
             "Starting Azalea bot for {} on {}:{} using configured server version {}",
             self.options.username,
             self.options.host,
             self.options.port,
             self.options.server_version
         ));
-        logger::info(format!(
+        logger::login(format!(
             "Azalea protocol crate target: {}",
             self.options.azalea_version
         ));
@@ -223,7 +223,7 @@ impl Bot {
         .reconnect_after(Duration::from_millis(self.reconnect_time_ms));
 
         if self.options.enable_viaversion {
-            logger::info(format!(
+            logger::login(format!(
                 "Using ViaVersion target version: {}",
                 self.options.viaversion_target_version
             ));
@@ -322,7 +322,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             if event_disabled(&state, &["init"]) {
                 return Ok(());
             }
-            logger::info("Azalea client initialized.");
+            logger::login("Azalea client initialized.");
 
             bot.set_client_information(ClientInformation {
                 view_distance: 2,
@@ -333,13 +333,13 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             if event_disabled(&state, &["login"]) {
                 return Ok(());
             }
-            logger::info("Logged into Minecraft server.");
+            logger::login("Logged into Minecraft server.");
         }
         Event::Spawn => {
             if event_disabled(&state, &["spawn"]) {
                 return Ok(());
             }
-            logger::success(format!("Spawned on {}.", state.mc_server));
+            logger::spawn(format!("Spawned on {}.", state.mc_server));
             state.initial_spawn_done.store(true, Ordering::Relaxed);
             if mark_background_tasks_started(&state) {
                 spawn_websocket_event_task(state.clone());
@@ -356,7 +356,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 return Ok(());
             }
 
-            logger::info(match &sender {
+            logger::chat(match &sender {
                 Some(sender) => format!("{sender}: {content}"),
                 None => format!("Chat: {content}"),
             });
@@ -401,7 +401,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             if event_disabled(&state, &["playerJoined", "playerJoin", "addPlayer"]) {
                 return Ok(());
             }
-            logger::info(format!("Player joined: {}", player.profile.name));
+            logger::join(format!("Player joined: {}", player.profile.name));
             let username = player.profile.name.clone();
             let uuid = player.profile.uuid.to_string();
             let latency = player.latency;
@@ -446,7 +446,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             if event_disabled(&state, &["playerLeft", "playerLeave", "removePlayer"]) {
                 return Ok(());
             }
-            logger::info(format!("Player left: {}", player.profile.name));
+            logger::leave(format!("Player left: {}", player.profile.name));
             let username = player.profile.name.clone();
             let uuid = player.profile.uuid.to_string();
             state
@@ -465,8 +465,8 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             let reason_str = reason
                 .map(|r| r.to_string())
                 .unwrap_or_else(|| "Unknown".to_owned());
-            logger::warn(format!("Kicked/disconnected: {reason_str}"));
-            logger::warn("Bot has ended, attempting to restart soon.");
+            logger::kick(format!("Kicked/disconnected: {reason_str}"));
+            logger::logout("Bot has ended, attempting to restart soon.");
             state.initial_spawn_done.store(false, Ordering::Relaxed);
             send_session_flush_leave(&state).await;
         }
@@ -506,7 +506,7 @@ async fn flush_outbound_chat(bot: &Client, state: &AzaleaState) {
 
     for message in messages {
         let message = filter_outgoing_message(state, &message).await;
-        logger::info(format!("Sending chat reply: {message}"));
+        logger::chat(format!("Sending chat reply: {message}"));
         bot.chat(message);
     }
 }
@@ -611,7 +611,7 @@ fn handle_entity_spawn_first_sight(bot: &Client, state: &AzaleaState) {
         let x = round_one_decimal(position.x);
         let y = round_one_decimal(position.y);
         let z = round_one_decimal(position.z);
-        logger::info(format!(
+        logger::world(format!(
             "World: [{}] ({x:.1}, {y:.1}, {z:.1}) Spotted.",
             player.username
         ));
@@ -884,7 +884,7 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
             return;
         }
         send_player_advancement(state, &player, &uuid, &full_msg).await;
-        logger::info(format!("Advancement: {full_msg}"));
+        logger::advancement(format!("Advancement: {full_msg}"));
         return;
     }
 
@@ -896,7 +896,7 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
             .as_deref()
             .and_then(|name| players.get(name).map(|player| player.uuid.clone()));
         send_player_death(state, &player, &uuid, &full_msg, murderer, murderer_uuid).await;
-        logger::info(format!("Death: {full_msg}"));
+        logger::death(format!("Death: {full_msg}"));
         return;
     }
 
@@ -907,7 +907,7 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
     }
 
     send_minecraft_chat_message(state, &player, &message, &uuid).await;
-    logger::info(format!("{player}: {message}"));
+    logger::chat(format!("{player}: {message}"));
 }
 
 fn spawn_websocket_event_task(state: AzaleaState) {
@@ -919,15 +919,15 @@ fn spawn_websocket_event_task(state: AzaleaState) {
     tokio::spawn(async move {
         while let Ok(event) = events.recv().await {
             match event {
-                WebsocketEvent::Open => logger::success("Websocket connection opened."),
+                WebsocketEvent::Open => logger::websocket("Websocket connection opened."),
                 WebsocketEvent::Close(reason) => {
-                    logger::warn(format!("Websocket connection closed: {reason}"));
+                    logger::websocket(format!("Websocket connection closed: {reason}"));
                 }
                 WebsocketEvent::Error(error) => {
-                    logger::warn(format!("Websocket error: {error}"));
+                    logger::websocket(format!("Websocket error: {error}"));
                 }
                 WebsocketEvent::KeyAccepted(_) => {
-                    logger::success("Websocket API key accepted by hub.");
+                    logger::websocket("Websocket API key accepted by hub.");
                 }
                 WebsocketEvent::NewName(data) => {
                     let should_welcome = {
@@ -983,7 +983,7 @@ fn spawn_websocket_event_task(state: AzaleaState) {
                     });
                 }
                 WebsocketEvent::UnknownMessage(message) => {
-                    logger::warn(format!("Unknown websocket message: {message}"));
+                    logger::websocket(format!("Unknown websocket message: {message}"));
                 }
                 WebsocketEvent::Ignored
                 | WebsocketEvent::MinecraftPlayerDeath(_)
@@ -1093,7 +1093,7 @@ async fn send_minecraft_chat_message(
         })
         .await
     {
-        logger::warn(format!("Failed to send websocket chat message: {error}"));
+        logger::websocket(format!("Failed to send websocket chat message: {error}"));
     }
 }
 
@@ -1114,7 +1114,7 @@ async fn send_player_join(state: &AzaleaState, username: &str, uuid: &str) {
         })
         .await
     {
-        logger::warn(format!("Failed to send websocket player join: {error}"));
+        logger::websocket(format!("Failed to send websocket player join: {error}"));
     }
 }
 
@@ -1135,7 +1135,7 @@ async fn send_player_leave(state: &AzaleaState, username: &str, uuid: &str) {
         })
         .await
     {
-        logger::warn(format!("Failed to send websocket player leave: {error}"));
+        logger::websocket(format!("Failed to send websocket player leave: {error}"));
     }
 }
 
@@ -1162,7 +1162,7 @@ async fn send_player_list_update(state: &AzaleaState) {
     }
 
     if let Err(error) = websocket.send_player_list_update(players).await {
-        logger::warn(format!(
+        logger::websocket(format!(
             "Failed to send websocket player list update: {error}"
         ));
     }
@@ -1186,7 +1186,7 @@ async fn send_session_flush_leave(state: &AzaleaState) {
         })
         .await
     {
-        logger::warn(format!(
+        logger::websocket(format!(
             "Failed to send websocket session flush leave: {error}"
         ));
     }
@@ -1213,7 +1213,7 @@ async fn send_player_advancement(
         })
         .await
     {
-        logger::warn(format!("Failed to send websocket advancement: {error}"));
+        logger::websocket(format!("Failed to send websocket advancement: {error}"));
     }
 }
 
@@ -1244,7 +1244,7 @@ async fn send_player_death(
         })
         .await
     {
-        logger::warn(format!("Failed to send websocket death: {error}"));
+        logger::websocket(format!("Failed to send websocket death: {error}"));
     }
 }
 

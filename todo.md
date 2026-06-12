@@ -20,6 +20,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 * ✅ ~~`drop`: TypeScript drops the held item or every inventory item via Mineflayer `tossStack`; Rust currently only replies that Azalea inventory-drop parity is not wired.~~
 * 🔎 `mount` / `ride` / `mush`: TypeScript finds the nearest mountable entity or vehicle, applies cooldowns, and mounts it; Rust currently only replies that mounting is not wired.
+  * 🆕 Add `logger::move_log` category to `logger.rs` once movement commands are implemented
 * 🔎 `sleep`: TypeScript finds and activates a bed; Rust currently only replies that sleeping is not wired.
 * 🔎 `twerk` / `bootyshake` / `booty` / `dance`: TypeScript toggles sneak for 10 seconds; Rust command is registered but still needs equivalent Azalea control-state behavior verified.
 * 🔎 `realname`: TypeScript resolves visible display/nickname data from Mineflayer player state; Rust needs equivalent display-name data in the player cache for exact parity.

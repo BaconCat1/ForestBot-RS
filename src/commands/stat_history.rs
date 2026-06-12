@@ -1773,7 +1773,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 fn febzey(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let pos = ctx.bot.position();
-        logger::info(format!("[COORDS] x={:.1} y={:.1} z={:.1}", pos.x, pos.y, pos.z));
+        logger::world(format!("[COORDS] x={:.1} y={:.1} z={:.1}", pos.x, pos.y, pos.z));
         let target = "Febzey_";
         let Some(uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
             ctx.chat(format!(" I couldn't even find {target}. Truly absent."));
