@@ -1,5 +1,6 @@
 
 
+
 # ForestBot Rust Port Remaining TypeScript Parity (``todo.md``)
 
 Only behavior still missing or partial compared to `ForestBot/src` is listed here.
@@ -49,7 +50,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 ## Events
 
 * 🔎 `end.ts`: TypeScript marks the bot disconnected, quits, restarts, logs end args, and sends the bot leave websocket packet.
-* 🔎 `kicked.ts` / `error.ts`: Both register as `name: 'kicked'` in TS — log kick reason, call bot.end(). Not handled in Rust.
+* ✅ ~~`kicked.ts` / `error.ts`: Both register as `name: 'kicked'` in TS — log kick reason, call bot.end(). Not handled in Rust.~~ // Rust `Event::Disconnect` logs readable reason + restart message; reconnect handled natively by Azalea `.reconnect_after()`
 * 🔎 `spawn.ts`: Rust sends player-list updates and starts websocket listeners, but still lacks TypeScript spawn extras: anti-AFK, announce interval, outgoing robot marker hook, and `restartCount` / `isConnected` state updates.
 * ✅ ~~`physicsTick.ts`: TypeScript writes `tick_end` packets; confirm whether Azalea truly makes this unnecessary, then either document or port.~~ // TS handler is a no-op stub (only commented-out look-at-entity code)
 
@@ -85,6 +86,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~Whisper that a command is disabled to the player who ran said command~~
 * ✅ ~~**bug**: fix discord bug(?) where blacklisted people's messages don't get sent to discord~~
 * ❌ ~~**bug**: fix discord bug where it fails to show /playtimegraph for a user without a join date~~ // OUT OF SCOPE
+* 🆕 pivot from ashcon api to crafty api for username history lookups
+
 
 **!quote**
 * ✅ ~~Add support for !q <username> <keyword>~~
@@ -97,6 +100,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 **new commands**
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~
 * ✅ ~~!alias - lists aliases of a command~~
+
+
 
 ---
 

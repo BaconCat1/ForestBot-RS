@@ -462,7 +462,11 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             if event_disabled(&state, &["end", "disconnect"]) {
                 return Ok(());
             }
-            logger::warn(format!("Disconnected: {reason:?}"));
+            let reason_str = reason
+                .map(|r| r.to_string())
+                .unwrap_or_else(|| "Unknown".to_owned());
+            logger::warn(format!("Kicked/disconnected: {reason_str}"));
+            logger::warn("Bot has ended, attempting to restart soon.");
             state.initial_spawn_done.store(false, Ordering::Relaxed);
             send_session_flush_leave(&state).await;
         }
