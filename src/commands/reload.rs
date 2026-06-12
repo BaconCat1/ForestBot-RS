@@ -45,7 +45,11 @@ async fn reload_runtime(
         use_whitelist: app_state.config.use_mc_whitelist,
         user_whitelist: app_state.mc_whitelist.into_iter().collect::<HashSet<_>>(),
         user_blacklist: app_state.mc_blacklist.into_iter().collect::<HashSet<_>>(),
-        custom_chat_formats: app_state.config.custom_chat_formats,
+        custom_chat_formats: if app_state.config.use_custom_chat_format_parser {
+            app_state.config.custom_chat_formats
+        } else {
+            Vec::new()
+        },
         command_toggles: app_state.config.commands,
         whitelisted_commands: app_state
             .config

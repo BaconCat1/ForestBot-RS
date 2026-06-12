@@ -46,8 +46,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 ## Chat Parsing And Message Handling
 
-* 🔎 Honor `useLegacyChat` with the TypeScript `messagestr.ts` behavior.
-* 🔎 Fully honor `useCustomChatFormatParser`; Rust still attempts custom/fallback parsing rather than matching the config switch exactly.
+* ❌ ~~`useLegacyChat` / `messagestr.ts`~~ // Azalea always provides structured chat data; legacy raw-string path is not applicable
+* ✅ ~~`useCustomChatFormatParser` — custom format parser now gated on config flag; empty formats vec when disabled~~ // gated in Bot::new(), Bot::start(), and reload.rs
 * 🔎 Verify Rust whisper parsing covers both TypeScript `whisperFrom.ts` and `whisperTo.ts` cases.
 
 ## Events

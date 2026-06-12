@@ -134,7 +134,11 @@ impl Bot {
             use_commands: state.config.use_commands,
             prefix: state.config.prefix.clone(),
             whisper_command: state.config.whisper_command.clone(),
-            custom_chat_formats: state.config.custom_chat_formats.clone(),
+            custom_chat_formats: if state.config.use_custom_chat_format_parser {
+                state.config.custom_chat_formats.clone()
+            } else {
+                Vec::new()
+            },
             use_custom_chat_prefix: state.config.use_custom_chat_prefix,
             custom_chat_prefix: state.config.custom_chat_prefix.clone(),
             allow_chatbridge_input: state.config.allow_chatbridge_input,
@@ -187,7 +191,7 @@ impl Bot {
                 use_whitelist: self.use_whitelist,
                 user_whitelist: self.user_whitelist.clone(),
                 user_blacklist: self.user_blacklist.clone(),
-                custom_chat_formats: self.custom_chat_formats.clone(),
+                custom_chat_formats: self.custom_chat_formats.clone(), // already gated by use_custom_chat_format_parser in Bot::new()
                 command_toggles: self.command_toggles.clone(),
                 whitelisted_commands: self.whitelisted_commands.clone(),
                 disabled_events: self.disabled_events.clone(),

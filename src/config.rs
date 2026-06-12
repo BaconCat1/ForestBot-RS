@@ -83,7 +83,6 @@ pub struct Config {
     #[allow(dead_code)]
     pub use_legacy_chat: bool,
     #[serde(rename = "useCustomChatFormatParser")]
-    #[allow(dead_code)]
     pub use_custom_chat_format_parser: bool,
     #[serde(rename = "customChatFormats")]
     pub custom_chat_formats: Vec<String>,
