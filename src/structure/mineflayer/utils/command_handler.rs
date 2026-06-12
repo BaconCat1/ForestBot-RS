@@ -67,7 +67,7 @@ async fn handle_with_reply_mode(
         return;
     }
 
-    if command.whitelisted && !is_allowed_whitelisted_command(&runtime, sender, state, command) {
+    if command.whitelisted && !is_allowed_whitelisted_command(&runtime, sender, state) {
         logger::command(format!(
             "Command blocked by whitelist: {command_name} from {sender}"
         ));
@@ -303,16 +303,7 @@ fn is_allowed_whitelisted_command(
     runtime: &RuntimeConfig,
     sender: &str,
     state: &AzaleaState,
-    command: &CommandDefinition,
 ) -> bool {
-    if command
-        .names
-        .iter()
-        .any(|name| runtime.whitelisted_commands.contains(*name))
-    {
-        return true;
-    }
-
     if !runtime.use_whitelist
         || runtime.user_whitelist.contains(sender)
         || runtime

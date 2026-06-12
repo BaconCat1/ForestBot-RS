@@ -51,11 +51,6 @@ async fn reload_runtime(
             Vec::new()
         },
         command_toggles: app_state.config.commands,
-        whitelisted_commands: app_state
-            .config
-            .whitelisted_commands
-            .into_iter()
-            .collect::<HashSet<_>>(),
         disabled_events: app_state
             .config
             .disabled_events

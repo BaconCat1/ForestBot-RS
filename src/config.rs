@@ -69,7 +69,6 @@ pub struct Config {
     #[serde(default)]
     pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub welcome_messages: bool,
-    pub whitelisted_commands: Vec<String>,
     #[serde(rename = "useCommands")]
     pub use_commands: bool,
     pub disabled_events: Vec<String>,

@@ -8,4 +8,4 @@
 CLAUDE.md
 config.json
 TRADEFEATURES.md
-json/mc_whitelist.json
+json/*.*

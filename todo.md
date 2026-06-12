@@ -59,7 +59,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 ## Moderation
 
-* 🔎 Fully port MC whitelist enforcement beyond command/admin gating
+* ✅ ~~Fully port MC whitelist enforcement beyond command/admin gating~~ // `use_whitelist` toggle matches TS parity; `whitelisted_commands` config field was dead code in TS, dropped from Rust
 * 🔎 Port TypeScript `anti_spam_cooldown` and `anti_spam_msg_limit`; Rust currently only has command cooldown handling.
 
 ---

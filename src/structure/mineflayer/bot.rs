@@ -66,7 +66,6 @@ pub struct RuntimeConfig {
     pub user_blacklist: HashSet<String>,
     pub custom_chat_formats: Vec<String>,
     pub command_toggles: HashMap<String, bool>,
-    pub whitelisted_commands: HashSet<String>,
     pub disabled_events: HashSet<String>,
     pub allow_chatbridge_input: bool,
     pub welcome_messages: bool,
@@ -93,7 +92,6 @@ pub struct Bot {
     pub mc_server: String,
     pub user_whitelist: HashSet<String>,
     pub user_blacklist: HashSet<String>,
-    pub whitelisted_commands: HashSet<String>,
     #[allow(dead_code)]
     pub commands: HashMap<String, Command>,
     pub command_toggles: HashMap<String, bool>,
@@ -128,7 +126,6 @@ impl Bot {
             mc_server: state.config.mc_server.clone(),
             user_whitelist: state.mc_whitelist.iter().cloned().collect(),
             user_blacklist: state.mc_blacklist.iter().cloned().collect(),
-            whitelisted_commands: state.config.whitelisted_commands.iter().cloned().collect(),
             commands: HashMap::new(),
             command_toggles: state.config.commands.clone(),
             disabled_events: state.config.disabled_events.iter().cloned().collect(),
@@ -194,7 +191,6 @@ impl Bot {
                 user_blacklist: self.user_blacklist.clone(),
                 custom_chat_formats: self.custom_chat_formats.clone(), // already gated by use_custom_chat_format_parser in Bot::new()
                 command_toggles: self.command_toggles.clone(),
-                whitelisted_commands: self.whitelisted_commands.clone(),
                 disabled_events: self.disabled_events.clone(),
                 allow_chatbridge_input: self.api.options.use_websocket
                     && self.allow_chatbridge_input,
@@ -313,7 +309,6 @@ impl Default for AzaleaState {
                 user_blacklist: HashSet::new(),
                 custom_chat_formats: Vec::new(),
                 command_toggles: HashMap::new(),
-                whitelisted_commands: HashSet::new(),
                 disabled_events: HashSet::new(),
                 allow_chatbridge_input: false,
                 welcome_messages: false,
