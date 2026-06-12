@@ -2,6 +2,8 @@
 
 
 
+
+
 # ForestBot Rust Port Remaining TypeScript Parity (``todo.md``)
 
 Only behavior still missing or partial compared to `ForestBot/src` is listed here.
@@ -20,7 +22,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 ## Commands
 
 * ✅ ~~`drop`: TypeScript drops the held item or every inventory item via Mineflayer `tossStack`; Rust currently only replies that Azalea inventory-drop parity is not wired.~~
-* 🔎 `mount` / `ride` / `mush`: TypeScript finds the nearest mountable entity or vehicle, applies cooldowns, and mounts it; Rust currently only replies that mounting is not wired.
+* ✅ ~~`mount` / `ride` / `mush`: TypeScript finds the nearest mountable entity or vehicle, applies cooldowns, and mounts it; Rust currently only replies that mounting is not wired.~~ // `nearest_entities_by` + `EntityRef::interact()` implemented; Azalea has a TODO for full riding state tracking so mount success cannot be confirmed, but the interact packet is sent
   * 🆕 Add `logger::move_log` category to `logger.rs` once movement commands are implemented
 * 🔎 `sleep`: TypeScript finds and activates a bed; Rust currently only replies that sleeping is not wired.
 * ✅ ~~`twerk` / `bootyshake` / `booty` / `dance`: TypeScript toggles sneak for 10 seconds; Rust command is registered but still needs equivalent Azalea control-state behavior verified.~~ // timing matches TS (100ms interval, 10s duration)
@@ -60,14 +62,14 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 ## Moderation
 
 * ✅ ~~Fully port MC whitelist enforcement beyond command/admin gating~~ // `use_whitelist` toggle matches TS parity; `whitelisted_commands` config field was dead code in TS, dropped from Rust
-* 🔎 Port TypeScript `anti_spam_cooldown` and `anti_spam_msg_limit`; Rust currently only has command cooldown handling.
+* ❌ ~~Port TypeScript `anti_spam_cooldown` and `anti_spam_msg_limit`~~ // dead code in TS, never wired; per-command cooldowns with incremental penalties cover the abuse case
 
 ---
 
 # `todo2.md` (jolly is bad at lists)
 
 ## General
-* 🔎 Movement commands, !mount, !sleep, and !drop are unimplemented.
+* 🔎 Movement commands, !sleep, and !drop are unimplemented. ~~!mount~~ ✅
 	* ✅ ~~!twerk does run but it doesn't really match the ts behavior. The bot does dismount things it's riding so it is crouching, probably too fast to be visible when observed. Maybe replace with !crouch where it just does it once?~~
 * 🐛 ~~**bug** !setpreset doesn't work in /msg~~
 	* *Should be working, needs to be tested in prod to confirm, pending hw migration*
@@ -106,6 +108,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~
 * ✅ ~~!alias - lists aliases of a command~~
 * ✅ ~~!crouch — single press/release; !crouch hold crouches for up to 10min, whispers instructions, !crouch releases~~
+* 🆕 !slurcount, checks a user's message history for slurs and presents a total. Should not count messages that were commands (ie, a player checking another's word count for a slur shouldn't be counted against them)
+* 🆕 !health, display bot's health, hunger, armor stats
 
 
 
