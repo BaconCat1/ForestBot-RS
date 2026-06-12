@@ -24,7 +24,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
   * 🆕 Add `logger::move_log` category to `logger.rs` once movement commands are implemented
 * 🔎 `sleep`: TypeScript finds and activates a bed; Rust currently only replies that sleeping is not wired.
 * ✅ ~~`twerk` / `bootyshake` / `booty` / `dance`: TypeScript toggles sneak for 10 seconds; Rust command is registered but still needs equivalent Azalea control-state behavior verified.~~ // timing matches TS (100ms interval, 10s duration)
-* 🔎 `realname`: TypeScript resolves visible display/nickname data from Mineflayer player state; Rust needs equivalent display-name data in the player cache for exact parity.
+* ✅ ~~`realname`: display_name: Option<String> added to PlayerSnapshot, populated from PlayerInfo.display_name (FormattedText→plain string) on AddPlayer/UpdatePlayer; !realname resolves display name → real username~~
 * ✅ `febzey`: ~~Rust has equivalent last-seen-style behavior, but it is not byte-for-byte identical to the TypeScript command text.~~
 	* *Working as intended afaik*
 
@@ -54,7 +54,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 * 🔎 `end.ts`: TypeScript marks the bot disconnected, quits, restarts, logs end args, and sends the bot leave websocket packet.
 * ✅ ~~`kicked.ts` / `error.ts`: Both register as `name: 'kicked'` in TS — log kick reason, call bot.end(). Not handled in Rust.~~ // Rust `Event::Disconnect` logs readable reason + restart message; reconnect handled natively by Azalea `.reconnect_after()`
-* 🔎 `spawn.ts`: Rust sends player-list updates and starts websocket listeners, but still lacks TypeScript spawn extras: outgoing robot marker hook, and `restartCount` / `isConnected` state updates. // anti-AFK and announce loop now wired
+* ✅ ~~`spawn.ts` extras~~ // anti-AFK + announce wired; robot marker handled via `use_custom_chat_prefix` config; `isConnected` has no consumers in Rust — N/A; `restartCount` covered by `consecutive_failures` reset on spawn
 * ✅ ~~`physicsTick.ts`: TypeScript writes `tick_end` packets; confirm whether Azalea truly makes this unnecessary, then either document or port.~~ // TS handler is a no-op stub (only commented-out look-at-entity code)
 
 ## Moderation

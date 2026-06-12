@@ -82,6 +82,7 @@ pub struct PlayerSnapshot {
     pub uuid: String,
     pub entity_uuid: Uuid,
     pub latency: i32,
+    pub display_name: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -439,6 +440,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             let username = player.profile.name.clone();
             let uuid = player.profile.uuid.to_string();
             let latency = player.latency;
+            let display_name = player.display_name.as_deref().map(|d| d.to_string());
             state
                 .players
                 .write()
@@ -450,6 +452,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                         uuid: uuid.clone(),
                         entity_uuid: player.profile.uuid,
                         latency,
+                        display_name,
                     },
                 );
             send_player_list_update(&state).await;
@@ -473,6 +476,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                         uuid: player.profile.uuid.to_string(),
                         entity_uuid: player.profile.uuid,
                         latency: player.latency,
+                        display_name: player.display_name.as_deref().map(|d| d.to_string()),
                     },
                 );
         }
