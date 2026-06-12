@@ -5,6 +5,7 @@
 
 
 
+
 # ForestBot Rust Port Remaining TypeScript Parity (``todo.md``)
 
 Only behavior still missing or partial compared to `ForestBot/src` is listed here.
@@ -50,11 +51,11 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 * ❌ ~~`useLegacyChat` / `messagestr.ts`~~ // Azalea always provides structured chat data; legacy raw-string path is not applicable
 * ✅ ~~`useCustomChatFormatParser` — custom format parser now gated on config flag; empty formats vec when disabled~~ // gated in Bot::new(), Bot::start(), and reload.rs
-* 🔎 Verify Rust whisper parsing covers both TypeScript `whisperFrom.ts` and `whisperTo.ts` cases.
+* ✅ ~~Verify Rust whisper parsing covers both TypeScript `whisperFrom.ts` and `whisperTo.ts` cases.~~ // `whisperTo.ts` is a no-op stub; Rust `whisper_parser.rs` covers all 12 TS patterns + extra `PM:` variant
 
 ## Events
 
-* 🔎 `end.ts`: TypeScript marks the bot disconnected, quits, restarts, logs end args, and sends the bot leave websocket packet.
+* ✅ ~~`end.ts`: TypeScript marks the bot disconnected, quits, restarts, logs end args, and sends the bot leave websocket packet.~~ // `isConnected` has no consumers (N/A); quit/restart via Azalea `.reconnect_after()`; reason logged via `logger::kick`/`logger::logout`; leave WS packet via `send_session_flush_leave` on `Event::Disconnect`
 * ✅ ~~`kicked.ts` / `error.ts`: Both register as `name: 'kicked'` in TS — log kick reason, call bot.end(). Not handled in Rust.~~ // Rust `Event::Disconnect` logs readable reason + restart message; reconnect handled natively by Azalea `.reconnect_after()`
 * ✅ ~~`spawn.ts` extras~~ // anti-AFK + announce wired; robot marker handled via `use_custom_chat_prefix` config; `isConnected` has no consumers in Rust — N/A; `restartCount` covered by `consecutive_failures` reset on spawn
 * ✅ ~~`physicsTick.ts`: TypeScript writes `tick_end` packets; confirm whether Azalea truly makes this unnecessary, then either document or port.~~ // TS handler is a no-op stub (only commented-out look-at-entity code)
@@ -90,10 +91,11 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~Cooldowns should be cumulative. For example, the initial 10 second cooldown for !q is fine, but if someone quotes again within cooldown * 2 (20 seconds initially) the cooldown should then increase. I'm thinking just 1 extra second (making it 11 seconds until you can run it again, and 22 until the cooldown resets). This punishes over use and repeated use, since even a small cooldown doesn't seem to be enough to dissuade people to chill on the command spam. This concept should also be implemented for !lm, only waaay more aggressive. There should be a 300 second cooldown for last message on an individual user basis with the same "punishment" style increases. People use forest to bypass ignores and this is meant to dissuade that.~~
 * ✅ ~~Self censorship~~
 * ✅ ~~Whisper that a command is disabled to the player who ran said command~~
-* ✅ ~~**bug**: fix discord bug(?) where blacklisted people's messages don't get sent to discord~~
-* ❌ ~~**bug**: fix discord bug where it fails to show /playtimegraph for a user without a join date~~ // OUT OF SCOPE
+* 🐛 ~~**bug**: fix discord bug(?) where blacklisted people's messages don't get sent to discord~~
+	* *Needs testing post hw migration*
+* ✅ ~~**bug**: fix discord bug where it fails to show /playtimegraph for a user without a join date~~ // Hub returns non-array on missing join date; `buildPlaytimeEmbed` now checks `res.ok` + `Array.isArray(graphData)` before processing
 * ✅ Nick resolution for nicked players (EssentialsX `/nick`): `nick_cache` (display_name → uuid) populated from PlayerInfo AddPlayer/UpdatePlayer; checked before Mojang API fallback in chat/advancement UUID resolution and all trade commands. Requires server to send PlayerInfo display_name — EssentialsX needs `change-playerlist: true`.
-* 🆕 pivot from ashcon api to crafty api for username history lookups
+* ✅ ~~pivot from ashcon api to crafty api for username history lookups~~ // `GET https://api.crafty.gg/api/v2/players/{username}` → `data.usernames[].username`; replaced `AshconProfile`/`AshconUsernameHistory` structs with `CraftyPlayerResponse`/`CraftyPlayerData`/`CraftyUsername`
 * 🆕 need some kind of alert system in discord for bad behavior that requires manual intervention
 
 
@@ -136,10 +138,10 @@ Tradebot (Discord) is the reference implementation. This tracks what craftbot (M
 
 ## Already working (no gap)
 
-* ✅ Hub broadcasts `trade_confirmed`/`trade_rejected` WebSocket events on craftbot-side confirms, tradebot's `listenForMcConfirms` catches them and posts to `#verified-trade` — pipeline intact
-* ✅ Hub broadcasts `report_created` WS event; tradebot `listenForMcReports` posts MC-origin reports to modlogs with action buttons
-* ✅ Hub broadcasts `scammer_marked`/`scammer_unmarked` WS events; craftbot announces in public chat
-* ✅ `!link` → `/link` account linking — both sides implemented
+* ✅ ~~Hub broadcasts `trade_confirmed`/`trade_rejected` WebSocket events on craftbot-side confirms, tradebot's `listenForMcConfirms` catches them and posts to `#verified-trade` — pipeline intact~~
+* ✅ ~~Hub broadcasts `report_created` WS event; tradebot `listenForMcReports` posts MC-origin reports to modlogs with action buttons~~
+* ✅ ~~Hub broadcasts `scammer_marked`/`scammer_unmarked` WS events; craftbot announces in public chat~~
+* ✅ ~~`!link` → `/link` account linking — both sides implemented~~
 
 * ✅ ~~!unlink~~
 * ✅ ~~!top trades~~

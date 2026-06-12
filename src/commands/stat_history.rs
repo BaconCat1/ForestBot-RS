@@ -2135,7 +2135,7 @@ fn oldnames(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
         let url = format!(
-            "https://api.ashcon.app/mojang/v2/user/{}",
+            "https://api.crafty.gg/api/v2/players/{}",
             percent_encode_path_segment(target)
         );
         let response = reqwest::get(url).await;
@@ -2146,7 +2146,7 @@ fn oldnames(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         if response.status().as_u16() == 404 {
             whisper(
                 &ctx,
-                " Could not find the user you were looking for on the Ashcon API.",
+                " Could not find the user you were looking for.",
             );
             return Ok(());
         }
@@ -2154,9 +2154,10 @@ fn oldnames(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             ctx.chat(" An error occured while trying to look up the user.");
             return Ok(());
         }
-        let profile = response.json::<AshconProfile>().await.ok();
+        let profile = response.json::<CraftyPlayerResponse>().await.ok();
         let mut names = profile
-            .map(|profile| profile.username_history)
+            .and_then(|p| p.data)
+            .map(|d| d.usernames)
             .unwrap_or_default()
             .into_iter()
             .filter_map(|entry| entry.username)
@@ -2955,12 +2956,17 @@ fn percent_encode_path_segment(value: &str) -> String {
 }
 
 #[derive(Debug, Deserialize)]
-struct AshconProfile {
-    #[serde(default)]
-    username_history: Vec<AshconUsernameHistory>,
+struct CraftyPlayerResponse {
+    data: Option<CraftyPlayerData>,
 }
 
 #[derive(Debug, Deserialize)]
-struct AshconUsernameHistory {
+struct CraftyPlayerData {
+    #[serde(default)]
+    usernames: Vec<CraftyUsername>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CraftyUsername {
     username: Option<String>,
 }
