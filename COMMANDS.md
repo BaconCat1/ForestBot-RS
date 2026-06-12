@@ -5,6 +5,8 @@
 | Command | Description |
 |---|---|
 | `!help` / `!commands` | Links here |
+| `!alias <command>` | Show aliases for a command |
+| `!hardware` / `!hw` | Show OS and hardware info |
 | `!discord` | Discord server invite link |
 | `!ping <player?>` | Show a player's ping |
 | `!ap` / `!averageping` | Average server ping |
@@ -28,6 +30,7 @@
 | `!kd` / `!kills` / `!deaths <server?> <player?>` | Kill/death stats |
 | `!winrate` / `!wr <player?>` | Kill winrate |
 | `!advancements` / `!advs <server?> <player?>` | Total advancement count |
+| `!advancement` / `!advancementcount <advancement>` | Times a specific advancement was reached |
 | `!lastadvancement` / `!ladv <player?>` | Most recent advancement |
 | `!summary` / `!sum <player?>` | Stats overview (kd, playtime, messages, advancements, joindate) |
 | `!servers` / `!seenservers <player?>` | Servers a player has been seen on |
@@ -85,12 +88,14 @@
 | `!faq <id?>` | Retrieve a FAQ entry |
 | `!addfaq` | Add a FAQ entry |
 | `!editfaq` | Edit a FAQ entry |
+| `!delfaq` / `!deletefaq <id>` | Delete a FAQ entry |
 | `!ownsfaq <id>` / `!faqowner` | See who owns a FAQ entry |
 
 ## Fun
 
 | Command | Description |
 |---|---|
+| `!crouch` | Single crouch press/release; `!crouch hold` holds for up to 10 min, `!crouch` again releases |
 | `!mount` / `!ride` / `!mush <entity?>` | Mount nearest rideable entity |
 | `!drop [all]` | Drop held item (or all items) |
 | `!sleep` | Put the bot to sleep |
@@ -115,6 +120,12 @@
 | `!scammers` | List up to 5 known scammers — online players first (`name (online)`), then most recently marked |
 
 Cooldowns: 60s to re-propose after a trade. If someone rejects your proposal, you're locked out for 10 minutes.
+
+## Moderation
+
+| Command | Description |
+|---|---|
+| `!report <player> [reason]` | Report a player as a scammer |
 
 ## Admin / Whitelist only
 

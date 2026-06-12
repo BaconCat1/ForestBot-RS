@@ -116,8 +116,8 @@ command!(
     "Retrieves the number of advancements a user has. Usage: {prefix}advs <username> or {prefix}advs <server|all> <username>",
     total_advancements
 );
-command!(SUMMARY_COMMAND, &["summary", "sum"], "Single-line stats overview for a player. Usage: {prefix}summary [username]", summary);
-command!(WINRATE_COMMAND, &["winrate", "wr"], "Shows a player's kill win rate: kills/(kills+deaths)%. Usage: {prefix}winrate [username]", winrate);
+command!(SUMMARY_COMMAND, &["summary", "sum"], "Single-line stats overview for a player. Usage: {prefix}summary <username>", summary);
+command!(WINRATE_COMMAND, &["winrate", "wr"], "Shows a player's kill win rate: kills/(kills+deaths)%. Usage: {prefix}winrate <username>", winrate);
 command!(FIRST_DEATH_COMMAND, &["firstdeath", "fd"], "Retrieves the first death a user got. Usage: {prefix}firstdeath <username>", first_death);
 command!(LAST_DEATH_COMMAND, &["lastdeath", "ld"], "Retrieves the last death of a user. Usage: {prefix}lastdeath <username>", last_death);
 command!(FIRST_KILL_COMMAND, &["firstkill", "fk"], "Retrieves the first kill a user got. Usage: {prefix}firstkill <username>", first_kill);
@@ -178,11 +178,11 @@ command!(BEST_PING_COMMAND, &["bp", "bestping"], "See who has the best ping. Usa
 admin_command!(CENSOR_COMMAND, &["censor"], "Manage bad-words list. Usage: {prefix}censor add <word> | {prefix}censor remove <word>", censor);
 command!(COORDS_COMMAND, &["coords"], "Use {prefix}coords to get the coordinates of the bot.", coords);
 command!(EDIT_FAQ_COMMAND, &["editfaq"], "Edits an existing FAQ entry. Usage: {prefix}editfaq <id> <new text>", edit_faq);
-command!(EFFICIENCY_COMMAND, &["efficiency", "eff"], "Shows rate-based efficiency stats. Usage: {prefix}efficiency [username] <kills|deaths|messages>", efficiency);
+command!(EFFICIENCY_COMMAND, &["efficiency", "eff"], "Shows rate-based efficiency stats. Usage: {prefix}efficiency <username> <kills|deaths|messages>", efficiency);
 admin_command!(EXECUTE_COMMAND, &["execute", "exec", "run"], "Executes a raw server command as the bot. Usage: {prefix}execute </command>", execute);
 command!(FEBZEY_COMMAND, &["febzey"], "Bully Febzey for being AWOL and not maintaining his bot! Usage: {prefix}febzey", febzey);
 command!(FAQ_COMMAND, &["faq", "getfaq"], "Retrieves a FAQ entry by ID. Usage: {prefix}faq <id>(optional)", faq);
-command!(GRUDGE_COMMAND, &["grudge"], "Shows how many times a player has killed a specific victim. Usage: {prefix}grudge [killer] <victim>", grudge);
+command!(GRUDGE_COMMAND, &["grudge"], "Shows how many times a player has killed a specific victim. Usage: {prefix}grudge <killer> <victim>", grudge);
 command!(IAM_COMMAND, &["iam"], "Use {prefix}iam to set your {prefix}whois description.", iam);
 command!(MOUNT_COMMAND, &["mount", "ride", "mush"], "Mount the nearest rideable entity. Usage: {prefix}mount <entity>(optional)", mount);
 command!(NICKNAME_COMMAND, &["nickname"], "Set the bots nickname in the server. Usage: {prefix}nickname <nickname>", nickname);

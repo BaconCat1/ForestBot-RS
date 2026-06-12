@@ -44,3 +44,18 @@ RUSTFLAGS="-C target-cpu=native" cargo run
 ```
 
 First build downloads azalea from git and may take several minutes.
+
+## JSON files
+
+The `json/` directory holds runtime data files:
+
+| File | Purpose |
+|------|---------|
+| `mc_blacklist.json` | Blacklisted player UUIDs |
+| `mc_whitelist.json` | Whitelisted player UUIDs (if `use_mc_whitelist` is true) |
+| `bad_words.json` | Profanity filter word list |
+| `word_whitelist.json` | Profanity filter exceptions |
+| `colors.json` | Color config |
+| `offline_messages.json` | Pending offline messages — **instance-specific, do not share** |
+
+To share a list across multiple bot instances (e.g. a single blacklist for all servers), use hardlinks. The files will appear as separate files on disk but write to the same inode — any edit is instantly visible to all instances without coordination.
