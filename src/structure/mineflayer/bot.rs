@@ -215,6 +215,7 @@ impl Bot {
             announce_active: Arc::new(AtomicBool::new(false)),
             consecutive_failures: Arc::new(AtomicU32::new(0)),
             seen_advancements: Arc::new(Mutex::new(HashMap::new())),
+            nick_cache: Arc::new(RwLock::new(HashMap::new())),
         };
 
         let mut builder = if self.options.disable_chat_signing {
@@ -279,6 +280,7 @@ pub struct AzaleaState {
     pub announce_active: Arc<AtomicBool>,
     pub consecutive_failures: Arc<AtomicU32>,
     pub seen_advancements: Arc<Mutex<HashMap<String, HashSet<String>>>>,
+    pub nick_cache: Arc<RwLock<HashMap<String, String>>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -334,6 +336,7 @@ impl Default for AzaleaState {
             announce_active: Arc::new(AtomicBool::new(false)),
             consecutive_failures: Arc::new(AtomicU32::new(0)),
             seen_advancements: Arc::new(Mutex::new(HashMap::new())),
+            nick_cache: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }
@@ -439,6 +442,13 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             let uuid = player.profile.uuid.to_string();
             let latency = player.latency;
             let display_name = player.display_name.as_deref().map(|d| d.to_string());
+            if let Some(dn) = &display_name {
+                state
+                    .nick_cache
+                    .write()
+                    .expect("nick cache lock poisoned")
+                    .insert(dn.clone(), uuid.clone());
+            }
             state
                 .players
                 .write()
@@ -462,6 +472,13 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
         Event::UpdatePlayer(player) => {
             if event_disabled(&state, &["updatePlayer"]) {
                 return Ok(());
+            }
+            if let Some(dn) = player.display_name.as_deref() {
+                state
+                    .nick_cache
+                    .write()
+                    .expect("nick cache lock poisoned")
+                    .insert(dn.to_string(), player.profile.uuid.to_string());
             }
             state
                 .players
@@ -917,6 +934,24 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
                 .values()
                 .find(|p| p.username == player)
                 .map(|p| p.uuid.clone())
+        })
+        .or_else(|| {
+            players
+                .values()
+                .find(|p| {
+                    p.display_name
+                        .as_deref()
+                        .is_some_and(|d| d.eq_ignore_ascii_case(&player))
+                })
+                .map(|p| p.uuid.clone())
+        })
+        .or_else(|| {
+            state
+                .nick_cache
+                .read()
+                .expect("nick cache lock poisoned")
+                .get(&player)
+                .cloned()
         });
     let uuid = match uuid {
         Some(uuid) => uuid,

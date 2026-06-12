@@ -4,6 +4,7 @@
 
 
 
+
 # ForestBot Rust Port Remaining TypeScript Parity (``todo.md``)
 
 Only behavior still missing or partial compared to `ForestBot/src` is listed here.
@@ -68,7 +69,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 # `todo2.md` (jolly is bad at lists)
 
 ## General
-* 🔎 Movement commands, !sleep, and ~~!drop~~ are unimplemented. ~~!mount~~ ✅
+* ✅ ~~Movement commands, !sleep, and !drop are unimplemented. !mount~~
 	* ✅ ~~!twerk does run but it doesn't really match the ts behavior. The bot does dismount things it's riding so it is crouching, probably too fast to be visible when observed. Maybe replace with !crouch where it just does it once?~~
 * 🐛 ~~**bug** !setpreset doesn't work in /msg~~
 	* *Should be working, needs to be tested in prod to confirm, pending hw migration*
@@ -91,6 +92,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~Whisper that a command is disabled to the player who ran said command~~
 * ✅ ~~**bug**: fix discord bug(?) where blacklisted people's messages don't get sent to discord~~
 * ❌ ~~**bug**: fix discord bug where it fails to show /playtimegraph for a user without a join date~~ // OUT OF SCOPE
+* ✅ Nick resolution for nicked players (EssentialsX `/nick`): `nick_cache` (display_name → uuid) populated from PlayerInfo AddPlayer/UpdatePlayer; checked before Mojang API fallback in chat/advancement UUID resolution and all trade commands. Requires server to send PlayerInfo display_name — EssentialsX needs `change-playerlist: true`.
 * 🆕 pivot from ashcon api to crafty api for username history lookups
 * 🆕 need some kind of alert system in discord for bad behavior that requires manual intervention
 

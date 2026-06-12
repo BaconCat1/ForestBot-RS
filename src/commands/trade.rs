@@ -38,19 +38,12 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let recipient_name = ctx.args[0];
     let description = ctx.args[1..].join(" ");
 
-    let sender_uuid = {
-        let players = ctx.state.players.read().expect("player cache lock poisoned");
-        resolve_online_uuid(ctx.sender, &players)
-    };
-    let sender_uuid = match sender_uuid {
+    let sender_uuid = match resolve_target_uuid(ctx, ctx.sender).await {
         Some(u) => u,
-        None => match ctx.state.api.convert_username_to_uuid(ctx.sender).await {
-            Some(u) => u,
-            None => {
-                ctx.whisper("Could not resolve your UUID.");
-                return Ok(());
-            }
-        },
+        None => {
+            ctx.whisper("Could not resolve your UUID.");
+            return Ok(());
+        }
     };
 
     {
@@ -70,19 +63,12 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let recipient_uuid = {
-        let players = ctx.state.players.read().expect("player cache lock poisoned");
-        resolve_online_uuid(recipient_name, &players)
-    };
-    let recipient_uuid = match recipient_uuid {
+    let recipient_uuid = match resolve_target_uuid(ctx, recipient_name).await {
         Some(u) => u,
-        None => match ctx.state.api.convert_username_to_uuid(recipient_name).await {
-            Some(u) => u,
-            None => {
-                ctx.whisper(format!("Could not find player: {recipient_name}"));
-                return Ok(());
-            }
-        },
+        None => {
+            ctx.whisper(format!("Could not find player: {recipient_name}"));
+            return Ok(());
+        }
     };
 
     if let Some(_s) = ctx.state.api.tradebot_get_scammer(&sender_uuid).await {
@@ -121,19 +107,12 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 }
 
 async fn confirm_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
-    let sender_uuid = {
-        let players = ctx.state.players.read().expect("player cache lock poisoned");
-        resolve_online_uuid(ctx.sender, &players)
-    };
-    let sender_uuid = match sender_uuid {
+    let sender_uuid = match resolve_target_uuid(ctx, ctx.sender).await {
         Some(u) => u,
-        None => match ctx.state.api.convert_username_to_uuid(ctx.sender).await {
-            Some(u) => u,
-            None => {
-                ctx.whisper("Could not resolve your UUID.");
-                return Ok(());
-            }
-        },
+        None => {
+            ctx.whisper("Could not resolve your UUID.");
+            return Ok(());
+        }
     };
 
     let trades = ctx.state.api.tradebot_get_user_trades(&sender_uuid).await;
@@ -155,19 +134,12 @@ async fn confirm_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 }
 
 async fn reject_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
-    let sender_uuid = {
-        let players = ctx.state.players.read().expect("player cache lock poisoned");
-        resolve_online_uuid(ctx.sender, &players)
-    };
-    let sender_uuid = match sender_uuid {
+    let sender_uuid = match resolve_target_uuid(ctx, ctx.sender).await {
         Some(u) => u,
-        None => match ctx.state.api.convert_username_to_uuid(ctx.sender).await {
-            Some(u) => u,
-            None => {
-                ctx.whisper("Could not resolve your UUID.");
-                return Ok(());
-            }
-        },
+        None => {
+            ctx.whisper("Could not resolve your UUID.");
+            return Ok(());
+        }
     };
 
     let trades = ctx.state.api.tradebot_get_user_trades(&sender_uuid).await;
@@ -211,19 +183,12 @@ pub fn execute_trades(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
 
-        let target_uuid = {
-            let players = ctx.state.players.read().expect("player cache lock poisoned");
-            resolve_online_uuid(target, &players)
-        };
-        let target_uuid = match target_uuid {
+        let target_uuid = match resolve_target_uuid(&ctx, target).await {
             Some(u) => u,
-            None => match ctx.state.api.convert_username_to_uuid(target).await {
-                Some(u) => u,
-                None => {
-                    ctx.whisper(format!("Could not find player: {target}"));
-                    return Ok(());
-                }
-            },
+            None => {
+                ctx.whisper(format!("Could not find player: {target}"));
+                return Ok(());
+            }
         };
 
         if let Some(_s) = ctx.state.api.tradebot_get_scammer(&target_uuid).await {
@@ -297,19 +262,12 @@ pub fn execute_tradestats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .find(|a| !a.eq_ignore_ascii_case("full"))
             .unwrap_or(ctx.sender);
 
-        let target_uuid = {
-            let players = ctx.state.players.read().expect("player cache lock poisoned");
-            resolve_online_uuid(target, &players)
-        };
-        let target_uuid = match target_uuid {
+        let target_uuid = match resolve_target_uuid(&ctx, target).await {
             Some(u) => u,
-            None => match ctx.state.api.convert_username_to_uuid(target).await {
-                Some(u) => u,
-                None => {
-                    ctx.whisper(format!("Could not find player: {target}"));
-                    return Ok(());
-                }
-            },
+            None => {
+                ctx.whisper(format!("Could not find player: {target}"));
+                return Ok(());
+            }
         };
 
         let Some(data) = ctx.state.api.tradebot_get_stats(&target_uuid).await else {
@@ -384,6 +342,28 @@ pub fn execute_tradestats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn resolve_online_uuid(username: &str, players: &HashMap<String, PlayerSnapshot>) -> Option<String> {
     players.get(username).map(|p| p.uuid.clone())
+}
+
+async fn resolve_target_uuid(ctx: &CommandContext<'_>, target: &str) -> Option<String> {
+    {
+        let players = ctx.state.players.read().expect("player cache lock poisoned");
+        if let Some(u) = resolve_online_uuid(target, &players) {
+            return Some(u);
+        }
+    }
+    {
+        let nick_result = ctx
+            .state
+            .nick_cache
+            .read()
+            .expect("nick cache lock poisoned")
+            .get(target)
+            .cloned();
+        if let Some(u) = nick_result {
+            return Some(u);
+        }
+    }
+    ctx.state.api.convert_username_to_uuid(target).await
 }
 
 fn uuid_to_name<'a>(uuid: &str, players: &'a HashMap<String, PlayerSnapshot>) -> Option<&'a str> {
