@@ -22,7 +22,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🔎 `mount` / `ride` / `mush`: TypeScript finds the nearest mountable entity or vehicle, applies cooldowns, and mounts it; Rust currently only replies that mounting is not wired.
   * 🆕 Add `logger::move_log` category to `logger.rs` once movement commands are implemented
 * 🔎 `sleep`: TypeScript finds and activates a bed; Rust currently only replies that sleeping is not wired.
-* 🔎 `twerk` / `bootyshake` / `booty` / `dance`: TypeScript toggles sneak for 10 seconds; Rust command is registered but still needs equivalent Azalea control-state behavior verified.
+* ✅ ~~`twerk` / `bootyshake` / `booty` / `dance`: TypeScript toggles sneak for 10 seconds; Rust command is registered but still needs equivalent Azalea control-state behavior verified.~~ // timing matches TS (100ms interval, 10s duration)
 * 🔎 `realname`: TypeScript resolves visible display/nickname data from Mineflayer player state; Rust needs equivalent display-name data in the player cache for exact parity.
 * ✅ `febzey`: ~~Rust has equivalent last-seen-style behavior, but it is not byte-for-byte identical to the TypeScript command text.~~
 	* Working as intended afaik
@@ -101,6 +101,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 **new commands**
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~
 * ✅ ~~!alias - lists aliases of a command~~
+* ✅ ~~!crouch — single press/release; !crouch hold crouches for up to 10min, whispers instructions, !crouch releases~~
 
 
 
