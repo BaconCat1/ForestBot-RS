@@ -17,6 +17,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 tokio = { version = "1.52.1", features = ["fs", "macros", "rt-multi-thread"] }
 tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-native-roots"] }
+zstd = "0.13"
 sysinfo = "0.33"
 uuid = "1.18.1"
 

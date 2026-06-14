@@ -3,6 +3,7 @@ use std::{future::Future, pin::Pin};
 use azalea::prelude::Client;
 
 pub mod alias;
+pub mod askgod;
 pub mod crouch;
 pub mod discord;
 pub mod drop;
@@ -201,6 +202,9 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::WHITELIST_COMMAND,
         stat_history::WORD_WHITELIST_COMMAND,
         stat_history::WORST_PING_COMMAND,
+        askgod::COMMAND,
+        askgod::LISTGODS_COMMAND,
+        askgod::SEARCHGOD_COMMAND,
         link::LINK_COMMAND,
         link::UNLINK_COMMAND,
         report::REPORT_COMMAND,

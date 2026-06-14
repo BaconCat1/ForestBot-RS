@@ -370,6 +370,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             if mark_background_tasks_started(&state) {
                 spawn_websocket_event_task(state.clone());
                 spawn_player_list_update_task(state.clone());
+                tokio::task::spawn_blocking(crate::commands::askgod::preload_all_corpora);
             }
             send_player_list_update(&state).await;
             if state.antiafk {

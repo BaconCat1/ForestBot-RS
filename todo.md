@@ -113,7 +113,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!crouch — single press/release; !crouch hold crouches for up to 10min, whispers instructions, !crouch releases~~
 * ✅ ~~!slurcount, checks a user's message history for slurs and presents a total. Should not count messages that were commands (ie, a player checking another's word count for a slur shouldn't be counted against them)~~ // Hub `/wordcount` updated: whole-word REGEXP, `exclude_commands=true` adds `AND message NOT LIKE '!%'`; slur list in `json/slurcount_list.json` (bare array, populate manually); parallel requests per slur, counts summed
 * ✅ ~~!health, display bot's health, hunger, armor stats~~ // whispers `Health: X/20 | Hunger: X/20 (sat: X) | Armor: X | Effects: ...`; mount health skipped (azalea `set_passengers` is a no-op stub)
-* 🆕 !askgod, logically translate TempleOS's talk to god stuff lol
+* ✅ ~~!askgod, logically translate TempleOS's talk to god stuff lol~~ // KJV loaded from godtexts/kjv.txt.gz via flate2; timestamp entropy (subsec_nanos >> 4) picks a random verse; displays [Book chapter:verse] text in public chat, truncated to 240 chars; multi-god support pending more corpus files
 	* God's messages are based on source texts, you can ask different gods (ie: `!askgod buddha`) by using different source texts!
 
 ---
