@@ -5,7 +5,8 @@
 |------|--------|------|
 | `kjv.txt` | https://www.gutenberg.org/ebooks/10 | *Public Domain* |
 | `koran.txt` | https://www.gutenberg.org/ebooks/2800 | *Public Domain* |
-| `bookofmormon.txt` | https://www.gutenberg.org/ebooks/17 | *Public Domain* |
+| `mormon.txt` | _Book of Mormon_ (Project Gutenberg #17, 6549 blocks) + _Doctrine and Covenants_ (Wikisource, Sections 1–138 + OD1, 3527 blocks) + _Pearl of Great Price_ (1851 ed., Wikisource, 126 blocks) | *Public Domain* |
+| `mormon2.txt` | _Official Declaration 2_ (The Church of Jesus Christ of Latter-day Saints, 1978) — 10 blocks | © The Church of Jesus Christ of Latter-day Saints |
 | `rastafarianism.txt` | _The Holy Piby_ (Robert Athlyi Rogers, 1924) sacred-texts.com/afr/piby/index.htm (49 blocks) + _Kebra Nagast_ (E.A.W. Budge trans., 1922) sacred-texts.com/chr/kebra/index.htm (683 blocks) | *Public Domain* |
 | `bahai.txt` | Multiple texts from: https://www.sacred-texts.com/bhi/index.htm | https://www.sacred-texts.com/bhi/cnote.txt |
 | `mandaeanism.txt` | http://www.bahaistudies.net/asma/mandaeanism13.pdf | © E. S. Drower, _Canonical Prayerbook of the Mandaeans_, Leiden: Brill, 1959 |
@@ -100,3 +101,4 @@
 | `bardothodol.txt` | _The Tibetan Book of the Dead_ (W.Y. Evans-Wentz trans., Oxford University Press, 1927) — sacred-texts.com/bud/bdtd/index.htm. Not distinct enough for the purposes of this feature | *Public Domain*  |
 | `sibylline.txt` | _Sibylline Oracles_ (Milton Terry trans., 1899) — sacred-texts.com | *Not included — pseudepigrapha; texts consciously written under false prophetic identity (Jewish/Christian authors writing as pagan Sibyls for apologetic purposes); fails sincerity criterion* |
 | `branchdavidians.txt` | _The Decoded Message of the Seven Seals_ (David Koresh, 1993, Stewart Waterhouse, ASIN B0006FAV26) — partial manuscript completed during Waco siege; foundational theology of the Branch Davidians | *Not included — "New Light" sexual abuse doctrine is theologically load-bearing, not separable from Seven Seals exegesis; no clean etext exists regardless (print only, 50pp partial manuscript)* |
+| `homeric_hymns.txt` | _Homeric Hymns_ (Hugh Evelyn-White trans., 1914) — sacred-texts.com | *Not included — devotional hymns addressed to Greek gods, not divine voice speaking from gods |

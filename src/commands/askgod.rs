@@ -51,7 +51,7 @@ fn searchgod(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 fn listgods(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         const GODS: &[&str] = &[
-            "god", "allah", "moroni", "bahaullah", "jah", "hayyi", "mani", "melek",
+            "god", "allah", "mormon", "bahaullah", "jah", "hayyi", "mani", "melek",
             "moon", "noi", "sophia", "eddy", "krishna", "buddha", "waheguru", "tao",
             "confucius", "amaterasu", "caodai", "zoroaster", "osiris", "odin", "zeus",
             "hurakan", "hammurabi", "huitzilopochtli", "hermetic", "crowley", "eris",
@@ -89,7 +89,9 @@ struct Verse {
 // One OnceLock per corpus — populated lazily on first use.
 static KJV_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static KORAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
-static BOM_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static MORMON_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static MORMON2_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static MORMON_MERGED_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static BAHAI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static RASTA_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MANDAEAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
@@ -150,11 +152,12 @@ static JEDI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 
 type CorpusEntry = (&'static OnceLock<Vec<Verse>>, &'static str, fn(&str) -> anyhow::Result<Vec<Verse>>);
 
-fn all_corpora() -> [CorpusEntry; 59] {
+fn all_corpora() -> [CorpusEntry; 60] {
     [
         (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv),
         (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran),
-        (&BOM_CORPUS, "godtexts/bookofmormon.txt.zst", parse_bom),
+        (&MORMON_CORPUS, "godtexts/mormon.txt.zst", parse_bahai),
+        (&MORMON2_CORPUS, "godtexts/mormon2.txt.zst", parse_bahai),
         (&BAHAI_CORPUS, "godtexts/bahai.txt.zst", parse_bahai),
         (&RASTA_CORPUS, "godtexts/rastafarianism.txt.zst", parse_bahai),
         (&MANDAEAN_CORPUS, "godtexts/mandaeanism.txt.zst", parse_bahai),
@@ -285,8 +288,8 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Some("allah") | Some("quran") | Some("koran") | Some("islam") | Some("muslim") | Some("muhammad") => {
                     (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran)
                 }
-                Some("moroni") | Some("nephi") | Some("mormon") | Some("joseph") | Some("lds") | Some("bom") => {
-                    (&BOM_CORPUS, "godtexts/bookofmormon.txt.zst", parse_bom)
+                Some("moroni") | Some("nephi") | Some("mormon") | Some("joseph") | Some("lds") | Some("bom") | Some("dnc") | Some("doctrine") | Some("covenants") | Some("pogp") | Some("kimball") | Some("brigham") | Some("latterday") | Some("od1") | Some("od2") => {
+                    (&MORMON_MERGED_CORPUS, "godtexts/mormon.txt.zst", parse_merged_mormon)
                 }
                 Some("bahai") | Some("baha") | Some("bahaullah") | Some("aqdas") => {
                     (&BAHAI_CORPUS, "godtexts/bahai.txt.zst", parse_bahai)
@@ -697,6 +700,23 @@ fn strip_ordinal(s: &str) -> (&str, &str) {
 //   [Reference text]
 //   Full passage text on one line.
 //   <blank line>
+
+fn parse_merged_mormon(content: &str) -> anyhow::Result<Vec<Verse>> {
+    let mut verses = parse_bahai(content)?;
+    let path2 = "godtexts/mormon2.txt.zst";
+    if std::path::Path::new(path2).exists() {
+        if let Ok(file) = std::fs::File::open(path2) {
+            if let Ok(bytes) = zstd::decode_all(file) {
+                if let Ok(s) = String::from_utf8(bytes) {
+                    if let Ok(v2) = parse_bahai(&s) {
+                        verses.extend(v2);
+                    }
+                }
+            }
+        }
+    }
+    Ok(verses)
+}
 
 fn parse_merged_aztec(content: &str) -> anyhow::Result<Vec<Verse>> {
     let mut verses = parse_bahai(content)?;
