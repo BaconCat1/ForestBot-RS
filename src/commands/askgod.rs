@@ -55,7 +55,7 @@ fn listgods(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "moon", "noi", "sophia", "eddy", "krishna", "buddha", "waheguru", "tao",
             "confucius", "amaterasu", "caodai", "zoroaster", "osiris", "odin", "zeus",
             "hurakan", "hammurabi", "huitzilopochtli", "hermetic", "crowley", "eris",
-            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi",
+            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi", "qumran",
         ];
         const MAX: usize = 220;
         let mut line = format!("!askgod <god> -- {} corpora, one per corpus: ", GODS.len());
@@ -150,10 +150,11 @@ static JAINISM_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static INCAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static ICHING_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static JEDI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static DSS_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 
 type CorpusEntry = (&'static OnceLock<Vec<Verse>>, &'static str, fn(&str) -> anyhow::Result<Vec<Verse>>);
 
-fn all_corpora() -> [CorpusEntry; 59] {
+fn all_corpora() -> [CorpusEntry; 60] {
     [
         (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv),
         (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran),
@@ -214,6 +215,7 @@ fn all_corpora() -> [CorpusEntry; 59] {
         (&INCAN_CORPUS, "godtexts/incan.txt.zst", parse_bahai),
         (&ICHING_CORPUS, "godtexts/iching.txt.zst", parse_bahai),
         (&JEDI_CORPUS, "godtexts/jedi.txt.zst", parse_bahai),
+        (&DSS_CORPUS, "godtexts/deadseascrolls.txt.zst", parse_bahai),
     ]
 }
 
@@ -482,6 +484,9 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
                 Some("jedi") | Some("jedipath") | Some("theforce") | Some("force") | Some("yoda") | Some("skywalker") | Some("anakin") | Some("luke") | Some("obi") | Some("kenobi") | Some("mace") | Some("windu") | Some("sith") | Some("midichlorian") => {
                     (&JEDI_CORPUS, "godtexts/jedi.txt.zst", parse_bahai)
+                }
+                Some("dss") | Some("deadseascrolls") | Some("qumran") | Some("essene") | Some("essenes") | Some("communityrule") | Some("damascusdocument") | Some("warscroll") | Some("thanksgivinghymns") | Some("templeoscroll") | Some("vermes") => {
+                    (&DSS_CORPUS, "godtexts/deadseascrolls.txt.zst", parse_bahai)
                 }
                 Some("bible") | Some("god") | Some("jesus") | Some("christ") | Some("kjv") | Some("christian") => {
                     (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv)
