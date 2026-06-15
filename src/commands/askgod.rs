@@ -152,12 +152,11 @@ static JEDI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 
 type CorpusEntry = (&'static OnceLock<Vec<Verse>>, &'static str, fn(&str) -> anyhow::Result<Vec<Verse>>);
 
-fn all_corpora() -> [CorpusEntry; 60] {
+fn all_corpora() -> [CorpusEntry; 59] {
     [
         (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv),
         (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran),
         (&MORMON_CORPUS, "godtexts/mormon.txt.zst", parse_bahai),
-        (&MORMON2_CORPUS, "godtexts/mormon2.txt.zst", parse_bahai),
         (&BAHAI_CORPUS, "godtexts/bahai.txt.zst", parse_bahai),
         (&RASTA_CORPUS, "godtexts/rastafarianism.txt.zst", parse_bahai),
         (&MANDAEAN_CORPUS, "godtexts/mandaeanism.txt.zst", parse_bahai),
