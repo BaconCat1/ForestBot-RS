@@ -99,6 +99,8 @@ static YAZIDI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static UNIFICATION_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static NOI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static GNOSTIC_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static GNOSTIC2_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static GNOSTIC_MERGED_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static CS_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static HINDU_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static BUDDHISM_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
@@ -163,7 +165,7 @@ fn all_corpora() -> [CorpusEntry; 59] {
         (&YAZIDI_CORPUS, "godtexts/yazidism.txt.zst", parse_bahai),
         (&UNIFICATION_CORPUS, "godtexts/unificationchurch.txt.zst", parse_bahai),
         (&NOI_CORPUS, "godtexts/noi.txt.zst", parse_bahai),
-        (&GNOSTIC_CORPUS, "godtexts/gnosticism.txt.zst", parse_bahai),
+        (&GNOSTIC_MERGED_CORPUS, "godtexts/gnosticism.txt.zst", parse_merged_gnostic),
         (&CS_CORPUS, "godtexts/christianscience.txt.zst", parse_bahai),
         (&HINDU_CORPUS, "godtexts/hinduism.txt.zst", parse_bahai),
         (&BUDDHISM_CORPUS, "godtexts/buddhism.txt.zst", parse_bahai),
@@ -310,8 +312,8 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Some("noi") | Some("nation") | Some("blackman") | Some("yakub") | Some("yakoub") => {
                     (&NOI_CORPUS, "godtexts/noi.txt.zst", parse_bahai)
                 }
-                Some("gnostic") | Some("gnosticism") | Some("nag") | Some("hammadi") | Some("sophia") | Some("pleroma") | Some("demiurge") => {
-                    (&GNOSTIC_CORPUS, "godtexts/gnosticism.txt.zst", parse_bahai)
+                Some("gnostic") | Some("gnosticism") | Some("nag") | Some("hammadi") | Some("sophia") | Some("pleroma") | Some("demiurge") | Some("pistissophia") | Some("brucejeu") | Some("jeu") | Some("askcodex") => {
+                    (&GNOSTIC_MERGED_CORPUS, "godtexts/gnosticism.txt.zst", parse_merged_gnostic)
                 }
                 Some("eddy") | Some("christianscience") | Some("marybakeddy") | Some("scienceandhealth") => {
                     (&CS_CORPUS, "godtexts/christianscience.txt.zst", parse_bahai)
@@ -702,6 +704,23 @@ fn strip_ordinal(s: &str) -> (&str, &str) {
 fn parse_merged_mormon(content: &str) -> anyhow::Result<Vec<Verse>> {
     let mut verses = parse_bahai(content)?;
     let path2 = "godtexts/mormon2.txt.zst";
+    if std::path::Path::new(path2).exists() {
+        if let Ok(file) = std::fs::File::open(path2) {
+            if let Ok(bytes) = zstd::decode_all(file) {
+                if let Ok(s) = String::from_utf8(bytes) {
+                    if let Ok(v2) = parse_bahai(&s) {
+                        verses.extend(v2);
+                    }
+                }
+            }
+        }
+    }
+    Ok(verses)
+}
+
+fn parse_merged_gnostic(content: &str) -> anyhow::Result<Vec<Verse>> {
+    let mut verses = parse_bahai(content)?;
+    let path2 = "godtexts/gnosticism2.txt.zst";
     if std::path::Path::new(path2).exists() {
         if let Ok(file) = std::fs::File::open(path2) {
             if let Ok(bytes) = zstd::decode_all(file) {
