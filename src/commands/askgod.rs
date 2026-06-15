@@ -55,7 +55,7 @@ fn listgods(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "moon", "noi", "sophia", "eddy", "krishna", "buddha", "waheguru", "tao",
             "confucius", "amaterasu", "caodai", "zoroaster", "osiris", "odin", "zeus",
             "hurakan", "hammurabi", "huitzilopochtli", "hermetic", "crowley", "eris",
-            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching",
+            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta",
         ];
         const MAX: usize = 220;
         let mut line = format!("!askgod <god> -- {} corpora, one per corpus: ", GODS.len());
@@ -91,7 +91,7 @@ static KJV_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static KORAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static BOM_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static BAHAI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
-static PIBY_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static RASTA_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MANDAEAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MANI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static YAZIDI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
@@ -155,7 +155,7 @@ fn all_corpora() -> [CorpusEntry; 58] {
         (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran),
         (&BOM_CORPUS, "godtexts/bookofmormon.txt.zst", parse_bom),
         (&BAHAI_CORPUS, "godtexts/bahai.txt.zst", parse_bahai),
-        (&PIBY_CORPUS, "godtexts/piby.txt.zst", parse_bahai),
+        (&RASTA_CORPUS, "godtexts/rastafarianism.txt.zst", parse_bahai),
         (&MANDAEAN_CORPUS, "godtexts/mandaeanism.txt.zst", parse_bahai),
         (&MANI_CORPUS, "godtexts/manichaeanism.txt.zst", parse_bahai),
         (&YAZIDI_CORPUS, "godtexts/yazidism.txt.zst", parse_bahai),
@@ -289,8 +289,8 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Some("bahai") | Some("baha") | Some("bahaullah") | Some("aqdas") => {
                     (&BAHAI_CORPUS, "godtexts/bahai.txt.zst", parse_bahai)
                 }
-                Some("piby") | Some("rastafari") | Some("rasta") | Some("athlyi") | Some("rogers") | Some("jah") => {
-                    (&PIBY_CORPUS, "godtexts/piby.txt.zst", parse_bahai)
+                Some("piby") | Some("rastafari") | Some("rasta") | Some("athlyi") | Some("rogers") | Some("jah") | Some("rastafarianism") | Some("kebra") | Some("nagast") | Some("kebraNagast") | Some("selassie") | Some("haile") | Some("zion") | Some("babylon") | Some("makeda") | Some("solomonic") => {
+                    (&RASTA_CORPUS, "godtexts/rastafarianism.txt.zst", parse_bahai)
                 }
                 Some("mandaean") | Some("mandaeanism") | Some("ginza") | Some("manda") | Some("nasoraean") | Some("nasorean") | Some("hayyi") | Some("hiia") => {
                     (&MANDAEAN_CORPUS, "godtexts/mandaeanism.txt.zst", parse_bahai)

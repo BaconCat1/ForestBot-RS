@@ -6,7 +6,7 @@
 | `kjv.txt` | https://www.gutenberg.org/ebooks/10 | *Public Domain* |
 | `koran.txt` | https://www.gutenberg.org/ebooks/2800 | *Public Domain* |
 | `bookofmormon.txt` | https://www.gutenberg.org/ebooks/17 | *Public Domain* |
-| `piby.txt` | https://www.sacred-texts.com/afr/piby/index.htm | *Public Domain* |
+| `rastafarianism.txt` | _The Holy Piby_ (Robert Athlyi Rogers, 1924) sacred-texts.com/afr/piby/index.htm (49 blocks) + _Kebra Nagast_ (E.A.W. Budge trans., 1922) sacred-texts.com/chr/kebra/index.htm (683 blocks) | *Public Domain* |
 | `bahai.txt` | Multiple texts from: https://www.sacred-texts.com/bhi/index.htm | https://www.sacred-texts.com/bhi/cnote.txt |
 | `mandaeanism.txt` | http://www.bahaistudies.net/asma/mandaeanism13.pdf | © E. S. Drower, _Canonical Prayerbook of the Mandaeans_, Leiden: Brill, 1959 |
 | `yazidism.txt` | https://www.gutenberg.org/ebooks/60468 | *Public Domain* |
