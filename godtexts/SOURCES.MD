@@ -3,7 +3,7 @@
 
 | File | Source | Copyright
 |------|--------|------|
-| `kjv.txt` | https://www.gutenberg.org/ebooks/10 | *Public Domain* |
+| `kjv.txt` | _King James Version + Apocrypha_ — eBible.org / Crosswire Bible Society (https://ebible.org/Scriptures/eng-kjv_html.zip); KJV 1769 standardized text + Apocrypha/Deuterocanon; 80 books, 36,822 verses; | *Public Domain* |
 | `koran.txt` | https://www.gutenberg.org/ebooks/2800 | *Public Domain* |
 | `mormon.txt` | _Book of Mormon_ (Project Gutenberg #17, 6549 blocks) + _Doctrine and Covenants_ (Wikisource, Sections 1–138 + OD1, 3527 blocks) + _Pearl of Great Price_ (1851 ed., Wikisource, 126 blocks) | *Public Domain* |
 | `mormon2.txt` | _Official Declaration 2_ (The Church of Jesus Christ of Latter-day Saints, 1978) — 10 blocks | © The Church of Jesus Christ of Latter-day Saints |
@@ -102,3 +102,4 @@
 | `sibylline.txt` | _Sibylline Oracles_ (Milton Terry trans., 1899) — sacred-texts.com | *Not included — pseudepigrapha; texts consciously written under false prophetic identity (Jewish/Christian authors writing as pagan Sibyls for apologetic purposes); fails sincerity criterion* |
 | `branchdavidians.txt` | _The Decoded Message of the Seven Seals_ (David Koresh, 1993, Stewart Waterhouse, ASIN B0006FAV26) — partial manuscript completed during Waco siege; foundational theology of the Branch Davidians | *Not included — "New Light" sexual abuse doctrine is theologically load-bearing, not separable from Seven Seals exegesis; no clean etext exists regardless (print only, 50pp partial manuscript)* |
 | `homeric_hymns.txt` | _Homeric Hymns_ (Hugh Evelyn-White trans., 1914) — sacred-texts.com | *Not included — devotional hymns addressed to Greek gods, not divine voice speaking from gods |
+| `meqabyan.txt` | I-III Meqabyan — three books unique to the Ethiopian Orthodox Tewahedo canon | *Not included — no complete credible English translation exists; Feqade Selassie (Lulu, 2008) covers all three but translation quality disputed; Curtin & Tesfaye (2018, ISBN 978-1-960069-20-7) = scholarly but covers Books 1-2 only; same incompleteness exclusion as Oomoto* |

@@ -90,7 +90,6 @@ struct Verse {
 static KJV_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static KORAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MORMON_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
-static MORMON2_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MORMON_MERGED_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static BAHAI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static RASTA_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
@@ -564,7 +563,7 @@ fn load_corpus_sync(
 //   continuation lines wrap without a prefix
 
 fn parse_kjv(content: &str) -> anyhow::Result<Vec<Verse>> {
-    let mut verses: Vec<Verse> = Vec::with_capacity(32_000);
+    let mut verses: Vec<Verse> = Vec::with_capacity(40_000);
     let mut current_book = String::from("Bible");
     let mut current_ref: Option<String> = None;
     let mut current_text = String::new();
@@ -753,77 +752,6 @@ fn parse_bahai(content: &str) -> anyhow::Result<Vec<Verse>> {
             });
         }
     }
-    Ok(verses)
-}
-
-// ── Book of Mormon parser ─────────────────────────────────────────────────────
-//
-// Format (Gutenberg plain text):
-//   File begins directly with "1:1 ..." (1 Nephi has no chapter header)
-//   "BookName Chapter N" lines mark subsequent book/chapter boundaries
-//   verse lines start with "digits:digits " — same format as KJV
-//   continuation lines wrap without a prefix
-//   description prose between sections is silently skipped
-
-fn parse_bom(content: &str) -> anyhow::Result<Vec<Verse>> {
-    let mut verses: Vec<Verse> = Vec::with_capacity(10_000);
-    let mut current_book = String::from("1 Nephi");
-    let mut current_ref: Option<String> = None;
-    let mut current_text = String::new();
-
-    macro_rules! flush {
-        () => {
-            if let Some(vref) = current_ref.take() {
-                let text = current_text.split_whitespace().collect::<Vec<_>>().join(" ");
-                if !text.is_empty() {
-                    verses.push(Verse {
-                        reference: format!("{} {}", current_book, vref),
-                        text,
-                    });
-                }
-                current_text.clear();
-            }
-        };
-    }
-
-    for line in content.lines() {
-        let trimmed = line.trim();
-
-        if trimmed.is_empty() {
-            flush!();
-            continue;
-        }
-
-        // "BookName Chapter N" — chapter/book boundary
-        if let Some(pos) = trimmed.rfind(" Chapter ") {
-            let after = &trimmed[pos + 9..];
-            if !after.is_empty() && after.chars().all(|c| c.is_ascii_digit()) {
-                flush!();
-                current_book = trimmed[..pos].to_string();
-                continue;
-            }
-        }
-
-        // verse ref: "N:N text"
-        if let Some((maybe_ref, rest)) = trimmed.split_once(' ') {
-            if is_verse_ref(maybe_ref) {
-                flush!();
-                current_ref = Some(maybe_ref.to_string());
-                current_text = rest.to_string();
-                continue;
-            }
-        }
-
-        // continuation of current verse; description prose skipped if no current_ref
-        if current_ref.is_some() {
-            if !current_text.is_empty() {
-                current_text.push(' ');
-            }
-            current_text.push_str(trimmed);
-        }
-    }
-
-    flush!();
     Ok(verses)
 }
 
