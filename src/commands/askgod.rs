@@ -113,6 +113,8 @@ static OLYMPIAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MAYAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static BABYLONIAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static AZTEC_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static AZTEC2_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static AZTEC_MERGED_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static HERMETIC_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static THELEMA_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static DISCORDIA_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
@@ -147,7 +149,7 @@ static ICHING_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 
 type CorpusEntry = (&'static OnceLock<Vec<Verse>>, &'static str, fn(&str) -> anyhow::Result<Vec<Verse>>);
 
-fn all_corpora() -> [CorpusEntry; 57] {
+fn all_corpora() -> [CorpusEntry; 58] {
     [
         (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv),
         (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran),
@@ -175,6 +177,7 @@ fn all_corpora() -> [CorpusEntry; 57] {
         (&MAYAN_CORPUS, "godtexts/mayan.txt.zst", parse_bahai),
         (&BABYLONIAN_CORPUS, "godtexts/babylonian.txt.zst", parse_bahai),
         (&AZTEC_CORPUS, "godtexts/aztec.txt.zst", parse_bahai),
+        (&AZTEC2_CORPUS, "godtexts/aztec2.txt.zst", parse_bahai),
         (&HERMETIC_CORPUS, "godtexts/hermeticism.txt.zst", parse_bahai),
         (&THELEMA_CORPUS, "godtexts/thelema.txt.zst", parse_bahai),
         (&DISCORDIA_CORPUS, "godtexts/discordianism.txt.zst", parse_bahai),
@@ -374,7 +377,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     (&ICHING_CORPUS, "godtexts/iching.txt.zst", parse_bahai)
                 }
                 Some("aztec") | Some("azteca") | Some("mexica") | Some("nahua") | Some("nahuatl") | Some("huitzilopochtli") | Some("tlaloc") | Some("tezcatlipoca") | Some("xipe") | Some("coatlicue") | Some("tonatiuh") | Some("chalchiuhtlicue") => {
-                    (&AZTEC_CORPUS, "godtexts/aztec.txt.zst", parse_bahai)
+                    (&AZTEC_MERGED_CORPUS, "godtexts/aztec.txt.zst", parse_merged_aztec)
                 }
                 Some("hermetic") | Some("hermeticism") | Some("trismegistus") | Some("poemandres") | Some("corpus") | Some("emerald") | Some("kybalion") => {
                     (&HERMETIC_CORPUS, "godtexts/hermeticism.txt.zst", parse_bahai)
@@ -686,6 +689,23 @@ fn strip_ordinal(s: &str) -> (&str, &str) {
 //   [Reference text]
 //   Full passage text on one line.
 //   <blank line>
+
+fn parse_merged_aztec(content: &str) -> anyhow::Result<Vec<Verse>> {
+    let mut verses = parse_bahai(content)?;
+    let path2 = "godtexts/aztec2.txt.zst";
+    if std::path::Path::new(path2).exists() {
+        if let Ok(file) = std::fs::File::open(path2) {
+            if let Ok(bytes) = zstd::decode_all(file) {
+                if let Ok(s) = String::from_utf8(bytes) {
+                    if let Ok(v2) = parse_bahai(&s) {
+                        verses.extend(v2);
+                    }
+                }
+            }
+        }
+    }
+    Ok(verses)
+}
 
 fn parse_bahai(content: &str) -> anyhow::Result<Vec<Verse>> {
     let mut verses: Vec<Verse> = Vec::with_capacity(1_100);
