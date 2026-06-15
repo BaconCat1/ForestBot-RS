@@ -55,7 +55,7 @@ fn listgods(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "moon", "noi", "sophia", "eddy", "krishna", "buddha", "waheguru", "tao",
             "confucius", "amaterasu", "caodai", "zoroaster", "osiris", "odin", "zeus",
             "hurakan", "hammurabi", "huitzilopochtli", "hermetic", "crowley", "eris",
-            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta",
+            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi",
         ];
         const MAX: usize = 220;
         let mut line = format!("!askgod <god> -- {} corpora, one per corpus: ", GODS.len());
@@ -146,10 +146,11 @@ static EARTHSEED_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static JAINISM_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static INCAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static ICHING_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static JEDI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 
 type CorpusEntry = (&'static OnceLock<Vec<Verse>>, &'static str, fn(&str) -> anyhow::Result<Vec<Verse>>);
 
-fn all_corpora() -> [CorpusEntry; 58] {
+fn all_corpora() -> [CorpusEntry; 59] {
     [
         (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv),
         (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran),
@@ -209,6 +210,7 @@ fn all_corpora() -> [CorpusEntry; 58] {
         (&JAINISM_CORPUS, "godtexts/jainism.txt.zst", parse_bahai),
         (&INCAN_CORPUS, "godtexts/incan.txt.zst", parse_bahai),
         (&ICHING_CORPUS, "godtexts/iching.txt.zst", parse_bahai),
+        (&JEDI_CORPUS, "godtexts/jedi.txt.zst", parse_bahai),
     ]
 }
 
@@ -376,6 +378,9 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Some("iching") | Some("yijing") | Some("yiching") | Some("yi") | Some("zhouyi") | Some("hexagram") | Some("legge") | Some("khien") | Some("confucius") | Some("bagua") | Some("trigram") => {
                     (&ICHING_CORPUS, "godtexts/iching.txt.zst", parse_bahai)
                 }
+                Some("jedi") | Some("jedipath") | Some("theforce") | Some("force") | Some("yoda") | Some("skywalker") | Some("anakin") | Some("luke") | Some("obi") | Some("kenobi") | Some("mace") | Some("windu") | Some("sith") | Some("midichlorian") => {
+                    (&JEDI_CORPUS, "godtexts/jedi.txt.zst", parse_bahai)
+                }
                 Some("aztec") | Some("azteca") | Some("mexica") | Some("nahua") | Some("nahuatl") | Some("huitzilopochtli") | Some("tlaloc") | Some("tezcatlipoca") | Some("xipe") | Some("coatlicue") | Some("tonatiuh") | Some("chalchiuhtlicue") => {
                     (&AZTEC_MERGED_CORPUS, "godtexts/aztec.txt.zst", parse_merged_aztec)
                 }
@@ -471,6 +476,9 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
                 Some("iching") | Some("yijing") | Some("yiching") | Some("yi") | Some("zhouyi") | Some("hexagram") | Some("legge") | Some("khien") | Some("confucius") | Some("bagua") | Some("trigram") => {
                     (&ICHING_CORPUS, "godtexts/iching.txt.zst", parse_bahai)
+                }
+                Some("jedi") | Some("jedipath") | Some("theforce") | Some("force") | Some("yoda") | Some("skywalker") | Some("anakin") | Some("luke") | Some("obi") | Some("kenobi") | Some("mace") | Some("windu") | Some("sith") | Some("midichlorian") => {
+                    (&JEDI_CORPUS, "godtexts/jedi.txt.zst", parse_bahai)
                 }
                 Some("bible") | Some("god") | Some("jesus") | Some("christ") | Some("kjv") | Some("christian") => {
                     (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv)

@@ -61,6 +61,7 @@
 | `jainism.txt` | _Jaina Sutras_ Parts I & II (Hermann Jacobi trans., SBE Vol. 22 & 45, 1884/1895) — Akaranga Sutra, Kalpa Sutra, Uttaradhyayana Sutra, Sutrakritanga Sutra; sacred-texts.com | *Public Domain* |
 | `iching.txt` | _The Yî King_ / I Ching (James Legge trans., Sacred Books of the East Vol. 16, 1882) — sacred-texts.com/ich/index.htm — 431 blocks: 64 hexagram oracle texts + line interpretations; sacred-texts.com boilerplate and Legge's scholarly commentary filtered | *Public Domain* |
 | `incan.txt` | _The Huarochiri Manuscript: A Testament of Ancient and Colonial Andean Religion_ (trans. Frank Salomon & George L. Urioste, University of Texas Press, 1991) ISBN 978-0-292-73053-9 — 573 blocks across 31 chapters; extracted via `unstructured` hi_res ML layout detection + x1 column filtering | © University of Texas Press |
+| `jedi.txt` | _The Jedi Path: A Manual for Students of the Force_ (Daniel Wallace, 2012, becker&mayer!) — 782 blocks across 31 chapters; extracted from .htmlz via `filter_jedi.py` | © 2012 Disney/Lucasfilm — used as fictional/game religious corpus for private community bot |
 
 # Considered sources, rejected with explanation
 
