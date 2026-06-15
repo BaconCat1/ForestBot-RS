@@ -55,7 +55,7 @@ fn listgods(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "moon", "noi", "sophia", "eddy", "krishna", "buddha", "waheguru", "tao",
             "confucius", "amaterasu", "caodai", "zoroaster", "osiris", "odin", "zeus",
             "hurakan", "hammurabi", "huitzilopochtli", "hermetic", "crowley", "eris",
-            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi", "qumran",
+            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi", "qumran", "enoch", "acim",
         ];
         const MAX: usize = 220;
         let mut line = format!("!askgod <god> -- {} corpora, one per corpus: ", GODS.len());
@@ -151,17 +151,21 @@ static INCAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static ICHING_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static JEDI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static DSS_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static DEUTEROCANON_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static ACIM_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static MANDAEAN2_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static MANDAEAN_MERGED_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 
 type CorpusEntry = (&'static OnceLock<Vec<Verse>>, &'static str, fn(&str) -> anyhow::Result<Vec<Verse>>);
 
-fn all_corpora() -> [CorpusEntry; 60] {
+fn all_corpora() -> [CorpusEntry; 62] {
     [
         (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv),
         (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran),
         (&MORMON_CORPUS, "godtexts/mormon.txt.zst", parse_bahai),
         (&BAHAI_CORPUS, "godtexts/bahai.txt.zst", parse_bahai),
         (&RASTA_CORPUS, "godtexts/rastafarianism.txt.zst", parse_bahai),
-        (&MANDAEAN_CORPUS, "godtexts/mandaeanism.txt.zst", parse_bahai),
+        (&MANDAEAN_MERGED_CORPUS, "godtexts/mandaeanism.txt.zst", parse_merged_mandaean),
         (&MANI_CORPUS, "godtexts/manichaeanism.txt.zst", parse_bahai),
         (&YAZIDI_CORPUS, "godtexts/yazidism.txt.zst", parse_bahai),
         (&UNIFICATION_CORPUS, "godtexts/unificationchurch.txt.zst", parse_bahai),
@@ -216,6 +220,8 @@ fn all_corpora() -> [CorpusEntry; 60] {
         (&ICHING_CORPUS, "godtexts/iching.txt.zst", parse_bahai),
         (&JEDI_CORPUS, "godtexts/jedi.txt.zst", parse_bahai),
         (&DSS_CORPUS, "godtexts/deadseascrolls.txt.zst", parse_bahai),
+        (&DEUTEROCANON_CORPUS, "godtexts/deuterocanon.txt.zst", parse_bahai),
+        (&ACIM_CORPUS, "godtexts/acim.txt.zst", parse_bahai),
     ]
 }
 
@@ -299,8 +305,8 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Some("piby") | Some("rastafari") | Some("rasta") | Some("athlyi") | Some("rogers") | Some("jah") | Some("rastafarianism") | Some("kebra") | Some("nagast") | Some("kebraNagast") | Some("selassie") | Some("haile") | Some("zion") | Some("babylon") | Some("makeda") | Some("solomonic") => {
                     (&RASTA_CORPUS, "godtexts/rastafarianism.txt.zst", parse_bahai)
                 }
-                Some("mandaean") | Some("mandaeanism") | Some("ginza") | Some("manda") | Some("nasoraean") | Some("nasorean") | Some("hayyi") | Some("hiia") => {
-                    (&MANDAEAN_CORPUS, "godtexts/mandaeanism.txt.zst", parse_bahai)
+                Some("mandaean") | Some("mandaeanism") | Some("ginza") | Some("manda") | Some("nasoraean") | Some("nasorean") | Some("hayyi") | Some("hiia") | Some("mbofjohn") | Some("mandaeanbookofjohn") | Some("bookofkings") => {
+                    (&MANDAEAN_MERGED_CORPUS, "godtexts/mandaeanism.txt.zst", parse_merged_mandaean)
                 }
                 Some("mani") | Some("manichean") | Some("manichaean") | Some("manichaeism") | Some("manicheanism") => {
                     (&MANI_CORPUS, "godtexts/manichaeanism.txt.zst", parse_bahai)
@@ -487,6 +493,12 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
                 Some("dss") | Some("deadseascrolls") | Some("qumran") | Some("essene") | Some("essenes") | Some("communityrule") | Some("damascusdocument") | Some("warscroll") | Some("thanksgivinghymns") | Some("templeoscroll") | Some("vermes") => {
                     (&DSS_CORPUS, "godtexts/deadseascrolls.txt.zst", parse_bahai)
+                }
+                Some("deuterocanon") | Some("deuterocanonical") | Some("enoch") | Some("1enoch") | Some("bookofjubilees") | Some("jubilees") | Some("tawahedo") | Some("ethiopianorthodox") | Some("charles") => {
+                    (&DEUTEROCANON_CORPUS, "godtexts/deuterocanon.txt.zst", parse_bahai)
+                }
+                Some("acim") | Some("courseinmiracles") | Some("acourseinmiracles") | Some("miracles") | Some("holyspirit") | Some("forgiveness") | Some("atonement") | Some("workbook") | Some("manualforteachers") | Some("urtext") => {
+                    (&ACIM_CORPUS, "godtexts/acim.txt.zst", parse_bahai)
                 }
                 Some("bible") | Some("god") | Some("jesus") | Some("christ") | Some("kjv") | Some("christian") => {
                     (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv)
@@ -726,6 +738,23 @@ fn parse_merged_mormon(content: &str) -> anyhow::Result<Vec<Verse>> {
 fn parse_merged_gnostic(content: &str) -> anyhow::Result<Vec<Verse>> {
     let mut verses = parse_bahai(content)?;
     let path2 = "godtexts/gnosticism2.txt.zst";
+    if std::path::Path::new(path2).exists() {
+        if let Ok(file) = std::fs::File::open(path2) {
+            if let Ok(bytes) = zstd::decode_all(file) {
+                if let Ok(s) = String::from_utf8(bytes) {
+                    if let Ok(v2) = parse_bahai(&s) {
+                        verses.extend(v2);
+                    }
+                }
+            }
+        }
+    }
+    Ok(verses)
+}
+
+fn parse_merged_mandaean(content: &str) -> anyhow::Result<Vec<Verse>> {
+    let mut verses = parse_bahai(content)?;
+    let path2 = "godtexts/mandaeanism2.txt.zst";
     if std::path::Path::new(path2).exists() {
         if let Ok(file) = std::fs::File::open(path2) {
             if let Ok(bytes) = zstd::decode_all(file) {
