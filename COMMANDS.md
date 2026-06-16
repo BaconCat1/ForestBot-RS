@@ -105,13 +105,13 @@
 | `!shout <message>` | Broadcast to all connected servers (not enabled) |
 | `!nickname <name>` | Change bot's in-game nickname |
 | `!febzey` | 🤷 |
-| `!askgod <god>` | Consult the divine oracle — random corpus if no arg, or specify a god below (50 corpora) |
+| `!askgod <god>` | Consult the divine oracle — random corpus if no arg, or specify a god below (67 corpora) |
 | `!listgods` / `!gods` | List one god per corpus with its trigger word |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
 
 ## !askgod — Available Gods
 
-No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (50 corpora)
+No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (67 corpora)
 
 | Arg(s) | Corpus |
 |---|---|
@@ -122,7 +122,6 @@ No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (50 co
 | `piby` `rastafari` `rasta` `athlyi` `rogers` `jah` | Holy Piby |
 | `hayyi` `hiia` `mandaean` `mandaeanism` `ginza` `manda` `nasoraean` `nasorean` | Mandaean texts |
 | `mani` `manichean` `manichaean` `manichaeism` `manicheanism` | Manichaean writings |
-| `yazidi` `yezidi` `melek` `taus` `peacock` `jilwa` `malak` `adi` | Yazidi scripture |
 | `moon` `unification` `moonies` `divine` `principle` | Divine Principle (Unification Church) |
 | `noi` `nation` `blackman` `yakub` `yakoub` | Nation of Islam |
 | `gnostic` `gnosticism` `nag` `hammadi` `sophia` `pleroma` `demiurge` | Nag Hammadi library |
@@ -165,6 +164,24 @@ No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (50 co
 | `orphic` `orpheus` `orphism` `dionysus` `persephone` `hecate` `protogonus` `phanes` `mysteries` `bacchic` | Orphic Hymns (Thomas Taylor trans., 1792) — 87 hymns to Greek deities including Night, Pan, Hecate, Bacchus, Apollo, Persephone |
 | `neoplatonism` `neoplatonist` `plotinus` `plotinos` `enneads` `theone` `emanation` `nous` `proclus` `porphyry` `iamblichus` | Plotinus — Complete Works / Enneads (Kenneth Guthrie trans., 1918) — The One, emanation, the soul, intellect, beauty, providence |
 | `kabbalah` `zohar` `kabbalist` `kabbalistic` `sefirot` `sephirot` `simeonbaryochai` `rashbi` `einsof` `soncino` `jewishmysticism` | The Zohar (Soncino Press trans., 1933) — mystical commentary on the Torah, Bereshit through Ha'Azinu, Idra Rabba, Idra Zuta |
+| `lavey` `laveyanism` `satanic` `churchofsatan` `blackpope` `satanbible` `nineantsatanicstatements` | The Satanic Bible (Anton LaVey) |
+| `cathar` `catharism` `cathari` `albigensian` `albigenses` `parfait` `consolamentum` `bogomil` `bogomilism` `secretsupper` `interrogatio` | Catharism texts |
+| `caine` `noddism` `kindred` `vampire` `masquerade` `gehenna` `jyhad` `sabbat` `camarilla` `antediluvian` `bookofnod` `vtm` `worldofdarkness` | Book of Nod (Vampire: The Masquerade) |
+| `earthseed` `olamina` `godischange` `godseed` | Earthseed verses (Octavia Butler, Parable of the Sower/Talents) |
+| `jain` `jainism` `mahavira` `gaina` `tirthankara` `akaranga` `vardhamana` | Jain Agamas |
+| `incan` `inca` `huarochiri` `pariacaca` `paria` `quechua` `andean` `huallallo` `viracocha` | Huarochiri Manuscript |
+| `iching` `yijing` `yiching` `yi` `zhouyi` `hexagram` `legge` `khien` `bagua` `trigram` | I Ching (Legge trans.) |
+| `jedi` `jedipath` `theforce` `force` `yoda` `skywalker` `anakin` `luke` `obi` `kenobi` `mace` `windu` `sith` `midichlorian` | Jedi Path / Force teachings (Star Wars) |
+| `dss` `deadseascrolls` `qumran` `essene` `essenes` `communityrule` `damascusdocument` `warscroll` `thanksgivinghymns` `templeoscroll` `vermes` | Dead Sea Scrolls (Vermes 7th ed.) |
+| `enoch` `jubilees` `deuterocanon` | 1 Enoch + Jubilees (R.H. Charles trans.) |
+| `acim` `miracles` `workbook` | A Course in Miracles |
+| `faithism` `oahspe` `jehovih` `kosmon` | Oahspe (John Ballou Newbrough, 1882) |
+| `aquarian` `dowling` `akashic` | Aquarian Gospel of Jesus the Christ (Levi H. Dowling, 1908) |
+| `lawofone` `ramaterial` `confederation` `densities` | The Law of One / Ra Material (L/L Research) |
+| `iammovement` `iam` `saintgermain` `godfreking` `ballard` `lotusray` `ascendedmaster` `mightyiampresence` | "I AM" Movement / Saint Germain Series (Guy W. Ballard) |
+| `acadfuturesci` `hurtak` `affs` `academyforfuturescience` `brotherhoodoflight` `ophanimenoch` | The Keys of Enoch (J.J. Hurtak, 1996) |
+| `unarius` `ernestnorman` `shamballa` `voiceoferos` `voiceofhermes` `voiceoforion` `voiceofvenus` | Unarius (Ernest L. Norman) — Voice of Eros/Hermes/Orion/Venus + The Elysium |
+| `aetherius` `georgeking` `ninefreedoms` `twelveblessings` `saintgooling` `marssector6` | The Aetherius Society (George King) — The Twelve Blessings + The Nine Freedoms |
 
 ## Trades
 

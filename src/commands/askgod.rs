@@ -51,11 +51,11 @@ fn searchgod(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 fn listgods(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         const GODS: &[&str] = &[
-            "god", "allah", "mormon", "bahaullah", "jah", "hayyi", "mani", "melek",
+            "god", "allah", "mormon", "bahaullah", "jah", "hayyi", "mani",
             "moon", "noi", "sophia", "eddy", "krishna", "buddha", "waheguru", "tao",
             "confucius", "amaterasu", "caodai", "zoroaster", "osiris", "odin", "zeus",
             "hurakan", "hammurabi", "huitzilopochtli", "hermetic", "crowley", "eris",
-            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi", "qumran", "enoch", "acim", "faithism", "aquarian", "lawofone", "iammovement", "acadfuturesci", "unarius",
+            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi", "qumran", "enoch", "acim", "faithism", "aquarian", "lawofone", "iammovement", "acadfuturesci", "unarius", "aetherius",
         ];
         const MAX: usize = 220;
         let mut line = format!("!askgod <god> -- {} corpora, one per corpus: ", GODS.len());
@@ -95,7 +95,6 @@ static BAHAI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static RASTA_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MANDAEAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MANI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
-static YAZIDI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static UNIFICATION_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static NOI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static GNOSTIC_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
@@ -161,6 +160,7 @@ static LAWOFONE_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static IAMMOVEMENT_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static ACADFUTURESCI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static UNARIUS_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static AETHERIUS_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 
 type CorpusEntry = (&'static OnceLock<Vec<Verse>>, &'static str, fn(&str) -> anyhow::Result<Vec<Verse>>);
 
@@ -173,7 +173,6 @@ fn all_corpora() -> [CorpusEntry; 67] {
         (&RASTA_CORPUS, "godtexts/rastafarianism.txt.zst", parse_bahai),
         (&MANDAEAN_MERGED_CORPUS, "godtexts/mandaeanism.txt.zst", parse_merged_mandaean),
         (&MANI_CORPUS, "godtexts/manichaeanism.txt.zst", parse_bahai),
-        (&YAZIDI_CORPUS, "godtexts/yazidism.txt.zst", parse_bahai),
         (&UNIFICATION_CORPUS, "godtexts/unificationchurch.txt.zst", parse_bahai),
         (&NOI_CORPUS, "godtexts/noi.txt.zst", parse_bahai),
         (&GNOSTIC_MERGED_CORPUS, "godtexts/gnosticism.txt.zst", parse_merged_gnostic),
@@ -233,6 +232,7 @@ fn all_corpora() -> [CorpusEntry; 67] {
         (&IAMMOVEMENT_CORPUS, "godtexts/iammovement.txt.zst", parse_bahai),
         (&ACADFUTURESCI_CORPUS, "godtexts/acadfuturesci.txt.zst", parse_bahai),
         (&UNARIUS_CORPUS, "godtexts/unarius.txt.zst", parse_bahai),
+        (&AETHERIUS_CORPUS, "godtexts/aetherius.txt.zst", parse_bahai),
     ]
 }
 
@@ -321,9 +321,6 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
                 Some("mani") | Some("manichean") | Some("manichaean") | Some("manichaeism") | Some("manicheanism") => {
                     (&MANI_CORPUS, "godtexts/manichaeanism.txt.zst", parse_bahai)
-                }
-                Some("yazidi") | Some("yezidi") | Some("melek") | Some("taus") | Some("peacock") | Some("jilwa") | Some("malak") | Some("adi") => {
-                    (&YAZIDI_CORPUS, "godtexts/yazidism.txt.zst", parse_bahai)
                 }
                 Some("moon") | Some("unification") | Some("moonies") | Some("divine") | Some("principle") | Some("divineprincipal") => {
                     (&UNIFICATION_CORPUS, "godtexts/unificationchurch.txt.zst", parse_bahai)
@@ -501,6 +498,9 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
                 Some("unarius") | Some("ernestnorman") | Some("shamballa") | Some("voiceoferos") | Some("voiceofhermes") | Some("voiceoforion") | Some("voiceofvenus") => {
                     (&UNARIUS_CORPUS, "godtexts/unarius.txt.zst", parse_bahai)
+                }
+                Some("aetherius") | Some("georgeking") | Some("ninefreedoms") | Some("twelveblessings") | Some("saintgooling") | Some("marssector6") => {
+                    (&AETHERIUS_CORPUS, "godtexts/aetherius.txt.zst", parse_bahai)
                 }
                 Some("bible") | Some("god") | Some("jesus") | Some("christ") | Some("kjv") | Some("christian") => {
                     (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv)
