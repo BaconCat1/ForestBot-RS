@@ -26,6 +26,9 @@ async fn main() -> Result<()> {
 
     let mut api = ApiClient::new(options.api.clone());
     api.init_websocket().await?;
+    tokio::task::spawn_blocking(crate::commands::askgod::preload_all_corpora)
+        .await
+        .ok();
     let mut bot = Bot::new(options.bot, &state, api);
     bot.start().await?;
 
