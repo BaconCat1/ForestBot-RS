@@ -31,6 +31,36 @@ pub const GODVERSE_COMMAND: CommandDefinition = CommandDefinition {
     execute: godverse,
 };
 
+pub const GODSTATS_COMMAND: CommandDefinition = CommandDefinition {
+    names: &["godstats"],
+    description: "Show stats for the !askgod corpora",
+    whitelisted: false,
+    execute: godstats,
+};
+
+fn godstats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
+    Box::pin(async move {
+        match GOD_STATS.get() {
+            Some(s) => {
+                let mb = s.total_bytes as f64 / 1_048_576.0;
+                let saved_pct = if s.total_bytes > 0 {
+                    100.0 * (1.0 - s.total_compressed_bytes as f64 / s.total_bytes as f64)
+                } else {
+                    0.0
+                };
+                ctx.chat(format!(
+                    "God Stats: {} Corpora, {:.1} MB ({:.0}% compressed), {} verses, loaded in {:.2}s, Known Gods: {}",
+                    s.corpora_loaded, mb, saved_pct, s.total_verses, s.elapsed.as_secs_f64(), KNOWN_GODS_COUNT
+                ));
+            }
+            None => {
+                ctx.whisper("Stats not ready yet, corpora still loading.");
+            }
+        }
+        Ok(())
+    })
+}
+
 fn searchgod(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         if ctx.args.is_empty() {
@@ -994,18 +1024,49 @@ fn pick_random_available_corpus(seed: u64) -> CorpusEntry {
     }
 }
 
+struct GodStats {
+    corpora_loaded: u32,
+    total_verses: usize,
+    total_bytes: usize,
+    total_compressed_bytes: usize,
+    elapsed: std::time::Duration,
+}
+
+static GOD_STATS: OnceLock<GodStats> = OnceLock::new();
+
+// Total unique god/keyword aliases across all match arms in `execute`'s god_arg match.
+// Manual count, like the all_corpora() array size — bump when aliases are added/removed.
+const KNOWN_GODS_COUNT: usize = 606;
+
 pub fn preload_all_corpora() {
     let t = std::time::Instant::now();
     let mut loaded = 0u32;
+    let mut total_verses = 0usize;
+    let mut total_bytes = 0usize;
+    let mut total_compressed_bytes = 0usize;
     for (lock, path, parser) in all_corpora() {
         if lock.get().is_none() {
+            if let Ok(meta) = std::fs::metadata(path) {
+                total_compressed_bytes += meta.len() as usize;
+            }
+            if let Ok(file) = std::fs::File::open(path) {
+                if let Ok(bytes) = zstd::decode_all(file) {
+                    total_bytes += bytes.len();
+                }
+            }
             match load_corpus_sync(path, parser) {
-                Ok(verses) => { let _ = lock.get_or_init(|| verses); loaded += 1; }
+                Ok(verses) => {
+                    total_verses += verses.len();
+                    let _ = lock.get_or_init(|| verses);
+                    loaded += 1;
+                }
                 Err(_) => {}
             }
         }
     }
-    crate::structure::logger::info(format!("Loaded {loaded} god corpora in {:?}", t.elapsed()));
+    let elapsed = t.elapsed();
+    let _ = GOD_STATS.set(GodStats { corpora_loaded: loaded, total_verses, total_bytes, total_compressed_bytes, elapsed });
+    crate::structure::logger::info(format!("Loaded {loaded} god corpora in {:?}", elapsed));
 }
 
 #[cfg(test)]

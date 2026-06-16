@@ -109,6 +109,7 @@
 | `!listgods` / `!gods` | List one god per corpus with its trigger word |
 | `!searchgod` / `!godsearch` / `!sgod <words>` | Search sacred texts for a keyword or phrase |
 | `!godverse` / `!verse` / `!vgod <reference>` | Look up a verse by reference |
+| `!godstats` | Show corpora count, size, compression ratio, verse count, load time, total god aliases |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
 
 ## !askgod — Available Gods
