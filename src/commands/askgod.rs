@@ -55,7 +55,7 @@ fn listgods(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "moon", "noi", "sophia", "eddy", "krishna", "buddha", "waheguru", "tao",
             "confucius", "amaterasu", "caodai", "zoroaster", "osiris", "odin", "zeus",
             "hurakan", "hammurabi", "huitzilopochtli", "hermetic", "crowley", "eris",
-            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi", "qumran", "enoch", "acim", "faithism", "aquarian", "lawofone", "iammovement", "acadfuturesci",
+            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi", "qumran", "enoch", "acim", "faithism", "aquarian", "lawofone", "iammovement", "acadfuturesci", "unarius",
         ];
         const MAX: usize = 220;
         let mut line = format!("!askgod <god> -- {} corpora, one per corpus: ", GODS.len());
@@ -160,10 +160,11 @@ static AQUARIAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static LAWOFONE_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static IAMMOVEMENT_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static ACADFUTURESCI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static UNARIUS_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 
 type CorpusEntry = (&'static OnceLock<Vec<Verse>>, &'static str, fn(&str) -> anyhow::Result<Vec<Verse>>);
 
-fn all_corpora() -> [CorpusEntry; 66] {
+fn all_corpora() -> [CorpusEntry; 67] {
     [
         (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv),
         (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran),
@@ -231,6 +232,7 @@ fn all_corpora() -> [CorpusEntry; 66] {
         (&LAWOFONE_CORPUS, "godtexts/lawofone.txt.zst", parse_bahai),
         (&IAMMOVEMENT_CORPUS, "godtexts/iammovement.txt.zst", parse_bahai),
         (&ACADFUTURESCI_CORPUS, "godtexts/acadfuturesci.txt.zst", parse_bahai),
+        (&UNARIUS_CORPUS, "godtexts/unarius.txt.zst", parse_bahai),
     ]
 }
 
@@ -496,6 +498,9 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
                 Some("acadfuturesci") | Some("hurtak") | Some("affs") | Some("academyforfuturescience") | Some("brotherhoodoflight") | Some("ophanimenoch") => {
                     (&ACADFUTURESCI_CORPUS, "godtexts/acadfuturesci.txt.zst", parse_bahai)
+                }
+                Some("unarius") | Some("ernestnorman") | Some("shamballa") | Some("voiceoferos") | Some("voiceofhermes") | Some("voiceoforion") | Some("voiceofvenus") => {
+                    (&UNARIUS_CORPUS, "godtexts/unarius.txt.zst", parse_bahai)
                 }
                 Some("bible") | Some("god") | Some("jesus") | Some("christ") | Some("kjv") | Some("christian") => {
                     (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv)
