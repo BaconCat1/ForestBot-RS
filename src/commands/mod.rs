@@ -205,6 +205,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         askgod::COMMAND,
         askgod::LISTGODS_COMMAND,
         askgod::SEARCHGOD_COMMAND,
+        askgod::GODVERSE_COMMAND,
         link::LINK_COMMAND,
         link::UNLINK_COMMAND,
         report::REPORT_COMMAND,

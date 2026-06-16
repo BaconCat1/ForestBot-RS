@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
-    names: &["askgod"],
+    names: &["askgod", "agod"],
     description: "Consult the divine oracle. Usage: {prefix}askgod <god>",
     whitelisted: false,
     execute,
@@ -18,21 +18,26 @@ pub const LISTGODS_COMMAND: CommandDefinition = CommandDefinition {
 };
 
 pub const SEARCHGOD_COMMAND: CommandDefinition = CommandDefinition {
-    names: &["searchgod", "godsearch"],
-    description: "Search sacred texts for a keyword. Usage: {prefix}searchgod <keyword>",
+    names: &["searchgod", "godsearch", "sgod"],
+    description: "Search sacred texts for a keyword or phrase. Usage: {prefix}searchgod <words>",
     whitelisted: false,
     execute: searchgod,
 };
 
+pub const GODVERSE_COMMAND: CommandDefinition = CommandDefinition {
+    names: &["godverse", "verse", "vgod"],
+    description: "Look up a verse by reference. Usage: {prefix}godverse <reference>",
+    whitelisted: false,
+    execute: godverse,
+};
+
 fn searchgod(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let kw = match ctx.args.first() {
-            Some(k) => k.to_lowercase(),
-            None => {
-                ctx.whisper("Usage: !searchgod <keyword>");
-                return Ok(());
-            }
-        };
+        if ctx.args.is_empty() {
+            ctx.whisper("Usage: !searchgod <words>");
+            return Ok(());
+        }
+        let kw = ctx.args.join(" ").to_lowercase();
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
         let secs = now.as_secs();
         let nanos = now.subsec_nanos();
@@ -901,6 +906,46 @@ fn search_corpora(keyword: &str) -> Vec<&'static Verse> {
         }
     }
     hits
+}
+
+fn find_by_reference(query: &str) -> Vec<&'static Verse> {
+    let q = query.to_lowercase();
+    let mut hits = Vec::new();
+    for (lock, _, _) in all_corpora() {
+        if let Some(verses) = lock.get() {
+            for verse in verses {
+                if verse.reference.to_lowercase().contains(&q) {
+                    hits.push(verse);
+                }
+            }
+        }
+    }
+    hits
+}
+
+fn godverse(ctx: CommandContext<'_>) -> CommandFuture<'_> {
+    Box::pin(async move {
+        if ctx.args.is_empty() {
+            ctx.whisper("Usage: !godverse <reference>");
+            return Ok(());
+        }
+        let query = ctx.args.join(" ");
+        let hits = find_by_reference(&query);
+        if hits.is_empty() {
+            ctx.chat("No verse found matching that reference.".to_string());
+            return Ok(());
+        }
+        let pick = match hits.iter().find(|v| v.reference.eq_ignore_ascii_case(&query)) {
+            Some(v) => *v,
+            None => {
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+                let h = now.as_secs().wrapping_mul(2654435761).wrapping_add(now.subsec_nanos() as u64);
+                hits[(h as usize) % hits.len()]
+            }
+        };
+        ctx.chat(make_output_with_keyword(&pick.reference, &pick.text, ""));
+        Ok(())
+    })
 }
 
 fn make_output_with_keyword(reference: &str, text: &str, keyword: &str) -> String {

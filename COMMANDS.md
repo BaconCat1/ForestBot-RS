@@ -105,8 +105,10 @@
 | `!shout <message>` | Broadcast to all connected servers (not enabled) |
 | `!nickname <name>` | Change bot's in-game nickname |
 | `!febzey` | 🤷 |
-| `!askgod <god>` | Consult the divine oracle — random corpus if no arg, or specify a god below (67 corpora) |
+| `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, or specify a god below (67 corpora) |
 | `!listgods` / `!gods` | List one god per corpus with its trigger word |
+| `!searchgod` / `!godsearch` / `!sgod <words>` | Search sacred texts for a keyword or phrase |
+| `!godverse` / `!verse` / `!vgod <reference>` | Look up a verse by reference |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
 
 ## !askgod — Available Gods
