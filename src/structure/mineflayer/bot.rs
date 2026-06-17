@@ -1459,8 +1459,9 @@ fn sender_allowed_for_command(state: &AzaleaState, sender: &str, message: &str) 
         .players
         .read()
         .expect("player cache lock poisoned")
-        .get(sender)
-        .map(|player| player.uuid.clone());
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case(sender))
+        .map(|(_, player)| player.uuid.clone());
     let Some(uuid) = uuid else {
         return true;
     };

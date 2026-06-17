@@ -246,8 +246,9 @@ fn is_allowed_by_standing(
         .players
         .read()
         .expect("player cache lock poisoned")
-        .get(sender)
-        .map(|player| player.uuid.clone());
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case(sender))
+        .map(|(_, player)| player.uuid.clone());
     let Some(uuid) = uuid else {
         return true;
     };
@@ -318,7 +319,8 @@ fn is_allowed_whitelisted_command(
         .players
         .read()
         .expect("player cache lock poisoned")
-        .get(sender)
-        .map(|player| player.uuid.clone());
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case(sender))
+        .map(|(_, player)| player.uuid.clone());
     uuid.is_some_and(|uuid| runtime.user_whitelist.contains(&uuid))
 }
