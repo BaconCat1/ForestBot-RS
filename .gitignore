@@ -1,5 +1,6 @@
 /target
 .env
+config.json
 /ForestBot
 /forestbot-wrapper-v2-master
 /Hub-master
