@@ -1634,6 +1634,25 @@ fn is_server_presence_message(content: &str) -> bool {
 
 fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<String>, String) {
     let full_message = message.message().to_string();
+
+    let formats = state
+        .runtime
+        .read()
+        .expect("runtime config lock poisoned")
+        .custom_chat_formats
+        .clone();
+
+    // Custom formats take priority over Azalea's packet-level sender extraction.
+    // On servers with chat plugins, Azalea extracts the bracket-wrapped display name
+    // as the sender but leaves the redundant "Username » message" as content,
+    // breaking command dispatch. Matching the full raw string against a configured
+    // format first produces the correct username + message split.
+    if !formats.is_empty() {
+        if let Some(parsed) = chat_format_parser::parse(&full_message, &formats) {
+            return (Some(parsed.username), parsed.message);
+        }
+    }
+
     let (sender, content) = message.split_sender_and_content();
     if let Some(sender) = sender {
         if sender.eq_ignore_ascii_case("PM") && content.contains(" → ") && content.contains(" » ")
@@ -1646,13 +1665,6 @@ fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<Stri
             content,
         );
     }
-
-    let formats = state
-        .runtime
-        .read()
-        .expect("runtime config lock poisoned")
-        .custom_chat_formats
-        .clone();
 
     if let Some(parsed) = chat_format_parser::parse(&full_message, &formats) {
         return (Some(parsed.username), parsed.message);
