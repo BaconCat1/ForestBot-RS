@@ -105,7 +105,7 @@
 | `!shout <message>` | Broadcast to all connected servers (not enabled) |
 | `!nickname <name>` | Change bot's in-game nickname |
 | `!febzey` | 🤷 |
-| `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, or specify a god below (67 corpora) |
+| `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, or specify a god below (73 corpora) |
 | `!listgods` / `!gods` | List one god per corpus with its trigger word |
 | `!searchgod` / `!godsearch` / `!sgod <words>` | Search sacred texts for a keyword or phrase |
 | `!godverse` / `!verse` / `!vgod <reference>` | Look up a verse by reference |
@@ -114,7 +114,7 @@
 
 ## !askgod — Available Gods
 
-No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (67 corpora)
+No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (73 corpora)
 
 | Arg(s) | Corpus |
 |---|---|
@@ -141,7 +141,7 @@ No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (67 co
 | `norse` `odin` `thor` `loki` `freyr` `freyja` `edda` `valhalla` `asgard` `yggdrasil` `ragnarok` | Poetic Edda (Voluspo, Hovamol, Lokasenna, etc.) |
 | `greek` `olympian` `zeus` `athena` `apollo` `poseidon` `hera` `ares` `hermes` `artemis` `iliad` `odyssey` `homer` | Iliad + Odyssey (Homer, Butler trans.) |
 | `mayan` `maya` `hurakan` `xibalba` `kukulkan` `quetzalcoatl` `kiche` `popolvuh` `itzamna` | Popol Vuh (Kiché Maya, Spence retelling) |
-| `babylon` `babylonian` `hammurabi` `marduk` `shamash` `ishtar` `akkad` `akkadian` `mesopotamia` | Code of Hammurabi (King trans., 1910) |
+| `babylonian` `hammurabi` `marduk` `shamash` `ishtar` `akkad` `akkadian` `mesopotamia` | Code of Hammurabi (King trans., 1910) |
 | `sumerian` `sumer` `gilgamesh` `enkidu` `enumaelish` `tiamat` `apsu` `anunnaki` `enlil` `enki` `inanna` `nanna` `utu` | Sumerian sacred texts — Enuma Elish / Seven Tablets of Creation (King trans., 1902) + texts TBD |
 | `aztec` `azteca` `mexica` `nahua` `nahuatl` `huitzilopochtli` `tlaloc` `tezcatlipoca` `xipe` `coatlicue` `tonatiuh` `chalchiuhtlicue` | Sacred Songs of the Ancient Mexicans (Brinton, 1890) |
 | `hermetic` `hermeticism` `trismegistus` `poemandres` `corpus` `emerald` `kybalion` | Corpus Hermeticum (Mead trans., 1906) |
@@ -163,7 +163,7 @@ No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (67 co
 | `urantia` `urantiabook` `urantian` `orvonton` `nebadon` `havona` `thoughtadjuster` `finaliter` `uversa` `salvington` | The Urantia Book (Urantia Foundation, 1955) — 196 papers on cosmology, theology, and the life of Jesus |
 | `heavensgate` `telah` `tido` `applewhite` `nettles` `nextlevel` `hale-bopp` `halebopp` | Heaven's Gate writings — statements, Beyond Human transcripts, student testimonials (Ti and Do, 1975–1997) |
 | `process` `processchurch` `processian` `jehovah` `lucifer` `satan` `robertdevegrimston` `maryannmaclean` | The Process Church of the Final Judgment — _Humanity Is the Devil_ / _People_ (Robert de Grimston, 1967) |
-| `andraste` `andrastianism` `maker` `chantoflight` `thedas` `ferelden` `orlais` `dragonage` `chantry` `divine` | The Chant of Light — scripture of Andrastianism (Dragon Age / BioWare) |
+| `andraste` `andrastianism` `maker` `chantoflight` `thedas` `ferelden` `orlais` `dragonage` `chantry` | The Chant of Light — scripture of Andrastianism (Dragon Age / BioWare) |
 | `orphic` `orpheus` `orphism` `dionysus` `persephone` `hecate` `protogonus` `phanes` `mysteries` `bacchic` | Orphic Hymns (Thomas Taylor trans., 1792) — 87 hymns to Greek deities including Night, Pan, Hecate, Bacchus, Apollo, Persephone |
 | `neoplatonism` `neoplatonist` `plotinus` `plotinos` `enneads` `theone` `emanation` `nous` `proclus` `porphyry` `iamblichus` | Plotinus — Complete Works / Enneads (Kenneth Guthrie trans., 1918) — The One, emanation, the soul, intellect, beauty, providence |
 | `kabbalah` `zohar` `kabbalist` `kabbalistic` `sefirot` `sephirot` `simeonbaryochai` `rashbi` `einsof` `soncino` `jewishmysticism` | The Zohar (Soncino Press trans., 1933) — mystical commentary on the Torah, Bereshit through Ha'Azinu, Idra Rabba, Idra Zuta |
@@ -189,6 +189,8 @@ No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (67 co
 | `mahikari` `sukyomahikari` `okada` `sukuinushisama` | Sukyo Mahikari — A Publication for All Mankind |
 | `radhasoami` `sarbachan` `soamiji` `santmat` | Radhasoami — Sar Bachan Poetry (Soamiji Maharaj) |
 | `hawaii` `hawaiian` `kumulipo` `kalakaua` | Hawaiian — Kumulipo Creation Chant |
+| `commofchr` `communityofchrist` `rlds` `reorganized` | Community of Christ D&C (RLDS sections 114–144) |
+| `strangite` `strang` `jamesstrang` `lawofthelord` | Book of the Law of the Lord (James Strang, 1851) |
 
 ## Trades
 
@@ -203,14 +205,9 @@ No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (67 co
 | `!link` | Generate a one-time code to link your Minecraft account to Discord via `/link` in Discord |
 | `!unlink` | Remove your Discord account link (`!unlink UNLINK` to confirm) |
 | `!scammers` | List up to 5 known scammers — online players first (`name (online)`), then most recently marked |
+| `!report <player> [reason]` | Report a player as a scammer |
 
 Cooldowns: 60s to re-propose after a trade. If someone rejects your proposal, you're locked out for 10 minutes.
-
-## Moderation
-
-| Command | Description |
-|---|---|
-| `!report <player> [reason]` | Report a player as a scammer |
 
 ## Admin / Whitelist only
 

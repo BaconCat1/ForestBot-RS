@@ -189,10 +189,12 @@ static ANTHROPOSOPHY_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MAHIKARI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static RADHASOAMI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static HAWAIIAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static COMMOFCHR_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static STRANGITE_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 
 type CorpusEntry = (&'static OnceLock<Vec<Verse>>, &'static str, fn(&str) -> anyhow::Result<Vec<Verse>>);
 
-fn all_corpora() -> [CorpusEntry; 71] {
+fn all_corpora() -> [CorpusEntry; 73] {
     [
         (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv),
         (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran),
@@ -265,6 +267,8 @@ fn all_corpora() -> [CorpusEntry; 71] {
         (&MAHIKARI_CORPUS, "godtexts/mahikari.txt.zst", parse_bahai),
         (&RADHASOAMI_CORPUS, "godtexts/radhasoami.txt.zst", parse_bahai),
         (&HAWAIIAN_CORPUS, "godtexts/hawaiian.txt.zst", parse_bahai),
+        (&COMMOFCHR_CORPUS, "godtexts/commofchr.txt.zst", parse_bahai),
+        (&STRANGITE_CORPUS, "godtexts/strangite.txt.zst", parse_bahai),
     ]
 }
 
@@ -545,6 +549,12 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
                 Some("hawaii") | Some("hawaiian") | Some("kumulipo") | Some("kalakaua") => {
                     (&HAWAIIAN_CORPUS, "godtexts/hawaiian.txt.zst", parse_bahai)
+                }
+                Some("commofchr") | Some("communityofchrist") | Some("rlds") | Some("reorganized") => {
+                    (&COMMOFCHR_CORPUS, "godtexts/commofchr.txt.zst", parse_bahai)
+                }
+                Some("strangite") | Some("strang") | Some("jamesstrang") | Some("lawofthelord") => {
+                    (&STRANGITE_CORPUS, "godtexts/strangite.txt.zst", parse_bahai)
                 }
                 Some("bible") | Some("god") | Some("jesus") | Some("christ") | Some("kjv") | Some("christian") => {
                     (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv)
@@ -1045,7 +1055,7 @@ static GOD_STATS: OnceLock<GodStats> = OnceLock::new();
 
 // Total unique god/keyword aliases across all match arms in `execute`'s god_arg match.
 // Manual count, like the all_corpora() array size — bump when aliases are added/removed.
-const KNOWN_GODS_COUNT: usize = 618;
+const KNOWN_GODS_COUNT: usize = 626;
 
 pub fn preload_all_corpora() {
     let t = std::time::Instant::now();

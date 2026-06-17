@@ -72,8 +72,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 ## General
 * ✅ ~~Movement commands, !sleep, and !drop are unimplemented. !mount~~
 	* ✅ ~~!twerk does run but it doesn't really match the ts behavior. The bot does dismount things it's riding so it is crouching, probably too fast to be visible when observed. Maybe replace with !crouch where it just does it once?~~
-* 🐛 ~~**bug** !setpreset doesn't work in /msg~~
-	* *Should be working, needs to be tested in prod to confirm, pending hw migration*
+* ✅ ~~**bug** !setpreset doesn't work in /msg~~
+	* ~~*Should be working, needs to be tested in prod to confirm, pending hw migration*~~
 * ✅ ~~**bug** !oldest and !newest show incorrect dates. !oldest also shows the oldest users ever, while it should only compare the join dates of who's online.~~
 * ✅ ~~**bug**(?) don't record redundant advancements (from the queue or ever)~~ // on `send_player_advancement`, lazy-fetch existing advancements for uuid on first encounter, extract `[bracket-key]` (name-change-proof), skip + whisper if duplicate
 * 🐛 ~~Discord chat bridge~~
@@ -97,6 +97,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ Nick resolution for nicked players (EssentialsX `/nick`): `nick_cache` (display_name → uuid) populated from PlayerInfo AddPlayer/UpdatePlayer; checked before Mojang API fallback in chat/advancement UUID resolution and all trade commands. Requires server to send PlayerInfo display_name — EssentialsX needs `change-playerlist: true`.
 * ✅ ~~pivot from ashcon api to crafty api for username history lookups~~ // `GET https://api.crafty.gg/api/v2/players/{username}` → `data.usernames[].username`; replaced `AshconProfile`/`AshconUsernameHistory` structs with `CraftyPlayerResponse`/`CraftyPlayerData`/`CraftyUsername`
 * 🆕 need some kind of alert system in discord for bad behavior that requires manual intervention
+* 🆕 !askgod if user gives multi word non god arg, should assume it's a question for the oracle and answer "The Gods have heard you, and they send you their divine wisdom:" followed by a random quote
 
 
 ## !quote
@@ -115,6 +116,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!health, display bot's health, hunger, armor stats~~ // whispers `Health: X/20 | Hunger: X/20 (sat: X) | Armor: X | Effects: ...`; mount health skipped (azalea `set_passengers` is a no-op stub)
 * ✅ ~~!askgod, logically translate TempleOS's talk to god stuff lol~~ // KJV loaded from godtexts/kjv.txt.gz via flate2; timestamp entropy (subsec_nanos >> 4) picks a random verse; displays [Book chapter:verse] text in public chat, truncated to 240 chars; multi-god support pending more corpus files
 	* God's messages are based on source texts, you can ask different gods (ie: `!askgod buddha`) by using different source texts!
+* 🆕 !equip, so the bot can actually wear armor to show for the !health command
 
 ---
 
