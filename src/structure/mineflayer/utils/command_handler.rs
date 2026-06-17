@@ -324,3 +324,100 @@ fn is_allowed_whitelisted_command(
         .map(|(_, player)| player.uuid.clone());
     uuid.is_some_and(|uuid| runtime.user_whitelist.contains(&uuid))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::structure::mineflayer::bot::PlayerSnapshot;
+    use uuid::Uuid;
+
+    fn make_state_with_player(profile_name: &str, uuid: &str) -> AzaleaState {
+        let state = AzaleaState::default();
+        state.players.write().unwrap().insert(
+            profile_name.to_owned(),
+            PlayerSnapshot {
+                username: profile_name.to_owned(),
+                uuid: uuid.to_owned(),
+                entity_uuid: Uuid::nil(),
+                latency: 0,
+                display_name: None,
+            },
+        );
+        state
+    }
+
+    fn make_runtime(whitelist: &[&str], blacklist: &[&str], use_whitelist: bool) -> RuntimeConfig {
+        let base = AzaleaState::default().runtime.read().unwrap().clone();
+        RuntimeConfig {
+            use_whitelist,
+            user_whitelist: whitelist.iter().map(|s| s.to_string()).collect(),
+            user_blacklist: blacklist.iter().map(|s| s.to_string()).collect(),
+            ..base
+        }
+    }
+
+    const UUID: &str = "550e8400-e29b-41d4-a716-446655440000";
+
+    #[test]
+    fn blacklist_blocks_exact_case() {
+        let state = make_state_with_player("Player1", UUID);
+        let runtime = make_runtime(&[], &[UUID], false);
+        assert!(!is_allowed_by_standing(&runtime, "Player1", &state, "!cmd"));
+    }
+
+    #[test]
+    fn blacklist_blocks_case_insensitive_sender() {
+        let state = make_state_with_player("Player1", UUID);
+        let runtime = make_runtime(&[], &[UUID], false);
+        assert!(!is_allowed_by_standing(&runtime, "player1", &state, "!cmd"));
+    }
+
+    #[test]
+    fn blacklist_allows_unknown_sender() {
+        let state = AzaleaState::default();
+        let runtime = make_runtime(&[], &[UUID], false);
+        assert!(is_allowed_by_standing(&runtime, "ghost", &state, "!cmd"));
+    }
+
+    #[test]
+    fn blacklist_allows_non_blacklisted_player() {
+        let state = make_state_with_player("Player1", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        let runtime = make_runtime(&[], &[UUID], false);
+        assert!(is_allowed_by_standing(&runtime, "Player1", &state, "!cmd"));
+    }
+
+    #[test]
+    fn whitelist_allows_exact_case() {
+        let state = make_state_with_player("Admin", UUID);
+        let runtime = make_runtime(&[UUID], &[], true);
+        assert!(is_allowed_whitelisted_command(&runtime, "Admin", &state));
+    }
+
+    #[test]
+    fn whitelist_allows_case_insensitive_sender() {
+        let state = make_state_with_player("Admin", UUID);
+        let runtime = make_runtime(&[UUID], &[], true);
+        assert!(is_allowed_whitelisted_command(&runtime, "admin", &state));
+    }
+
+    #[test]
+    fn whitelist_blocks_non_whitelisted_player() {
+        let state = make_state_with_player("Stranger", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        let runtime = make_runtime(&[UUID], &[], true);
+        assert!(!is_allowed_whitelisted_command(&runtime, "Stranger", &state));
+    }
+
+    #[test]
+    fn whitelist_blocks_unknown_sender() {
+        let state = AzaleaState::default();
+        let runtime = make_runtime(&[UUID], &[], true);
+        assert!(!is_allowed_whitelisted_command(&runtime, "ghost", &state));
+    }
+
+    #[test]
+    fn whitelist_disabled_allows_everyone() {
+        let state = AzaleaState::default();
+        let runtime = make_runtime(&[], &[], false);
+        assert!(is_allowed_whitelisted_command(&runtime, "anyone", &state));
+    }
+}
