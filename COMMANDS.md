@@ -187,6 +187,7 @@ No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (67 co
 | `aetherius` `georgeking` `ninefreedoms` `twelveblessings` `saintgooling` `marssector6` | The Aetherius Society (George King) — The Twelve Blessings + The Nine Freedoms |
 | `anthroposophy` `steiner` `rudolfsteiner` | Rudolf Steiner — An Outline of Occult Science |
 | `mahikari` `sukyomahikari` `okada` `sukuinushisama` | Sukyo Mahikari — A Publication for All Mankind |
+| `radhasoami` `sarbachan` `soamiji` `santmat` | Radhasoami — Sar Bachan Poetry (Soamiji Maharaj) |
 
 ## Trades
 
