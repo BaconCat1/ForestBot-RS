@@ -43,14 +43,10 @@ fn godstats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         match GOD_STATS.get() {
             Some(s) => {
                 let mb = s.total_bytes as f64 / 1_048_576.0;
-                let saved_pct = if s.total_bytes > 0 {
-                    100.0 * (1.0 - s.total_compressed_bytes as f64 / s.total_bytes as f64)
-                } else {
-                    0.0
-                };
+                let compressed_mb = s.total_compressed_bytes as f64 / 1_048_576.0;
                 ctx.chat(format!(
-                    "God Stats: {} Corpora, {:.1} MB ({:.0}% compressed), {} verses, loaded in {:.2}s, Known Gods: {}",
-                    s.corpora_loaded, mb, saved_pct, s.total_verses, s.elapsed.as_secs_f64(), KNOWN_GODS_COUNT
+                    "God Stats: {} Corpora, {:.1} MB ({:.1} MB on disk), {} verses, loaded in {:.2}s, Known Gods: {}",
+                    s.corpora_loaded, mb, compressed_mb, s.total_verses, s.elapsed.as_secs_f64(), KNOWN_GODS_COUNT
                 ));
             }
             None => {
@@ -90,7 +86,7 @@ fn listgods(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "moon", "noi", "sophia", "eddy", "krishna", "buddha", "waheguru", "tao",
             "confucius", "amaterasu", "caodai", "zoroaster", "osiris", "odin", "zeus",
             "hurakan", "hammurabi", "huitzilopochtli", "hermetic", "crowley", "eris",
-            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi", "qumran", "enoch", "acim", "faithism", "aquarian", "lawofone", "iammovement", "acadfuturesci", "unarius", "aetherius",
+            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi", "qumran", "enoch", "acim", "faithism", "aquarian", "lawofone", "iammovement", "acadfuturesci", "unarius", "aetherius", "anthroposophy",
         ];
         const MAX: usize = 220;
         let mut line = format!("!askgod <god> -- {} corpora, one per corpus: ", GODS.len());
@@ -124,16 +120,12 @@ struct Verse {
 // One OnceLock per corpus — populated lazily on first use.
 static KJV_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static KORAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
-static MORMON_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MORMON_MERGED_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static BAHAI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static RASTA_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
-static MANDAEAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MANI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static UNIFICATION_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static NOI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
-static GNOSTIC_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
-static GNOSTIC2_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static GNOSTIC_MERGED_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static CS_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static HINDU_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
@@ -149,8 +141,6 @@ static NORSE_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static OLYMPIAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MAYAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static BABYLONIAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
-static AZTEC_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
-static AZTEC2_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static AZTEC_MERGED_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static HERMETIC_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static THELEMA_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
@@ -187,7 +177,6 @@ static JEDI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static DSS_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static DEUTEROCANON_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static ACIM_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
-static MANDAEAN2_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static MANDAEAN_MERGED_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static FAITHISM_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static AQUARIAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
@@ -196,6 +185,7 @@ static IAMMOVEMENT_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static ACADFUTURESCI_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static UNARIUS_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static AETHERIUS_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static ANTHROPOSOPHY_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 
 type CorpusEntry = (&'static OnceLock<Vec<Verse>>, &'static str, fn(&str) -> anyhow::Result<Vec<Verse>>);
 
@@ -268,6 +258,7 @@ fn all_corpora() -> [CorpusEntry; 67] {
         (&ACADFUTURESCI_CORPUS, "godtexts/acadfuturesci.txt.zst", parse_bahai),
         (&UNARIUS_CORPUS, "godtexts/unarius.txt.zst", parse_bahai),
         (&AETHERIUS_CORPUS, "godtexts/aetherius.txt.zst", parse_bahai),
+        (&ANTHROPOSOPHY_CORPUS, "godtexts/anthroposophy.txt.zst", parse_bahai),
     ]
 }
 
@@ -336,7 +327,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let nanos = now.subsec_nanos();
 
         let god_arg = ctx.args.first().map(|s| s.to_lowercase());
-        let keyword_was_given = god_arg.is_some();
+        let _keyword_was_given = god_arg.is_some();
         let (corpus_cell, path, parser): CorpusEntry =
             match god_arg.as_deref() {
                 Some("allah") | Some("quran") | Some("koran") | Some("islam") | Some("muslim") | Some("muhammad") => {
@@ -405,7 +396,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Some("mayan") | Some("maya") | Some("kiché") | Some("kiche") | Some("hurakan") | Some("popolvuh") | Some("xibalba") | Some("quetzalcoatl") | Some("itzamna") | Some("kukulkan") => {
                     (&MAYAN_CORPUS, "godtexts/mayan.txt.zst", parse_bahai)
                 }
-                Some("babylon") | Some("babylonian") | Some("hammurabi") | Some("marduk") | Some("shamash") | Some("ishtar") | Some("akkad") | Some("akkadian") | Some("mesopotamia") => {
+                Some("babylonian") | Some("hammurabi") | Some("marduk") | Some("shamash") | Some("ishtar") | Some("akkad") | Some("akkadian") | Some("mesopotamia") => {
                     (&BABYLONIAN_CORPUS, "godtexts/babylonian.txt.zst", parse_bahai)
                 }
                 Some("sumerian") | Some("sumer") | Some("gilgamesh") | Some("enkidu") | Some("enumaelish") | Some("tiamat") | Some("apsu") | Some("anunnaki") | Some("enlil") | Some("enki") | Some("inanna") | Some("nanna") | Some("utu") => {
@@ -429,7 +420,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Some("incan") | Some("inca") | Some("huarochiri") | Some("pariacaca") | Some("paria") | Some("quechua") | Some("andean") | Some("huallallo") | Some("viracocha") => {
                     (&INCAN_CORPUS, "godtexts/incan.txt.zst", parse_bahai)
                 }
-                Some("iching") | Some("yijing") | Some("yiching") | Some("yi") | Some("zhouyi") | Some("hexagram") | Some("legge") | Some("khien") | Some("confucius") | Some("bagua") | Some("trigram") => {
+                Some("iching") | Some("yijing") | Some("yiching") | Some("yi") | Some("zhouyi") | Some("hexagram") | Some("legge") | Some("khien") | Some("bagua") | Some("trigram") => {
                     (&ICHING_CORPUS, "godtexts/iching.txt.zst", parse_bahai)
                 }
                 Some("jedi") | Some("jedipath") | Some("theforce") | Some("force") | Some("yoda") | Some("skywalker") | Some("anakin") | Some("luke") | Some("obi") | Some("kenobi") | Some("mace") | Some("windu") | Some("sith") | Some("midichlorian") => {
@@ -495,7 +486,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Some("process") | Some("processchurch") | Some("processian") | Some("jehovah") | Some("lucifer") | Some("satan") | Some("devilworship") | Some("robertdevegrimston") | Some("maryannmaclean") => {
                     (&PROCESSCHURCH_CORPUS, "godtexts/processchurch.txt.zst", parse_bahai)
                 }
-                Some("andraste") | Some("andrastianism") | Some("maker") | Some("chantoflight") | Some("thedas") | Some("ferelden") | Some("orlais") | Some("dragonage") | Some("chantry") | Some("divine") => {
+                Some("andraste") | Some("andrastianism") | Some("maker") | Some("chantoflight") | Some("thedas") | Some("ferelden") | Some("orlais") | Some("dragonage") | Some("chantry") => {
                     (&ANDRASTIANISM_CORPUS, "godtexts/andrastianism.txt.zst", parse_bahai)
                 }
                 Some("orphic") | Some("orpheus") | Some("orphism") | Some("dionysus") | Some("persephone") | Some("hecate") | Some("protogonus") | Some("phanes") | Some("mysteries") | Some("bacchic") => {
@@ -536,6 +527,9 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
                 Some("aetherius") | Some("georgeking") | Some("ninefreedoms") | Some("twelveblessings") | Some("saintgooling") | Some("marssector6") => {
                     (&AETHERIUS_CORPUS, "godtexts/aetherius.txt.zst", parse_bahai)
+                }
+                Some("anthroposophy") | Some("steiner") | Some("rudolfsteiner") => {
+                    (&ANTHROPOSOPHY_CORPUS, "godtexts/anthroposophy.txt.zst", parse_bahai)
                 }
                 Some("bible") | Some("god") | Some("jesus") | Some("christ") | Some("kjv") | Some("christian") => {
                     (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv)

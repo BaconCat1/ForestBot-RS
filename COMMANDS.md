@@ -185,6 +185,7 @@ No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (67 co
 | `acadfuturesci` `hurtak` `affs` `academyforfuturescience` `brotherhoodoflight` `ophanimenoch` | The Keys of Enoch (J.J. Hurtak, 1996) |
 | `unarius` `ernestnorman` `shamballa` `voiceoferos` `voiceofhermes` `voiceoforion` `voiceofvenus` | Unarius (Ernest L. Norman) — Voice of Eros/Hermes/Orion/Venus + The Elysium |
 | `aetherius` `georgeking` `ninefreedoms` `twelveblessings` `saintgooling` `marssector6` | The Aetherius Society (George King) — The Twelve Blessings + The Nine Freedoms |
+| `anthroposophy` `steiner` `rudolfsteiner` | Rudolf Steiner — An Outline of Occult Science |
 
 ## Trades
 
