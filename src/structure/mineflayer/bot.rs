@@ -1076,6 +1076,26 @@ fn spawn_websocket_event_task(state: AzaleaState) {
                         );
                     });
                 }
+                WebsocketEvent::TradesReset(data) => {
+                    let state_clone = state.clone();
+                    tokio::spawn(async move {
+                        let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
+                        enqueue_outbound_chat(
+                            &state_clone,
+                            format!("📢 {}'s trades have been reset by trading mods. Description: {} 📢", display_name, data.reason),
+                        );
+                    });
+                }
+                WebsocketEvent::TradesUnreset(data) => {
+                    let state_clone = state.clone();
+                    tokio::spawn(async move {
+                        let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
+                        enqueue_outbound_chat(
+                            &state_clone,
+                            format!("📢 {}'s trades have been restored by trading mods. Description: {} 📢", display_name, data.reason),
+                        );
+                    });
+                }
                 WebsocketEvent::UnknownMessage(message) => {
                     logger::websocket(format!("Unknown websocket message: {message}"));
                 }

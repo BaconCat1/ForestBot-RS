@@ -117,6 +117,12 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!askgod, logically translate TempleOS's talk to god stuff lol~~ // KJV loaded from godtexts/kjv.txt.gz via flate2; timestamp entropy (subsec_nanos >> 4) picks a random verse; displays [Book chapter:verse] text in public chat, truncated to 240 chars; multi-god support pending more corpus files
 	* God's messages are based on source texts, you can ask different gods (ie: `!askgod buddha`) by using different source texts!
 * ✅ ~~!equip, so the bot can actually wear armor to show for the !health command~~ // open_inventory, scan slots 9-44 for Equippable (Head/Chest/Legs/Feet), PickupClick pick+place into armor slots 5-8
+* 🆕 !wiki let's you search wikipedia based on <arg>. api ref at https://www.mediawiki.org/wiki/Wikifeeds_API#Reference
+* 🆕 !news, let's you find headlines from rss feeds. I'm thinking apnews, needs planning before implementation
+* 🆕 !day/!night, reports irl time until it's either day or night in game
+* 🆕 !urbandictionary, api seems to be at https://api.urbandictionary.com/v0/define?term={TERM}
+* 🆕 !greeting, users can give themselves a welcome back message that has a 12 hour cooldown
+* 🆕 !minewiki, same behaviour as !wiki, only for the minecraft wiki
 
 ---
 

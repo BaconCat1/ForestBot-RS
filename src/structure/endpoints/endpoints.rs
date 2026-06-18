@@ -1303,6 +1303,8 @@ pub enum WebsocketEvent {
     InboundMinecraftChat(MinecraftChatMessage),
     ScammerMarked(ScammerMarkedData),
     ScammerUnmarked(ScammerMarkedData),
+    TradesReset(TradesResetData),
+    TradesUnreset(TradesResetData),
     Ignored,
     #[allow(dead_code)]
     MinecraftPlayerDeath(MinecraftPlayerDeathMessage),
@@ -1321,6 +1323,12 @@ pub struct ScammerMarkedData {
     pub user_id: String,
     pub reason: String,
     pub guild_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TradesResetData {
+    pub user_id: String,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1442,6 +1450,12 @@ fn parse_inbound_message(text: &str) -> Option<WebsocketEvent> {
         "scammer_unmarked" => serde_json::from_value(value.data)
             .ok()
             .map(WebsocketEvent::ScammerUnmarked),
+        "trades_reset" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::TradesReset),
+        "trades_unreset" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::TradesUnreset),
         "report_created" | "trade_confirmed" | "trade_rejected" => Some(WebsocketEvent::Ignored),
         "error" => Some(WebsocketEvent::Error(value.data.to_string())),
         _ => Some(WebsocketEvent::UnknownMessage(text.to_owned())),
