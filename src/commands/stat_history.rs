@@ -1167,6 +1167,10 @@ fn quote_server_chunks(servers: &[&str]) -> Vec<String> {
 fn standing(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
+        if target.starts_with('/') {
+            whisper(&ctx, " That's not a valid username.");
+            return Ok(());
+        }
         let requester_uuid = match player_uuid(&ctx, ctx.sender) {
             Some(uuid) => Some(uuid),
             None => ctx.state.api.convert_username_to_uuid(ctx.sender).await,

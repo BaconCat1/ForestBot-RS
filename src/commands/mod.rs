@@ -7,6 +7,7 @@ pub mod askgod;
 pub mod crouch;
 pub mod discord;
 pub mod drop;
+pub mod equip;
 pub mod hardware;
 pub mod health;
 pub mod help;
@@ -177,6 +178,8 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::CENSOR_COMMAND,
         stat_history::COORDS_COMMAND,
         drop::COMMAND,
+        equip::COMMAND,
+        equip::UNEQUIP_COMMAND,
         stat_history::EDIT_FAQ_COMMAND,
         stat_history::EFFICIENCY_COMMAND,
         stat_history::EXECUTE_COMMAND,

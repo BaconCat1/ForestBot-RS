@@ -425,11 +425,20 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     .players
                     .read()
                     .expect("player cache lock poisoned")
-                    .get(&sender)
-                    .map(|player| player.uuid.clone());
+                    .iter()
+                    .find(|(k, _)| k.eq_ignore_ascii_case(&sender))
+                    .map(|(_, player)| player.uuid.clone());
 
                 if let Some(uuid) = uuid {
-                    send_minecraft_chat_message(&state, &sender, &content, &uuid).await;
+                    let blacklisted = state
+                        .runtime
+                        .read()
+                        .expect("runtime config lock poisoned")
+                        .user_blacklist
+                        .contains(&uuid);
+                    if !blacklisted {
+                        send_minecraft_chat_message(&state, &sender, &content, &uuid).await;
+                    }
                 }
             }
         }

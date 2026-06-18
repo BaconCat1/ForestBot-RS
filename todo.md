@@ -91,13 +91,13 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~Cooldowns should be cumulative. For example, the initial 10 second cooldown for !q is fine, but if someone quotes again within cooldown * 2 (20 seconds initially) the cooldown should then increase. I'm thinking just 1 extra second (making it 11 seconds until you can run it again, and 22 until the cooldown resets). This punishes over use and repeated use, since even a small cooldown doesn't seem to be enough to dissuade people to chill on the command spam. This concept should also be implemented for !lm, only waaay more aggressive. There should be a 300 second cooldown for last message on an individual user basis with the same "punishment" style increases. People use forest to bypass ignores and this is meant to dissuade that.~~
 * ✅ ~~Self censorship~~
 * ✅ ~~Whisper that a command is disabled to the player who ran said command~~
-* 🐛 ~~**bug**: fix discord bug(?) where blacklisted people's messages don't get sent to discord~~
-	* *Needs testing post hw migration*
+* ✅ ~~**bug**: fix discord bug(?) where blacklisted people's messages don't get sent to discord~~ // uuid blacklist check + case-insensitive player lookup before send_minecraft_chat_message in bot.rs
 * ✅ ~~**bug**: fix discord bug where it fails to show /playtimegraph for a user without a join date~~ // Hub returns non-array on missing join date; `buildPlaytimeEmbed` now checks `res.ok` + `Array.isArray(graphData)` before processing
 * ✅ Nick resolution for nicked players (EssentialsX `/nick`): `nick_cache` (display_name → uuid) populated from PlayerInfo AddPlayer/UpdatePlayer; checked before Mojang API fallback in chat/advancement UUID resolution and all trade commands. Requires server to send PlayerInfo display_name — EssentialsX needs `change-playerlist: true`.
 * ✅ ~~pivot from ashcon api to crafty api for username history lookups~~ // `GET https://api.crafty.gg/api/v2/players/{username}` → `data.usernames[].username`; replaced `AshconProfile`/`AshconUsernameHistory` structs with `CraftyPlayerResponse`/`CraftyPlayerData`/`CraftyUsername`
 * 🆕 need some kind of alert system in discord for bad behavior that requires manual intervention
-* 🆕 !askgod if user gives multi word non god arg, should assume it's a question for the oracle and answer "The Gods have heard you, and they send you their divine wisdom:" followed by a random quote
+* ✅ ~~!askgod if user gives multi word non god arg, should assume it's a question for the oracle and answer "The Gods have heard you, and they send you their divine wisdom:" followed by a random quote~~ // ctx.args.len() >= 2 early-path before god match; random corpus, 200-char cap
+* ✅ ~~!status allows / commands to run~~ // target.starts_with('/') guard added; root cause: enqueue_chat trim_start strips leading space convention
 
 
 ## !quote
@@ -116,7 +116,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!health, display bot's health, hunger, armor stats~~ // whispers `Health: X/20 | Hunger: X/20 (sat: X) | Armor: X | Effects: ...`; mount health skipped (azalea `set_passengers` is a no-op stub)
 * ✅ ~~!askgod, logically translate TempleOS's talk to god stuff lol~~ // KJV loaded from godtexts/kjv.txt.gz via flate2; timestamp entropy (subsec_nanos >> 4) picks a random verse; displays [Book chapter:verse] text in public chat, truncated to 240 chars; multi-god support pending more corpus files
 	* God's messages are based on source texts, you can ask different gods (ie: `!askgod buddha`) by using different source texts!
-* 🆕 !equip, so the bot can actually wear armor to show for the !health command
+* ✅ ~~!equip, so the bot can actually wear armor to show for the !health command~~ // open_inventory, scan slots 9-44 for Equippable (Head/Chest/Legs/Feet), PickupClick pick+place into armor slots 5-8
 
 ---
 

@@ -99,13 +99,15 @@
 | `!crouch` | Single crouch press/release; `!crouch hold` holds for up to 10 min, `!crouch` again releases |
 | `!mount` / `!ride` / `!mush <entity?>` | Mount nearest rideable entity |
 | `!drop [all]` | Drop held item (or all items) |
+| `!equip` | Equip any armor pieces found in inventory |
+| `!unequip` | Remove all equipped armor back to inventory |
 | `!sleep` | Put the bot to sleep |
 | `!twerk` / `!bootyshake` | Bot crouches for 10 seconds |
 | `!setpreset` | Change bot's name chalk preset (RefinedVanilla only) |
 | `!shout <message>` | Broadcast to all connected servers (not enabled) |
 | `!nickname <name>` | Change bot's in-game nickname |
 | `!febzey` | 🤷 |
-| `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, or specify a god below (73 corpora) |
+| `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, specify a god below (73 corpora), or ask a multi-word question for an oracle response |
 | `!listgods` / `!gods` | List one god per corpus with its trigger word |
 | `!searchgod` / `!godsearch` / `!sgod <words>` | Search sacred texts for a keyword or phrase |
 | `!godverse` / `!verse` / `!vgod <reference>` | Look up a verse by reference |

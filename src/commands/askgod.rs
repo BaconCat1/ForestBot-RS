@@ -338,6 +338,33 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         let god_arg = ctx.args.first().map(|s| s.to_lowercase());
         let _keyword_was_given = god_arg.is_some();
+
+        // Multi-word arg is treated as a question to the oracle, not a god name
+        if ctx.args.len() >= 2 {
+            let (corpus_cell, path, parser) = pick_random_available_corpus(secs);
+            let corpus = match get_corpus(corpus_cell, path, parser).await {
+                Ok(c) => c,
+                Err(e) => {
+                    ctx.whisper(format!("Oracle unavailable: {e}"));
+                    return Ok(());
+                }
+            };
+            if corpus.is_empty() {
+                ctx.whisper("The oracle is silent.");
+                return Ok(());
+            }
+            let idx = (nanos >> 4) as usize % corpus.len();
+            let verse = &corpus[idx];
+            let full = format!("[{}] {}", verse.reference, verse.text);
+            let out = if full.chars().count() > 200 {
+                format!("{}...", full.chars().take(197).collect::<String>())
+            } else {
+                full
+            };
+            ctx.chat(format!("The Gods have heard you, and they send you their divine wisdom: {out}"));
+            return Ok(());
+        }
+
         let (corpus_cell, path, parser): CorpusEntry =
             match god_arg.as_deref() {
                 Some("allah") | Some("quran") | Some("koran") | Some("islam") | Some("muslim") | Some("muhammad") => {
