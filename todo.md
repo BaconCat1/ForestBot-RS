@@ -127,7 +127,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!greeting, users can give themselves a welcome back message that has a 12 hour cooldown~~ // `greeting` + `greeting_last_fired_at` columns on `users` table; fires on join as `"<message>, Username!"`; 12h cooldown via DB timestamp; preview/clear subcommands
 * ✅ ~~!minewiki, same behaviour as !wiki, only for the minecraft wiki~~ // same 2-step flow against minecraft.wiki (`/api.php`); public chat; 1-min cooldown per player; aliases `!minewiki`/`!mcwiki`
 * 🆕 !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?
-* 🆕 !calc, alias !wolframalpha, !wa, sends requests to the wolframalpha public api 
+* ✅ ~~!calc, alias !wolframalpha, !wa, sends requests to the wolframalpha public api~~ // LLM API endpoint; `wolfram_app_id` in bot config; parses `Result:` section, posts `query = answer` truncated to 220 chars; aliases `!calc`/`!wa`/`!wolframalpha`
 
 ---
 

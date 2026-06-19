@@ -3,6 +3,7 @@ use std::{future::Future, pin::Pin};
 use azalea::prelude::Client;
 
 pub mod alias;
+pub mod calc;
 pub mod daynight;
 pub mod greeting;
 pub mod askgod;
@@ -224,6 +225,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         trade::SCAMMERS_COMMAND,
         wiki::WIKI_COMMAND,
         wiki::MINEWIKI_COMMAND,
+        calc::COMMAND,
         greeting::COMMAND,
         daynight::DAY_COMMAND,
         daynight::NIGHT_COMMAND,

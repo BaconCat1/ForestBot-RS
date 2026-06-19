@@ -78,6 +78,8 @@ pub struct Config {
     pub rotate_head_on_join: bool,
     pub smart_censoring: bool,
     pub together_api_key: String,
+    #[serde(default)]
+    pub wolfram_app_id: String,
     #[serde(rename = "useLegacyChat")]
     #[allow(dead_code)]
     pub use_legacy_chat: bool,

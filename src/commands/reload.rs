@@ -62,6 +62,7 @@ async fn reload_runtime(
         custom_chat_prefix: app_state.config.custom_chat_prefix,
         smart_censoring: app_state.config.smart_censoring,
         together_api_key: app_state.config.together_api_key,
+        wolfram_app_id: app_state.config.wolfram_app_id,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;

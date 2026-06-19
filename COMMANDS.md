@@ -124,6 +124,7 @@
 | `!news` | Whispers BBC categories + top 5 top stories (numbered) |
 | `!news <category>` | Whispers top 5 headlines from that category |
 | `!news <category?> <N>` | Posts article N's description + link to public chat |
+| `!calc` / `!wa` / `!wolframalpha <query>` | Query Wolfram\|Alpha — posts `query = result` to public chat |
 | `!wiki` / `!wikipedia <query>` | Search Wikipedia — posts `[Title] summary` to public chat (60s cooldown) |
 | `!minewiki` / `!mcwiki <query>` | Search the Minecraft Wiki — same format as `!wiki` (60s cooldown) |
 | `!urbandictionary` / `!ud <query>` | Search Urban Dictionary — posts `[Word] definition (+N/-N)` to public chat (60s cooldown) |

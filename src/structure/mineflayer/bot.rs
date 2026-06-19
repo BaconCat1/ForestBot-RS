@@ -75,6 +75,7 @@ pub struct RuntimeConfig {
     pub custom_chat_prefix: String,
     pub smart_censoring: bool,
     pub together_api_key: String,
+    pub wolfram_app_id: String,
 }
 
 #[derive(Debug, Clone)]
@@ -107,6 +108,7 @@ pub struct Bot {
     pub allow_chatbridge_input: bool,
     pub smart_censoring: bool,
     pub together_api_key: String,
+    pub wolfram_app_id: String,
     pub anti_spam_global_cooldown_ms: u64,
     pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub reconnect_time_ms: u64,
@@ -144,6 +146,7 @@ impl Bot {
             allow_chatbridge_input: state.config.allow_chatbridge_input,
             smart_censoring: state.config.smart_censoring,
             together_api_key: state.config.together_api_key.clone(),
+            wolfram_app_id: state.config.wolfram_app_id.clone(),
             anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown,
             command_cooldowns: state.config.command_cooldowns.clone(),
             reconnect_time_ms: state.config.reconnect_time,
@@ -201,6 +204,7 @@ impl Bot {
                 custom_chat_prefix: self.custom_chat_prefix.clone(),
                 smart_censoring: self.smart_censoring,
                 together_api_key: self.together_api_key.clone(),
+                wolfram_app_id: self.wolfram_app_id.clone(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -328,6 +332,7 @@ impl Default for AzaleaState {
                 custom_chat_prefix: String::new(),
                 smart_censoring: false,
                 together_api_key: String::new(),
+                wolfram_app_id: String::new(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
