@@ -98,6 +98,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🆕 need some kind of alert system in discord for bad behavior that requires manual intervention
 * ✅ ~~!askgod if user gives multi word non god arg, should assume it's a question for the oracle and answer "The Gods have heard you, and they send you their divine wisdom:" followed by a random quote~~ // ctx.args.len() >= 2 early-path before god match; random corpus, 200-char cap
 * ✅ ~~!status allows / commands to run~~ // target.starts_with('/') guard added; root cause: enqueue_chat trim_start strips leading space convention
+* 🆕 announce when players are detected, 10 min cooldown per player.
+* 🆕 custom advancements!
 
 
 ## !quote
@@ -118,11 +120,12 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 	* God's messages are based on source texts, you can ask different gods (ie: `!askgod buddha`) by using different source texts!
 * ✅ ~~!equip, so the bot can actually wear armor to show for the !health command~~ // open_inventory, scan slots 9-44 for Equippable (Head/Chest/Legs/Feet), PickupClick pick+place into armor slots 5-8
 * 🆕 !wiki let's you search wikipedia based on <arg>. api ref at https://www.mediawiki.org/wiki/Wikifeeds_API#Reference
-* 🆕 !news, let's you find headlines from rss feeds. I'm thinking apnews, needs planning before implementation
+* 🆕 !news, let's you find headlines from rss feeds. BBC long living static rss feeds: https://www.bbc.co.uk/news/10628494
 * 🆕 !day/!night, reports irl time until it's either day or night in game
 * 🆕 !urbandictionary, api seems to be at https://api.urbandictionary.com/v0/define?term={TERM}
 * 🆕 !greeting, users can give themselves a welcome back message that has a 12 hour cooldown
 * 🆕 !minewiki, same behaviour as !wiki, only for the minecraft wiki
+* 🆕 !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?
 
 ---
 

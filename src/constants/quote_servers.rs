@@ -18,6 +18,7 @@ pub const QUOTE_SERVERS: &[&str] = &[
     "refinedvanilla",
     "simpcraft",
     "simplyanarchy",
+    "simplevanilla",
     "simplyvanilla",
     "straightupminecraft",
     "truevanilla",

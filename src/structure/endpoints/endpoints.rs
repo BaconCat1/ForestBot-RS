@@ -386,6 +386,13 @@ impl ApiClient {
         }
     }
 
+    pub async fn get_owned_faq_ids(&self, username: &str) -> Option<Vec<OwnedFaqEntry>> {
+        self.get_json("/get-owned-faq-ids", &[("name", username)])
+            .await
+            .and_then(|value| self.parse_json::<OwnedFaqsResponse>("/get-owned-faq-ids", value))
+            .map(|r| r.faqs)
+    }
+
     pub async fn post_who_is_description(
         &self,
         username: &str,
@@ -1269,6 +1276,17 @@ pub struct DeleteFaqResult {
     pub success: bool,
     #[serde(default)]
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OwnedFaqEntry {
+    pub id: i64,
+    pub faq: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OwnedFaqsResponse {
+    pub faqs: Vec<OwnedFaqEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

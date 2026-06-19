@@ -310,12 +310,12 @@ pub fn execute_tradestats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                             n
                         } else {
                             ctx.state.api.tradebot_mc_username(&mc_uuid).await
-                                .unwrap_or_else(|| format!("@{}", p.partner_id))
+                                .unwrap_or_else(|| format!("(@){}", p.partner_id))
                         }
                     } else {
                         ctx.state.api.tradebot_discord_username(&p.partner_id).await
-                            .map(|name| format!("@{name}"))
-                            .unwrap_or_else(|| format!("@{}", p.partner_id))
+                            .map(|name| format!("(@){name}"))
+                            .unwrap_or_else(|| format!("(@){}", p.partner_id))
                     }
                 } else {
                     let online = {
