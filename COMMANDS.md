@@ -115,6 +115,10 @@
 | `!godverse` / `!verse` / `!vgod <reference>` | Look up a verse by reference |
 | `!godstats` | Show corpora count, size, compression ratio, verse count, load time, total god aliases |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
+| `!greeting` | Whispers format info + your current greeting |
+| `!greeting <message>` | Set your join greeting — fires as `"<message>, YourName!"` (12h cooldown) |
+| `!greeting preview` | Whispers how your greeting will look |
+| `!greeting clear` | Remove your greeting |
 | `!day` | Posts time until next dawn (tick 23460), or "currently daytime" |
 | `!night` | Posts time until next nightfall (tick 13188), or "currently nighttime" |
 | `!news` | Whispers BBC categories + top 5 top stories (numbered) |

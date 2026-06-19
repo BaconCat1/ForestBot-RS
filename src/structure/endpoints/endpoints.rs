@@ -596,6 +596,36 @@ impl ApiClient {
         }
     }
 
+    pub async fn tradebot_get_greeting(&self, username: &str) -> Option<(Option<String>, Option<String>)> {
+        let v = self.get_json(&format!("/tradebot/greeting/{username}"), &[]).await?;
+        let greeting = v.get("greeting").and_then(|g| g.as_str()).map(str::to_owned);
+        let last_fired_at = v.get("last_fired_at").and_then(|t| t.as_str()).map(str::to_owned);
+        Some((greeting, last_fired_at))
+    }
+
+    pub async fn tradebot_set_greeting(&self, username: &str, greeting: Option<&str>) -> bool {
+        match self
+            .post_json(
+                &format!("/tradebot/greeting/{username}"),
+                json!({ "greeting": greeting }),
+            )
+            .await
+        {
+            Some(v) => v.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            None => false,
+        }
+    }
+
+    pub async fn tradebot_fire_greeting(&self, username: &str) -> bool {
+        match self
+            .post_json(&format!("/tradebot/greeting/{username}/fired"), json!({}))
+            .await
+        {
+            Some(v) => v.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            None => false,
+        }
+    }
+
     #[allow(dead_code)]
     pub async fn with_websocket(&mut self) -> Result<Option<WebsocketClient>> {
         self.init_websocket().await?;

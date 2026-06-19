@@ -4,6 +4,7 @@ use azalea::prelude::Client;
 
 pub mod alias;
 pub mod daynight;
+pub mod greeting;
 pub mod askgod;
 pub mod crouch;
 pub mod discord;
@@ -223,6 +224,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         trade::SCAMMERS_COMMAND,
         wiki::WIKI_COMMAND,
         wiki::MINEWIKI_COMMAND,
+        greeting::COMMAND,
         daynight::DAY_COMMAND,
         daynight::NIGHT_COMMAND,
         news::COMMAND,

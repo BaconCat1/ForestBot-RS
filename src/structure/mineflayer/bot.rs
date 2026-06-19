@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
+use chrono::Utc;
 use azalea::ClientInformation;
 use azalea::protocol::packets::game::ClientboundGamePacket;
 use azalea::app::PluginGroup;
@@ -494,6 +495,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             deliver_offline_messages(&state, &username).await;
             if state.initial_spawn_done.load(Ordering::Relaxed) {
                 send_player_join(&state, &username, &uuid).await;
+                fire_greeting_if_due(&state, &username).await;
             }
         }
         Event::UpdatePlayer(player) => {
@@ -1568,6 +1570,24 @@ async fn deliver_offline_messages(state: &AzaleaState, username: &str) {
     if let Err(error) = save_offline_messages(&remaining).await {
         logger::warn(format!("Failed to save offline messages: {error:#}"));
     }
+}
+
+async fn fire_greeting_if_due(state: &AzaleaState, username: &str) {
+    let Some((Some(greeting), last_fired_at)) = state.api.tradebot_get_greeting(username).await else {
+        return;
+    };
+    if let Some(last) = last_fired_at {
+        // Parse MariaDB datetime: "YYYY-MM-DD HH:MM:SS"
+        let normalized = if last.ends_with('Z') { last.clone() } else { last.replace(' ', "T") + "Z" };
+        if let Ok(parsed) = normalized.parse::<chrono::DateTime<Utc>>() {
+            let elapsed = Utc::now().signed_duration_since(parsed);
+            if elapsed.num_seconds() < 12 * 3600 {
+                return;
+            }
+        }
+    }
+    enqueue_outbound_chat(state, format!("{greeting}, {username}!"));
+    state.api.tradebot_fire_greeting(username).await;
 }
 
 fn enqueue_outbound_chat(state: &AzaleaState, message: impl AsRef<str>) {
