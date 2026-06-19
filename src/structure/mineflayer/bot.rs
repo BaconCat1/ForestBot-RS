@@ -404,6 +404,14 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
 
             if let Some(sender) = sender {
                 if sender == bot.username() {
+                    let allow_bridge = state
+                        .runtime
+                        .read()
+                        .expect("runtime config lock poisoned")
+                        .allow_chatbridge_input;
+                    if allow_bridge && !content.starts_with('!') {
+                        send_minecraft_chat_message(&state, &sender, &content, &"").await;
+                    }
                     return Ok(());
                 }
 
