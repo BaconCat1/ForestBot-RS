@@ -30,7 +30,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 async fn wolfram_query(app_id: &str, query: &str) -> Option<String> {
     let url = format!(
-        "https://www.wolframalpha.com/api/v1/llm-api?input={}&appid={}&maxchars=500",
+        "https://www.wolframalpha.com/api/v1/llm-api?input={}&appid={}",
         percent_encode(query),
         app_id,
     );
@@ -51,18 +51,99 @@ async fn wolfram_query(app_id: &str, query: &str) -> Option<String> {
 
     logger::debug(format!("[calc] WA raw response:\n{text}"));
 
-    // WA response: each section is a bare label line ("Result:") followed by value on next line
+    // WA LLM API: "Label:\nvalue\nvalue2\n\nNextLabel:\n..." structure
+    // Collect each section's values (all lines until the next label), join with " | "
     let lines: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
-    let answer = ["Result:", "Input:", "Answer:"]
+    let mut sections: Vec<(&str, String)> = Vec::new();
+    let mut cur_label: Option<&str> = None;
+    let mut cur_values: Vec<&str> = Vec::new();
+
+    for line in &lines {
+        if line.ends_with(':') {
+            if let Some(label) = cur_label.take() {
+                if !cur_values.is_empty() {
+                    sections.push((label, cur_values.join(" | ")));
+                    cur_values.clear();
+                }
+            }
+            cur_label = Some(line.trim_end_matches(':'));
+        } else if cur_label.is_some() {
+            cur_values.push(line);
+        }
+    }
+    if let Some(label) = cur_label {
+        if !cur_values.is_empty() {
+            sections.push((label, cur_values.join(" | ")));
+        }
+    }
+
+    // Preferred result sections in priority order
+    const PRIORITY: &[&str] = &[
+        "Result",
+        "Results",
+        "Exact result",
+        "Solution",
+        "Solutions",
+        "Real solution",
+        "Real solutions",
+        "Complex solution",
+        "Complex solutions",
+        "Derivative",
+        "Definite integral",
+        "Indefinite integral",
+        "Infinite sum",
+        "Sum",
+        "Limit",
+        "Decimal approximation",
+        "Approximate form",
+        "Approximate decimal result",
+        "Answer",
+        "Value",
+        "Output",
+        "Property",
+    ];
+
+    // Decorative/boilerplate sections to skip in fallback
+    const SKIP_PREFIXES: &[&str] = &[
+        "Query",
+        "Input",
+        "Assumption",
+        "Number name",
+        "Number line",
+        "Alternate form",
+        "Alternative representation",
+        "Additional conversion",
+        "Comparison",
+        "Wolfram Language",
+        "Wolfram|Alpha",
+        "Plot",
+        "Graph",
+        "Visual",
+        "Image",
+    ];
+
+    let answer = PRIORITY
         .iter()
-        .find_map(|label| {
-            lines
+        .find_map(|p| {
+            sections
                 .iter()
-                .position(|l| l.eq_ignore_ascii_case(label))
-                .and_then(|pos| lines.get(pos + 1).copied())
+                .find(|(label, _)| label.eq_ignore_ascii_case(p))
+                .map(|(_, v)| v.as_str())
+        })
+        .or_else(|| {
+            sections
+                .iter()
+                .find(|(label, _)| {
+                    SKIP_PREFIXES
+                        .iter()
+                        .all(|skip| !label.starts_with(skip))
+                })
+                .map(|(_, v)| v.as_str())
         })?;
 
-    let display = format!("{query} = {answer}");
+    // Use ": " separator for equations (query already contains "=") to avoid "a = b = c = d"
+    let sep = if query.contains('=') { ": " } else { " = " };
+    let display = format!("{query}{sep}{answer}");
     if display.chars().count() > 220 {
         Some(format!("{}...", display.chars().take(217).collect::<String>()))
     } else {
