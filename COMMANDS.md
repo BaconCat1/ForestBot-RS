@@ -109,16 +109,18 @@
 | `!shout <message>` | Broadcast to all connected servers (not enabled) |
 | `!nickname <name>` | Change bot's in-game nickname |
 | `!febzey` | 🤷 |
-| `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, specify a god below (73 corpora), or ask a multi-word question for an oracle response |
+| `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, specify a god below (74 corpora), or ask a multi-word question for an oracle response |
 | `!listgods` / `!gods` | List one god per corpus with its trigger word |
 | `!searchgod` / `!godsearch` / `!sgod <words>` | Search sacred texts for a keyword or phrase |
 | `!godverse` / `!verse` / `!vgod <reference>` | Look up a verse by reference |
 | `!godstats` | Show corpora count, size, compression ratio, verse count, load time, total god aliases |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
+| `!wiki` / `!wikipedia <query>` | Search Wikipedia — posts `[Title] summary` to public chat (60s cooldown) |
+| `!minewiki` / `!mcwiki <query>` | Search the Minecraft Wiki — same format as `!wiki` (60s cooldown) |
 
 ## !askgod — Available Gods
 
-No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (73 corpora)
+No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (74 corpora)
 
 | Arg(s) | Corpus |
 |---|---|
@@ -195,6 +197,7 @@ No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (73 co
 | `hawaii` `hawaiian` `kumulipo` `kalakaua` | Hawaiian — Kumulipo Creation Chant |
 | `commofchr` `communityofchrist` `rlds` `reorganized` | Community of Christ D&C (RLDS sections 114–144) |
 | `strangite` `strang` `jamesstrang` `lawofthelord` | Book of the Law of the Lord (James Strang, 1851) |
+| `agelesswisdom` `alicebailey` `bailey` `djwhal` `djwhalkhul` `lucistrust` `thehierarchy` `arcane` `arcaneschool` `treatise` `theplan` `sevenrays` | The 24 Books of Esoteric Philosophy (Alice A. Bailey, with permission of Lucis Trust) |
 
 ## Trades
 

@@ -120,12 +120,12 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!askgod, logically translate TempleOS's talk to god stuff lol~~ // KJV loaded from godtexts/kjv.txt.gz via flate2; timestamp entropy (subsec_nanos >> 4) picks a random verse; displays [Book chapter:verse] text in public chat, truncated to 240 chars; multi-god support pending more corpus files
 	* God's messages are based on source texts, you can ask different gods (ie: `!askgod buddha`) by using different source texts!
 * ✅ ~~!equip, so the bot can actually wear armor to show for the !health command~~ // open_inventory, scan slots 9-44 for Equippable (Head/Chest/Legs/Feet), PickupClick pick+place into armor slots 5-8
-* 🆕 !wiki let's you search wikipedia based on <arg>. api ref at https://www.mediawiki.org/wiki/Wikifeeds_API#Reference
+* ✅ ~~!wiki let's you search wikipedia based on <arg>.~~ // MediaWiki search API → extract API (2-step); posts `[Title] first line...` truncated 200 chars to public chat; 1-min cooldown per player; aliases `!wiki`/`!wikipedia`
 * 🆕 !news, let's you find headlines from rss feeds. BBC long living static rss feeds: https://www.bbc.co.uk/news/10628494
 * 🆕 !day/!night, reports irl time until it's either day or night in game
 * 🆕 !urbandictionary, api seems to be at https://api.urbandictionary.com/v0/define?term={TERM}
 * 🆕 !greeting, users can give themselves a welcome back message that has a 12 hour cooldown
-* 🆕 !minewiki, same behaviour as !wiki, only for the minecraft wiki
+* ✅ ~~!minewiki, same behaviour as !wiki, only for the minecraft wiki~~ // same 2-step flow against minecraft.wiki (`/api.php`); public chat; 1-min cooldown per player; aliases `!minewiki`/`!mcwiki`
 * 🆕 !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?
 
 ---

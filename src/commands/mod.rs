@@ -24,6 +24,7 @@ pub mod reload;
 pub mod slurcount;
 pub mod stat_history;
 pub mod utils;
+pub mod wiki;
 
 use crate::structure::mineflayer::bot::{AzaleaState, RuntimeConfig};
 
@@ -217,6 +218,8 @@ pub fn registry() -> &'static [CommandDefinition] {
         trade::TRADES_COMMAND,
         trade::TRADESTATS_COMMAND,
         trade::SCAMMERS_COMMAND,
+        wiki::WIKI_COMMAND,
+        wiki::MINEWIKI_COMMAND,
     ]
 }
 
