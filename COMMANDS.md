@@ -117,6 +117,7 @@
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
 | `!wiki` / `!wikipedia <query>` | Search Wikipedia — posts `[Title] summary` to public chat (60s cooldown) |
 | `!minewiki` / `!mcwiki <query>` | Search the Minecraft Wiki — same format as `!wiki` (60s cooldown) |
+| `!urbandictionary` / `!ud <query>` | Search Urban Dictionary — posts `[Word] definition (+N/-N)` to public chat (60s cooldown) |
 
 ## !askgod — Available Gods
 

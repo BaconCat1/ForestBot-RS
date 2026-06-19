@@ -123,7 +123,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!wiki let's you search wikipedia based on <arg>.~~ // MediaWiki search API → extract API (2-step); posts `[Title] first line...` truncated 200 chars to public chat; 1-min cooldown per player; aliases `!wiki`/`!wikipedia`
 * 🆕 !news, let's you find headlines from rss feeds. BBC long living static rss feeds: https://www.bbc.co.uk/news/10628494
 * 🆕 !day/!night, reports irl time until it's either day or night in game
-* 🆕 !urbandictionary, api seems to be at https://api.urbandictionary.com/v0/define?term={TERM}
+* ✅ ~~!urbandictionary, api seems to be at https://api.urbandictionary.com/v0/define?term={TERM}~~ // `list[0]` → strips `[bracket]` links, collapses newlines, truncates 180 chars, appends `(+N/-N)`; public chat; aliases `!urbandictionary`/`!ud`
 * 🆕 !greeting, users can give themselves a welcome back message that has a 12 hour cooldown
 * ✅ ~~!minewiki, same behaviour as !wiki, only for the minecraft wiki~~ // same 2-step flow against minecraft.wiki (`/api.php`); public chat; 1-min cooldown per player; aliases `!minewiki`/`!mcwiki`
 * 🆕 !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?
