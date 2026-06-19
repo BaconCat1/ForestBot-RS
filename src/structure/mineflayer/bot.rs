@@ -574,11 +574,11 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
         }
         Event::Packet(packet) => {
             if let ClientboundGamePacket::SetTime(p) = packet.as_ref() {
-                if let Some(clock) = p.clock_updates.values().next() {
-                    *state.world_time_ticks.write().expect("world_time_ticks lock poisoned") = clock.total_ticks;
-                }
+                let ticks = p.clock_updates.values().next().map(|c| c.total_ticks).unwrap_or(p.game_time);
+                *state.world_time_ticks.write().expect("world_time_ticks lock poisoned") = ticks;
             }
         }
+
         Event::Tick => {
             flush_outbound_chat(&bot, &state).await;
             // No direct Azalea equivalent exists for Mineflayer's entitySpawn.
