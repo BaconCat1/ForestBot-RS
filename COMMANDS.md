@@ -47,7 +47,7 @@
 | `!lastdeath` / `!ld <player?>` | Most recent death |
 | `!victims <player?>` | Number of unique players killed |
 | `!vs <player1> <player2>` | Head-to-head comparison |
-| `!grudge [killer] <victim>` | How many times killer has killed victim |
+| `!grudge <killer?> <victim>` | How many times killer has killed victim |
 
 ## Leaderboards
 
@@ -100,7 +100,7 @@
 |---|---|
 | `!crouch` | Single crouch press/release; `!crouch hold` holds for up to 10 min, `!crouch` again releases |
 | `!mount` / `!ride` / `!mush <entity?>` | Mount nearest rideable entity |
-| `!drop [all]` | Drop held item (or all items) |
+| `!drop <all?>` | Drop held item (or all items) |
 | `!equip` | Equip any armor pieces found in inventory |
 | `!unequip` | Remove all equipped armor back to inventory |
 | `!sleep` | Put the bot to sleep |
@@ -117,7 +117,7 @@
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
 | `!news` | Whispers BBC categories + top 5 top stories (numbered) |
 | `!news <category>` | Whispers top 5 headlines from that category |
-| `!news [category] <N>` | Posts article N's description + link to public chat |
+| `!news <category?> <N>` | Posts article N's description + link to public chat |
 | `!wiki` / `!wikipedia <query>` | Search Wikipedia — posts `[Title] summary` to public chat (60s cooldown) |
 | `!minewiki` / `!mcwiki <query>` | Search the Minecraft Wiki — same format as `!wiki` (60s cooldown) |
 | `!urbandictionary` / `!ud <query>` | Search Urban Dictionary — posts `[Word] definition (+N/-N)` to public chat (60s cooldown) |
@@ -210,13 +210,13 @@ No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (74 co
 | `!trade <player> <description>` / `!t <player> <description>` | Propose a trade; whispers the recipient |
 | `!trade confirm` / `!t c` | Confirm the pending trade addressed to you |
 | `!trade reject` / `!t r` | Reject a pending trade you're part of |
-| `!trades [player?]` | Show last 3 trades (whispered) |
-| `!tradestats [player?]` | Show confirmed/rejected count in public chat |
-| `!tradestats full [player?]` | Full trade statistics (whispered) |
+| `!trades <player?>` | Show last 3 trades (whispered) |
+| `!tradestats <player?>` | Show confirmed/rejected count in public chat |
+| `!tradestats full <player?>` | Full trade statistics (whispered) |
 | `!link` | Generate a one-time code to link your Minecraft account to Discord via `/link` in Discord |
 | `!unlink` | Remove your Discord account link (`!unlink UNLINK` to confirm) |
 | `!scammers` | List up to 5 known scammers — online players first (`name (online)`), then most recently marked |
-| `!report <player> [reason]` | Report a player as a scammer |
+| `!report <player> <reason?>` | Report a player as a scammer |
 
 Cooldowns: 60s to re-propose after a trade. If someone rejects your proposal, you're locked out for 10 minutes.
 
