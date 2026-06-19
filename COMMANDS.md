@@ -90,7 +90,9 @@
 | `!addfaq` | Add a FAQ entry |
 | `!editfaq` | Edit a FAQ entry |
 | `!delfaq` / `!deletefaq <id>` | Delete a FAQ entry |
-| `!ownsfaq <id>` / `!faqowner` | See who owns a FAQ entry |
+| `!ownsfaq <id>` / `!faqowner` | Public: who owns a FAQ entry |
+| `!ownsfaq <username>` | Whispered: list all FAQs owned by that player |
+| `!ownsfaq` | Whispered: list your own FAQs |
 
 ## Fun
 
