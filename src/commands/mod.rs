@@ -24,6 +24,7 @@ pub mod reload;
 pub mod slurcount;
 pub mod stat_history;
 pub mod utils;
+pub mod news;
 pub mod urbandictionary;
 pub mod wiki;
 
@@ -221,6 +222,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         trade::SCAMMERS_COMMAND,
         wiki::WIKI_COMMAND,
         wiki::MINEWIKI_COMMAND,
+        news::COMMAND,
         urbandictionary::COMMAND,
     ]
 }

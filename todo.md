@@ -121,7 +121,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 	* God's messages are based on source texts, you can ask different gods (ie: `!askgod buddha`) by using different source texts!
 * ✅ ~~!equip, so the bot can actually wear armor to show for the !health command~~ // open_inventory, scan slots 9-44 for Equippable (Head/Chest/Legs/Feet), PickupClick pick+place into armor slots 5-8
 * ✅ ~~!wiki let's you search wikipedia based on <arg>.~~ // MediaWiki search API → extract API (2-step); posts `[Title] first line...` truncated 200 chars to public chat; 1-min cooldown per player; aliases `!wiki`/`!wikipedia`
-* 🆕 !news, let's you find headlines from rss feeds. BBC long living static rss feeds: https://www.bbc.co.uk/news/10628494
+* ✅ ~~!news, let's you find headlines from rss feeds.~~ // BBC RSS via `rss` crate; `!news` whispers categories + top stories; `!news <cat>` whispers 5 numbered headlines; `!news [cat] <N>` posts article description + link (tracking params stripped) to public chat
 * 🆕 !day/!night, reports irl time until it's either day or night in game
 * ✅ ~~!urbandictionary, api seems to be at https://api.urbandictionary.com/v0/define?term={TERM}~~ // `list[0]` → strips `[bracket]` links, collapses newlines, truncates 180 chars, appends `(+N/-N)`; public chat; aliases `!urbandictionary`/`!ud`
 * 🆕 !greeting, users can give themselves a welcome back message that has a 12 hour cooldown
