@@ -76,10 +76,11 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 	* ~~*Should be working, needs to be tested in prod to confirm, pending hw migration*~~
 * ✅ ~~**bug** !oldest and !newest show incorrect dates. !oldest also shows the oldest users ever, while it should only compare the join dates of who's online.~~
 * ✅ ~~**bug**(?) don't record redundant advancements (from the queue or ever)~~ // on `send_player_advancement`, lazy-fetch existing advancements for uuid on first encounter, extract `[bracket-key]` (name-change-proof), skip + whisper if duplicate
-* 🐛 ~~Discord chat bridge~~
-	* The chat bridge is functional. Previously, you would see your own messages as a server message on discord. This wouldn't matter, except the bridge is pretty iffy and doesn't deliver messages reliably, which is probably the discord side being buggy, it's always been like that. Just showing the bot's messages is good enough unless you really want to deep dive this, which I wouldn't blame you for not wanting to.
-	* Bot doesn't show it's own messages still as of commit 6dd5efe58c92b116acebe6d938e0f86af6fcf1bf.
-	* *Will have to wait till post hw migration*
+* ✅ ~~Discord chat bridge~~
+	* Bot's own messages now forwarded to bridge (sender == bot path relays if chatbridge enabled + not a command)
+	* Hub WS reconnect: `websocket_close` fires `authenticate()` after 5s in forestapi.ts
+	* Discord→MC rapid message drops fixed: removed 10s per-user cooldown from messageCreate.ts
+	* Blacklisted users still relay through bridge (blacklist only blocks commands, not relay)
 * ✅ ~~!servers \<username> (not sure on the name), lists servers forest has data of the player on~~
 	* ~~slightly bugged, just needs to break up lists that are too long~~
 * ✅ ~~Add cross server functionality to stats commands (this is mostly done, !lk, !ld, !vicitims, !fm, !lm, !ladv, and !top are missing, if this is intentional I can mark this one complete)~~
@@ -98,7 +99,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🆕 need some kind of alert system in discord for bad behavior that requires manual intervention
 * ✅ ~~!askgod if user gives multi word non god arg, should assume it's a question for the oracle and answer "The Gods have heard you, and they send you their divine wisdom:" followed by a random quote~~ // ctx.args.len() >= 2 early-path before god match; random corpus, 200-char cap
 * ✅ ~~!status allows / commands to run~~ // target.starts_with('/') guard added; root cause: enqueue_chat trim_start strips leading space convention
-* 🆕 announce when players are detected, 10 min cooldown per player.
+* ✅ ~~announce when players are detected, 10 min cooldown per player.~~ // `handle_player_detection` on Tick; entity_by_uuid check = nametag visible; `seen_player_detections` HashSet + 600s async remove; gated by `playerDetected` disabled_events key
 * 🆕 custom advancements!
 
 

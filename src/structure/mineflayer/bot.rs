@@ -207,6 +207,8 @@ impl Bot {
             player_command_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
+            seen_player_detections: Arc::new(RwLock::new(HashSet::new())),
+            next_player_detection_scan_at: Arc::new(RwLock::new(0)),
             trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             initial_spawn_done: Arc::new(AtomicBool::new(false)),
             antiafk: self.antiafk,
@@ -272,6 +274,8 @@ pub struct AzaleaState {
     pub player_command_cooldowns: Arc<Mutex<HashMap<String, PlayerCommandCooldown>>>,
     pub seen_entity_spawns: Arc<RwLock<HashSet<String>>>,
     pub next_entity_spawn_scan_at: Arc<RwLock<i64>>,
+    pub seen_player_detections: Arc<RwLock<HashSet<String>>>,
+    pub next_player_detection_scan_at: Arc<RwLock<i64>>,
     pub trade_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
     pub initial_spawn_done: Arc<AtomicBool>,
     pub antiafk: bool,
@@ -328,6 +332,8 @@ impl Default for AzaleaState {
             player_command_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             seen_entity_spawns: Arc::new(RwLock::new(HashSet::new())),
             next_entity_spawn_scan_at: Arc::new(RwLock::new(0)),
+            seen_player_detections: Arc::new(RwLock::new(HashSet::new())),
+            next_player_detection_scan_at: Arc::new(RwLock::new(0)),
             trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             initial_spawn_done: Arc::new(AtomicBool::new(false)),
             antiafk: false,
@@ -565,6 +571,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             // No direct Azalea equivalent exists for Mineflayer's entitySpawn.
             // This scan is separately gated by entitySpawn to preserve Node config behavior.
             handle_entity_spawn_first_sight(&bot, &state);
+            handle_player_detection(&bot, &state);
         }
         _ => {}
     }
@@ -717,6 +724,76 @@ fn handle_entity_spawn_first_sight(bot: &Client, state: &AzaleaState) {
 fn entity_spawn_greeting(username: &str, now: i64) -> String {
     let index = (now as usize).wrapping_add(username.len()) % ENTITY_SPAWN_GREETINGS.len();
     ENTITY_SPAWN_GREETINGS[index].replace("{username}", username)
+}
+
+const PLAYER_DETECTION_COOLDOWN_MS: u64 = 600_000;
+const PLAYER_DETECTION_SCAN_INTERVAL_MS: i64 = 1_000;
+
+fn handle_player_detection(bot: &Client, state: &AzaleaState) {
+    if event_disabled(state, &["playerDetected"]) {
+        return;
+    }
+
+    let now = now_millis_i64();
+    {
+        let mut next_scan = state
+            .next_player_detection_scan_at
+            .write()
+            .expect("player detection scan lock poisoned");
+        if now < *next_scan {
+            return;
+        }
+        *next_scan = now.saturating_add(PLAYER_DETECTION_SCAN_INTERVAL_MS);
+    }
+
+    let bot_username = bot.username();
+    let players = state
+        .players
+        .read()
+        .expect("player cache lock poisoned")
+        .values()
+        .cloned()
+        .collect::<Vec<_>>();
+
+    for player in players {
+        if player.username.eq_ignore_ascii_case(&bot_username) {
+            continue;
+        }
+
+        if state
+            .seen_player_detections
+            .read()
+            .expect("player detection seen lock poisoned")
+            .contains(&player.uuid)
+        {
+            continue;
+        }
+
+        if bot.entity_by_uuid(player.entity_uuid).is_none() {
+            continue;
+        }
+
+        {
+            let mut seen = state
+                .seen_player_detections
+                .write()
+                .expect("player detection seen lock poisoned");
+            if !seen.insert(player.uuid.clone()) {
+                continue;
+            }
+        }
+
+        enqueue_outbound_chat(state, format!("{}, I can see you!", player.username));
+
+        let seen = state.seen_player_detections.clone();
+        let uuid = player.uuid;
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(PLAYER_DETECTION_COOLDOWN_MS)).await;
+            seen.write()
+                .expect("player detection seen lock poisoned")
+                .remove(&uuid);
+        });
+    }
 }
 
 fn round_one_decimal(value: f64) -> f64 {
