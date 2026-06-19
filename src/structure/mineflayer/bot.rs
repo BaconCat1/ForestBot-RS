@@ -5,6 +5,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
 use azalea::ClientInformation;
+use azalea::protocol::packets::game::ClientboundGamePacket;
 use azalea::app::PluginGroup;
 use azalea::bot::DefaultBotPlugins;
 use azalea::chat_signing::ChatSigningPlugin;
@@ -218,6 +219,7 @@ impl Bot {
             consecutive_failures: Arc::new(AtomicU32::new(0)),
             seen_advancements: Arc::new(Mutex::new(HashMap::new())),
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
+            world_time_ticks: Arc::new(RwLock::new(0)),
         };
 
         let mut builder = if self.options.disable_chat_signing {
@@ -285,6 +287,7 @@ pub struct AzaleaState {
     pub consecutive_failures: Arc<AtomicU32>,
     pub seen_advancements: Arc<Mutex<HashMap<String, HashSet<String>>>>,
     pub nick_cache: Arc<RwLock<HashMap<String, String>>>,
+    pub world_time_ticks: Arc<RwLock<u64>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -343,6 +346,7 @@ impl Default for AzaleaState {
             consecutive_failures: Arc::new(AtomicU32::new(0)),
             seen_advancements: Arc::new(Mutex::new(HashMap::new())),
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
+            world_time_ticks: Arc::new(RwLock::new(0)),
         }
     }
 }
@@ -564,6 +568,13 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 state.consecutive_failures.store(0, Ordering::Relaxed);
                 logger::warn("Server unreachable after 10 consecutive failures. Waiting 10 minutes before reconnect.");
                 tokio::time::sleep(Duration::from_secs(10 * 60)).await;
+            }
+        }
+        Event::Packet(packet) => {
+            if let ClientboundGamePacket::SetTime(p) = packet.as_ref() {
+                if let Some(clock) = p.clock_updates.values().next() {
+                    *state.world_time_ticks.write().expect("world_time_ticks lock poisoned") = clock.total_ticks;
+                }
             }
         }
         Event::Tick => {

@@ -115,6 +115,8 @@
 | `!godverse` / `!verse` / `!vgod <reference>` | Look up a verse by reference |
 | `!godstats` | Show corpora count, size, compression ratio, verse count, load time, total god aliases |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
+| `!day` | Posts time until next dawn (tick 23460), or "currently daytime" |
+| `!night` | Posts time until next nightfall (tick 13188), or "currently nighttime" |
 | `!news` | Whispers BBC categories + top 5 top stories (numbered) |
 | `!news <category>` | Whispers top 5 headlines from that category |
 | `!news <category?> <N>` | Posts article N's description + link to public chat |
