@@ -109,7 +109,7 @@ command!(NAMEFIND_COMMAND, &["search", "lookup", "find"], "Retrieves likely user
 command!(
     UNIQUE_USERS_COMMAND,
     &["users", "uniqueusers"],
-    "See the unique user count: {prefix}users",
+    "Shows the unique user count. Usage: {prefix}users",
     unique_users
 );
 command!(
@@ -174,21 +174,21 @@ command!(
     "Shows the number of advancements a user has made. Usage: {prefix}advancement <username>",
     advancement_count
 );
-admin_command!(BLACKLIST_COMMAND, &["blacklist"], "Use {prefix}blacklist add|remove to add, remove, or list users from the blacklist.", blacklist);
+admin_command!(BLACKLIST_COMMAND, &["blacklist"], "Adds or removes users from the command blacklist. Usage: {prefix}blacklist add|remove <username>", blacklist);
 command!(AVERAGE_PING_COMMAND, &["averageping", "ap"], "Shows the average ping for the server. Usage: {prefix}averageping <username>", average_ping);
 command!(BEST_PING_COMMAND, &["bp", "bestping"], "See who has the best ping. Usage: {prefix}bp", best_ping);
 admin_command!(CENSOR_COMMAND, &["censor"], "Manage bad-words list. Usage: {prefix}censor add <word> | {prefix}censor remove <word>", censor);
-command!(COORDS_COMMAND, &["coords"], "Use {prefix}coords to get the coordinates of the bot.", coords);
+command!(COORDS_COMMAND, &["coords"], "Shows the bot's current coordinates. Usage: {prefix}coords", coords);
 command!(EDIT_FAQ_COMMAND, &["editfaq"], "Edits an existing FAQ entry. Usage: {prefix}editfaq <id> <new text>", edit_faq);
 command!(EFFICIENCY_COMMAND, &["efficiency", "eff"], "Shows rate-based efficiency stats. Usage: {prefix}efficiency <username> <kills|deaths|messages>", efficiency);
 admin_command!(EXECUTE_COMMAND, &["execute", "exec", "run"], "Executes a raw server command as the bot. Usage: {prefix}execute </command>", execute);
 command!(FEBZEY_COMMAND, &["febzey"], "Bully Febzey for being AWOL and not maintaining his bot! Usage: {prefix}febzey", febzey);
 command!(FAQ_COMMAND, &["faq", "getfaq"], "Retrieves a FAQ entry by ID. Usage: {prefix}faq <id>(optional)", faq);
 command!(GRUDGE_COMMAND, &["grudge"], "Shows how many times a player has killed a specific victim. Usage: {prefix}grudge <killer> <victim>", grudge);
-command!(IAM_COMMAND, &["iam"], "Use {prefix}iam to set your {prefix}whois description.", iam);
+command!(IAM_COMMAND, &["iam"], "Sets your {prefix}whois description. Usage: {prefix}iam <description>", iam);
 command!(MOUNT_COMMAND, &["mount", "ride", "mush"], "Mount the nearest rideable entity. Usage: {prefix}mount <entity>(optional)", mount);
 command!(NICKNAME_COMMAND, &["nickname"], "Set the bots nickname in the server. Usage: {prefix}nickname <nickname>", nickname);
-command!(OLDNAMES_COMMAND, &["oldnames", "dox", "doxx"], "See a users name history! Usage: {prefix}oldnames <username>", oldnames);
+command!(OLDNAMES_COMMAND, &["oldnames", "dox", "doxx"], "Shows a user's name history. Usage: {prefix}oldnames <username>", oldnames);
 command!(
     OWNS_FAQ_COMMAND,
     &["ownsfaq", "ownfaq", "faqowner"],
@@ -202,7 +202,7 @@ command!(
     "Retrieves a random quote from all servers. Usage: {prefix}rqa",
     random_quote_all
 );
-command!(REALNAME_COMMAND, &["realname"], "See through someones nickname! Usage: {prefix}realname <username>", realname);
+command!(REALNAME_COMMAND, &["realname"], "Resolves someone's nickname to their real username. Usage: {prefix}realname <username>", realname);
 command!(SET_PRESET_COMMAND, &["setpreset"], "Sets the namechalk preset, only on refinedvanilla. Usage: {prefix}setpreset <preset>", set_preset);
 command!(SHOUT_COMMAND, &["shout"], "Broadcasts a message to all connected Forest servers. Usage: {prefix}shout <message>", shout);
 command!(SLEEP_COMMAND, &["sleep"], "Put the bot to sleep. Usage: {prefix}sleep", sleep);
@@ -221,7 +221,7 @@ command!(
 );
 command!(VICTIMS_COMMAND, &["victims", "murders", "bested"], "Shows how many unique players a user has killed. Usage: {prefix}victims <username>", victims);
 command!(VS_COMMAND, &["vs"], "Head-to-head stat comparison between two players. Usage: {prefix}vs <player1> <player2>", vs);
-admin_command!(WHITELIST_COMMAND, &["whitelist"], "Use {prefix}whitelist add|remove to modify the command whitelist.", whitelist);
+admin_command!(WHITELIST_COMMAND, &["whitelist"], "Adds or removes users from the command whitelist. Usage: {prefix}whitelist add|remove <username>", whitelist);
 admin_command!(
     WORD_WHITELIST_COMMAND,
     &["wordwhitelist", "wwl"],

@@ -2,14 +2,14 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 
 pub const DAY_COMMAND: CommandDefinition = CommandDefinition {
     names: &["day"],
-    description: "Time until next dawn in-game",
+    description: "Shows time until next dawn in-game. Usage: {prefix}day",
     whitelisted: false,
     execute: execute_day,
 };
 
 pub const NIGHT_COMMAND: CommandDefinition = CommandDefinition {
     names: &["night"],
-    description: "Time until next nightfall in-game",
+    description: "Shows time until next nightfall in-game. Usage: {prefix}night",
     whitelisted: false,
     execute: execute_night,
 };

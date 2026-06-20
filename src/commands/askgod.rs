@@ -12,7 +12,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 pub const LISTGODS_COMMAND: CommandDefinition = CommandDefinition {
     names: &["listgods", "gods"],
-    description: "List available gods for !askgod",
+    description: "Lists available gods for {prefix}askgod. Usage: {prefix}listgods",
     whitelisted: false,
     execute: listgods,
 };
@@ -33,7 +33,7 @@ pub const GODVERSE_COMMAND: CommandDefinition = CommandDefinition {
 
 pub const GODSTATS_COMMAND: CommandDefinition = CommandDefinition {
     names: &["godstats"],
-    description: "Show stats for the !askgod corpora",
+    description: "Shows stats for the {prefix}askgod corpora. Usage: {prefix}godstats",
     whitelisted: false,
     execute: godstats,
 };
