@@ -1026,6 +1026,10 @@ impl WebsocketClient {
         self.send_message("minecraft_player_death", serde_json::to_value(msg_data)?)
             .await
     }
+
+    pub async fn send_content_flagged(&self, data: ContentFlaggedData) -> Result<()> {
+        self.send_message("content_flagged", serde_json::to_value(data)?).await
+    }
 }
 
 fn build_websocket_request(
@@ -1380,6 +1384,14 @@ pub struct TradesResetData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContentFlaggedData {
+    pub username: String,
+    pub mc_server: String,
+    pub command: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewUserData {
     pub user: String,
     pub server: String,
@@ -1504,7 +1516,7 @@ fn parse_inbound_message(text: &str) -> Option<WebsocketEvent> {
         "trades_unreset" => serde_json::from_value(value.data)
             .ok()
             .map(WebsocketEvent::TradesUnreset),
-        "report_created" | "trade_confirmed" | "trade_rejected" => Some(WebsocketEvent::Ignored),
+        "report_created" | "trade_confirmed" | "trade_rejected" | "content_flagged" => Some(WebsocketEvent::Ignored),
         "error" => Some(WebsocketEvent::Error(value.data.to_string())),
         _ => Some(WebsocketEvent::UnknownMessage(text.to_owned())),
     }

@@ -50,6 +50,10 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
             args => {
                 let message = args.join(" ");
+                if !message.is_ascii() {
+                    ctx.whisper("Greetings must use plain ASCII characters only.".to_owned());
+                    return Ok(());
+                }
                 if message.chars().count() > MAX_LEN {
                     ctx.whisper(format!("Greeting too long ({} chars max).", MAX_LEN));
                     return Ok(());
@@ -58,6 +62,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     ctx.whisper(format!(
                         "Greeting set. Preview: \"{message}, {username}!\""
                     ));
+                    crate::commands::utils::flag_content_if_needed(ctx.state, username, "greeting", &message);
                 } else {
                     ctx.whisper("Failed to set greeting.".to_owned());
                 }

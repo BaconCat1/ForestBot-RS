@@ -10,7 +10,7 @@ pub fn spawn_announce_loop(state: AzaleaState, active: Arc<AtomicBool>) {
     tokio::spawn(async move {
         // TS: getRandomInterval() = floor(random * 1_800_001) + 900_000 ms (15–45 min, chosen once)
         // In debug mode, fire every 10s for easy testing
-        let interval_ms = if std::env::var("DEBUG").is_ok() {
+        let interval_ms = if std::env::var("ANNOUNCE_FAST").is_ok() {
             10_000
         } else {
             900_000 + pseudo_rand(now_nanos(), 0) % 1_800_001

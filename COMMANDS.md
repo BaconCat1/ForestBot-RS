@@ -76,7 +76,7 @@
 | `!oldnames` / `!dox <player?>` | Past usernames |
 | `!realname <player?>` | Current username (resolves old names) |
 | `!whois <player?>` | Show player description |
-| `!iam <description>` | Set your `!whois` description |
+| `!iam <description>` | Set your `!whois` description (ASCII only) |
 | `!quote` / `!q <server?> <player?>` | Random quote from a player |
 | `!rq` / `!randomquote` | Random quote from any player |
 | `!rqa` / `!randomquoteall` | Random quote across all servers |
@@ -87,8 +87,8 @@
 | Command | Description |
 |---|---|
 | `!faq <id?>` | Retrieve a FAQ entry |
-| `!addfaq` | Add a FAQ entry |
-| `!editfaq` | Edit a FAQ entry |
+| `!addfaq` | Add a FAQ entry (ASCII only) |
+| `!editfaq` | Edit a FAQ entry (ASCII only) |
 | `!delfaq` / `!deletefaq <id>` | Delete a FAQ entry |
 | `!ownsfaq <id>` / `!faqowner` | Public: who owns a FAQ entry |
 | `!ownsfaq <username>` | Whispered: list all FAQs owned by that player |
@@ -116,7 +116,7 @@
 | `!godstats` | Show corpora count, size, compression ratio, verse count, load time, total god aliases |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
 | `!greeting` | Whispers format info + your current greeting |
-| `!greeting <message>` | Set your join greeting — fires as `"<message>, YourName!"` (12h cooldown) |
+| `!greeting <message>` | Set your join greeting — fires as `"<message>, YourName!"` (12h cooldown, ASCII only) |
 | `!greeting preview` | Whispers how your greeting will look |
 | `!greeting clear` | Remove your greeting |
 | `!day` | Posts time until next dawn (tick 23460), or "currently daytime" |

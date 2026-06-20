@@ -10,11 +10,24 @@ use colored::Colorize;
 use config::AppState;
 use structure::{endpoints::endpoints::ApiClient, mineflayer::bot::Bot};
 
+// Windows default main-thread stack is 1MB vs Linux's 8MB, causing overflows in
+// Azalea's async event loop. Spawn the runtime on a thread with an explicit 8MB stack.
+fn main() -> Result<()> {
+    std::thread::Builder::new()
+        .stack_size(8 * 1024 * 1024)
+        .spawn(run)?
+        .join()
+        .unwrap()
+}
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn run() -> Result<()> {
     if std::env::args().any(|a| a == "--debug") {
         // SAFETY: set before any threads spawn
         unsafe { std::env::set_var("DEBUG", "1") };
+    }
+    if std::env::args().any(|a| a == "--announcefast") {
+        unsafe { std::env::set_var("ANNOUNCE_FAST", "1") };
     }
 
     print_banner();

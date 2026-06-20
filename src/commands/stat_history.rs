@@ -1459,6 +1459,10 @@ fn add_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             whisper(&ctx, &format!(" Add a FAQ with {}addfaq <text>", ctx.runtime.prefix));
             return Ok(());
         }
+        if !faq.is_ascii() {
+            whisper(&ctx, " FAQs must use plain ASCII characters only.");
+            return Ok(());
+        }
         if faq.contains('/') {
             whisper(&ctx, " You can't use '/' in your FAQ.");
             return Ok(());
@@ -1483,6 +1487,9 @@ fn add_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 &ctx,
                 &format!(" Your FAQ has been added. Your entry ID is {}.", data.id),
             );
+            logger::debug("addfaq: about to call flag_content_if_needed");
+            crate::commands::utils::flag_content_if_needed(&ctx.state, ctx.sender, "addfaq", &faq);
+            logger::debug("addfaq: flag_content_if_needed returned");
         }
         Ok(())
     })
@@ -1694,6 +1701,10 @@ fn edit_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .copied()
             .collect::<Vec<_>>()
             .join(" ");
+        if !faq.is_ascii() {
+            whisper(&ctx, " FAQs must use plain ASCII characters only.");
+            return Ok(());
+        }
         if faq.starts_with('/') {
             whisper(&ctx, " FAQ text cannot start with '/'.");
             return Ok(());
@@ -1939,6 +1950,10 @@ fn iam(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             whisper(&ctx, &format!(" View descriptions with {}whois or set one with {}iam", ctx.runtime.prefix, ctx.runtime.prefix));
             return Ok(());
         }
+        if !description.is_ascii() {
+            whisper(&ctx, " Descriptions must use plain ASCII characters only.");
+            return Ok(());
+        }
         if description.contains('/') {
             whisper(&ctx, " Descriptions cannot contain '/'.");
             return Ok(());
@@ -1951,6 +1966,7 @@ fn iam(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .is_some()
         {
             whisper(&ctx, &format!(" your {}whois has been set.", ctx.runtime.prefix));
+            crate::commands::utils::flag_content_if_needed(&ctx.state, ctx.sender, "iam", &description);
         } else {
             whisper(
                 &ctx,
