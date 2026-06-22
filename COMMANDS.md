@@ -126,8 +126,8 @@
 | `!news <category>` | Whispers top 5 headlines from that category |
 | `!news <category?> <N>` | Posts article N's description + link to public chat |
 | `!calc` / `!wa` / `!wolframalpha <query>` | Query Wolfram\|Alpha — posts `query = result` to public chat |
-| `!wiki` / `!wikipedia <query>` | Search Wikipedia — posts `[Title] summary` to public chat (60s cooldown) |
-| `!minewiki` / `!mcwiki <query>` | Search the Minecraft Wiki — same format as `!wiki` (60s cooldown) |
+| `!wiki` / `!wikipedia <query\|random>` | Search Wikipedia — posts `[Title] summary url` to public chat. `!wiki random` for a random article. Disambiguation pages prompt for a more specific term. (60s cooldown) |
+| `!minewiki` / `!mcwiki <query>` | Search the Minecraft Wiki — same format as `!wiki` with article URL included (60s cooldown) |
 | `!urbandictionary` / `!ud <query>` | Search Urban Dictionary — posts `[Word] definition (+N/-N)` to public chat (60s cooldown) |
 | `!translate` / `!tr` / `!tl [lang] <text\|player>` | Translate non-English text to English (default) or a target lang — posts `[from→to] result` to public chat. Single-word input checks online players and translates their last message. Requires Azure AI Translator key in config. |
 

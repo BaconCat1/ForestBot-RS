@@ -2,7 +2,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 
 pub const WIKI_COMMAND: CommandDefinition = CommandDefinition {
     names: &["wiki", "wikipedia"],
-    description: "Search Wikipedia. Usage: {prefix}wiki <query>",
+    description: "Search Wikipedia. Usage: {prefix}wiki <query> | {prefix}wiki random",
     whitelisted: false,
     execute: execute_wiki,
 };
@@ -17,13 +17,25 @@ pub const MINEWIKI_COMMAND: CommandDefinition = CommandDefinition {
 fn execute_wiki(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         if ctx.args.is_empty() {
-            ctx.whisper(format!("Usage: {}wiki <query>", ctx.runtime.prefix));
+            ctx.whisper(format!(
+                "Usage: {0}wiki <query> | {0}wiki random",
+                ctx.runtime.prefix
+            ));
             return Ok(());
         }
-        let query = ctx.args.join(" ");
-        match wiki_summary("https://en.wikipedia.org/w/api.php", &query).await {
-            Some(result) => ctx.chat(result),
-            None => ctx.chat(format!("No Wikipedia article found for: {query}")),
+
+        let result = if ctx.args.len() == 1 && ctx.args[0].eq_ignore_ascii_case("random") {
+            wiki_random().await
+        } else {
+            wiki_search_and_fetch(&ctx.args.join(" ")).await
+        };
+
+        match result {
+            Some((text, url)) => {
+                ctx.chat(text);
+                ctx.whisper(url);
+            }
+            None => ctx.chat(format!("No Wikipedia article found for: {}", ctx.args.join(" "))),
         }
         Ok(())
     })
@@ -36,69 +48,158 @@ fn execute_minewiki(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         }
         let query = ctx.args.join(" ");
-        match wiki_summary("https://minecraft.wiki/api.php", &query).await {
-            Some(result) => ctx.chat(result),
+        match minewiki_summary(&query).await {
+            Some((text, url)) => {
+                ctx.chat(text);
+                ctx.whisper(url);
+            }
             None => ctx.chat(format!("No Minecraft Wiki article found for: {query}")),
         }
         Ok(())
     })
 }
 
-async fn wiki_summary(api_url: &str, query: &str) -> Option<String> {
-    // Step 1: search for the best matching title
-    let search_url = format!(
-        "{}?action=query&list=search&srsearch={}&format=json&srlimit=1&utf8=1",
-        api_url,
-        percent_encode(query)
-    );
+async fn wiki_search_and_fetch(query: &str) -> Option<(String, String)> {
+    let client = reqwest::Client::new();
 
-    let search_resp = reqwest::Client::new()
-        .get(&search_url)
+    let search_json: serde_json::Value = client
+        .get(format!(
+            "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={}&format=json&srlimit=1&utf8=1",
+            percent_encode(query)
+        ))
         .header("User-Agent", "ForestBot/1.0")
         .send()
         .await
+        .ok()?
+        .json()
+        .await
         .ok()?;
 
-    let search_json: serde_json::Value = search_resp.json().await.ok()?;
     let title = search_json
         .pointer("/query/search/0/title")
         .and_then(|v| v.as_str())?
         .to_owned();
 
-    // Step 2: fetch the intro extract for that title
-    let extract_url = format!(
-        "{}?action=query&prop=extracts&exintro=1&explaintext=1&titles={}&format=json&utf8=1",
-        api_url,
-        percent_encode(&title)
-    );
+    fetch_wiki_rest(&client, &title).await
+}
 
-    let extract_resp = reqwest::Client::new()
-        .get(&extract_url)
+async fn wiki_random() -> Option<(String, String)> {
+    let client = reqwest::Client::new();
+    let json: serde_json::Value = client
+        .get("https://en.wikipedia.org/api/rest_v1/page/random/summary")
         .header("User-Agent", "ForestBot/1.0")
         .send()
         .await
+        .ok()?
+        .json()
+        .await
         .ok()?;
 
-    let extract_json: serde_json::Value = extract_resp.json().await.ok()?;
+    format_rest_summary(&json)
+}
 
-    // Pages are keyed by page ID (unknown at this point), grab first value
-    let pages = extract_json.pointer("/query/pages")?.as_object()?;
-    let page = pages.values().next()?;
-    let extract = page.get("extract").and_then(|v| v.as_str())?;
+async fn fetch_wiki_rest(client: &reqwest::Client, title: &str) -> Option<(String, String)> {
+    let json: serde_json::Value = client
+        .get(format!(
+            "https://en.wikipedia.org/api/rest_v1/page/summary/{}",
+            percent_encode(title)
+        ))
+        .header("User-Agent", "ForestBot/1.0")
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
 
-    // Take first non-empty line, trim to 200 chars
+    if json.get("type").and_then(|v| v.as_str()) == Some("disambiguation") {
+        let url = json
+            .pointer("/content_urls/desktop/page")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_owned();
+        return Some((
+            format!("[{title}] Disambiguation page — be more specific."),
+            url,
+        ));
+    }
+
+    format_rest_summary(&json)
+}
+
+fn format_rest_summary(json: &serde_json::Value) -> Option<(String, String)> {
+    let title = json.get("title").and_then(|v| v.as_str())?;
+    let extract = json.get("extract").and_then(|v| v.as_str())?;
+    let url = json
+        .pointer("/content_urls/desktop/page")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_owned();
+
     let first_line = extract
         .lines()
         .map(str::trim)
         .find(|l| !l.is_empty())?;
 
-    let truncated = if first_line.chars().count() > 200 {
-        format!("{}...", first_line.chars().take(197).collect::<String>())
-    } else {
-        first_line.to_owned()
-    };
+    Some((format!("[{title}] {}", truncate(first_line, 200)), url))
+}
 
-    Some(format!("[{title}] {truncated}"))
+async fn minewiki_summary(query: &str) -> Option<(String, String)> {
+    let api_url = "https://minecraft.wiki/api.php";
+    let client = reqwest::Client::new();
+
+    let search_json: serde_json::Value = client
+        .get(format!(
+            "{}?action=query&list=search&srsearch={}&format=json&srlimit=1&utf8=1",
+            api_url,
+            percent_encode(query)
+        ))
+        .header("User-Agent", "ForestBot/1.0")
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
+
+    let title = search_json
+        .pointer("/query/search/0/title")
+        .and_then(|v| v.as_str())?
+        .to_owned();
+
+    let extract_json: serde_json::Value = client
+        .get(format!(
+            "{}?action=query&prop=extracts&exintro=1&explaintext=1&titles={}&format=json&utf8=1",
+            api_url,
+            percent_encode(&title)
+        ))
+        .header("User-Agent", "ForestBot/1.0")
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
+
+    let pages = extract_json.pointer("/query/pages")?.as_object()?;
+    let page = pages.values().next()?;
+    let extract = page.get("extract").and_then(|v| v.as_str())?;
+
+    let first_line = extract
+        .lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty())?;
+
+    let url = format!("https://minecraft.wiki/w/{}", percent_encode(&title));
+    Some((format!("[{title}] {}", truncate(first_line, 200)), url))
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() > max {
+        format!("{}...", s.chars().take(max - 3).collect::<String>())
+    } else {
+        s.to_owned()
+    }
 }
 
 fn percent_encode(value: &str) -> String {

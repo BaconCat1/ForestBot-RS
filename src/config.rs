@@ -190,6 +190,63 @@ pub struct AppState {
     pub mc_blacklist: Vec<String>,
 }
 
+async fn merge_config_from_example() -> Result<()> {
+    let config_str = fs::read_to_string("./config.json")
+        .await
+        .context("Failed to read ./config.json")?;
+
+    let example_str = match fs::read_to_string("./example.config.json").await {
+        Ok(s) => s,
+        Err(_) => return Ok(()),
+    };
+
+    let mut config: serde_json::Value =
+        serde_json::from_str(&config_str).context("Failed to parse ./config.json")?;
+    let example: serde_json::Value =
+        serde_json::from_str(&example_str).context("Failed to parse ./example.config.json")?;
+
+    let mut added: Vec<String> = Vec::new();
+    merge_missing(&mut config, &example, "", &mut added);
+
+    if !added.is_empty() {
+        println!(
+            "[config] Auto-merged {} missing key(s) from example.config.json: {}",
+            added.len(),
+            added.join(", ")
+        );
+        let updated = serde_json::to_string_pretty(&config)?;
+        fs::write("./config.json", updated)
+            .await
+            .context("Failed to write ./config.json")?;
+    }
+
+    Ok(())
+}
+
+fn merge_missing(
+    target: &mut serde_json::Value,
+    source: &serde_json::Value,
+    prefix: &str,
+    added: &mut Vec<String>,
+) {
+    let (Some(target_obj), Some(source_obj)) = (target.as_object_mut(), source.as_object()) else {
+        return;
+    };
+    for (key, value) in source_obj {
+        let full_key = if prefix.is_empty() {
+            key.clone()
+        } else {
+            format!("{prefix}.{key}")
+        };
+        if !target_obj.contains_key(key) {
+            target_obj.insert(key.clone(), value.clone());
+            added.push(full_key);
+        } else if value.is_object() {
+            merge_missing(target_obj.get_mut(key).unwrap(), value, &full_key, added);
+        }
+    }
+}
+
 pub async fn load_offline_messages() -> Result<Vec<OfflineMessage>> {
     read_json("./json/offline_messages.json").await
 }
@@ -230,6 +287,8 @@ pub async fn save_word_list(path: &str, words: &[String]) -> Result<()> {
 impl AppState {
     pub async fn load() -> Result<Self> {
         dotenvy::dotenv().ok();
+
+        merge_config_from_example().await?;
 
         let colors: Colors = read_json("./json/colors.json").await?;
         let config: Config = read_json("./config.json").await?;
