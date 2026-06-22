@@ -126,6 +126,8 @@
 | `!news <category>` | Whispers top 5 headlines from that category |
 | `!news <category?> <N>` | Posts article N's description + link to public chat |
 | `!calc` / `!wa` / `!wolframalpha <query>` | Query Wolfram\|Alpha — posts `query = result` to public chat |
+| `!serversummary` / `!ssummary <server>` | Posts aggregate stats for a server: players, messages, kills, deaths, playtime, top chatter, tracking start date |
+| `!compare <serverA> <serverB>` | Compares two servers side by side in a single message |
 | `!wiki` / `!wikipedia <query\|random>` | Search Wikipedia — posts `[Title] summary url` to public chat. `!wiki random` for a random article. Disambiguation pages prompt for a more specific term. (60s cooldown) |
 | `!minewiki` / `!mcwiki <query>` | Search the Minecraft Wiki — same format as `!wiki` with article URL included (60s cooldown) |
 | `!urbandictionary` / `!ud <query>` | Search Urban Dictionary — posts `[Word] definition (+N/-N)` to public chat (60s cooldown) |

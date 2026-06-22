@@ -365,6 +365,10 @@ impl ApiClient {
         .await
     }
 
+    pub async fn get_server_summary(&self, server: &str) -> Option<Value> {
+        self.get_json("/server-summary", &[("server", server)]).await
+    }
+
     pub async fn get_trade_leaderboard(&self) -> Option<Value> {
         self.get_json("/tradebot/leaderboard", &[]).await
     }

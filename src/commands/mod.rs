@@ -31,6 +31,7 @@ pub mod utils;
 pub mod news;
 pub mod translate;
 pub mod urbandictionary;
+pub mod server_summary;
 pub mod wiki;
 
 use crate::structure::mineflayer::bot::{AzaleaState, RuntimeConfig};
@@ -227,6 +228,8 @@ pub fn registry() -> &'static [CommandDefinition] {
         trade::TRADES_COMMAND,
         trade::TRADESTATS_COMMAND,
         trade::SCAMMERS_COMMAND,
+        server_summary::SERVER_SUMMARY_COMMAND,
+        server_summary::COMPARE_COMMAND,
         wiki::WIKI_COMMAND,
         wiki::MINEWIKI_COMMAND,
         calc::COMMAND,
