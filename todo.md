@@ -126,7 +126,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ❌ ~~!weather — predict next weather change using Java LCG seed calibration~~ // not feasible: Azalea does not expose server-internal game time; the tick value available via `SetTime` is client-side and drifts from the server's `ServerLevel.random` draw counter, making LCG calibration impossible
 * 🆕 !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?
 * ✅ ~~!calc, alias !wolframalpha, !wa, sends requests to the wolframalpha public api~~ // LLM API endpoint; `wolfram_app_id` in bot config; parses all labeled sections with priority order (Result→Solution→Derivative→Definite integral→Indefinite integral→Infinite sum→Sum→Limit→Decimal approximation→Property→…), posts `query = answer` truncated to 220 chars; aliases `!calc`/`!wa`/`!wolframalpha`
-* 🆕 !translate, add support for azure api for translation
+* ✅ ~~!translate, add support for azure api for translation~~ // Azure AI Translator; `azure_translator_key` + `azure_translator_region` in config; lang optional (default `en`); single-word input checks online players → translates last message; FROM-English blocked (whatlang local detection, 4+ words); aliases `!translate`/`!tr`/`!tl`
 
 ---
 
