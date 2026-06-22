@@ -149,7 +149,7 @@ command!(
     "Retrieves the 3 newest users. Usage: {prefix}noobs",
     noobs
 );
-command!(TOP_COMMAND, &["top"], "Shows the top 5 players in a certain statistic. Usage: {prefix}top <kills/deaths/joins/playtime/advancements/messages>", top);
+command!(TOP_COMMAND, &["top"], "Shows the top 5 players in a certain statistic. Usage: {prefix}top <kills/deaths/joins/playtime/advancements/messages/slurcount>", top);
 command!(STANDING_COMMAND, &["standing", "status"], "Shows blacklist/regular/whitelist status. Usage: {prefix}standing <username>(optional)", standing);
 command!(OFFLINE_MSG_COMMAND, &["offlinemsg"], "Store a message to be delivered when the player next comes online. Usage: {prefix}offlinemsg <username> <message>", offline_msg);
 command!(REMIND_COMMAND, &["remindme", "remind"], "Set a self-reminder. Usage: {prefix}remindme [1s2m3h4d] <message> | {prefix}remindme stop", remind_me);
@@ -773,7 +773,7 @@ fn sorted_unique_users(ctx: CommandContext<'_>, oldest: bool) -> CommandFuture<'
             ctx.whisper("No online players found in database.");
             return Ok(());
         }
-        users.sort_by_key(|user| user.joindate.parse::<u64>().unwrap_or_default());
+        users.sort_by_key(|user| user.joindate.as_deref().unwrap_or("").parse::<u64>().unwrap_or_default());
         if !oldest {
             users.reverse();
         }
@@ -785,7 +785,7 @@ fn sorted_unique_users(ctx: CommandContext<'_>, oldest: bool) -> CommandFuture<'
                 format!(
                     "{} ({})",
                     user.username,
-                    time::time_ago_str(user.joindate.parse().unwrap_or_default())
+                    time::time_ago_str(user.joindate.as_deref().unwrap_or("").parse().unwrap_or_default())
                 )
             })
             .collect::<Vec<_>>();
@@ -815,6 +815,7 @@ fn top(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "advancements" => top_advancements(&ctx, &server).await,
             "trades" => top_trades(&ctx, &server).await,
             "rejects" => top_rejects(&ctx).await,
+            "slurcount" | "slurs" => top_slurcount(&ctx, &server).await,
             _ => Ok(()),
         }
     })
@@ -879,26 +880,65 @@ async fn top_backend_stat(
 }
 
 async fn top_messages(ctx: &CommandContext<'_>, server: &str) -> anyhow::Result<()> {
-    let rows = cached_top_rows(server, "messages");
-    let rows = match rows {
-        Some(rows) => rows,
-        None => {
-            whisper(ctx, "Running historical backfill for top messages...");
-            let rows = get_top_messages_historical(ctx, server).await;
-            if !rows.is_empty() {
-                cache_top_rows(server, "messages", rows.clone());
-            }
-            rows
-        }
+    let Some(value) = ctx.state.api.get_top_messages(server, TOP_LIMIT).await else {
+        whisper(ctx, "Could not calculate top messages right now.");
+        return Ok(());
     };
-
+    let rows: Vec<_> = value
+        .get("top_messages")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|row| {
+                    let username = row.get("name")?.as_str()?.to_owned();
+                    let value = row.get("count").and_then(number_from_value)?;
+                    Some(TopRow { username, value })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     if rows.is_empty() {
         whisper(ctx, "Could not calculate top messages right now.");
     } else {
-        let title = format!(
-            "TOP MESSAGES{}",
-            format_server_label(server, &ctx.state.mc_server)
-        );
+        let title = format!("TOP MESSAGES{}", format_server_label(server, &ctx.state.mc_server));
+        send_top_rows(ctx, &title, &rows);
+    }
+    Ok(())
+}
+
+async fn top_slurcount(ctx: &CommandContext<'_>, server: &str) -> anyhow::Result<()> {
+    let slurs = match tokio::fs::read_to_string("./json/slurcount_list.json").await {
+        Ok(data) => serde_json::from_str::<Vec<String>>(&data).unwrap_or_default(),
+        Err(_) => {
+            whisper(ctx, "slurcount_list.json not found or unreadable.");
+            return Ok(());
+        }
+    };
+    if slurs.is_empty() {
+        whisper(ctx, "No slurs configured (slurcount_list.json is empty).");
+        return Ok(());
+    }
+    let Some(value) = ctx.state.api.get_top_slurcount(server, &slurs, TOP_LIMIT).await else {
+        whisper(ctx, "No slur data found.");
+        return Ok(());
+    };
+    let rows: Vec<_> = value
+        .get("top_slurcount")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|row| {
+                    let username = row.get("name")?.as_str()?.to_owned();
+                    let value = row.get("count").and_then(number_from_value)?;
+                    Some(TopRow { username, value })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if rows.is_empty() {
+        whisper(ctx, "No slur data found.");
+    } else {
+        let title = format!("TOP SLURCOUNT{}", format_server_label(server, &ctx.state.mc_server));
         send_top_rows(ctx, &title, &rows);
     }
     Ok(())
@@ -991,31 +1031,6 @@ async fn top_rejects(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         send_top_rows(ctx, "TOP REJECTS", &rows);
     }
     Ok(())
-}
-
-async fn get_top_messages_historical(ctx: &CommandContext<'_>, server: &str) -> Vec<TopRow> {
-    let usernames = all_known_usernames_for_server(ctx, server).await;
-    let api = ctx.state.api.clone();
-    let server = server.to_owned();
-    let mut rows = stream::iter(usernames)
-        .map(|username| {
-            let api = api.clone();
-            let server = server.clone();
-            async move {
-                api.get_message_count(&username, &server)
-                    .await
-                    .map(|data| TopRow {
-                        username,
-                        value: data.message_count,
-                    })
-            }
-        })
-        .buffer_unordered(BACKFILL_CONCURRENCY)
-        .filter_map(|row| async move { row })
-        .collect::<Vec<_>>()
-        .await;
-    sort_and_truncate_top_rows(&mut rows);
-    rows
 }
 
 async fn get_top_advancements_historical(ctx: &CommandContext<'_>, server: &str) -> Vec<TopRow> {

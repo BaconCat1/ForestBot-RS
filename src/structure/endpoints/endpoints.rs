@@ -339,6 +339,32 @@ impl ApiClient {
         self.get_json("/leaderboards", &[("server", server)]).await
     }
 
+    pub async fn get_top_messages(&self, server: &str, limit: usize) -> Option<Value> {
+        self.get_json(
+            "/top-messages",
+            &[("server", server), ("limit", &limit.to_string())],
+        )
+        .await
+    }
+
+    pub async fn get_top_slurcount(
+        &self,
+        server: &str,
+        words: &[String],
+        limit: usize,
+    ) -> Option<Value> {
+        let words_param = words.join(",");
+        self.get_json(
+            "/top-slurcount",
+            &[
+                ("server", server),
+                ("words", &words_param),
+                ("limit", &limit.to_string()),
+            ],
+        )
+        .await
+    }
+
     pub async fn get_trade_leaderboard(&self) -> Option<Value> {
         self.get_json("/tradebot/leaderboard", &[]).await
     }
@@ -1239,7 +1265,7 @@ pub struct WhoIsData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UniqueUser {
     pub username: String,
-    pub joindate: String,
+    pub joindate: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

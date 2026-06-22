@@ -53,7 +53,7 @@
 
 | Command | Description |
 |---|---|
-| `!top <stat>` | Top players — stats: `kills`, `deaths`, `joins`, `playtime`, `advancements`, `messages`, `trades`, `rejects` |
+| `!top <stat>` | Top players — stats: `kills`, `deaths`, `joins`, `playtime`, `advancements`, `messages`, `trades`, `rejects`, `slurcount` |
 | `!oldest` / `!oldheads` | Oldest users on the server |
 | `!noobs` / `!newest` | Newest users on the server |
 | `!efficiency` / `!eff <player> <stat>` | Rate of a stat per time period |

@@ -144,7 +144,7 @@ pub struct OfflineMessage {
     pub recipient: String,
     pub message: String,
     pub timestamp: u64,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deliver_at: Option<u64>,
 }
 

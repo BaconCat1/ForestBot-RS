@@ -108,7 +108,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~Should pull a random faq if run without an id number, would match pre rewrite.~~
 
 ## !top
-* 🆕 "we need !top slurcount"
+* ✅ ~~"we need !top slurcount"~~ // `!top slurcount`/`!top slurs`; sums `get_word_occurrence` across all slurs in `slurcount_list.json` per player; cached same as other top stats
+* ✅ ~~optimize db calls for efficiency~~ // `top messages`: was N Hub calls → new Hub `GET /top-messages` (single SQL GROUP BY); `top slurcount`: was N×M calls → new Hub `GET /top-slurcount` (single SQL SUM of REGEXP per word); kills/deaths/joins/playtime/trades/rejects already single-call; advancements already uses leaderboard endpoint
 
 ## new commands
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~
