@@ -276,7 +276,7 @@ pub fn execute_tradestats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         };
 
         let s = &data.stats;
-        let scammer = data.scammer_status.as_ref().map_or(false, |v| !v.is_null());
+        let scammer = data.scammer_status.is_some();
 
         if scammer {
             ctx.chat(format!("🚨 {target} is a known scammer, trade counts not reported 🚨"));

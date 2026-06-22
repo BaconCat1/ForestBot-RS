@@ -11,6 +11,7 @@ pub mod crouch;
 pub mod discord;
 pub mod drop;
 pub mod equip;
+pub mod fadvs;
 pub mod hardware;
 pub mod health;
 pub mod help;
@@ -185,6 +186,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::COORDS_COMMAND,
         drop::COMMAND,
         equip::COMMAND,
+        fadvs::COMMAND,
         equip::UNEQUIP_COMMAND,
         stat_history::EDIT_FAQ_COMMAND,
         stat_history::EFFICIENCY_COMMAND,

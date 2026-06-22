@@ -221,7 +221,7 @@ impl ApiClient {
     pub async fn get_total_advancements_count(&self, uuid: &str, server: &str) -> Option<u64> {
         self.get_json("/advancements-count", &[("uuid", uuid), ("server", server)])
             .await
-            .and_then(|value| number_field(&value, &["total_advancements"]))
+            .and_then(|value| u64_or_string(&value, &["total_advancements"]))
     }
 
     pub async fn get_message_count(&self, username: &str, server: &str) -> Option<MessageCount> {
@@ -539,7 +539,7 @@ impl ApiClient {
         &self,
         reporter_id: &str,
         reported_user_id: &str,
-        reason: &str,
+        description: &str,
         server: &str,
     ) -> bool {
         self.post_json(
@@ -548,7 +548,7 @@ impl ApiClient {
                 "reporter_id": reporter_id,
                 "reported_user_id": reported_user_id,
                 "reason": "other",
-                "description": reason,
+                "description": description,
                 "guild_id": server,
             }),
         )
@@ -623,6 +623,22 @@ impl ApiClient {
         {
             Some(v) => v.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
             None => false,
+        }
+    }
+
+    pub async fn get_user_fadv_ids(&self, uuid: &str, server: &str) -> Option<Vec<String>> {
+        let v = self.get_json(
+            &format!("/fadv/user-awards/{uuid}"),
+            &[("mc_server", server)],
+        )
+        .await?;
+        let ids = v.get("fadv_ids").cloned()?;
+        match serde_json::from_value::<Vec<String>>(ids) {
+            Ok(ids) => Some(ids),
+            Err(e) => {
+                self.log_error(format!("/fadv/user-awards shape mismatch: {e}"));
+                None
+            }
         }
     }
 
@@ -1450,7 +1466,7 @@ pub struct TradebotStatsResponse {
     #[serde(default)]
     pub partners: Vec<TradebotPartner>,
     #[serde(rename = "scammerStatus")]
-    pub scammer_status: Option<Value>,
+    pub scammer_status: Option<TradebotScammer>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1576,10 +1592,6 @@ fn u64_or_string(value: &Value, fields: &[&str]) -> Option<u64> {
             .or_else(|| value.as_i64().map(|value| value as u64))
             .or_else(|| value.as_str().and_then(|value| value.parse::<u64>().ok()))
     })
-}
-
-fn number_field(value: &Value, fields: &[&str]) -> Option<u64> {
-    u64_or_string(value, fields)
 }
 
 fn default_true() -> bool {

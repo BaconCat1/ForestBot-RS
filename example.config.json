@@ -123,7 +123,14 @@
     "welcome_messages": true,
     "useCommands": true,
     "disabled_events": [
-        "entitySpawn"
+        "entitySpawn",
+        "entitySpawnGreeting",
+        "playerDetected",
+        "fadvAnnouncements",
+        "scammerAnnouncements",
+        "tradeResetAnnouncements",
+        "offlineMessages",
+        "greetings"
     ],
     "allow_chatbridge_input": true,
     "rotateHeadOnJoin": false,
@@ -157,6 +164,7 @@
         "efficiency":       true,
         "equip":            true,
         "execute":          true,
+        "fadvs":            true,
         "faq":              true,
         "febzey":           true,
         "firstdeath":       true,

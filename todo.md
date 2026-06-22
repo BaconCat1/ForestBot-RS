@@ -92,13 +92,9 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!askgod if user gives multi word non god arg, should assume it's a question for the oracle and answer "The Gods have heard you, and they send you their divine wisdom:" followed by a random quote~~ // ctx.args.len() >= 2 early-path before god match; random corpus, 200-char cap
 * ✅ ~~!status allows / commands to run~~ // target.starts_with('/') guard added; root cause: enqueue_chat trim_start strips leading space convention
 * ✅ ~~announce when players are detected, 10 min cooldown per player.~~ // `handle_player_detection` on Tick; entity_by_uuid check = nametag visible; `seen_player_detections` HashSet + 600s async remove; gated by `playerDetected` disabled_events key
-* 🆕 custom advancements! — ForestBot announces fake MC-style advancement unlocks triggered by tracked events (deaths, kills, etc.)
-  * **open questions before building:**
-  * Where is per-player progress tracked? Hub DB (new table) preferred since kills/deaths already live there
-  * Criteria defined in hardcoded Rust or JSON config (JSON = add new ones without recompile)?
-  * Announcement format: match MC's exact `[Player] has made the advancement [Name]` or something distinct?
-  * One-time per player like real advancements, or repeatable?
-  * What data is actually available at kill/death parse time — cause of death, weapon, attacker?
+* ✅ ~~custom advancements! — ForestBot announces fake MC-style advancement unlocks triggered by tracked events (deaths, kills, etc.)~~ // Hub `fadv_awards` table + threshold checks in `checkFadv.ts`; WS event `fadvAwards` → craftbot announces public + whispers player; `!fadvs [category]` command shows per-category progress; one-time per player
+ * ✅ ~~Change all relevant functionality to be toggleable via config.json~~ // all automatic chat-sending behaviors now gated via `disabled_events` keys; all commands toggleable via `commands` map
+ * 🆕 extend offlinemsg to do "remindme"
 
 
 ## !quote
@@ -108,6 +104,9 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 ## !faq
 * ✅ ~~Should pull a random faq if run without an id number, would match pre rewrite.~~
+
+## !top
+* 🆕 "we need !top slurcount"
 
 ## new commands
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~
@@ -127,6 +126,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ❌ ~~!weather — predict next weather change using Java LCG seed calibration~~ // not feasible: Azalea does not expose server-internal game time; the tick value available via `SetTime` is client-side and drifts from the server's `ServerLevel.random` draw counter, making LCG calibration impossible
 * 🆕 !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?
 * ✅ ~~!calc, alias !wolframalpha, !wa, sends requests to the wolframalpha public api~~ // LLM API endpoint; `wolfram_app_id` in bot config; parses all labeled sections with priority order (Result→Solution→Derivative→Definite integral→Indefinite integral→Infinite sum→Sum→Limit→Decimal approximation→Property→…), posts `query = answer` truncated to 220 chars; aliases `!calc`/`!wa`/`!wolframalpha`
+* 🆕 !translate, add support for azure api for translation
 
 ---
 

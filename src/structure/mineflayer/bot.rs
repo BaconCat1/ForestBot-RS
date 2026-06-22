@@ -725,8 +725,10 @@ fn handle_entity_spawn_first_sight(bot: &Client, state: &AzaleaState) {
             player.username
         ));
 
-        let greeting = entity_spawn_greeting(&player.username, now);
-        enqueue_outbound_chat(state, format!("/msg {} {}", player.username, greeting));
+        if !event_disabled(state, &["entitySpawnGreeting"]) {
+            let greeting = entity_spawn_greeting(&player.username, now);
+            enqueue_outbound_chat(state, format!("/msg {} {}", player.username, greeting));
+        }
 
         let seen = state.seen_entity_spawns.clone();
         let uuid = player.uuid;
@@ -1115,6 +1117,10 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
 }
 
 fn handle_fadv_awards(state: &AzaleaState, data: FadvAwardsEvent) {
+    if event_disabled(state, &["fadvAnnouncements"]) {
+        return;
+    }
+
     let Some(last) = data.awards.last() else { return; };
 
     let whisper_cmd = state
@@ -1201,44 +1207,52 @@ fn spawn_websocket_event_task(state: AzaleaState) {
                     handle_inbound_minecraft_chat(&state, data);
                 }
                 WebsocketEvent::ScammerMarked(data) => {
-                    let state_clone = state.clone();
-                    tokio::spawn(async move {
-                        let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
-                        enqueue_outbound_chat(
-                            &state_clone,
-                            format!("📢 {} has been marked as a scammer by trading mods, proceed with caution 📢", display_name),
-                        );
-                    });
+                    if !event_disabled(&state, &["scammerAnnouncements"]) {
+                        let state_clone = state.clone();
+                        tokio::spawn(async move {
+                            let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
+                            enqueue_outbound_chat(
+                                &state_clone,
+                                format!("📢 {} has been marked as a scammer by trading mods, proceed with caution 📢", display_name),
+                            );
+                        });
+                    }
                 }
                 WebsocketEvent::ScammerUnmarked(data) => {
-                    let state_clone = state.clone();
-                    tokio::spawn(async move {
-                        let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
-                        enqueue_outbound_chat(
-                            &state_clone,
-                            format!("📢 {} has had their scammer mark removed by trading mods 📢", display_name),
-                        );
-                    });
+                    if !event_disabled(&state, &["scammerAnnouncements"]) {
+                        let state_clone = state.clone();
+                        tokio::spawn(async move {
+                            let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
+                            enqueue_outbound_chat(
+                                &state_clone,
+                                format!("📢 {} has had their scammer mark removed by trading mods 📢", display_name),
+                            );
+                        });
+                    }
                 }
                 WebsocketEvent::TradesReset(data) => {
-                    let state_clone = state.clone();
-                    tokio::spawn(async move {
-                        let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
-                        enqueue_outbound_chat(
-                            &state_clone,
-                            format!("📢 {}'s trades have been reset by trading mods. Description: {} 📢", display_name, data.reason),
-                        );
-                    });
+                    if !event_disabled(&state, &["tradeResetAnnouncements"]) {
+                        let state_clone = state.clone();
+                        tokio::spawn(async move {
+                            let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
+                            enqueue_outbound_chat(
+                                &state_clone,
+                                format!("📢 {}'s trades have been reset by trading mods. Description: {} 📢", display_name, data.reason),
+                            );
+                        });
+                    }
                 }
                 WebsocketEvent::TradesUnreset(data) => {
-                    let state_clone = state.clone();
-                    tokio::spawn(async move {
-                        let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
-                        enqueue_outbound_chat(
-                            &state_clone,
-                            format!("📢 {}'s trades have been restored by trading mods. Description: {} 📢", display_name, data.reason),
-                        );
-                    });
+                    if !event_disabled(&state, &["tradeResetAnnouncements"]) {
+                        let state_clone = state.clone();
+                        tokio::spawn(async move {
+                            let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
+                            enqueue_outbound_chat(
+                                &state_clone,
+                                format!("📢 {}'s trades have been restored by trading mods. Description: {} 📢", display_name, data.reason),
+                            );
+                        });
+                    }
                 }
                 WebsocketEvent::FadvAwards(data) => {
                     handle_fadv_awards(&state, data);
@@ -1578,6 +1592,9 @@ async fn send_player_death(
 }
 
 async fn deliver_offline_messages(state: &AzaleaState, username: &str) {
+    if event_disabled(state, &["offlineMessages"]) {
+        return;
+    }
     let Ok(messages) = load_offline_messages().await else {
         return;
     };
@@ -1622,6 +1639,9 @@ async fn deliver_offline_messages(state: &AzaleaState, username: &str) {
 }
 
 async fn fire_greeting_if_due(state: &AzaleaState, username: &str) {
+    if event_disabled(state, &["greetings"]) {
+        return;
+    }
     let Some((Some(greeting), last_fired_at)) = state.api.tradebot_get_greeting(username).await else {
         return;
     };
