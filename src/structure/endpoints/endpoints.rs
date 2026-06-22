@@ -1357,6 +1357,7 @@ pub enum WebsocketEvent {
     ScammerUnmarked(ScammerMarkedData),
     TradesReset(TradesResetData),
     TradesUnreset(TradesResetData),
+    FadvAwards(FadvAwardsEvent),
     Ignored,
     #[allow(dead_code)]
     MinecraftPlayerDeath(MinecraftPlayerDeathMessage),
@@ -1368,6 +1369,19 @@ pub enum WebsocketEvent {
     MinecraftPlayerLeave(MinecraftPlayerLeaveMessage),
     #[allow(dead_code)]
     MinecraftAdvancement(MinecraftAdvancementMessage),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FadvAward {
+    pub fadv_id: String,
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FadvAwardsEvent {
+    pub username: String,
+    pub awards: Vec<FadvAward>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1516,6 +1530,9 @@ fn parse_inbound_message(text: &str) -> Option<WebsocketEvent> {
         "trades_unreset" => serde_json::from_value(value.data)
             .ok()
             .map(WebsocketEvent::TradesUnreset),
+        "fadv_awards" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::FadvAwards),
         "report_created" | "trade_confirmed" | "trade_rejected" | "content_flagged" => Some(WebsocketEvent::Ignored),
         "error" => Some(WebsocketEvent::Error(value.data.to_string())),
         _ => Some(WebsocketEvent::UnknownMessage(text.to_owned())),

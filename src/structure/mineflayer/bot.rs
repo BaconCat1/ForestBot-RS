@@ -23,7 +23,7 @@ use crate::config::{
 };
 use crate::structure::{
     endpoints::endpoints::{
-        ApiClient, DiscordChatMessage, MinecraftAdvancementMessage, MinecraftChatMessage,
+        ApiClient, DiscordChatMessage, FadvAwardsEvent, MinecraftAdvancementMessage, MinecraftChatMessage,
         MinecraftPlayerDeathMessage, MinecraftPlayerJoinMessage, MinecraftPlayerLeaveMessage,
         Player as WebsocketPlayer, WebsocketClient, WebsocketEvent,
     },
@@ -1035,6 +1035,13 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
     };
 
     if player.eq_ignore_ascii_case(&bot_username) {
+        if !is_chat_divider && is_death_or_system_message(&full_msg, raw_first_word, &normalized_first_word) {
+            let bot_uuid = players.get(&player).map(|p| p.uuid.clone()).unwrap_or_default();
+            let murderer = find_murderer(&words, &players, &player);
+            let murderer_uuid = murderer.as_deref().and_then(|name| players.get(name).map(|p| p.uuid.clone()));
+            send_player_death(state, &player, &bot_uuid, &full_msg, murderer, murderer_uuid).await;
+            logger::death(format!("Death: {full_msg}"));
+        }
         return;
     }
 
@@ -1105,6 +1112,40 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
 
     send_minecraft_chat_message(state, &player, &message, &uuid).await;
     logger::chat(format!("{player}: {message}"));
+}
+
+fn handle_fadv_awards(state: &AzaleaState, data: FadvAwardsEvent) {
+    let Some(last) = data.awards.last() else { return; };
+
+    let whisper_cmd = state
+        .runtime
+        .read()
+        .expect("runtime config lock poisoned")
+        .whisper_command
+        .clone();
+
+    enqueue_outbound_chat(
+        state,
+        format!(
+            "📯 {} has made the advancement [{}] — {} 📯",
+            data.username, last.name, last.description
+        ),
+    );
+
+    if data.awards.len() > 1 {
+        let others = data.awards[..data.awards.len() - 1]
+            .iter()
+            .map(|a| a.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        enqueue_outbound_chat(
+            state,
+            format!(
+                "/{} {} You also earned the following Forest Advancements: {}",
+                whisper_cmd, data.username, others
+            ),
+        );
+    }
 }
 
 fn spawn_websocket_event_task(state: AzaleaState) {
@@ -1198,6 +1239,9 @@ fn spawn_websocket_event_task(state: AzaleaState) {
                             format!("📢 {}'s trades have been restored by trading mods. Description: {} 📢", display_name, data.reason),
                         );
                     });
+                }
+                WebsocketEvent::FadvAwards(data) => {
+                    handle_fadv_awards(&state, data);
                 }
                 WebsocketEvent::UnknownMessage(message) => {
                     logger::websocket(format!("Unknown websocket message: {message}"));
