@@ -12,6 +12,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 ❌ = Rejected
 
+⏸️ = On hold
+
 
 ## Commands
 
@@ -94,7 +96,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~announce when players are detected, 10 min cooldown per player.~~ // `handle_player_detection` on Tick; entity_by_uuid check = nametag visible; `seen_player_detections` HashSet + 600s async remove; gated by `playerDetected` disabled_events key
 * ✅ ~~custom advancements! — ForestBot announces fake MC-style advancement unlocks triggered by tracked events (deaths, kills, etc.)~~ // Hub `fadv_awards` table + threshold checks in `checkFadv.ts`; WS event `fadvAwards` → craftbot announces public + whispers player; `!fadvs [category]` command shows per-category progress; one-time per player
  * ✅ ~~Change all relevant functionality to be toggleable via config.json~~ // all automatic chat-sending behaviors now gated via `disabled_events` keys; all commands toggleable via `commands` map
- * 🆕 extend offlinemsg to do "remindme"
+ * ✅ ~~extend offlinemsg to do "remindme"~~ // `!remindme`/`!remind` aliases; optional duration `1s2m3h4d`; no duration = next login; timed = background 30s tick fires when online; `!remindme stop` cancels all; `deliver_at: Option<u64>` added to `OfflineMessage`
 
 
 ## !quote
@@ -124,7 +126,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!greeting, users can give themselves a welcome back message that has a 12 hour cooldown~~ // `greeting` + `greeting_last_fired_at` columns on `users` table; fires on join as `"<message>, Username!"`; 12h cooldown via DB timestamp; preview/clear subcommands
 * ✅ ~~!minewiki, same behaviour as !wiki, only for the minecraft wiki~~ // same 2-step flow against minecraft.wiki (`/api.php`); public chat; 1-min cooldown per player; aliases `!minewiki`/`!mcwiki`
 * ❌ ~~!weather — predict next weather change using Java LCG seed calibration~~ // not feasible: Azalea does not expose server-internal game time; the tick value available via `SetTime` is client-side and drifts from the server's `ServerLevel.random` draw counter, making LCG calibration impossible
-* 🆕 !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?
+* ⏸️ !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats? // ON HOLD because the extra infrastrucure for this isn't justified in isolation. maybe if casino games get added?
 * ✅ ~~!calc, alias !wolframalpha, !wa, sends requests to the wolframalpha public api~~ // LLM API endpoint; `wolfram_app_id` in bot config; parses all labeled sections with priority order (Result→Solution→Derivative→Definite integral→Indefinite integral→Infinite sum→Sum→Limit→Decimal approximation→Property→…), posts `query = answer` truncated to 220 chars; aliases `!calc`/`!wa`/`!wolframalpha`
 * ✅ ~~!translate, add support for azure api for translation~~ // Azure AI Translator; `azure_translator_key` + `azure_translator_region` in config; lang optional (default `en`); single-word input checks online players → translates last message; FROM-English blocked (whatlang local detection, 4+ words); aliases `!translate`/`!tr`/`!tl`
 

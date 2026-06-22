@@ -144,6 +144,8 @@ pub struct OfflineMessage {
     pub recipient: String,
     pub message: String,
     pub timestamp: u64,
+    #[serde(default)]
+    pub deliver_at: Option<u64>,
 }
 
 #[derive(Debug, Clone)]

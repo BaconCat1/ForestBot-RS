@@ -67,6 +67,7 @@
 | `!msgcount <server?> <player?>` | Total message count |
 | `!wordcount` / `!count <player> <word>` | How many times a player said a word |
 | `!offlinemsg <player> <message>` | Deliver a message when they next join |
+| `!remindme` / `!remind [1s2m3h4d] <message>` | Set a self-reminder. No duration = fires on next login. With duration (e.g. `1h30m`) = fires after that time if online, otherwise on next login after time expires. `!remindme stop` cancels all pending reminders. |
 
 ## Social / Lookup
 

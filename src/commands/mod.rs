@@ -173,6 +173,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::TOP_COMMAND,
         stat_history::STANDING_COMMAND,
         stat_history::OFFLINE_MSG_COMMAND,
+        stat_history::REMIND_COMMAND,
         stat_history::WHOIS_COMMAND,
         stat_history::RANDOM_QUOTE_COMMAND,
         stat_history::LIST_QUOTE_SERVERS_COMMAND,

@@ -168,6 +168,7 @@
         "execute":          true,
         "fadvs":            true,
         "translate":        true,
+        "remindme":         true,
         "faq":              true,
         "febzey":           true,
         "firstdeath":       true,

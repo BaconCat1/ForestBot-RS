@@ -229,6 +229,7 @@ impl Bot {
             antiafk_active: Arc::new(AtomicBool::new(false)),
             announce: self.announce,
             announce_active: Arc::new(AtomicBool::new(false)),
+            reminder_active: Arc::new(AtomicBool::new(false)),
             consecutive_failures: Arc::new(AtomicU32::new(0)),
             seen_advancements: Arc::new(Mutex::new(HashMap::new())),
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
@@ -297,6 +298,7 @@ pub struct AzaleaState {
     pub antiafk_active: Arc<AtomicBool>,
     pub announce: bool,
     pub announce_active: Arc<AtomicBool>,
+    pub reminder_active: Arc<AtomicBool>,
     pub consecutive_failures: Arc<AtomicU32>,
     pub seen_advancements: Arc<Mutex<HashMap<String, HashSet<String>>>>,
     pub nick_cache: Arc<RwLock<HashMap<String, String>>>,
@@ -359,6 +361,7 @@ impl Default for AzaleaState {
             antiafk_active: Arc::new(AtomicBool::new(false)),
             announce: false,
             announce_active: Arc::new(AtomicBool::new(false)),
+            reminder_active: Arc::new(AtomicBool::new(false)),
             consecutive_failures: Arc::new(AtomicU32::new(0)),
             seen_advancements: Arc::new(Mutex::new(HashMap::new())),
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
@@ -408,6 +411,8 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 announce::spawn_announce_loop(state.clone(), Arc::clone(&state.announce_active));
                 logger::info("Announce loop started.");
             }
+            state.reminder_active.store(true, Ordering::Relaxed);
+            spawn_reminder_tick_task(state.clone(), Arc::clone(&state.reminder_active));
         }
         Event::Chat(message) => {
             if event_disabled(&state, &["message", "messagestr", "chat"]) {
@@ -567,6 +572,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             state.initial_spawn_done.store(false, Ordering::Relaxed);
             state.antiafk_active.store(false, Ordering::Relaxed);
             state.announce_active.store(false, Ordering::Relaxed);
+            state.reminder_active.store(false, Ordering::Relaxed);
             send_session_flush_leave(&state).await;
             let failures = state.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
             if failures >= 10 {
@@ -1601,6 +1607,51 @@ async fn send_player_death(
     }
 }
 
+fn spawn_reminder_tick_task(state: AzaleaState, active: Arc<AtomicBool>) {
+    tokio::spawn(async move {
+        while active.load(Ordering::Relaxed) {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            if !active.load(Ordering::Relaxed) {
+                break;
+            }
+            deliver_timed_reminders(&state).await;
+        }
+    });
+}
+
+async fn deliver_timed_reminders(state: &AzaleaState) {
+    let Ok(messages) = load_offline_messages().await else {
+        return;
+    };
+    let now = now_millis_i64() as u64;
+    let mut remaining = Vec::new();
+
+    for msg in messages {
+        match msg.deliver_at {
+            Some(at) if at <= now => {
+                let is_online = state
+                    .players
+                    .read()
+                    .expect("players lock poisoned")
+                    .contains_key(&msg.recipient);
+                if is_online {
+                    enqueue_outbound_chat(
+                        state,
+                        format!("/msg {} Reminder: {}", msg.recipient, msg.message),
+                    );
+                } else {
+                    remaining.push(msg);
+                }
+            }
+            _ => remaining.push(msg),
+        }
+    }
+
+    if let Err(error) = save_offline_messages(&remaining).await {
+        logger::warn(format!("Failed to save offline messages: {error:#}"));
+    }
+}
+
 async fn deliver_offline_messages(state: &AzaleaState, username: &str) {
     if event_disabled(state, &["offlineMessages"]) {
         return;
@@ -1612,34 +1663,49 @@ async fn deliver_offline_messages(state: &AzaleaState, username: &str) {
     let mut remaining = Vec::new();
 
     for message in messages {
-        if message.recipient.eq_ignore_ascii_case(username) {
+        let is_for_user = message.recipient.eq_ignore_ascii_case(username);
+        let is_timed = message.deliver_at.is_some();
+        if is_for_user && !is_timed {
             pending.push(message);
         } else {
             remaining.push(message);
         }
     }
 
-    if pending.is_empty() {
-        return;
-    }
+    let offline_msgs: Vec<_> = pending
+        .iter()
+        .filter(|m| !m.sender.eq_ignore_ascii_case(username))
+        .collect();
+    let reminders: Vec<_> = pending
+        .iter()
+        .filter(|m| m.sender.eq_ignore_ascii_case(username))
+        .collect();
 
-    enqueue_outbound_chat(
-        state,
-        format!(
-            "/msg {username} You have {} pending offline messages, I will send them to you now.",
-            pending.len()
-        ),
-    );
-
-    for message in pending {
+    if !offline_msgs.is_empty() {
         enqueue_outbound_chat(
             state,
             format!(
-                "/msg {username} From {}: {} | {}",
-                message.sender,
-                message.message,
-                crate::functions::utils::time::convert_unix_timestamp(message.timestamp / 1000)
+                "/msg {username} You have {} pending offline message(s), I will send them to you now.",
+                offline_msgs.len()
             ),
+        );
+        for message in &offline_msgs {
+            enqueue_outbound_chat(
+                state,
+                format!(
+                    "/msg {username} From {}: {} | {}",
+                    message.sender,
+                    message.message,
+                    crate::functions::utils::time::convert_unix_timestamp(message.timestamp / 1000)
+                ),
+            );
+        }
+    }
+
+    for message in &reminders {
+        enqueue_outbound_chat(
+            state,
+            format!("/msg {username} Reminder: {}", message.message),
         );
     }
 
