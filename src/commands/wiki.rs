@@ -31,9 +31,9 @@ fn execute_wiki(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         };
 
         match result {
-            Some((text, url)) => {
+            Some((text, whisper)) => {
                 ctx.chat(text);
-                ctx.whisper(url);
+                ctx.whisper(whisper);
             }
             None => ctx.chat(format!("No Wikipedia article found for: {}", ctx.args.join(" "))),
         }
@@ -64,7 +64,7 @@ async fn wiki_search_and_fetch(query: &str) -> Option<(String, String)> {
 
     let search_json: serde_json::Value = client
         .get(format!(
-            "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={}&format=json&srlimit=1&utf8=1",
+            "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={}&format=json&srlimit=6&utf8=1",
             percent_encode(query)
         ))
         .header("User-Agent", "ForestBot/1.0")
@@ -75,12 +75,21 @@ async fn wiki_search_and_fetch(query: &str) -> Option<(String, String)> {
         .await
         .ok()?;
 
-    let title = search_json
-        .pointer("/query/search/0/title")
-        .and_then(|v| v.as_str())?
-        .to_owned();
+    let results = search_json
+        .pointer("/query/search")
+        .and_then(|v| v.as_array())?;
 
-    fetch_wiki_rest(&client, &title).await
+    let title = results.first()?.get("title")?.as_str()?.to_owned();
+
+    let other_titles: Vec<String> = results
+        .iter()
+        .skip(1)
+        .filter_map(|r| r.get("title")?.as_str())
+        .take(5)
+        .map(str::to_owned)
+        .collect();
+
+    fetch_wiki_rest(&client, &title, &other_titles).await
 }
 
 async fn wiki_random() -> Option<(String, String)> {
@@ -98,7 +107,11 @@ async fn wiki_random() -> Option<(String, String)> {
     format_rest_summary(&json)
 }
 
-async fn fetch_wiki_rest(client: &reqwest::Client, title: &str) -> Option<(String, String)> {
+async fn fetch_wiki_rest(
+    client: &reqwest::Client,
+    title: &str,
+    other_titles: &[String],
+) -> Option<(String, String)> {
     let json: serde_json::Value = client
         .get(format!(
             "https://en.wikipedia.org/api/rest_v1/page/summary/{}",
@@ -113,14 +126,17 @@ async fn fetch_wiki_rest(client: &reqwest::Client, title: &str) -> Option<(Strin
         .ok()?;
 
     if json.get("type").and_then(|v| v.as_str()) == Some("disambiguation") {
-        let url = json
-            .pointer("/content_urls/desktop/page")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_owned();
+        let whisper = if other_titles.is_empty() {
+            json.pointer("/content_urls/desktop/page")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_owned()
+        } else {
+            format!("Did you mean: {}", other_titles.join(", "))
+        };
         return Some((
-            format!("[{title}] Disambiguation page — be more specific."),
-            url,
+            format!("[{title}] Disambiguation — options whispered."),
+            whisper,
         ));
     }
 
