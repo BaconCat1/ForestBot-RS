@@ -136,6 +136,8 @@
     "rotateHeadOnJoin": false,
     "smart_censoring": false,
     "together_api_key": "",
+    "azure_translator_key": "",
+    "azure_translator_region": "",
     "useLegacyChat": false,
     "useCustomChatFormatParser": false,
     "customChatFormats": [
@@ -165,6 +167,7 @@
         "equip":            true,
         "execute":          true,
         "fadvs":            true,
+        "translate":        true,
         "faq":              true,
         "febzey":           true,
         "firstdeath":       true,

@@ -21,6 +21,7 @@ zstd = "0.13"
 sysinfo = "0.33"
 uuid = "1.18.1"
 rss = "2"
+whatlang = "0.16"
 
 
 [profile.release]

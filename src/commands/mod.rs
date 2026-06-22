@@ -29,6 +29,7 @@ pub mod slurcount;
 pub mod stat_history;
 pub mod utils;
 pub mod news;
+pub mod translate;
 pub mod urbandictionary;
 pub mod wiki;
 
@@ -232,6 +233,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         daynight::DAY_COMMAND,
         daynight::NIGHT_COMMAND,
         news::COMMAND,
+        translate::COMMAND,
         urbandictionary::COMMAND,
     ]
 }

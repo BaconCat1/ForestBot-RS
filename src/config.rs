@@ -80,6 +80,10 @@ pub struct Config {
     pub together_api_key: String,
     #[serde(default)]
     pub wolfram_app_id: String,
+    #[serde(default)]
+    pub azure_translator_key: String,
+    #[serde(default)]
+    pub azure_translator_region: String,
     #[serde(rename = "useLegacyChat")]
     #[allow(dead_code)]
     pub use_legacy_chat: bool,
