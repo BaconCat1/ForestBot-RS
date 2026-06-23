@@ -56,62 +56,65 @@ fn execute_compare(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     })
 }
 
-fn format_summary(data: &serde_json::Value) -> String {
-    let server = data["server"].as_str().unwrap_or("?");
-    let players = data["total_players"].as_u64().unwrap_or(0);
-    let msgs = data["total_messages"].as_u64().unwrap_or(0);
-    let kills = data["total_kills"].as_u64().unwrap_or(0);
-    let deaths = data["total_deaths"].as_u64().unwrap_or(0);
-    let hrs = data["total_playtime_ms"].as_u64().unwrap_or(0) / 3_600_000;
-    let top = data["top_chatter"]["name"].as_str().unwrap_or("?");
-    let top_count = data["top_chatter"]["count"].as_u64().unwrap_or(0);
-    let since = parse_ms(&data["tracking_since"])
-        .map(format_month_year)
-        .unwrap_or_else(|| "?".to_owned());
+struct ServerStats {
+    server: String,
+    players: u64,
+    msgs: u64,
+    kills: u64,
+    deaths: u64,
+    hrs: u64,
+    top: String,
+    top_count: u64,
+    since: String,
+}
 
+impl ServerStats {
+    fn from_json(data: &serde_json::Value) -> Self {
+        Self {
+            server: data["server"].as_str().unwrap_or("?").to_owned(),
+            players: data["total_players"].as_u64().unwrap_or(0),
+            msgs: data["total_messages"].as_u64().unwrap_or(0),
+            kills: data["total_kills"].as_u64().unwrap_or(0),
+            deaths: data["total_deaths"].as_u64().unwrap_or(0),
+            hrs: data["total_playtime_ms"].as_u64().unwrap_or(0) / 3_600_000,
+            top: data["top_chatter"]["name"].as_str().unwrap_or("?").to_owned(),
+            top_count: data["top_chatter"]["count"].as_u64().unwrap_or(0),
+            since: parse_ms(&data["tracking_since"])
+                .map(format_month_year)
+                .unwrap_or_else(|| "?".to_owned()),
+        }
+    }
+}
+
+fn format_summary(data: &serde_json::Value) -> String {
+    let s = ServerStats::from_json(data);
     format!(
-        "[{server}] {} players | {} msgs | {} kills | {} deaths | {} hrs | top msgs: {} ({}) | since {}",
-        fmt_num(players),
-        fmt_num(msgs),
-        fmt_num(kills),
-        fmt_num(deaths),
-        fmt_num(hrs),
-        top,
-        fmt_num(top_count),
-        since,
+        "[{}] {} players | {} msgs | {} kills | {} deaths | {} hrs | top msgs: {} ({}) | since {}",
+        s.server,
+        fmt_num(s.players),
+        fmt_num(s.msgs),
+        fmt_num(s.kills),
+        fmt_num(s.deaths),
+        fmt_num(s.hrs),
+        s.top,
+        fmt_num(s.top_count),
+        s.since,
     )
 }
 
 fn format_compare(a: &serde_json::Value, b: &serde_json::Value) -> String {
-    let sa = a["server"].as_str().unwrap_or("?");
-    let sb = b["server"].as_str().unwrap_or("?");
-
-    let players_a = a["total_players"].as_u64().unwrap_or(0);
-    let players_b = b["total_players"].as_u64().unwrap_or(0);
-    let msgs_a = a["total_messages"].as_u64().unwrap_or(0);
-    let msgs_b = b["total_messages"].as_u64().unwrap_or(0);
-    let kills_a = a["total_kills"].as_u64().unwrap_or(0);
-    let kills_b = b["total_kills"].as_u64().unwrap_or(0);
-    let deaths_a = a["total_deaths"].as_u64().unwrap_or(0);
-    let deaths_b = b["total_deaths"].as_u64().unwrap_or(0);
-    let hrs_a = a["total_playtime_ms"].as_u64().unwrap_or(0) / 3_600_000;
-    let hrs_b = b["total_playtime_ms"].as_u64().unwrap_or(0) / 3_600_000;
-    let top_a = a["top_chatter"]["name"].as_str().unwrap_or("?");
-    let top_b = b["top_chatter"]["name"].as_str().unwrap_or("?");
-    let since_a = parse_ms(&a["tracking_since"])
-        .map(format_month_year)
-        .unwrap_or_else(|| "?".to_owned());
-    let since_b = parse_ms(&b["tracking_since"])
-        .map(format_month_year)
-        .unwrap_or_else(|| "?".to_owned());
-
+    let a = ServerStats::from_json(a);
+    let b = ServerStats::from_json(b);
     format!(
-        "{sa} vs {sb} | {}/{} players | {}/{} msgs | {}/{} kills | {}/{} deaths | {}/{} hrs | top msgs: {top_a}/{top_b} | since {since_a}/{since_b}",
-        fmt_num(players_a), fmt_num(players_b),
-        fmt_num(msgs_a),    fmt_num(msgs_b),
-        fmt_num(kills_a),   fmt_num(kills_b),
-        fmt_num(deaths_a),  fmt_num(deaths_b),
-        fmt_num(hrs_a),     fmt_num(hrs_b),
+        "{} vs {} | {}/{} players | {}/{} msgs | {}/{} kills | {}/{} deaths | {}/{} hrs | top msgs: {}/{} | since {}/{}",
+        a.server, b.server,
+        fmt_num(a.players), fmt_num(b.players),
+        fmt_num(a.msgs),    fmt_num(b.msgs),
+        fmt_num(a.kills),   fmt_num(b.kills),
+        fmt_num(a.deaths),  fmt_num(b.deaths),
+        fmt_num(a.hrs),     fmt_num(b.hrs),
+        a.top, b.top,
+        a.since, b.since,
     )
 }
 

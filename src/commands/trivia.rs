@@ -161,7 +161,8 @@ async fn fetch_question() -> Option<(TriviaRound, String)> {
 
         let mut answers: Vec<String> = incorrect;
         answers.push(correct.clone());
-        shuffle_by_time(&mut answers);
+        let seed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().subsec_nanos() as usize;
+        shuffle_seeded(&mut answers, seed);
 
         let correct_idx = answers.iter().position(|a| *a == correct)?;
         let correct_letter = (b'A' + correct_idx as u8) as char;
@@ -290,11 +291,7 @@ fn truncate_str(s: &str, max: usize) -> String {
     }
 }
 
-fn shuffle_by_time(v: &mut Vec<String>) {
-    let seed = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_nanos() as usize;
+fn shuffle_seeded(v: &mut Vec<String>, seed: usize) {
     let n = v.len();
     for i in (1..n).rev() {
         let j = seed

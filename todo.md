@@ -98,6 +98,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
  * ✅ ~~Change all relevant functionality to be toggleable via config.json~~ // all automatic chat-sending behaviors now gated via `disabled_events` keys; all commands toggleable via `commands` map
  * ✅ ~~extend offlinemsg to do "remindme"~~ // `!remindme`/`!remind` aliases; optional duration `1s2m3h4d`; no duration = next login; timed = background 30s tick fires when online; `!remindme stop` cancels all; `deliver_at: Option<u64>` added to `OfflineMessage`
 * ⏸️ casino style games, create ethereal "chips" currency to go along side them, add wagering to `trivia` command. // ON HOLD need feedback from people first.
+* 🆕 add pearl bot infrastructure
 
 
 ## !quote

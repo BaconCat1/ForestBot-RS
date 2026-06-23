@@ -71,15 +71,12 @@ fn searchgod(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         }
         let kw = ctx.args.join(" ").to_lowercase();
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
-        let secs = now.as_secs();
-        let nanos = now.subsec_nanos();
         let hits = search_corpora(&kw);
         if hits.is_empty() {
             ctx.chat("The light of the Oracle fades, your word is not that of the Gods.".to_string());
             return Ok(());
         }
-        let h = secs.wrapping_mul(2654435761).wrapping_add(nanos as u64);
+        let h = time_seed();
         let verse = hits[(h as usize) % hits.len()];
         ctx.chat(make_output_with_keyword(&verse.reference, &verse.text, &kw));
         Ok(())
@@ -645,8 +642,7 @@ fn godfight(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             Err(e) => { ctx.whisper(format!("Oracle unavailable ({god2}): {e}")); return Ok(()); }
         };
 
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
-        let seed = now.as_secs().wrapping_mul(2654435761).wrapping_add(now.subsec_nanos() as u64);
+        let seed = time_seed();
 
         let Some(v1) = pick_verse(corpus1, keyword.as_deref(), seed) else {
             ctx.whisper("The oracle is silent."); return Ok(());
@@ -922,72 +918,28 @@ fn strip_ordinal(s: &str) -> (&str, &str) {
 //   Full passage text on one line.
 //   <blank line>
 
-fn parse_merged_mormon(content: &str) -> anyhow::Result<Vec<Verse>> {
+fn parse_merged(content: &str, path2: &'static str) -> anyhow::Result<Vec<Verse>> {
     let mut verses = parse_bahai(content)?;
-    let path2 = "godtexts/mormon2.txt.zst";
     if std::path::Path::new(path2).exists() {
-        if let Ok(file) = std::fs::File::open(path2) {
-            if let Ok(bytes) = zstd::decode_all(file) {
-                if let Ok(s) = String::from_utf8(bytes) {
-                    if let Ok(v2) = parse_bahai(&s) {
-                        verses.extend(v2);
-                    }
-                }
-            }
+        match (|| -> anyhow::Result<Vec<Verse>> {
+            let bytes = zstd::decode_all(std::fs::File::open(path2)?)?;
+            parse_bahai(&String::from_utf8(bytes)?)
+        })() {
+            Ok(v2) => verses.extend(v2),
+            Err(e) => crate::structure::logger::warn(format!("secondary corpus {path2}: {e}")),
         }
     }
     Ok(verses)
 }
 
-fn parse_merged_gnostic(content: &str) -> anyhow::Result<Vec<Verse>> {
-    let mut verses = parse_bahai(content)?;
-    let path2 = "godtexts/gnosticism2.txt.zst";
-    if std::path::Path::new(path2).exists() {
-        if let Ok(file) = std::fs::File::open(path2) {
-            if let Ok(bytes) = zstd::decode_all(file) {
-                if let Ok(s) = String::from_utf8(bytes) {
-                    if let Ok(v2) = parse_bahai(&s) {
-                        verses.extend(v2);
-                    }
-                }
-            }
-        }
-    }
-    Ok(verses)
-}
+fn parse_merged_mormon(content: &str) -> anyhow::Result<Vec<Verse>> { parse_merged(content, "godtexts/mormon2.txt.zst") }
+fn parse_merged_gnostic(content: &str) -> anyhow::Result<Vec<Verse>> { parse_merged(content, "godtexts/gnosticism2.txt.zst") }
+fn parse_merged_mandaean(content: &str) -> anyhow::Result<Vec<Verse>> { parse_merged(content, "godtexts/mandaeanism2.txt.zst") }
+fn parse_merged_aztec(content: &str) -> anyhow::Result<Vec<Verse>> { parse_merged(content, "godtexts/aztec2.txt.zst") }
 
-fn parse_merged_mandaean(content: &str) -> anyhow::Result<Vec<Verse>> {
-    let mut verses = parse_bahai(content)?;
-    let path2 = "godtexts/mandaeanism2.txt.zst";
-    if std::path::Path::new(path2).exists() {
-        if let Ok(file) = std::fs::File::open(path2) {
-            if let Ok(bytes) = zstd::decode_all(file) {
-                if let Ok(s) = String::from_utf8(bytes) {
-                    if let Ok(v2) = parse_bahai(&s) {
-                        verses.extend(v2);
-                    }
-                }
-            }
-        }
-    }
-    Ok(verses)
-}
-
-fn parse_merged_aztec(content: &str) -> anyhow::Result<Vec<Verse>> {
-    let mut verses = parse_bahai(content)?;
-    let path2 = "godtexts/aztec2.txt.zst";
-    if std::path::Path::new(path2).exists() {
-        if let Ok(file) = std::fs::File::open(path2) {
-            if let Ok(bytes) = zstd::decode_all(file) {
-                if let Ok(s) = String::from_utf8(bytes) {
-                    if let Ok(v2) = parse_bahai(&s) {
-                        verses.extend(v2);
-                    }
-                }
-            }
-        }
-    }
-    Ok(verses)
+fn time_seed() -> u64 {
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+    now.as_secs().wrapping_mul(2654435761).wrapping_add(now.subsec_nanos() as u64)
 }
 
 fn parse_bahai(content: &str) -> anyhow::Result<Vec<Verse>> {
@@ -1135,8 +1087,7 @@ fn godverse(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let pick = match hits.iter().find(|v| v.reference.eq_ignore_ascii_case(&query)) {
             Some(v) => *v,
             None => {
-                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
-                let h = now.as_secs().wrapping_mul(2654435761).wrapping_add(now.subsec_nanos() as u64);
+                let h = time_seed();
                 hits[(h as usize) % hits.len()]
             }
         };
@@ -1227,7 +1178,7 @@ pub fn preload_all_corpora() {
                     let _ = lock.get_or_init(|| verses);
                     loaded += 1;
                 }
-                Err(_) => {}
+                Err(e) => crate::structure::logger::warn(format!("corpus {path} load failed: {e}")),
             }
         }
     }

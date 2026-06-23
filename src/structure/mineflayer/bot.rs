@@ -1239,49 +1239,31 @@ fn spawn_websocket_event_task(state: AzaleaState) {
                 }
                 WebsocketEvent::ScammerMarked(data) => {
                     if !event_disabled(&state, &["scammerAnnouncements"]) {
-                        let state_clone = state.clone();
-                        tokio::spawn(async move {
-                            let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
-                            enqueue_outbound_chat(
-                                &state_clone,
-                                format!("📢 {} has been marked as a scammer by trading mods, proceed with caution 📢", display_name),
-                            );
+                        spawn_announcement(&state, data.user_id, |dn| {
+                            format!("📢 {} has been marked as a scammer by trading mods, proceed with caution 📢", dn)
                         });
                     }
                 }
                 WebsocketEvent::ScammerUnmarked(data) => {
                     if !event_disabled(&state, &["scammerAnnouncements"]) {
-                        let state_clone = state.clone();
-                        tokio::spawn(async move {
-                            let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
-                            enqueue_outbound_chat(
-                                &state_clone,
-                                format!("📢 {} has had their scammer mark removed by trading mods 📢", display_name),
-                            );
+                        spawn_announcement(&state, data.user_id, |dn| {
+                            format!("📢 {} has had their scammer mark removed by trading mods 📢", dn)
                         });
                     }
                 }
                 WebsocketEvent::TradesReset(data) => {
                     if !event_disabled(&state, &["tradeResetAnnouncements"]) {
-                        let state_clone = state.clone();
-                        tokio::spawn(async move {
-                            let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
-                            enqueue_outbound_chat(
-                                &state_clone,
-                                format!("📢 {}'s trades have been reset by trading mods. Description: {} 📢", display_name, data.reason),
-                            );
+                        let reason = data.reason;
+                        spawn_announcement(&state, data.user_id, move |dn| {
+                            format!("📢 {}'s trades have been reset by trading mods. Description: {} 📢", dn, reason)
                         });
                     }
                 }
                 WebsocketEvent::TradesUnreset(data) => {
                     if !event_disabled(&state, &["tradeResetAnnouncements"]) {
-                        let state_clone = state.clone();
-                        tokio::spawn(async move {
-                            let display_name = resolve_scammer_display(&state_clone, &data.user_id).await;
-                            enqueue_outbound_chat(
-                                &state_clone,
-                                format!("📢 {}'s trades have been restored by trading mods. Description: {} 📢", display_name, data.reason),
-                            );
+                        let reason = data.reason;
+                        spawn_announcement(&state, data.user_id, move |dn| {
+                            format!("📢 {}'s trades have been restored by trading mods. Description: {} 📢", dn, reason)
                         });
                     }
                 }
@@ -1322,6 +1304,17 @@ async fn resolve_scammer_display(state: &AzaleaState, user_id: &str) -> String {
     } else {
         user_id.to_owned()
     }
+}
+
+fn spawn_announcement<F>(state: &AzaleaState, user_id: String, make_msg: F)
+where
+    F: FnOnce(String) -> String + Send + 'static,
+{
+    let state_clone = state.clone();
+    tokio::spawn(async move {
+        let display_name = resolve_scammer_display(&state_clone, &user_id).await;
+        enqueue_outbound_chat(&state_clone, make_msg(display_name));
+    });
 }
 
 fn handle_inbound_discord_chat(state: &AzaleaState, data: DiscordChatMessage) {
