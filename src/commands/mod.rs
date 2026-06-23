@@ -32,6 +32,7 @@ pub mod news;
 pub mod translate;
 pub mod urbandictionary;
 pub mod server_summary;
+pub mod trivia;
 pub mod weather;
 pub mod wiki;
 
@@ -242,6 +243,8 @@ pub fn registry() -> &'static [CommandDefinition] {
         translate::COMMAND,
         weather::COMMAND,
         urbandictionary::COMMAND,
+        trivia::TRIVIA_COMMAND,
+        trivia::ANSWER_COMMAND,
     ]
 }
 

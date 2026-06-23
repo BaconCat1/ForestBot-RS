@@ -97,6 +97,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~custom advancements! — ForestBot announces fake MC-style advancement unlocks triggered by tracked events (deaths, kills, etc.)~~ // Hub `fadv_awards` table + threshold checks in `checkFadv.ts`; WS event `fadvAwards` → craftbot announces public + whispers player; `!fadvs [category]` command shows per-category progress; one-time per player
  * ✅ ~~Change all relevant functionality to be toggleable via config.json~~ // all automatic chat-sending behaviors now gated via `disabled_events` keys; all commands toggleable via `commands` map
  * ✅ ~~extend offlinemsg to do "remindme"~~ // `!remindme`/`!remind` aliases; optional duration `1s2m3h4d`; no duration = next login; timed = background 30s tick fires when online; `!remindme stop` cancels all; `deliver_at: Option<u64>` added to `OfflineMessage`
+* ⏸️ casino style games, create ethereal "chips" currency to go along side them, add wagering to `trivia` command. // ON HOLD need feedback from people first.
 
 
 ## !quote
@@ -130,6 +131,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ⏸️ !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats? // ON HOLD because the extra infrastrucure for this isn't justified in isolation. maybe if casino games get added?
 * ✅ ~~!calc, alias !wolframalpha, !wa, sends requests to the wolframalpha public api~~ // LLM API endpoint; `wolfram_app_id` in bot config; parses all labeled sections with priority order (Result→Solution→Derivative→Definite integral→Indefinite integral→Infinite sum→Sum→Limit→Decimal approximation→Property→…), posts `query = answer` truncated to 220 chars; aliases `!calc`/`!wa`/`!wolframalpha`
 * ✅ ~~!translate, add support for azure api for translation~~ // Azure AI Translator; `azure_translator_key` + `azure_translator_region` in config; lang optional (default `en`); single-word input checks online players → translates last message; FROM-English blocked (whatlang local detection, 4+ words); aliases `!translate`/`!tr`/`!tl`
+* ✅ ~~!trivia / !answer — server trivia round via Open Trivia DB (no key); boolean and MCQ; 15s answer window open to all players; whispers "Answer received!" on submit; public summary at close shows ✓/✗ lists + answer; latecomers whispered answer for 60s after close~~
 
 ---
 

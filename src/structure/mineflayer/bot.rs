@@ -234,6 +234,7 @@ impl Bot {
             seen_advancements: Arc::new(Mutex::new(HashMap::new())),
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
             world_time_ticks: Arc::new(RwLock::new(0)),
+            active_trivia: Arc::new(Mutex::new(None)),
         };
 
         let mut builder = if self.options.disable_chat_signing {
@@ -303,6 +304,19 @@ pub struct AzaleaState {
     pub seen_advancements: Arc<Mutex<HashMap<String, HashSet<String>>>>,
     pub nick_cache: Arc<RwLock<HashMap<String, String>>>,
     pub world_time_ticks: Arc<RwLock<u64>>,
+    pub active_trivia: Arc<Mutex<Option<TriviaRound>>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TriviaRound {
+    pub correct_answer: String,
+    pub is_open: bool,
+    pub is_boolean: bool,
+    pub letter_map: Vec<(char, String)>,
+    pub correct_letter: Option<char>,
+    pub correct_players: Vec<String>,
+    pub wrong_players: Vec<String>,
+    pub answered: HashSet<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -366,6 +380,7 @@ impl Default for AzaleaState {
             seen_advancements: Arc::new(Mutex::new(HashMap::new())),
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
             world_time_ticks: Arc::new(RwLock::new(0)),
+            active_trivia: Arc::new(Mutex::new(None)),
         }
     }
 }
