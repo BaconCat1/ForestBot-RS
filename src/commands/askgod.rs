@@ -38,6 +38,13 @@ pub const GODSTATS_COMMAND: CommandDefinition = CommandDefinition {
     execute: godstats,
 };
 
+pub const GODFIGHT_COMMAND: CommandDefinition = CommandDefinition {
+    names: &["godfight"],
+    description: "Two gods, one verse each. Usage: {prefix}godfight <god1> <god2> [keyword]",
+    whitelisted: false,
+    execute: godfight,
+};
+
 fn godstats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         match GOD_STATS.get() {
@@ -331,6 +338,332 @@ const OUT_TO_LUNCH: &[&str] = &[
     "selling crack to Netherwhal",
 ];
 
+fn resolve_corpus(arg: &str) -> Option<CorpusEntry> {
+    match arg {
+        "allah" | "quran" | "koran" | "islam" | "muslim" | "muhammad" => {
+            Some((&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran))
+        }
+        "moroni" | "nephi" | "mormon" | "joseph" | "lds" | "bom" | "dnc" | "doctrine" | "covenants" | "pogp" | "kimball" | "brigham" | "latterday" | "od1" | "od2" => {
+            Some((&MORMON_MERGED_CORPUS, "godtexts/mormon.txt.zst", parse_merged_mormon))
+        }
+        "bahai" | "baha" | "bahaullah" | "aqdas" => {
+            Some((&BAHAI_CORPUS, "godtexts/bahai.txt.zst", parse_bahai))
+        }
+        "piby" | "rastafari" | "rasta" | "athlyi" | "rogers" | "jah" | "rastafarianism" | "kebra" | "nagast" | "kebranagast" | "selassie" | "haile" | "zion" | "babylon" | "makeda" | "solomonic" => {
+            Some((&RASTA_CORPUS, "godtexts/rastafarianism.txt.zst", parse_bahai))
+        }
+        "mandaean" | "mandaeanism" | "ginza" | "manda" | "nasoraean" | "nasorean" | "hayyi" | "hiia" | "mbofjohn" | "mandaeanbookofjohn" | "bookofkings" => {
+            Some((&MANDAEAN_MERGED_CORPUS, "godtexts/mandaeanism.txt.zst", parse_merged_mandaean))
+        }
+        "mani" | "manichean" | "manichaean" | "manichaeism" | "manicheanism" => {
+            Some((&MANI_CORPUS, "godtexts/manichaeanism.txt.zst", parse_bahai))
+        }
+        "moon" | "unification" | "moonies" | "divine" | "principle" | "divineprincipal" => {
+            Some((&UNIFICATION_CORPUS, "godtexts/unificationchurch.txt.zst", parse_bahai))
+        }
+        "noi" | "nation" | "blackman" | "yakub" | "yakoub" => {
+            Some((&NOI_CORPUS, "godtexts/noi.txt.zst", parse_bahai))
+        }
+        "gnostic" | "gnosticism" | "nag" | "hammadi" | "sophia" | "pleroma" | "demiurge" | "pistissophia" | "brucejeu" | "jeu" | "askcodex" => {
+            Some((&GNOSTIC_MERGED_CORPUS, "godtexts/gnosticism.txt.zst", parse_merged_gnostic))
+        }
+        "eddy" | "christianscience" | "marybakeddy" | "scienceandhealth" => {
+            Some((&CS_CORPUS, "godtexts/christianscience.txt.zst", parse_bahai))
+        }
+        "brahma" | "vishnu" | "shiva" | "krishna" | "indra" | "hindu" | "hinduism" | "veda" | "vedic" | "mahabharata" | "gita" => {
+            Some((&HINDU_CORPUS, "godtexts/hinduism.txt.zst", parse_bahai))
+        }
+        "buddha" | "buddhism" | "pali" | "dharma" | "nirvana" | "tipitaka" | "gautama" | "theravada" | "sangha" => {
+            Some((&BUDDHISM_CORPUS, "godtexts/buddhism.txt.zst", parse_bahai))
+        }
+        "waheguru" | "nanak" | "sikh" | "sikhism" | "granth" | "ggs" | "guru" => {
+            Some((&SIKHISM_CORPUS, "godtexts/sikhism.txt.zst", parse_bahai))
+        }
+        "tao" | "taoist" | "taoism" | "laozi" | "laotzu" | "zhuangzi" | "chuangtzu" | "ttc" => {
+            Some((&TAOISM_CORPUS, "godtexts/taoism.txt.zst", parse_bahai))
+        }
+        "confucius" | "confucianism" | "analects" | "kongzi" | "lunyu" | "zhongyong" => {
+            Some((&CONFUCIANISM_CORPUS, "godtexts/confucianism.txt.zst", parse_bahai))
+        }
+        "shinto" | "kami" | "amaterasu" | "izanagi" | "izanami" | "kojiki" | "norito" | "nihongi" => {
+            Some((&SHINTO_CORPUS, "godtexts/shinto.txt.zst", parse_bahai))
+        }
+        "caodai" | "cao_dai" | "jade" | "jadeemperor" | "caoism" | "thanshinh" => {
+            Some((&CAO_DAI_CORPUS, "godtexts/cao_dai.txt.zst", parse_bahai))
+        }
+        "zoroaster" | "zoroastrian" | "zoroastrianism" | "ahura" | "mazda" | "zarathustra" | "avesta" | "parsi" | "zend" => {
+            Some((&ZOROASTRIAN_CORPUS, "godtexts/zoroastrianism.txt.zst", parse_bahai))
+        }
+        "egypt" | "egyptian" | "ra" | "osiris" | "isis" | "horus" | "anubis" | "thoth" | "amon" | "amun" | "aten" => {
+            Some((&EGYPTIAN_CORPUS, "godtexts/egyptian.txt.zst", parse_bahai))
+        }
+        "norse" | "odin" | "thor" | "loki" | "freyr" | "freyja" | "edda" | "valhalla" | "asgard" | "yggdrasil" | "ragnarok" => {
+            Some((&NORSE_CORPUS, "godtexts/norse.txt.zst", parse_bahai))
+        }
+        "greek" | "olympian" | "zeus" | "athena" | "apollo" | "poseidon" | "hera" | "ares" | "hermes" | "artemis" | "iliad" | "odyssey" | "homer" => {
+            Some((&OLYMPIAN_CORPUS, "godtexts/olympian.txt.zst", parse_bahai))
+        }
+        "mayan" | "maya" | "kiche" | "hurakan" | "popolvuh" | "xibalba" | "quetzalcoatl" | "itzamna" | "kukulkan" => {
+            Some((&MAYAN_CORPUS, "godtexts/mayan.txt.zst", parse_bahai))
+        }
+        "babylonian" | "hammurabi" | "marduk" | "shamash" | "ishtar" | "akkad" | "akkadian" | "mesopotamia" => {
+            Some((&BABYLONIAN_CORPUS, "godtexts/babylonian.txt.zst", parse_bahai))
+        }
+        "sumerian" | "sumer" | "gilgamesh" | "enkidu" | "enumaelish" | "tiamat" | "apsu" | "anunnaki" | "enlil" | "enki" | "inanna" | "nanna" | "utu" => {
+            Some((&SUMERIAN_CORPUS, "godtexts/sumerian.txt.zst", parse_bahai))
+        }
+        "lavey" | "laveyanism" | "satanic" | "churchofsatan" | "blackpope" | "satanbible" | "nineantsatanicstatements" => {
+            Some((&LAVEYANISM_CORPUS, "godtexts/laveyanism.txt.zst", parse_bahai))
+        }
+        "cathar" | "catharism" | "cathari" | "albigensian" | "albigenses" | "parfait" | "consolamentum" | "bogomil" | "bogomilism" | "secretsupper" | "interrogatio" => {
+            Some((&CATHARISM_CORPUS, "godtexts/catharism.txt.zst", parse_bahai))
+        }
+        "caine" | "noddism" | "kindred" | "vampire" | "masquerade" | "gehenna" | "jyhad" | "sabbat" | "camarilla" | "antediluvian" | "bookofnod" | "vtm" | "worldofdarkness" => {
+            Some((&NODDISM_CORPUS, "godtexts/noddism.txt.zst", parse_bahai))
+        }
+        "earthseed" | "olamina" | "godischange" | "godseed" => {
+            Some((&EARTHSEED_CORPUS, "godtexts/earthseed.txt.zst", parse_bahai))
+        }
+        "jain" | "jainism" | "mahavira" | "gaina" | "tirthankara" | "akaranga" | "vardhamana" => {
+            Some((&JAINISM_CORPUS, "godtexts/jainism.txt.zst", parse_bahai))
+        }
+        "incan" | "inca" | "huarochiri" | "pariacaca" | "paria" | "quechua" | "andean" | "huallallo" | "viracocha" => {
+            Some((&INCAN_CORPUS, "godtexts/incan.txt.zst", parse_bahai))
+        }
+        "iching" | "yijing" | "yiching" | "yi" | "zhouyi" | "hexagram" | "legge" | "khien" | "bagua" | "trigram" => {
+            Some((&ICHING_CORPUS, "godtexts/iching.txt.zst", parse_bahai))
+        }
+        "jedi" | "jedipath" | "theforce" | "force" | "yoda" | "skywalker" | "anakin" | "luke" | "obi" | "kenobi" | "mace" | "windu" | "sith" | "midichlorian" => {
+            Some((&JEDI_CORPUS, "godtexts/jedi.txt.zst", parse_bahai))
+        }
+        "aztec" | "azteca" | "mexica" | "nahua" | "nahuatl" | "huitzilopochtli" | "tlaloc" | "tezcatlipoca" | "xipe" | "coatlicue" | "tonatiuh" | "chalchiuhtlicue" => {
+            Some((&AZTEC_MERGED_CORPUS, "godtexts/aztec.txt.zst", parse_merged_aztec))
+        }
+        "hermetic" | "hermeticism" | "trismegistus" | "poemandres" | "corpus" | "emerald" | "kybalion" => {
+            Some((&HERMETIC_CORPUS, "godtexts/hermeticism.txt.zst", parse_bahai))
+        }
+        "thelema" | "crowley" | "aleister" | "liber" | "beast" | "nuit" | "hadit" | "hoor" | "aiwass" | "therion" => {
+            Some((&THELEMA_CORPUS, "godtexts/thelema.txt.zst", parse_bahai))
+        }
+        "eris" | "discordia" | "discordian" | "discordianism" | "principia" | "fnord" | "kallisti" | "malaclypse" | "chaos" => {
+            Some((&DISCORDIA_CORPUS, "godtexts/discordianism.txt.zst", parse_bahai))
+        }
+        "spiritism" | "spiritist" | "kardec" | "allankardec" | "medium" | "spirits" | "spiritsbook" => {
+            Some((&SPIRITISM_CORPUS, "godtexts/spiritism.txt.zst", parse_bahai))
+        }
+        "tenrikyo" | "ofudesaki" | "oyasama" | "tsukihi" | "miki" | "nakayama" | "jiba" => {
+            Some((&TENRIKYO_CORPUS, "godtexts/ofudesaki.txt.zst", parse_bahai))
+        }
+        "falun" | "falundafa" | "falungong" | "zhuanfalun" | "dafa" | "lihongzhi" | "shifu" => {
+            Some((&FALUNDAFA_CORPUS, "godtexts/falungong.txt.zst", parse_bahai))
+        }
+        "rael" | "raelian" | "raelism" | "elohim" | "vorilhon" | "clonaid" => {
+            Some((&RAELISM_CORPUS, "godtexts/raelism.txt.zst", parse_bahai))
+        }
+        "elderscrolls" | "vivec" | "tamriel" | "daedra" | "aedra" | "aurbis" | "nirn" | "nerevarine" | "monomyth" | "veloth" | "dunmer" | "morrowind" | "khajiit" | "alduin" | "talos" | "shor" | "lorkhan" => {
+            Some((&ELDERSCROLLS_CORPUS, "godtexts/elderscrolls.txt.zst", parse_bahai))
+        }
+        "subgenius" | "dobbs" | "slack" | "xist" | "bulldada" | "jhvh" | "stang" => {
+            Some((&SUBGENIUS_CORPUS, "godtexts/subgenius.txt.zst", parse_bahai))
+        }
+        "bokonon" | "bokononism" | "foma" | "karass" | "granfalloon" | "wampeter" | "duprass" | "vonnegut" | "catscradle" | "calypso" => {
+            Some((&BOKONON_CORPUS, "godtexts/bokononism.txt.zst", parse_bahai))
+        }
+        "tolkien" | "silmarillion" | "ainulindale" | "valaquenta" | "akallabeth" | "numenor" | "valar" | "maiar" | "eru" | "iluvatar" | "morgoth" | "melkor" | "arda" | "valinor" | "feanor" | "eldar" | "ainur" | "middleearth" => {
+            Some((&TOLKIEN_CORPUS, "godtexts/tolkien.txt.zst", parse_bahai))
+        }
+        "shaker" | "shakers" | "annlee" | "secondappearing" | "millennial" | "youngs" => {
+            Some((&SHAKER_CORPUS, "godtexts/shaker.txt.zst", parse_bahai))
+        }
+        "swedenborg" | "newchurch" | "newjerusalem" | "arcana" | "coelestia" | "conjugial" | "influx" | "correspondences" | "spiritualworld" => {
+            Some((&SWEDENBORG_CORPUS, "godtexts/swedenborg.txt.zst", parse_bahai))
+        }
+        "canaan" | "canaanite" | "ugarit" | "ugaritic" | "baal" | "anat" | "asherah" | "astarte" | "aqhat" | "kirta" | "rephaim" | "mot" | "yamm" | "kothar" => {
+            Some((&CANAAN_CORPUS, "godtexts/canaan.txt.zst", parse_bahai))
+        }
+        "moorish" | "moorishscience" | "drewali" | "circle7" | "noblepath" | "moor" | "asiatic" => {
+            Some((&MOORISH_CORPUS, "godtexts/moorishscience.txt.zst", parse_bahai))
+        }
+        "setian" | "templeofset" | "xeper" | "harwer" | "aquino" | "bookofthenight" | "setianblackflame" => {
+            Some((&TEMPLEOFSET_CORPUS, "godtexts/templeofset.txt.zst", parse_bahai))
+        }
+        "urantia" | "urantiabook" | "urantian" | "orvonton" | "nebadon" | "havona" | "forsocia" | "thoughtadjuster" | "finaliter" | "uversa" | "salvington" => {
+            Some((&URANTIA_CORPUS, "godtexts/urantia.txt.zst", parse_bahai))
+        }
+        "heavensgate" | "telah" | "tido" | "applewhite" | "nettles" | "nextlevel" | "hale-bopp" | "halebopp" => {
+            Some((&HEAVENSGATE_CORPUS, "godtexts/heavensgate.txt.zst", parse_bahai))
+        }
+        "process" | "processchurch" | "processian" | "jehovah" | "lucifer" | "satan" | "devilworship" | "robertdevegrimston" | "maryannmaclean" => {
+            Some((&PROCESSCHURCH_CORPUS, "godtexts/processchurch.txt.zst", parse_bahai))
+        }
+        "andraste" | "andrastianism" | "maker" | "chantoflight" | "thedas" | "ferelden" | "orlais" | "dragonage" | "chantry" => {
+            Some((&ANDRASTIANISM_CORPUS, "godtexts/andrastianism.txt.zst", parse_bahai))
+        }
+        "orphic" | "orpheus" | "orphism" | "dionysus" | "persephone" | "hecate" | "protogonus" | "phanes" | "mysteries" | "bacchic" => {
+            Some((&ORPHIC_CORPUS, "godtexts/orphic.txt.zst", parse_bahai))
+        }
+        "neoplatonism" | "neoplatonist" | "plotinus" | "plotinos" | "enneads" | "theone" | "emanation" | "nous" | "proclus" | "porphyry" | "iamblichus" => {
+            Some((&NEOPLATONISM_CORPUS, "godtexts/neoplatonism.txt.zst", parse_bahai))
+        }
+        "kabbalah" | "zohar" | "kabbalist" | "kabbalistic" | "sefirot" | "sephirot" | "simeonbaryochai" | "rashbi" | "einsof" | "soncino" | "jewishmysticism" => {
+            Some((&KABBALAH_CORPUS, "godtexts/kabbalah.txt.zst", parse_bahai))
+        }
+        "dss" | "deadseascrolls" | "qumran" | "essene" | "essenes" | "communityrule" | "damascusdocument" | "warscroll" | "thanksgivinghymns" | "templeoscroll" | "vermes" => {
+            Some((&DSS_CORPUS, "godtexts/deadseascrolls.txt.zst", parse_bahai))
+        }
+        "deuterocanon" | "deuterocanonical" | "enoch" | "1enoch" | "bookofjubilees" | "jubilees" | "tawahedo" | "ethiopianorthodox" | "charles" => {
+            Some((&DEUTEROCANON_CORPUS, "godtexts/deuterocanon.txt.zst", parse_bahai))
+        }
+        "acim" | "courseinmiracles" | "acourseinmiracles" | "miracles" | "holyspirit" | "forgiveness" | "atonement" | "workbook" | "manualforteachers" | "urtext" => {
+            Some((&ACIM_CORPUS, "godtexts/acim.txt.zst", parse_bahai))
+        }
+        "faithism" | "oahspe" | "jehovih" | "kosmon" | "newbrough" | "saphah" | "etherea" | "atmospherea" => {
+            Some((&FAITHISM_CORPUS, "godtexts/faithism.txt.zst", parse_bahai))
+        }
+        "aquarian" | "aquariangospel" | "dowling" | "akashic" | "piscean" | "aquarianage" => {
+            Some((&AQUARIAN_CORPUS, "godtexts/aquarian.txt.zst", parse_bahai))
+        }
+        "lawofone" | "ramaterial" | "confederation" | "densities" | "wanderer" | "harvest" | "larussell" | "donelkins" | "carlarueckert" | "racontact" => {
+            Some((&LAWOFONE_CORPUS, "godtexts/lawofone.txt.zst", parse_bahai))
+        }
+        "iammovement" | "iam" | "saintgermain" | "stgermain" | "godfreking" | "guyballard" | "ballard" | "lotusray" | "ascendedmaster" | "mightyiampresence" => {
+            Some((&IAMMOVEMENT_CORPUS, "godtexts/iammovement.txt.zst", parse_bahai))
+        }
+        "acadfuturesci" | "hurtak" | "affs" | "academyforfuturescience" | "brotherhoodoflight" | "ophanimenoch" => {
+            Some((&ACADFUTURESCI_CORPUS, "godtexts/acadfuturesci.txt.zst", parse_bahai))
+        }
+        "unarius" | "ernestnorman" | "shamballa" | "voiceoferos" | "voiceofhermes" | "voiceoforion" | "voiceofvenus" => {
+            Some((&UNARIUS_CORPUS, "godtexts/unarius.txt.zst", parse_bahai))
+        }
+        "aetherius" | "georgeking" | "ninefreedoms" | "twelveblessings" | "saintgooling" | "marssector6" => {
+            Some((&AETHERIUS_CORPUS, "godtexts/aetherius.txt.zst", parse_bahai))
+        }
+        "anthroposophy" | "steiner" | "rudolfsteiner" => {
+            Some((&ANTHROPOSOPHY_CORPUS, "godtexts/anthroposophy.txt.zst", parse_bahai))
+        }
+        "mahikari" | "sukyomahikari" | "okada" | "sukuinushisama" => {
+            Some((&MAHIKARI_CORPUS, "godtexts/mahikari.txt.zst", parse_bahai))
+        }
+        "radhasoami" | "sarbachan" | "soamiji" | "santmat" => {
+            Some((&RADHASOAMI_CORPUS, "godtexts/radhasoami.txt.zst", parse_bahai))
+        }
+        "hawaii" | "hawaiian" | "kumulipo" | "kalakaua" => {
+            Some((&HAWAIIAN_CORPUS, "godtexts/hawaiian.txt.zst", parse_bahai))
+        }
+        "commofchr" | "communityofchrist" | "rlds" | "reorganized" => {
+            Some((&COMMOFCHR_CORPUS, "godtexts/commofchr.txt.zst", parse_bahai))
+        }
+        "strangite" | "strang" | "jamesstrang" | "lawofthelord" => {
+            Some((&STRANGITE_CORPUS, "godtexts/strangite.txt.zst", parse_bahai))
+        }
+        "agelesswisdom" | "alicebailey" | "bailey" | "djwhal" | "djwhalkhul" | "lucistrust" | "thehierarchy" | "arcane" | "arcaneschool" | "treatise" | "theplan" | "sevenrays" => {
+            Some((&AGELESSWISDOM_CORPUS, "godtexts/agelesswisdom.txt.zst", parse_bahai))
+        }
+        "meherbaba" | "meher" | "baba" | "godspeaks" | "avatar" | "sufismreoriented" => {
+            Some((&MEHERBABA_CORPUS, "godtexts/meherbaba.txt.zst", parse_bahai))
+        }
+        "bible" | "god" | "jesus" | "christ" | "kjv" | "christian" => {
+            Some((&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv))
+        }
+        _ => None,
+    }
+}
+
+fn pick_verse<'a>(corpus: &'a [Verse], keyword: Option<&str>, seed: u64) -> Option<&'a Verse> {
+    if corpus.is_empty() {
+        return None;
+    }
+    if let Some(kw) = keyword {
+        let kw_lower = kw.to_lowercase();
+        let hits: Vec<&Verse> = corpus.iter()
+            .filter(|v| v.text.to_lowercase().contains(&kw_lower))
+            .collect();
+        if !hits.is_empty() {
+            return Some(hits[(seed as usize) % hits.len()]);
+        }
+    }
+    Some(&corpus[(seed as usize) % corpus.len()])
+}
+
+fn fight_snippet(text: &str, keyword: Option<&str>, max: usize) -> String {
+    let kw = keyword.unwrap_or("");
+    let wing = (max / 2).saturating_sub(kw.len() / 2);
+    let kw_lower = kw.to_lowercase();
+    let text_lower = text.to_lowercase();
+    let kw_pos = if kw.is_empty() { 0 } else { text_lower.find(&kw_lower).unwrap_or(0) };
+    if text.chars().count() <= max {
+        return text.to_string();
+    }
+    let raw_start = kw_pos.saturating_sub(wing);
+    let raw_end = (kw_pos + kw.len() + wing).min(text.len());
+    let start = (0..=raw_start).rev().find(|&i| text.is_char_boundary(i)).unwrap_or(0);
+    let end = (raw_end..=text.len()).find(|&i| text.is_char_boundary(i)).unwrap_or(text.len());
+    let snippet = &text[start..end];
+    let prefix = if start > 0 { "..." } else { "" };
+    let suffix = if end < text.len() { "..." } else { "" };
+    let candidate = format!("{prefix}{snippet}{suffix}");
+    if candidate.chars().count() <= max {
+        candidate
+    } else {
+        format!("{}...", candidate.chars().take(max - 3).collect::<String>())
+    }
+}
+
+fn godfight(ctx: CommandContext<'_>) -> CommandFuture<'_> {
+    Box::pin(async move {
+        if ctx.args.len() < 2 {
+            ctx.whisper("Usage: !godfight <god1> <god2> [keyword]");
+            return Ok(());
+        }
+        let god1 = ctx.args[0].to_lowercase();
+        let god2 = ctx.args[1].to_lowercase();
+        let keyword = if ctx.args.len() > 2 {
+            Some(ctx.args[2..].join(" ").to_lowercase())
+        } else {
+            None
+        };
+
+        let Some((cell1, path1, parser1)) = resolve_corpus(&god1) else {
+            ctx.whisper(format!("Unknown god: {god1}. Use !listgods."));
+            return Ok(());
+        };
+        let Some((cell2, path2, parser2)) = resolve_corpus(&god2) else {
+            ctx.whisper(format!("Unknown god: {god2}. Use !listgods."));
+            return Ok(());
+        };
+
+        let (res1, res2) = tokio::join!(
+            get_corpus(cell1, path1, parser1),
+            get_corpus(cell2, path2, parser2),
+        );
+        let corpus1 = match res1 {
+            Ok(c) => c,
+            Err(e) => { ctx.whisper(format!("Oracle unavailable ({god1}): {e}")); return Ok(()); }
+        };
+        let corpus2 = match res2 {
+            Ok(c) => c,
+            Err(e) => { ctx.whisper(format!("Oracle unavailable ({god2}): {e}")); return Ok(()); }
+        };
+
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+        let seed = now.as_secs().wrapping_mul(2654435761).wrapping_add(now.subsec_nanos() as u64);
+
+        let Some(v1) = pick_verse(corpus1, keyword.as_deref(), seed) else {
+            ctx.whisper("The oracle is silent."); return Ok(());
+        };
+        let Some(v2) = pick_verse(corpus2, keyword.as_deref(), seed.wrapping_add(1337)) else {
+            ctx.whisper("The oracle is silent."); return Ok(());
+        };
+
+        let side1 = fight_snippet(&v1.text, keyword.as_deref(), 126);
+        let remaining = 252usize.saturating_sub(side1.chars().count());
+        let side2 = fight_snippet(&v2.text, keyword.as_deref(), remaining);
+        ctx.chat(format!("{side1} ⚔ {side2}"));
+        ctx.whisper(format!("[{}] ⚔ [{}]", v1.reference, v2.reference));
+        Ok(())
+    })
+}
+
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
@@ -369,250 +702,28 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         }
 
-        let (corpus_cell, path, parser): CorpusEntry =
-            match god_arg.as_deref() {
-                Some("allah") | Some("quran") | Some("koran") | Some("islam") | Some("muslim") | Some("muhammad") => {
-                    (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran)
+        let (corpus_cell, path, parser): CorpusEntry = match god_arg.as_deref() {
+            Some(arg) => match resolve_corpus(arg) {
+                Some(entry) => {
+                    if !std::path::Path::new(entry.1).exists() {
+                        let phrase = OUT_TO_LUNCH[(secs as usize).wrapping_mul(2654435761) % OUT_TO_LUNCH.len()];
+                        ctx.chat(format!("Sorry, that God is {phrase}, another God will answer your mortal cries instead."));
+                        pick_random_available_corpus(secs)
+                    } else {
+                        entry
+                    }
                 }
-                Some("moroni") | Some("nephi") | Some("mormon") | Some("joseph") | Some("lds") | Some("bom") | Some("dnc") | Some("doctrine") | Some("covenants") | Some("pogp") | Some("kimball") | Some("brigham") | Some("latterday") | Some("od1") | Some("od2") => {
-                    (&MORMON_MERGED_CORPUS, "godtexts/mormon.txt.zst", parse_merged_mormon)
-                }
-                Some("bahai") | Some("baha") | Some("bahaullah") | Some("aqdas") => {
-                    (&BAHAI_CORPUS, "godtexts/bahai.txt.zst", parse_bahai)
-                }
-                Some("piby") | Some("rastafari") | Some("rasta") | Some("athlyi") | Some("rogers") | Some("jah") | Some("rastafarianism") | Some("kebra") | Some("nagast") | Some("kebraNagast") | Some("selassie") | Some("haile") | Some("zion") | Some("babylon") | Some("makeda") | Some("solomonic") => {
-                    (&RASTA_CORPUS, "godtexts/rastafarianism.txt.zst", parse_bahai)
-                }
-                Some("mandaean") | Some("mandaeanism") | Some("ginza") | Some("manda") | Some("nasoraean") | Some("nasorean") | Some("hayyi") | Some("hiia") | Some("mbofjohn") | Some("mandaeanbookofjohn") | Some("bookofkings") => {
-                    (&MANDAEAN_MERGED_CORPUS, "godtexts/mandaeanism.txt.zst", parse_merged_mandaean)
-                }
-                Some("mani") | Some("manichean") | Some("manichaean") | Some("manichaeism") | Some("manicheanism") => {
-                    (&MANI_CORPUS, "godtexts/manichaeanism.txt.zst", parse_bahai)
-                }
-                Some("moon") | Some("unification") | Some("moonies") | Some("divine") | Some("principle") | Some("divineprincipal") => {
-                    (&UNIFICATION_CORPUS, "godtexts/unificationchurch.txt.zst", parse_bahai)
-                }
-                Some("noi") | Some("nation") | Some("blackman") | Some("yakub") | Some("yakoub") => {
-                    (&NOI_CORPUS, "godtexts/noi.txt.zst", parse_bahai)
-                }
-                Some("gnostic") | Some("gnosticism") | Some("nag") | Some("hammadi") | Some("sophia") | Some("pleroma") | Some("demiurge") | Some("pistissophia") | Some("brucejeu") | Some("jeu") | Some("askcodex") => {
-                    (&GNOSTIC_MERGED_CORPUS, "godtexts/gnosticism.txt.zst", parse_merged_gnostic)
-                }
-                Some("eddy") | Some("christianscience") | Some("marybakeddy") | Some("scienceandhealth") => {
-                    (&CS_CORPUS, "godtexts/christianscience.txt.zst", parse_bahai)
-                }
-                Some("brahma") | Some("vishnu") | Some("shiva") | Some("krishna") | Some("indra") | Some("hindu") | Some("hinduism") | Some("veda") | Some("vedic") | Some("mahabharata") | Some("gita") => {
-                    (&HINDU_CORPUS, "godtexts/hinduism.txt.zst", parse_bahai)
-                }
-                Some("buddha") | Some("buddhism") | Some("pali") | Some("dharma") | Some("nirvana") | Some("tipitaka") | Some("gautama") | Some("theravada") | Some("sangha") => {
-                    (&BUDDHISM_CORPUS, "godtexts/buddhism.txt.zst", parse_bahai)
-                }
-                Some("waheguru") | Some("nanak") | Some("sikh") | Some("sikhism") | Some("granth") | Some("ggs") | Some("guru") => {
-                    (&SIKHISM_CORPUS, "godtexts/sikhism.txt.zst", parse_bahai)
-                }
-                Some("tao") | Some("taoist") | Some("taoism") | Some("laozi") | Some("laotzu") | Some("zhuangzi") | Some("chuangtzu") | Some("ttc") => {
-                    (&TAOISM_CORPUS, "godtexts/taoism.txt.zst", parse_bahai)
-                }
-                Some("confucius") | Some("confucianism") | Some("analects") | Some("kongzi") | Some("lunyu") | Some("zhongyong") => {
-                    (&CONFUCIANISM_CORPUS, "godtexts/confucianism.txt.zst", parse_bahai)
-                }
-                Some("shinto") | Some("kami") | Some("amaterasu") | Some("izanagi") | Some("izanami") | Some("kojiki") | Some("norito") | Some("nihongi") => {
-                    (&SHINTO_CORPUS, "godtexts/shinto.txt.zst", parse_bahai)
-                }
-                Some("caodai") | Some("cao_dai") | Some("jade") | Some("jadeemperor") | Some("caoism") | Some("thanshinh") => {
-                    (&CAO_DAI_CORPUS, "godtexts/cao_dai.txt.zst", parse_bahai)
-                }
-                Some("zoroaster") | Some("zoroastrian") | Some("zoroastrianism") | Some("ahura") | Some("mazda") | Some("zarathustra") | Some("avesta") | Some("parsi") | Some("zend") => {
-                    (&ZOROASTRIAN_CORPUS, "godtexts/zoroastrianism.txt.zst", parse_bahai)
-                }
-                Some("egypt") | Some("egyptian") | Some("ra") | Some("osiris") | Some("isis") | Some("horus") | Some("anubis") | Some("thoth") | Some("amon") | Some("amun") | Some("aten") => {
-                    (&EGYPTIAN_CORPUS, "godtexts/egyptian.txt.zst", parse_bahai)
-                }
-                Some("norse") | Some("odin") | Some("thor") | Some("loki") | Some("freyr") | Some("freyja") | Some("edda") | Some("valhalla") | Some("asgard") | Some("yggdrasil") | Some("ragnarok") => {
-                    (&NORSE_CORPUS, "godtexts/norse.txt.zst", parse_bahai)
-                }
-                Some("greek") | Some("olympian") | Some("zeus") | Some("athena") | Some("apollo") | Some("poseidon") | Some("hera") | Some("ares") | Some("hermes") | Some("artemis") | Some("iliad") | Some("odyssey") | Some("homer") => {
-                    (&OLYMPIAN_CORPUS, "godtexts/olympian.txt.zst", parse_bahai)
-                }
-                Some("mayan") | Some("maya") | Some("kiché") | Some("kiche") | Some("hurakan") | Some("popolvuh") | Some("xibalba") | Some("quetzalcoatl") | Some("itzamna") | Some("kukulkan") => {
-                    (&MAYAN_CORPUS, "godtexts/mayan.txt.zst", parse_bahai)
-                }
-                Some("babylonian") | Some("hammurabi") | Some("marduk") | Some("shamash") | Some("ishtar") | Some("akkad") | Some("akkadian") | Some("mesopotamia") => {
-                    (&BABYLONIAN_CORPUS, "godtexts/babylonian.txt.zst", parse_bahai)
-                }
-                Some("sumerian") | Some("sumer") | Some("gilgamesh") | Some("enkidu") | Some("enumaelish") | Some("tiamat") | Some("apsu") | Some("anunnaki") | Some("enlil") | Some("enki") | Some("inanna") | Some("nanna") | Some("utu") => {
-                    (&SUMERIAN_CORPUS, "godtexts/sumerian.txt.zst", parse_bahai)
-                }
-                Some("lavey") | Some("laveyanism") | Some("satanic") | Some("churchofsatan") | Some("blackpope") | Some("satanbible") | Some("nineantsatanicstatements") => {
-                    (&LAVEYANISM_CORPUS, "godtexts/laveyanism.txt.zst", parse_bahai)
-                }
-                Some("cathar") | Some("catharism") | Some("cathari") | Some("albigensian") | Some("albigenses") | Some("parfait") | Some("consolamentum") | Some("bogomil") | Some("bogomilism") | Some("secretsupper") | Some("interrogatio") => {
-                    (&CATHARISM_CORPUS, "godtexts/catharism.txt.zst", parse_bahai)
-                }
-                Some("caine") | Some("noddism") | Some("kindred") | Some("vampire") | Some("masquerade") | Some("gehenna") | Some("jyhad") | Some("sabbat") | Some("camarilla") | Some("antediluvian") | Some("bookofnod") | Some("vtm") | Some("worldofdarkness") => {
-                    (&NODDISM_CORPUS, "godtexts/noddism.txt.zst", parse_bahai)
-                }
-                Some("earthseed") | Some("olamina") | Some("godischange") | Some("godseed") => {
-                    (&EARTHSEED_CORPUS, "godtexts/earthseed.txt.zst", parse_bahai)
-                }
-                Some("jain") | Some("jainism") | Some("mahavira") | Some("gaina") | Some("tirthankara") | Some("akaranga") | Some("vardhamana") => {
-                    (&JAINISM_CORPUS, "godtexts/jainism.txt.zst", parse_bahai)
-                }
-                Some("incan") | Some("inca") | Some("huarochiri") | Some("pariacaca") | Some("paria") | Some("quechua") | Some("andean") | Some("huallallo") | Some("viracocha") => {
-                    (&INCAN_CORPUS, "godtexts/incan.txt.zst", parse_bahai)
-                }
-                Some("iching") | Some("yijing") | Some("yiching") | Some("yi") | Some("zhouyi") | Some("hexagram") | Some("legge") | Some("khien") | Some("bagua") | Some("trigram") => {
-                    (&ICHING_CORPUS, "godtexts/iching.txt.zst", parse_bahai)
-                }
-                Some("jedi") | Some("jedipath") | Some("theforce") | Some("force") | Some("yoda") | Some("skywalker") | Some("anakin") | Some("luke") | Some("obi") | Some("kenobi") | Some("mace") | Some("windu") | Some("sith") | Some("midichlorian") => {
-                    (&JEDI_CORPUS, "godtexts/jedi.txt.zst", parse_bahai)
-                }
-                Some("aztec") | Some("azteca") | Some("mexica") | Some("nahua") | Some("nahuatl") | Some("huitzilopochtli") | Some("tlaloc") | Some("tezcatlipoca") | Some("xipe") | Some("coatlicue") | Some("tonatiuh") | Some("chalchiuhtlicue") => {
-                    (&AZTEC_MERGED_CORPUS, "godtexts/aztec.txt.zst", parse_merged_aztec)
-                }
-                Some("hermetic") | Some("hermeticism") | Some("trismegistus") | Some("poemandres") | Some("corpus") | Some("emerald") | Some("kybalion") => {
-                    (&HERMETIC_CORPUS, "godtexts/hermeticism.txt.zst", parse_bahai)
-                }
-                Some("thelema") | Some("crowley") | Some("aleister") | Some("liber") | Some("beast") | Some("nuit") | Some("hadit") | Some("hoor") | Some("aiwass") | Some("therion") => {
-                    (&THELEMA_CORPUS, "godtexts/thelema.txt.zst", parse_bahai)
-                }
-                Some("eris") | Some("discordia") | Some("discordian") | Some("discordianism") | Some("principia") | Some("fnord") | Some("kallisti") | Some("malaclypse") | Some("chaos") => {
-                    (&DISCORDIA_CORPUS, "godtexts/discordianism.txt.zst", parse_bahai)
-                }
-                Some("spiritism") | Some("spiritist") | Some("kardec") | Some("allankardec") | Some("medium") | Some("spirits") | Some("spiritsbook") => {
-                    (&SPIRITISM_CORPUS, "godtexts/spiritism.txt.zst", parse_bahai)
-                }
-                Some("tenrikyo") | Some("ofudesaki") | Some("oyasama") | Some("tsukihi") | Some("miki") | Some("nakayama") | Some("jiba") => {
-                    (&TENRIKYO_CORPUS, "godtexts/ofudesaki.txt.zst", parse_bahai)
-                }
-                Some("falun") | Some("falundafa") | Some("falungong") | Some("zhuanfalun") | Some("dafa") | Some("lihongzhi") | Some("shifu") => {
-                    (&FALUNDAFA_CORPUS, "godtexts/falungong.txt.zst", parse_bahai)
-                }
-                Some("rael") | Some("raelian") | Some("raelism") | Some("elohim") | Some("vorilhon") | Some("clonaid") => {
-                    (&RAELISM_CORPUS, "godtexts/raelism.txt.zst", parse_bahai)
-                }
-                Some("elderscrolls") | Some("vivec") | Some("tamriel") | Some("daedra") | Some("aedra") | Some("aurbis") | Some("nirn") | Some("nerevarine") | Some("monomyth") | Some("veloth") | Some("dunmer") | Some("morrowind") | Some("khajiit") | Some("alduin") | Some("talos") | Some("shor") | Some("lorkhan") => {
-                    (&ELDERSCROLLS_CORPUS, "godtexts/elderscrolls.txt.zst", parse_bahai)
-                }
-                Some("subgenius") | Some("dobbs") | Some("slack") | Some("xist") | Some("bulldada") | Some("jhvh") | Some("stang") => {
-                    (&SUBGENIUS_CORPUS, "godtexts/subgenius.txt.zst", parse_bahai)
-                }
-                Some("bokonon") | Some("bokononism") | Some("foma") | Some("karass") | Some("granfalloon") | Some("wampeter") | Some("duprass") | Some("vonnegut") | Some("catscradle") | Some("calypso") => {
-                    (&BOKONON_CORPUS, "godtexts/bokononism.txt.zst", parse_bahai)
-                }
-                Some("tolkien") | Some("silmarillion") | Some("ainulindale") | Some("valaquenta") | Some("akallabeth") | Some("numenor") | Some("valar") | Some("maiar") | Some("eru") | Some("iluvatar") | Some("morgoth") | Some("melkor") | Some("arda") | Some("valinor") | Some("feanor") | Some("eldar") | Some("ainur") | Some("middleearth") => {
-                    (&TOLKIEN_CORPUS, "godtexts/tolkien.txt.zst", parse_bahai)
-                }
-                Some("shaker") | Some("shakers") | Some("annlee") | Some("secondappearing") | Some("millennial") | Some("youngs") => {
-                    (&SHAKER_CORPUS, "godtexts/shaker.txt.zst", parse_bahai)
-                }
-                Some("swedenborg") | Some("newchurch") | Some("newjerusalem") | Some("arcana") | Some("coelestia") | Some("conjugial") | Some("influx") | Some("correspondences") | Some("spiritualworld") => {
-                    (&SWEDENBORG_CORPUS, "godtexts/swedenborg.txt.zst", parse_bahai)
-                }
-                Some("canaan") | Some("canaanite") | Some("ugarit") | Some("ugaritic") | Some("baal") | Some("anat") | Some("asherah") | Some("astarte") | Some("aqhat") | Some("kirta") | Some("rephaim") | Some("mot") | Some("yamm") | Some("kothar") => {
-                    (&CANAAN_CORPUS, "godtexts/canaan.txt.zst", parse_bahai)
-                }
-                Some("moorish") | Some("moorishscience") | Some("drewali") | Some("circle7") | Some("noblepath") | Some("moor") | Some("asiatic") => {
-                    (&MOORISH_CORPUS, "godtexts/moorishscience.txt.zst", parse_bahai)
-                }
-                Some("setian") | Some("templeofset") | Some("xeper") | Some("harwer") | Some("aquino") | Some("bookofthenight") | Some("setianblackflame") => {
-                    (&TEMPLEOFSET_CORPUS, "godtexts/templeofset.txt.zst", parse_bahai)
-                }
-                Some("urantia") | Some("urantiabook") | Some("urantian") | Some("orvonton") | Some("nebadon") | Some("havona") | Some("forsocia") | Some("thoughtadjuster") | Some("finaliter") | Some("uversa") | Some("salvington") => {
-                    (&URANTIA_CORPUS, "godtexts/urantia.txt.zst", parse_bahai)
-                }
-                Some("heavensgate") | Some("telah") | Some("tido") | Some("applewhite") | Some("nettles") | Some("nextlevel") | Some("hale-bopp") | Some("halebopp") => {
-                    (&HEAVENSGATE_CORPUS, "godtexts/heavensgate.txt.zst", parse_bahai)
-                }
-                Some("process") | Some("processchurch") | Some("processian") | Some("jehovah") | Some("lucifer") | Some("satan") | Some("devilworship") | Some("robertdevegrimston") | Some("maryannmaclean") => {
-                    (&PROCESSCHURCH_CORPUS, "godtexts/processchurch.txt.zst", parse_bahai)
-                }
-                Some("andraste") | Some("andrastianism") | Some("maker") | Some("chantoflight") | Some("thedas") | Some("ferelden") | Some("orlais") | Some("dragonage") | Some("chantry") => {
-                    (&ANDRASTIANISM_CORPUS, "godtexts/andrastianism.txt.zst", parse_bahai)
-                }
-                Some("orphic") | Some("orpheus") | Some("orphism") | Some("dionysus") | Some("persephone") | Some("hecate") | Some("protogonus") | Some("phanes") | Some("mysteries") | Some("bacchic") => {
-                    (&ORPHIC_CORPUS, "godtexts/orphic.txt.zst", parse_bahai)
-                }
-                Some("neoplatonism") | Some("neoplatonist") | Some("plotinus") | Some("plotinos") | Some("enneads") | Some("theone") | Some("emanation") | Some("nous") | Some("proclus") | Some("porphyry") | Some("iamblichus") => {
-                    (&NEOPLATONISM_CORPUS, "godtexts/neoplatonism.txt.zst", parse_bahai)
-                }
-                Some("kabbalah") | Some("zohar") | Some("kabbalist") | Some("kabbalistic") | Some("sefirot") | Some("sephirot") | Some("simeonbaryochai") | Some("rashbi") | Some("einsof") | Some("soncino") | Some("jewishmysticism") => {
-                    (&KABBALAH_CORPUS, "godtexts/kabbalah.txt.zst", parse_bahai)
-                }
-                Some("dss") | Some("deadseascrolls") | Some("qumran") | Some("essene") | Some("essenes") | Some("communityrule") | Some("damascusdocument") | Some("warscroll") | Some("thanksgivinghymns") | Some("templeoscroll") | Some("vermes") => {
-                    (&DSS_CORPUS, "godtexts/deadseascrolls.txt.zst", parse_bahai)
-                }
-                Some("deuterocanon") | Some("deuterocanonical") | Some("enoch") | Some("1enoch") | Some("bookofjubilees") | Some("jubilees") | Some("tawahedo") | Some("ethiopianorthodox") | Some("charles") => {
-                    (&DEUTEROCANON_CORPUS, "godtexts/deuterocanon.txt.zst", parse_bahai)
-                }
-                Some("acim") | Some("courseinmiracles") | Some("acourseinmiracles") | Some("miracles") | Some("holyspirit") | Some("forgiveness") | Some("atonement") | Some("workbook") | Some("manualforteachers") | Some("urtext") => {
-                    (&ACIM_CORPUS, "godtexts/acim.txt.zst", parse_bahai)
-                }
-                Some("faithism") | Some("oahspe") | Some("jehovih") | Some("kosmon") | Some("newbrough") | Some("saphah") | Some("etherea") | Some("atmospherea") => {
-                    (&FAITHISM_CORPUS, "godtexts/faithism.txt.zst", parse_bahai)
-                }
-                Some("aquarian") | Some("aquariangospel") | Some("dowling") | Some("akashic") | Some("piscean") | Some("aquarianage") => {
-                    (&AQUARIAN_CORPUS, "godtexts/aquarian.txt.zst", parse_bahai)
-                }
-                Some("lawofone") | Some("ramaterial") | Some("confederation") | Some("densities") | Some("wanderer") | Some("harvest") | Some("larussell") | Some("donelkins") | Some("carlarueckert") | Some("racontact") => {
-                    (&LAWOFONE_CORPUS, "godtexts/lawofone.txt.zst", parse_bahai)
-                }
-                Some("iammovement") | Some("iam") | Some("saintgermain") | Some("stgermain") | Some("godfreking") | Some("guyballard") | Some("ballard") | Some("lotusray") | Some("ascendedmaster") | Some("mightyiampresence") => {
-                    (&IAMMOVEMENT_CORPUS, "godtexts/iammovement.txt.zst", parse_bahai)
-                }
-                Some("acadfuturesci") | Some("hurtak") | Some("affs") | Some("academyforfuturescience") | Some("brotherhoodoflight") | Some("ophanimenoch") => {
-                    (&ACADFUTURESCI_CORPUS, "godtexts/acadfuturesci.txt.zst", parse_bahai)
-                }
-                Some("unarius") | Some("ernestnorman") | Some("shamballa") | Some("voiceoferos") | Some("voiceofhermes") | Some("voiceoforion") | Some("voiceofvenus") => {
-                    (&UNARIUS_CORPUS, "godtexts/unarius.txt.zst", parse_bahai)
-                }
-                Some("aetherius") | Some("georgeking") | Some("ninefreedoms") | Some("twelveblessings") | Some("saintgooling") | Some("marssector6") => {
-                    (&AETHERIUS_CORPUS, "godtexts/aetherius.txt.zst", parse_bahai)
-                }
-                Some("anthroposophy") | Some("steiner") | Some("rudolfsteiner") => {
-                    (&ANTHROPOSOPHY_CORPUS, "godtexts/anthroposophy.txt.zst", parse_bahai)
-                }
-                Some("mahikari") | Some("sukyomahikari") | Some("okada") | Some("sukuinushisama") => {
-                    (&MAHIKARI_CORPUS, "godtexts/mahikari.txt.zst", parse_bahai)
-                }
-                Some("radhasoami") | Some("sarbachan") | Some("soamiji") | Some("santmat") => {
-                    (&RADHASOAMI_CORPUS, "godtexts/radhasoami.txt.zst", parse_bahai)
-                }
-                Some("hawaii") | Some("hawaiian") | Some("kumulipo") | Some("kalakaua") => {
-                    (&HAWAIIAN_CORPUS, "godtexts/hawaiian.txt.zst", parse_bahai)
-                }
-                Some("commofchr") | Some("communityofchrist") | Some("rlds") | Some("reorganized") => {
-                    (&COMMOFCHR_CORPUS, "godtexts/commofchr.txt.zst", parse_bahai)
-                }
-                Some("strangite") | Some("strang") | Some("jamesstrang") | Some("lawofthelord") => {
-                    (&STRANGITE_CORPUS, "godtexts/strangite.txt.zst", parse_bahai)
-                }
-                Some("agelesswisdom") | Some("alicebailey") | Some("bailey") | Some("djwhal") | Some("djwhalkhul") | Some("lucistrust") | Some("thehierarchy") | Some("arcane") | Some("arcaneschool") | Some("treatise") | Some("theplan") | Some("sevenrays") => {
-                    (&AGELESSWISDOM_CORPUS, "godtexts/agelesswisdom.txt.zst", parse_bahai)
-                }
-                Some("meherbaba") | Some("meher") | Some("baba") | Some("godspeaks") | Some("avatar") | Some("sufismreoriented") => {
-                    (&MEHERBABA_CORPUS, "godtexts/meherbaba.txt.zst", parse_bahai)
-                }
-                Some("bible") | Some("god") | Some("jesus") | Some("christ") | Some("kjv") | Some("christian") => {
-                    (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv)
-                }
-                Some(_) => (&KJV_CORPUS, "godtexts/__unknown__", parse_kjv),
                 None => {
-                    let all = all_corpora();
-                    // Knuth multiplicative hash on secs — scrambles the bits so
-                    // corpus selection has no visible pattern.
-                    let h = secs.wrapping_mul(2654435761);
-                    all[(h as usize) % all.len()]
+                    let phrase = OUT_TO_LUNCH[(secs as usize).wrapping_mul(2654435761) % OUT_TO_LUNCH.len()];
+                    ctx.chat(format!("Sorry, that God is {phrase}, another God will answer your mortal cries instead. (use !searchgod for keywords)"));
+                    pick_random_available_corpus(secs)
                 }
-            };
-
-        let (corpus_cell, path, parser) = if path == "godtexts/__unknown__" || !std::path::Path::new(path).exists() {
-            let phrase = OUT_TO_LUNCH[(secs as usize).wrapping_mul(2654435761) % OUT_TO_LUNCH.len()];
-            let hint = if path == "godtexts/__unknown__" { " (use !searchgod for keywords)" } else { "" };
-            ctx.chat(format!("Sorry, that God is {phrase}, another God will answer your mortal cries instead.{hint}"));
-            pick_random_available_corpus(secs)
-        } else {
-            (corpus_cell, path, parser)
+            },
+            None => {
+                // Knuth multiplicative hash on secs — scrambles the bits so
+                // corpus selection has no visible pattern.
+                pick_random_available_corpus(secs.wrapping_mul(2654435761))
+            }
         };
 
         let corpus = match get_corpus(corpus_cell, path, parser).await {
