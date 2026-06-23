@@ -1,6 +1,6 @@
 # !askgod — Available Gods
 
-No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (74 corpora)
+No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (75 corpora)
 
 | Arg(s) | Corpus |
 |---|---|
@@ -78,3 +78,4 @@ No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (74 co
 | `commofchr` `communityofchrist` `rlds` `reorganized` | Community of Christ D&C (RLDS sections 114–144) |
 | `strangite` `strang` `jamesstrang` `lawofthelord` | Book of the Law of the Lord (James Strang, 1851) |
 | `agelesswisdom` `alicebailey` `bailey` `djwhal` `djwhalkhul` `lucistrust` `thehierarchy` `arcane` `arcaneschool` `treatise` `theplan` `sevenrays` | The 24 Books of Esoteric Philosophy (Alice A. Bailey, with permission of Lucis Trust) |
+| `meherbaba` `meher` `baba` `godspeaks` `avatar` `sufismreoriented` | God Speaks (Meher Baba, 2nd ed. 1973) — Avatar Meher Baba Trust eBook |

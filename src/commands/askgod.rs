@@ -86,7 +86,7 @@ fn listgods(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "moon", "noi", "sophia", "eddy", "krishna", "buddha", "waheguru", "tao",
             "confucius", "amaterasu", "caodai", "zoroaster", "osiris", "odin", "zeus",
             "hurakan", "hammurabi", "huitzilopochtli", "hermetic", "crowley", "eris",
-            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi", "qumran", "enoch", "acim", "faithism", "aquarian", "lawofone", "iammovement", "acadfuturesci", "unarius", "aetherius", "anthroposophy", "mahikari", "radhasoami", "hawaii", "alicebailey", "tibetan",
+            "kardec", "tenrikyo", "falun", "rael", "vivec", "dobbs", "bokonon", "tolkien", "shaker", "swedenborg", "canaan", "moorish", "setian", "urantia", "heavensgate", "process", "andraste", "orpheus", "plotinus", "zohar", "sumerian", "lavey", "cathar", "caine", "olamina", "mahavira", "pariacaca", "iching", "kebra", "rasta", "jedi", "qumran", "enoch", "acim", "faithism", "aquarian", "lawofone", "iammovement", "acadfuturesci", "unarius", "aetherius", "anthroposophy", "mahikari", "radhasoami", "hawaii", "alicebailey", "tibetan", "baba",
         ];
         const MAX: usize = 220;
         let mut line = format!("!askgod <god> -- {} corpora, one per corpus: ", GODS.len());
@@ -192,10 +192,11 @@ static HAWAIIAN_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static COMMOFCHR_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static STRANGITE_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 static AGELESSWISDOM_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
+static MEHERBABA_CORPUS: OnceLock<Vec<Verse>> = OnceLock::new();
 
 type CorpusEntry = (&'static OnceLock<Vec<Verse>>, &'static str, fn(&str) -> anyhow::Result<Vec<Verse>>);
 
-fn all_corpora() -> [CorpusEntry; 74] {
+fn all_corpora() -> [CorpusEntry; 75] {
     [
         (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv),
         (&KORAN_CORPUS, "godtexts/koran.txt.zst", parse_koran),
@@ -271,6 +272,7 @@ fn all_corpora() -> [CorpusEntry; 74] {
         (&COMMOFCHR_CORPUS, "godtexts/commofchr.txt.zst", parse_bahai),
         (&STRANGITE_CORPUS, "godtexts/strangite.txt.zst", parse_bahai),
         (&AGELESSWISDOM_CORPUS, "godtexts/agelesswisdom.txt.zst", parse_bahai),
+        (&MEHERBABA_CORPUS, "godtexts/meherbaba.txt.zst", parse_bahai),
     ]
 }
 
@@ -587,6 +589,9 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
                 Some("agelesswisdom") | Some("alicebailey") | Some("bailey") | Some("djwhal") | Some("djwhalkhul") | Some("lucistrust") | Some("thehierarchy") | Some("arcane") | Some("arcaneschool") | Some("treatise") | Some("theplan") | Some("sevenrays") => {
                     (&AGELESSWISDOM_CORPUS, "godtexts/agelesswisdom.txt.zst", parse_bahai)
+                }
+                Some("meherbaba") | Some("meher") | Some("baba") | Some("godspeaks") | Some("avatar") | Some("sufismreoriented") => {
+                    (&MEHERBABA_CORPUS, "godtexts/meherbaba.txt.zst", parse_bahai)
                 }
                 Some("bible") | Some("god") | Some("jesus") | Some("christ") | Some("kjv") | Some("christian") => {
                     (&KJV_CORPUS, "godtexts/kjv.txt.zst", parse_kjv)
@@ -1087,7 +1092,7 @@ static GOD_STATS: OnceLock<GodStats> = OnceLock::new();
 
 // Total unique god/keyword aliases across all match arms in `execute`'s god_arg match.
 // Manual count, like the all_corpora() array size — bump when aliases are added/removed.
-const KNOWN_GODS_COUNT: usize = 639;
+const KNOWN_GODS_COUNT: usize = 645;
 
 pub fn preload_all_corpora() {
     let t = std::time::Instant::now();

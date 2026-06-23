@@ -110,7 +110,7 @@
 | `!shout <message>` | Broadcast to all connected servers (not enabled) |
 | `!nickname <name>` | Change bot's in-game nickname |
 | `!febzey` | 🤷 |
-| `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, specify a god below (74 corpora), or ask a multi-word question for an oracle response |
+| `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, specify a god below (75 corpora), or ask a multi-word question for an oracle response |
 | `!listgods` / `!gods` | List one god per corpus with its trigger word |
 | `!searchgod` / `!godsearch` / `!sgod <words>` | Search sacred texts for a keyword or phrase |
 | `!godverse` / `!verse` / `!vgod <reference>` | Look up a verse by reference |
@@ -135,7 +135,7 @@
 
 ## !askgod — Available Gods
 
-See [GODS.md](GODS.md) for the full list of 74 corpora and their trigger words.
+See [GODS.md](GODS.md) for the full list of 75 corpora and their trigger words.
 
 ## Trades
 
