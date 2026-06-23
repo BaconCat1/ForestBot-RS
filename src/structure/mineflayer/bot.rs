@@ -1270,6 +1270,17 @@ fn spawn_websocket_event_task(state: AzaleaState) {
                 WebsocketEvent::FadvAwards(data) => {
                     handle_fadv_awards(&state, data);
                 }
+                WebsocketEvent::PearlResult(data) => {
+                    let runtime = state.runtime.read().expect("runtime lock poisoned");
+                    let whisper_cmd = runtime.whisper_command.clone();
+                    drop(runtime);
+                    let msg = if data.success {
+                        format!("🟢 Pearl activated!")
+                    } else {
+                        format!("🔴 Pearl failed: {}", data.message)
+                    };
+                    enqueue_outbound_chat(&state, format!("/{whisper_cmd} {} {msg}", data.requester));
+                }
                 WebsocketEvent::UnknownMessage(message) => {
                     logger::websocket(format!("Unknown websocket message: {message}"));
                 }

@@ -35,6 +35,7 @@ pub mod server_summary;
 pub mod trivia;
 pub mod weather;
 pub mod wiki;
+pub mod pearl;
 
 use crate::structure::mineflayer::bot::{AzaleaState, RuntimeConfig};
 
@@ -245,6 +246,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         urbandictionary::COMMAND,
         trivia::TRIVIA_COMMAND,
         trivia::ANSWER_COMMAND,
+        pearl::COMMAND,
     ]
 }
 

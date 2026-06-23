@@ -1404,6 +1404,7 @@ pub enum WebsocketEvent {
     TradesReset(TradesResetData),
     TradesUnreset(TradesResetData),
     FadvAwards(FadvAwardsEvent),
+    PearlResult(PearlResultData),
     Ignored,
     #[allow(dead_code)]
     MinecraftPlayerDeath(MinecraftPlayerDeathMessage),
@@ -1415,6 +1416,14 @@ pub enum WebsocketEvent {
     MinecraftPlayerLeave(MinecraftPlayerLeaveMessage),
     #[allow(dead_code)]
     MinecraftAdvancement(MinecraftAdvancementMessage),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PearlResultData {
+    pub slot: u8,
+    pub success: bool,
+    pub message: String,
+    pub requester: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1579,6 +1588,9 @@ fn parse_inbound_message(text: &str) -> Option<WebsocketEvent> {
         "fadv_awards" => serde_json::from_value(value.data)
             .ok()
             .map(WebsocketEvent::FadvAwards),
+        "pearl_result" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::PearlResult),
         "report_created" | "trade_confirmed" | "trade_rejected" | "content_flagged" => Some(WebsocketEvent::Ignored),
         "error" => Some(WebsocketEvent::Error(value.data.to_string())),
         _ => Some(WebsocketEvent::UnknownMessage(text.to_owned())),
