@@ -116,6 +116,7 @@
 | `!godverse` / `!verse` / `!vgod <reference>` | Look up a verse by reference |
 | `!godstats` | Show corpora count, size, compression ratio, verse count, load time, total god aliases |
 | `!godfight <god1> <god2> <keyword?>` | Two gods, one verse each — keyword narrows both draws to matching verses |
+| `!weather` / `!w <city>` | Current weather for any location — temp, feels-like, conditions, wind, humidity (Open-Meteo, no API key needed) |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
 | `!greeting` | Whispers format info + your current greeting |
 | `!greeting <message>` | Set your join greeting — fires as `"<message>, YourName!"` (12h cooldown, ASCII only) |

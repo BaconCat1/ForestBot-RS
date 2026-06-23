@@ -32,6 +32,7 @@ pub mod news;
 pub mod translate;
 pub mod urbandictionary;
 pub mod server_summary;
+pub mod weather;
 pub mod wiki;
 
 use crate::structure::mineflayer::bot::{AzaleaState, RuntimeConfig};
@@ -239,6 +240,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         daynight::NIGHT_COMMAND,
         news::COMMAND,
         translate::COMMAND,
+        weather::COMMAND,
         urbandictionary::COMMAND,
     ]
 }
