@@ -26,7 +26,10 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         };
 
         let uuid = {
-            let players = ctx.state.players.read().expect("player cache lock poisoned");
+            let Ok(players) = ctx.state.players.read() else {
+                ctx.whisper("Internal error: player cache unavailable.");
+                return Ok(());
+            };
             players.get(ctx.sender).map(|p| p.uuid.clone())
         };
         let uuid = match uuid {
