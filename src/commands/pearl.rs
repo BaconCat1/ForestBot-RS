@@ -40,9 +40,8 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             },
         };
 
-        match ws.send_message("pearl_request", json!({ "slot": slot, "requester": ctx.sender, "requester_uuid": uuid })).await {
-            Ok(()) => ctx.whisper(format!("Pearl request sent for slot {slot}. Result incoming...")),
-            Err(e) => ctx.whisper(format!("Failed to send pearl request: {e}")),
+        if let Err(e) = ws.send_message("pearl_request", json!({ "slot": slot, "requester": ctx.sender, "requester_uuid": uuid })).await {
+            ctx.whisper(format!("Failed to send pearl request: {e}"));
         }
 
         Ok(())
