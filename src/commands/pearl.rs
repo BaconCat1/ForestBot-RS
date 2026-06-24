@@ -2,7 +2,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use serde_json::json;
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
-    names: &["pearl"],
+    names: &["pearl", "p"],
     description: "Activate your stasis pearl. Usage: {prefix}pearl <slot>",
     whitelisted: false,
     execute,

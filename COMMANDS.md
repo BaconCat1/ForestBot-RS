@@ -31,6 +31,8 @@
 | `!kd` / `!kills` / `!deaths <server?> <player?>` | Kill/death stats |
 | `!winrate` / `!wr <player?>` | Kill winrate |
 | `!advancements` / `!advs <server?> <player?>` | Total advancement count |
+| `!fadvs` / `!fadv <player?>` | Forest Advancements overview — shows earned/total per category (whispered) |
+| `!fadvs <category> <player?>` | Forest Advancements for a specific category — categories: `kills`, `deaths`, `playtime`, `messages`, `joins`, `trades`, `kd`, `killmethods`, `deathmethods` |
 | `!advancement` / `!advancementcount <advancement>` | Times a specific advancement was reached |
 | `!lastadvancement` / `!ladv <player?>` | Most recent advancement |
 | `!summary` / `!sum <player?>` | Stats overview (kd, playtime, messages, advancements, joindate) |
@@ -157,6 +159,14 @@ See [GODS.md](GODS.md) for the full list of 75 corpora and their trigger words.
 | `!report <player> <reason?>` | Report a player as a scammer |
 
 Cooldowns: 60s to re-propose after a trade. If someone rejects your proposal, you're locked out for 10 minutes.
+
+## Stasis Pearl
+
+| Command | Description |
+|---|---|
+| `!pearl <slot>` / `!p <slot>` | Activate your stasis pearl in the given slot — bot logs in briefly, opens the trapdoor, disconnects on pearl despawn |
+
+Whitelist per slot in `pearlbot.toml`. Result whispered on success or failure.
 
 ## Admin / Whitelist only
 
