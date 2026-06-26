@@ -46,17 +46,12 @@ fn prob_lo(current: u8, deck: &[u8]) -> f64 {
     deck.iter().filter(|&&c| c <= current).count() as f64 / deck.len() as f64
 }
 
-fn show_state(ctx: &CommandContext, card: u8, deck: &[u8], stake: i64, multiplier: f64, can_cashout: bool) {
-    let p_hi = prob_hi(card, deck);
-    let p_lo = prob_lo(card, deck);
-    let m_hi = HOUSE_EDGE / p_hi;
-    let m_lo = HOUSE_EDGE / p_lo;
+fn show_state(ctx: &CommandContext, card: u8, _deck: &[u8], stake: i64, multiplier: f64, can_cashout: bool) {
     let cashout_val = (stake as f64 * multiplier) as i64;
     let cash_str = if can_cashout { "/cash" } else { "" };
     ctx.whisper(format!(
-        "HiLo | {} | x{:.2}={} | Hi {:.1}%(→{:.2}x) | Lo {:.1}%(→{:.2}x) | hi/lo/skip{}",
-        rank_name(card), multiplier, chips_str(cashout_val),
-        p_hi * 100.0, m_hi, p_lo * 100.0, m_lo, cash_str
+        "HiLo | {} | x{:.2}={} | hi/lo/skip{}",
+        rank_name(card), multiplier, chips_str(cashout_val), cash_str
     ));
 }
 
