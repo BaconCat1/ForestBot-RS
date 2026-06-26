@@ -15,7 +15,7 @@ ForestBot has a fully integrated trading system with trade proposals, confirmati
 
 ForestBot can be used to initiate stasis chamber pulls via [pearlbot](https://github.com/jollycurv-e/pearlbot). This functionality is configured server side, and is therefore not a feature for the general public.
 
-ForestBot includes a casino module (`!chips`, `!roulette`, `!craps`, `!bj`, `!poker`, `!scratch`, `!jackpot`, `!lotto`, and more). See [src/commands/casino/SOURCES.md](src/commands/casino/SOURCES.md) for full source attributions.
+ForestBot includes a casino module (`!chips`, `!faucet`, `!slots`, `!hilo`, `!c4`, `!roulette`, `!craps`, `!bj`, `!poker`, `!scratch`, `!jackpot`, `!lotto`, and more). See [src/commands/casino/SOURCES.md](src/commands/casino/SOURCES.md) for full source attributions.
 
 ## Attributions
 
@@ -30,4 +30,8 @@ License: MIT — © 2025 ashxudev.
 **Let's Go Gambling!** — Fabric mod by BobR0ssiter providing game models for roulette, craps, and blackjack (`RouletteScreenHandler`, `CrapsScreenHandler`, `BlackjackScreenHandler`). Adapted for MC chat: GUI/inventory/split/side-bet logic dropped; instant-command and session-based ports written in Rust.
 License: MIT — © BobR0ssiter.
 
-**connect-four-rust** (Antonio Scotti, 2019) and **VirtualCasinoIDL** — previously referenced; no license declared. Implementations quarantined to `_quarantine/`. Pending rewrite from clean licensed sources.
+**connect-four-ai** — Rust Connect Four library by benjaminrall (2025). Board representation (`Position` bitboard), win detection, and AI player (`AIPlayer`) used via path dependency. Command flow and opponent roster written from scratch.
+License: MIT — © 2025 benjaminrall.
+
+**slot-machine-gen** — JavaScript slot machine library by Marc S. Brooks (2020–2025). Strip-model symbol selection approach referenced for weighted probability design. No code ported; JS source used as conceptual reference only.
+License: MIT — © 2020-2025 Marc S. Brooks.

@@ -14,6 +14,7 @@ Game logic references and adaptations used in the ForestBot-RS casino module.
 | `mod.rs` (chips / faucet / give / jackpot) | Original implementation. Faucet streak schedule and jackpot mechanics original; economy design from `VirtualCasinoIDL/MAP.md`. | Original |
 | `poker/` | _terminal-poker_ — Rust NLHE engine by ashxudev (2025). Extracted: `game/deck.rs`, `game/hand.rs`, `game/state.rs`, `game/actions.rs`, `bot/rule_based.rs`, `bot/draws.rs`, `bot/preflop.rs`. TUI, stats, and main event loop not used. `crate::game::` imports rewritten to relative paths. | MIT — © 2025 ashxudev. License text: `terminal-poker/LICENSE` |
 | `connect_four/` | _connect-four-ai_ by benjaminrall. Board representation (`Position` bitboard), win detection, and AI (`AIPlayer` with softmax difficulty selection) adapted via path dependency on the `connect-four-ai` crate. Prior `board.rs` / `bot.rs` rewritten from scratch; command flow (`mod.rs`) rewritten from scratch. | MIT — © 2025 benjaminrall |
+| `hilo.rs` | Original implementation. Game rules, probability model (P = favorable/remaining, step mult = 0.99/P), same-rank tie rule, and skip mechanic based on standard HiLo card game mechanics. Reference: _HiLo Card Game: Rules and How to Win More_ — Nice Games Team, 2026 (informational only; no code). | Original |
 
 ## Excluded
 
