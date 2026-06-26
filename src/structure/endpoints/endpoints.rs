@@ -656,6 +656,253 @@ impl ApiClient {
         }
     }
 
+    // ── Casino API ────────────────────────────────────────────────────────────
+
+    pub async fn casino_get_balance(&self, player: &str) -> Option<CasinoBalance> {
+        self.get_json(&format!("/casino/balance/{player}"), &[])
+            .await
+            .and_then(|v| self.parse_json("/casino/balance", v))
+    }
+
+    pub async fn casino_faucet(&self, player: &str) -> CasinoFaucetResult {
+        let Some(v) = self
+            .post_json("/casino/faucet", json!({ "player": player }))
+            .await
+        else {
+            return CasinoFaucetResult::Err;
+        };
+        if v.get("error").and_then(|e| e.as_str()) == Some("cooldown") {
+            let next_secs = v
+                .get("next_claim_secs")
+                .and_then(|s| s.as_u64())
+                .unwrap_or(0);
+            return CasinoFaucetResult::OnCooldown { next_secs };
+        }
+        CasinoFaucetResult::Awarded {
+            chips_awarded: v.get("chips_awarded").and_then(|c| c.as_i64()).unwrap_or(0),
+            streak: v.get("streak").and_then(|s| s.as_i64()).unwrap_or(0) as i32,
+            chips: v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0),
+            lotto_pick: v.get("lotto_pick").and_then(|p| p.as_str()).unwrap_or("").to_owned(),
+            draw_date: v.get("draw_date").and_then(|d| d.as_str()).unwrap_or("").to_owned(),
+        }
+    }
+
+    pub async fn casino_adjust(
+        &self,
+        player: &str,
+        delta: i64,
+    ) -> Result<i64, CasinoAdjustErr> {
+        let Some(v) = self
+            .post_json("/casino/adjust", json!({ "player": player, "delta": delta }))
+            .await
+        else {
+            return Err(CasinoAdjustErr::NetworkErr);
+        };
+        if v.get("error").and_then(|e| e.as_str()) == Some("insufficient_funds") {
+            let chips = v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0);
+            return Err(CasinoAdjustErr::InsufficientFunds(chips));
+        }
+        Ok(v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0))
+    }
+
+    pub async fn casino_transfer(
+        &self,
+        from: &str,
+        to: &str,
+        amount: i64,
+    ) -> Result<(), String> {
+        let Some(v) = self
+            .post_json(
+                "/casino/transfer",
+                json!({ "from": from, "to": to, "amount": amount }),
+            )
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(match err {
+                "insufficient_funds" => {
+                    let chips = v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0);
+                    format!("Not enough chips (have {chips})")
+                }
+                other => other.to_owned(),
+            });
+        }
+        Ok(())
+    }
+
+    pub async fn casino_free_scratch(&self, player: &str) -> CasinoScratchResult {
+        let Some(v) = self
+            .post_json("/casino/scratch/free", json!({ "player": player }))
+            .await
+        else {
+            return CasinoScratchResult::Err;
+        };
+        if v.get("error").and_then(|e| e.as_str()) == Some("cooldown") {
+            let next_secs = v
+                .get("next_scratch_secs")
+                .and_then(|s| s.as_u64())
+                .unwrap_or(0);
+            return CasinoScratchResult::OnCooldown { next_secs };
+        }
+        CasinoScratchResult::Ok
+    }
+
+    pub async fn casino_jackpot_get(&self, player: Option<&str>) -> Option<CasinoJackpotInfo> {
+        let v = match player {
+            Some(p) => self.get_json("/casino/jackpot", &[("player", p)]).await?,
+            None => self.get_json("/casino/jackpot", &[]).await?,
+        };
+        Some(CasinoJackpotInfo {
+            pot: v.get("pot").and_then(|p| p.as_i64()).unwrap_or(0),
+            tickets: v.get("tickets").and_then(|t| t.as_i64()).unwrap_or(0) as i32,
+            next_draw: v.get("next_draw").and_then(|d| d.as_str()).unwrap_or("").to_owned(),
+        })
+    }
+
+    pub async fn casino_jackpot_buy_ticket(
+        &self,
+        player: &str,
+        count: u32,
+    ) -> Result<CasinoJackpotInfo, String> {
+        let Some(v) = self
+            .post_json("/casino/jackpot/ticket", json!({ "player": player, "count": count }))
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(match err {
+                "insufficient_funds" => format!("Not enough chips (25 each, {} total)", 25 * count as i64),
+                other => other.to_owned(),
+            });
+        }
+        Ok(CasinoJackpotInfo {
+            pot: v.get("pot").and_then(|p| p.as_i64()).unwrap_or(0),
+            tickets: v.get("tickets").and_then(|t| t.as_i64()).unwrap_or(0) as i32,
+            next_draw: v.get("next_draw").and_then(|d| d.as_str()).unwrap_or("").to_owned(),
+        })
+    }
+
+    pub async fn casino_jackpot_rake(&self, amount: i64) {
+        let _ = self
+            .post_json("/casino/jackpot/rake", json!({ "amount": amount }))
+            .await;
+    }
+
+    pub async fn casino_claim_notifications(&self, player: &str) -> Vec<String> {
+        let Some(v) = self
+            .post_json("/casino/notifications/claim", json!({ "player": player }))
+            .await
+        else {
+            return vec![];
+        };
+        v.get("messages")
+            .and_then(|m| m.as_array())
+            .map(|arr| arr.iter().filter_map(|s| s.as_str().map(str::to_owned)).collect())
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_lotto_get_tickets(&self, player: &str) -> Vec<CasinoLottoPlayerTicket> {
+        let Some(v) = self.get_json(&format!("/casino/lotto/tickets/{player}"), &[]).await else {
+            return vec![];
+        };
+        v.get("tickets")
+            .and_then(|t| t.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    Some(CasinoLottoPlayerTicket {
+                        numbers: item.get("numbers")?.as_str()?.to_owned(),
+                        draw_date: item.get("draw_date")?.as_str()?.to_owned(),
+                    })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_lotto_get_pot(&self) -> Option<CasinoLottoPot> {
+        let v = self.get_json("/casino/lotto/pot", &[]).await?;
+        Some(CasinoLottoPot {
+            pot: v.get("pot").and_then(|p| p.as_i64()).unwrap_or(0),
+            draw_date: v.get("draw_date").and_then(|d| d.as_str()).map(|s| s.to_owned()),
+        })
+    }
+
+    pub async fn casino_lotto_last_draw(&self) -> Option<CasinoLastLottoDraw> {
+        let v = self.get_json("/casino/lotto/results/last", &[]).await?;
+        Some(CasinoLastLottoDraw {
+            draw_date: v.get("draw_date")?.as_str()?.to_owned(),
+            numbers: v.get("numbers")?.as_str()?.to_owned(),
+        })
+    }
+
+    pub async fn casino_fire_lotto_draw(&self) -> bool {
+        self.post_json("/casino/draw/lotto", json!({})).await.is_some()
+    }
+
+    pub async fn casino_fire_jackpot_draw(&self) -> bool {
+        self.post_json("/casino/draw/jackpot", json!({})).await.is_some()
+    }
+
+    pub async fn casino_lotto_buy_ticket(
+        &self,
+        player: &str,
+        numbers: &str,
+    ) -> Result<CasinoLottoTicketInfo, String> {
+        let Some(v) = self
+            .post_json(
+                "/casino/lotto/ticket",
+                json!({ "player": player, "numbers": numbers }),
+            )
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(match err {
+                "insufficient_funds" => "Not enough chips (costs 50)".to_owned(),
+                "invalid_numbers" => "Pick 5 unique numbers between 1-40".to_owned(),
+                other => other.to_owned(),
+            });
+        }
+        Ok(CasinoLottoTicketInfo {
+            numbers: v.get("numbers").and_then(|n| n.as_str()).unwrap_or("").to_owned(),
+            draw_date: v.get("draw_date").and_then(|d| d.as_str()).unwrap_or("").to_owned(),
+            pot: v.get("pot").and_then(|p| p.as_i64()).unwrap_or(0),
+            chips: v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0),
+        })
+    }
+
+    pub async fn casino_lotto_buy_quick(
+        &self,
+        player: &str,
+        count: u32,
+    ) -> Result<CasinoLottoBulkInfo, String> {
+        let Some(v) = self
+            .post_json("/casino/lotto/ticket", json!({ "player": player, "count": count }))
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(match err {
+                "insufficient_funds" => format!("Not enough chips (50 each, {} total)", 50 * count as i64),
+                other => other.to_owned(),
+            });
+        }
+        let tickets = v.get("tickets")
+            .and_then(|t| t.as_array())
+            .map(|arr| arr.iter().filter_map(|s| s.as_str().map(str::to_owned)).collect())
+            .unwrap_or_default();
+        Ok(CasinoLottoBulkInfo {
+            tickets,
+            draw_date: v.get("draw_date").and_then(|d| d.as_str()).unwrap_or("").to_owned(),
+            pot: v.get("pot").and_then(|p| p.as_i64()).unwrap_or(0),
+            chips: v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0),
+        })
+    }
+
     pub async fn get_user_fadv_ids(&self, uuid: &str, server: &str) -> Option<Vec<String>> {
         let v = self.get_json(
             &format!("/fadv/user-awards/{uuid}"),
@@ -1405,6 +1652,8 @@ pub enum WebsocketEvent {
     TradesUnreset(TradesResetData),
     FadvAwards(FadvAwardsEvent),
     PearlResult(PearlResultData),
+    CasinoDrawResult(CasinoDrawData),
+    CasinoWinnerNotify(CasinoWinnerNotifyData),
     Ignored,
     #[allow(dead_code)]
     MinecraftPlayerDeath(MinecraftPlayerDeathMessage),
@@ -1416,6 +1665,19 @@ pub enum WebsocketEvent {
     MinecraftPlayerLeave(MinecraftPlayerLeaveMessage),
     #[allow(dead_code)]
     MinecraftAdvancement(MinecraftAdvancementMessage),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CasinoDrawData {
+    #[serde(rename = "type")]
+    pub draw_type: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CasinoWinnerNotifyData {
+    pub player: String,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1517,6 +1779,78 @@ pub struct TradebotScammer {
     pub created_at: i64,
 }
 
+// ── Casino types ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CasinoBalance {
+    pub player_name: String,
+    pub chips: i64,
+    pub streak: i32,
+    pub last_claim: Option<String>,
+    pub last_scratch: Option<String>,
+}
+
+#[derive(Debug)]
+pub enum CasinoAdjustErr {
+    InsufficientFunds(i64),
+    NetworkErr,
+}
+
+#[derive(Debug)]
+pub enum CasinoFaucetResult {
+    Awarded { chips_awarded: i64, streak: i32, chips: i64, lotto_pick: String, draw_date: String },
+    OnCooldown { next_secs: u64 },
+    Err,
+}
+
+#[derive(Debug)]
+pub enum CasinoScratchResult {
+    Ok,
+    OnCooldown { next_secs: u64 },
+    Err,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoJackpotInfo {
+    pub pot: i64,
+    pub tickets: i32,
+    pub next_draw: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoLottoTicketInfo {
+    pub numbers: String,
+    pub draw_date: String,
+    pub pot: i64,
+    pub chips: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoLottoBulkInfo {
+    pub tickets: Vec<String>,
+    pub draw_date: String,
+    pub pot: i64,
+    pub chips: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoLottoPlayerTicket {
+    pub numbers: String,
+    pub draw_date: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoLastLottoDraw {
+    pub draw_date: String,
+    pub numbers: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoLottoPot {
+    pub pot: i64,
+    pub draw_date: Option<String>,
+}
+
 fn unwrap_data(value: Value) -> Value {
     value
         .get("data")
@@ -1591,6 +1925,12 @@ fn parse_inbound_message(text: &str) -> Option<WebsocketEvent> {
         "pearl_result" => serde_json::from_value(value.data)
             .ok()
             .map(WebsocketEvent::PearlResult),
+        "casino_draw_result" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::CasinoDrawResult),
+        "casino_winner_notify" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::CasinoWinnerNotify),
         "report_created" | "trade_confirmed" | "trade_rejected" | "content_flagged" => Some(WebsocketEvent::Ignored),
         "error" => Some(WebsocketEvent::Error(value.data.to_string())),
         _ => Some(WebsocketEvent::UnknownMessage(text.to_owned())),

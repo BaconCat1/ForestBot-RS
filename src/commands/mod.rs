@@ -36,6 +36,7 @@ pub mod trivia;
 pub mod weather;
 pub mod wiki;
 pub mod pearl;
+pub mod casino;
 
 use crate::structure::mineflayer::bot::{AzaleaState, RuntimeConfig};
 
@@ -247,6 +248,21 @@ pub fn registry() -> &'static [CommandDefinition] {
         trivia::TRIVIA_COMMAND,
         trivia::ANSWER_COMMAND,
         pearl::COMMAND,
+        casino::ADDCHIPS_COMMAND,
+        casino::FAUCET_COMMAND,
+        casino::GIVE_COMMAND,
+        casino::WALLET_COMMAND,
+        casino::JACKPOT_COMMAND,
+        casino::LOTTO_COMMAND,
+        casino::DRAW_COMMAND,
+        casino::roulette::COMMAND,
+        casino::scratch::COMMAND,
+        casino::craps::COMMAND,
+        casino::blackjack::COMMAND,
+        casino::poker::COMMAND,
+        casino::connect_four::COMMAND,
+        casino::hilo::COMMAND,
+        casino::slots::COMMAND,
     ]
 }
 

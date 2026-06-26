@@ -224,6 +224,7 @@ impl Bot {
             seen_player_detections: Arc::new(RwLock::new(HashSet::new())),
             next_player_detection_scan_at: Arc::new(RwLock::new(0)),
             trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            free_scratch_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             initial_spawn_done: Arc::new(AtomicBool::new(false)),
             antiafk: self.antiafk,
             antiafk_active: Arc::new(AtomicBool::new(false)),
@@ -235,6 +236,7 @@ impl Bot {
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
+            casino_sessions: Arc::new(Mutex::new(HashMap::new())),
         };
 
         let mut builder = if self.options.disable_chat_signing {
@@ -294,6 +296,7 @@ pub struct AzaleaState {
     pub seen_player_detections: Arc<RwLock<HashSet<String>>>,
     pub next_player_detection_scan_at: Arc<RwLock<i64>>,
     pub trade_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
+    pub free_scratch_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
     pub initial_spawn_done: Arc<AtomicBool>,
     pub antiafk: bool,
     pub antiafk_active: Arc<AtomicBool>,
@@ -305,6 +308,40 @@ pub struct AzaleaState {
     pub nick_cache: Arc<RwLock<HashMap<String, String>>>,
     pub world_time_ticks: Arc<RwLock<u64>>,
     pub active_trivia: Arc<Mutex<Option<TriviaRound>>>,
+    pub casino_sessions: Arc<Mutex<HashMap<String, CasinoSession>>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum CasinoSession {
+    Craps {
+        bet: i64,
+        pass_line: bool,
+        point: u32,
+    },
+    Hilo {
+        stake: i64,
+        deck: Vec<u8>,
+        current_card: u8,
+        multiplier: f64,
+        guesses: u32,
+    },
+    Blackjack {
+        bet: i64,
+        player_hand: Vec<u8>,
+        dealer_hand: Vec<u8>,
+    },
+    Poker {
+        stake: i64,
+        opponent_name: &'static str,
+        aggression: f64,
+        game: Box<crate::commands::casino::poker::game::state::GameState>,
+    },
+    ConnectFour {
+        stake: i64,
+        opponent_name: &'static str,
+        difficulty: connect_four_ai::Difficulty,
+        position: connect_four_ai::Position,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -370,6 +407,7 @@ impl Default for AzaleaState {
             seen_player_detections: Arc::new(RwLock::new(HashSet::new())),
             next_player_detection_scan_at: Arc::new(RwLock::new(0)),
             trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            free_scratch_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             initial_spawn_done: Arc::new(AtomicBool::new(false)),
             antiafk: false,
             antiafk_active: Arc::new(AtomicBool::new(false)),
@@ -381,6 +419,7 @@ impl Default for AzaleaState {
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
+            casino_sessions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -528,6 +567,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 );
             send_player_list_update(&state).await;
             deliver_offline_messages(&state, &username).await;
+            deliver_casino_notifications(&state, &username).await;
             if state.initial_spawn_done.load(Ordering::Relaxed) {
                 send_player_join(&state, &username, &uuid).await;
                 fire_greeting_if_due(&state, &username).await;
@@ -629,25 +669,17 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
 }
 
 async fn flush_outbound_chat(bot: &Client, state: &AzaleaState) {
-    let messages = {
-        let mut queue = state
-            .outbound_chat
-            .lock()
-            .expect("outbound chat queue lock poisoned");
-        let mut messages = Vec::new();
-        for _ in 0..3 {
-            let Some(message) = queue.pop_front() else {
-                break;
-            };
-            messages.push(message);
-        }
-        messages
-    };
+    let message = state
+        .outbound_chat
+        .lock()
+        .expect("outbound chat queue lock poisoned")
+        .pop_front();
 
-    for message in messages {
+    if let Some(message) = message {
         let message = filter_outgoing_message(state, &message).await;
         logger::chat(format!("Sending chat reply: {message}"));
         bot.chat(message);
+        tokio::time::sleep(Duration::from_millis(25)).await;
     }
 }
 
@@ -1281,6 +1313,12 @@ fn spawn_websocket_event_task(state: AzaleaState) {
                     };
                     enqueue_outbound_chat(&state, format!("/{whisper_cmd} {} {msg}", data.requester));
                 }
+                WebsocketEvent::CasinoDrawResult(data) => {
+                    enqueue_outbound_chat(&state, &data.message);
+                }
+                WebsocketEvent::CasinoWinnerNotify(data) => {
+                    enqueue_outbound_chat(&state, format!("/msg {} {}", data.player, data.message));
+                }
                 WebsocketEvent::UnknownMessage(message) => {
                     logger::websocket(format!("Unknown websocket message: {message}"));
                 }
@@ -1730,6 +1768,13 @@ async fn deliver_offline_messages(state: &AzaleaState, username: &str) {
 
     if let Err(error) = save_offline_messages(&remaining).await {
         logger::warn(format!("Failed to save offline messages: {error:#}"));
+    }
+}
+
+async fn deliver_casino_notifications(state: &AzaleaState, username: &str) {
+    let messages = state.api.casino_claim_notifications(username).await;
+    for message in messages {
+        enqueue_outbound_chat(state, format!("/msg {username} {message}"));
     }
 }
 

@@ -1,4 +1,5 @@
 /target
+/_tainted_archive
 .env
 config.json
 /ForestBot
