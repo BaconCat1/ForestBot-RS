@@ -37,6 +37,7 @@ pub mod weather;
 pub mod wiki;
 pub mod pearl;
 pub mod casino;
+pub mod duel;
 pub mod market;
 
 use crate::structure::mineflayer::bot::{AzaleaState, RuntimeConfig};
@@ -266,6 +267,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         casino::slots::COMMAND,
         market::COMMAND,
         market::PORTFOLIO_COMMAND,
+        duel::COMMAND,
     ]
 }
 

@@ -998,6 +998,10 @@ impl ApiClient {
         let _ = self.delete_json(&format!("/casino/portfolio-position/{id}")).await;
     }
 
+    pub async fn increment_duel_wins(&self, username: &str) {
+        let _ = self.post_json("/users/duel-win", json!({ "username": username })).await;
+    }
+
     pub async fn get_user_fadv_ids(&self, uuid: &str, server: &str) -> Option<Vec<String>> {
         let v = self.get_json(
             &format!("/fadv/user-awards/{uuid}"),

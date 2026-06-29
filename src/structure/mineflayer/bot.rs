@@ -240,6 +240,7 @@ impl Bot {
             market_service: Arc::new(crate::structure::market::service::MarketService::new()),
             market_bets: Arc::new(Mutex::new(HashMap::new())),
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
+            duels: Arc::new(Mutex::new(Vec::new())),
         };
 
         // Recover market bets that were open when the bot last shut down
@@ -351,6 +352,7 @@ pub struct AzaleaState {
     pub market_service: Arc<crate::structure::market::service::MarketService>,
     pub market_bets: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::MarketBet>>>>,
     pub portfolio_positions: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::PortfolioPosition>>>>,
+    pub duels: Arc<Mutex<Vec<crate::commands::duel::Duel>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -465,6 +467,7 @@ impl Default for AzaleaState {
             market_service: Arc::new(crate::structure::market::service::MarketService::new()),
             market_bets: Arc::new(Mutex::new(HashMap::new())),
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
+            duels: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -657,6 +660,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 .expect("player cache lock poisoned")
                 .remove(&username);
             stat_history::clear_delete_faq_pending(&username);
+            crate::commands::duel::handle_disconnect(&state, &username).await;
             send_player_leave(&state, &username, &uuid).await;
             send_player_list_update(&state).await;
         }
@@ -1209,6 +1213,7 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
         let murderer_uuid = murderer
             .as_deref()
             .and_then(|name| players.get(name).map(|player| player.uuid.clone()));
+        crate::commands::duel::handle_death(state, &player, murderer.as_deref()).await;
         send_player_death(state, &player, &uuid, &full_msg, murderer, murderer_uuid).await;
         logger::death(format!("Death: {full_msg}"));
         return;
