@@ -109,6 +109,20 @@ All games feature a 3% house rake deposited into the jackpot. All losings are de
 
 Payout: `ceil(stake × exit_price / entry_price)` for longs, inverse for shorts. Min stake: 50 chips. One portfolio position per symbol per player.
 
+## Wordle
+
+All in whisper. Per-player — multiple games can run simultaneously.
+
+| Command | Description |
+|---|---|
+| `!wordle <chips>` | Start a game. Stake deducted immediately. |
+| `!wordle <chips> hard` | Start in hard mode — exact matches must stay fixed in later guesses |
+| `!wordle <word>` | Submit a 5-letter guess |
+| `!wordle board` | Show current board |
+| `!wordle quit` / `!wordle forfeit` | Forfeit — stake sent to jackpot |
+
+Win multipliers (by guess number): 8x / 5x / 3x / 2x / 1.5x / 1.2x. Losing forfeits stake to jackpot. Word list: NYT Wordle list (swappable).
+
 ## Duels
 
 | Command | Description |

@@ -22,6 +22,7 @@ sysinfo = "0.33"
 uuid = "1.18.1"
 rand = "0.8"
 connect-four-ai = { git = "https://github.com/benjaminrall/connect-four-ai", rev = "28a112adaf3ff89ee23fb09411fa592b6597010e" }
+cl-wordle = { git = "https://github.com/conradludgate/wordle", rev = "61fd1f0d53154d44532e4de50b68e219048330aa", default-features = false }
 rss = "2"
 urlencoding = "2"
 whatlang = "0.16"

@@ -241,6 +241,7 @@ impl Bot {
             market_bets: Arc::new(Mutex::new(HashMap::new())),
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
             duels: Arc::new(Mutex::new(Vec::new())),
+            wordle_games: Arc::new(Mutex::new(HashMap::new())),
         };
 
         // Recover market bets that were open when the bot last shut down
@@ -353,6 +354,7 @@ pub struct AzaleaState {
     pub market_bets: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::MarketBet>>>>,
     pub portfolio_positions: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::PortfolioPosition>>>>,
     pub duels: Arc<Mutex<Vec<crate::commands::duel::Duel>>>,
+    pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -468,6 +470,7 @@ impl Default for AzaleaState {
             market_bets: Arc::new(Mutex::new(HashMap::new())),
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
             duels: Arc::new(Mutex::new(Vec::new())),
+            wordle_games: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
