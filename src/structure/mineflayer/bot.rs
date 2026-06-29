@@ -237,7 +237,46 @@ impl Bot {
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
             casino_sessions: Arc::new(Mutex::new(HashMap::new())),
+            market_service: Arc::new(crate::structure::market::service::MarketService::new()),
+            market_bets: Arc::new(Mutex::new(HashMap::new())),
+            portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
         };
+
+        // Recover market bets that were open when the bot last shut down
+        {
+            let open_bets = state.api.casino_market_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let now = crate::structure::market::types::now_unix();
+                {
+                    let mut bets = state.market_bets.lock().expect("market_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    let remaining = bet.closes_unix.saturating_sub(now);
+                    tokio::spawn(crate::commands::market::settle_task(
+                        state.clone(),
+                        bet.player.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                        remaining,
+                    ));
+                }
+            }
+        }
+
+        // Load portfolio positions into memory
+        {
+            let open_positions = state.api.casino_portfolio_list().await;
+            if !open_positions.is_empty() {
+                let mut map = state.portfolio_positions.lock().expect("portfolio lock");
+                for pos in open_positions {
+                    map.entry(pos.player.clone()).or_default().push(pos);
+                }
+            }
+        }
 
         let mut builder = if self.options.disable_chat_signing {
             logger::info("Chat signing disabled.");
@@ -309,6 +348,9 @@ pub struct AzaleaState {
     pub world_time_ticks: Arc<RwLock<u64>>,
     pub active_trivia: Arc<Mutex<Option<TriviaRound>>>,
     pub casino_sessions: Arc<Mutex<HashMap<String, CasinoSession>>>,
+    pub market_service: Arc<crate::structure::market::service::MarketService>,
+    pub market_bets: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::MarketBet>>>>,
+    pub portfolio_positions: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::PortfolioPosition>>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -420,6 +462,9 @@ impl Default for AzaleaState {
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
             casino_sessions: Arc::new(Mutex::new(HashMap::new())),
+            market_service: Arc::new(crate::structure::market::service::MarketService::new()),
+            market_bets: Arc::new(Mutex::new(HashMap::new())),
+            portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }

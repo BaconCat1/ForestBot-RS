@@ -1,3 +1,4 @@
+
 # ForestBot Rust Port Remaining TypeScript Parity (``todo.md``)
 
 Only behavior still missing or partial compared to `ForestBot/src` is listed here.
@@ -97,8 +98,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~custom advancements! — ForestBot announces fake MC-style advancement unlocks triggered by tracked events (deaths, kills, etc.)~~ // Hub `fadv_awards` table + threshold checks in `checkFadv.ts`; WS event `fadvAwards` → craftbot announces public + whispers player; `!fadvs [category]` command shows per-category progress; one-time per player
  * ✅ ~~Change all relevant functionality to be toggleable via config.json~~ // all automatic chat-sending behaviors now gated via `disabled_events` keys; all commands toggleable via `commands` map
  * ✅ ~~extend offlinemsg to do "remindme"~~ // `!remindme`/`!remind` aliases; optional duration `1s2m3h4d`; no duration = next login; timed = background 30s tick fires when online; `!remindme stop` cancels all; `deliver_at: Option<u64>` added to `OfflineMessage`
-* ⏸️ casino style games, create ethereal "chips" currency to go along side them, add wagering to `trivia` command. // ON HOLD need feedback from people first.
 * ✅ ~~add pearl bot infrastructure~~ // pearlbot binary; Hub WS routing; ForestBot-RS `!pearl`/`!p <slot>` command; UUID whitelist + per-slot chamber config; multi-pearl tracking (HashSet); deployed to prod RefinedVanilla
+* 🆕 queue detection, data driven. upon detection, disconnect for 5 minutes. Needs to count "reconfiguring" screen as reconnecting to server
 
 
 ## !quote
@@ -112,6 +113,21 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 ## !top
 * ✅ ~~"we need !top slurcount"~~ // `!top slurcount`/`!top slurs`; sums `get_word_occurrence` across all slurs in `slurcount_list.json` per player; cached same as other top stats
 * ✅ ~~optimize db calls for efficiency~~ // `top messages`: was N Hub calls → new Hub `GET /top-messages` (single SQL GROUP BY); `top slurcount`: was N×M calls → new Hub `GET /top-slurcount` (single SQL SUM of REGEXP per word); kills/deaths/joins/playtime/trades/rejects already single-call; advancements already uses leaderboard endpoint
+
+## casino
+* ✅ casino style games, create ethereal "chips" currency to go along side them 
+* 🆕 !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?
+* 🆕 add wagering to `trivia` command
+* 🆕 battleship
+* 🆕 chess
+* 🆕 reversi
+* 🆕 uno
+* 🆕 wordle
+* 🆕 stock market portfolios and future, mapped out but not written
+* 🆕 weather futures, bet on changes in the weather. depends on if weather api has historical data built in, or if we have to track it ourselves
+* 🆕 server event futures, same idea, just about stuff that happens on the server
+* 🆕 chip transfer command
+* 🆕 add multiplayer where applicable to "casino games"
 
 ## new commands
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~
@@ -129,7 +145,6 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!greeting, users can give themselves a welcome back message that has a 12 hour cooldown~~ // `greeting` + `greeting_last_fired_at` columns on `users` table; fires on join as `"<message>, Username!"`; 12h cooldown via DB timestamp; preview/clear subcommands
 * ✅ ~~!minewiki, same behaviour as !wiki, only for the minecraft wiki~~ // same 2-step flow against minecraft.wiki (`/api.php`); public chat; 1-min cooldown per player; aliases `!minewiki`/`!mcwiki`
 * ❌ ~~!weather — predict next weather change using Java LCG seed calibration~~ // not feasible: Azalea does not expose server-internal game time; the tick value available via `SetTime` is client-side and drifts from the server's `ServerLevel.random` draw counter, making LCG calibration impossible
-* ⏸️ !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats? // ON HOLD because the extra infrastrucure for this isn't justified in isolation. maybe if casino games get added?
 * ✅ ~~!calc, alias !wolframalpha, !wa, sends requests to the wolframalpha public api~~ // LLM API endpoint; `wolfram_app_id` in bot config; parses all labeled sections with priority order (Result→Solution→Derivative→Definite integral→Indefinite integral→Infinite sum→Sum→Limit→Decimal approximation→Property→…), posts `query = answer` truncated to 220 chars; aliases `!calc`/`!wa`/`!wolframalpha`
 * ✅ ~~!translate, add support for azure api for translation~~ // Azure AI Translator; `azure_translator_key` + `azure_translator_region` in config; lang optional (default `en`); single-word input checks online players → translates last message; FROM-English blocked (whatlang local detection, 4+ words); aliases `!translate`/`!tr`/`!tl`
 * ✅ ~~!trivia / !answer — server trivia round via Open Trivia DB (no key); boolean and MCQ; 15s answer window open to all players; whispers "Answer received!" on submit; public summary at close shows ✓/✗ lists + answer; latecomers whispered answer for 60s after close~~

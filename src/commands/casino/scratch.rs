@@ -104,8 +104,8 @@ fn fisher_yates<T>(v: &mut [T], rng: &mut OsRng) {
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let raw_arg = ctx.args.first().copied();
-        let is_free = raw_arg.is_none();
-        let tier_arg = raw_arg.unwrap_or("copper");
+        let is_free = raw_arg.map_or(true, |a| a.eq_ignore_ascii_case("free"));
+        let tier_arg = if is_free { "copper" } else { raw_arg.unwrap() };
 
         let tier = match tier_arg.to_ascii_lowercase().as_str() {
             "copper" | "c" => &COPPER,

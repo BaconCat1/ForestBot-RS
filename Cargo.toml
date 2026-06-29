@@ -23,4 +23,5 @@ uuid = "1.18.1"
 rand = "0.8"
 connect-four-ai = { path = "../REFERENCE_MATERIAL/connect-four-ai/crates/core" }
 rss = "2"
+urlencoding = "2"
 whatlang = "0.16"

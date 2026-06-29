@@ -903,6 +903,101 @@ impl ApiClient {
         })
     }
 
+    pub async fn casino_market_bet_insert(&self, bet: &crate::structure::market::types::MarketBet) -> bool {
+        use crate::structure::market::types::{Direction, MarketKind};
+        self.post_json(
+            "/casino/market-bet",
+            json!({
+                "id": bet.id.to_string(),
+                "player": bet.player,
+                "symbol": bet.symbol,
+                "market": if bet.market == MarketKind::Crypto { "crypto" } else { "stock" },
+                "direction": if bet.direction == Direction::Long { "long" } else { "short" },
+                "entry_price": bet.entry_price,
+                "stake": bet.stake,
+                "closes_unix": bet.closes_unix,
+                "duration_label": bet.duration_label,
+            }),
+        )
+        .await
+        .is_some()
+    }
+
+    pub async fn casino_market_bet_list(&self) -> Vec<crate::structure::market::types::MarketBet> {
+        use crate::structure::market::types::{Direction, MarketBet, MarketKind};
+        use uuid::Uuid;
+        let Some(v) = self.get_json("/casino/market-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| arr.iter().filter_map(|item| {
+                let id = Uuid::parse_str(item.get("id")?.as_str()?).ok()?;
+                let player = item.get("player")?.as_str()?.to_owned();
+                let symbol = item.get("symbol")?.as_str()?.to_owned();
+                let market = match item.get("market")?.as_str()? {
+                    "crypto" => MarketKind::Crypto,
+                    _ => MarketKind::Stock,
+                };
+                let direction = match item.get("direction")?.as_str()? {
+                    "long" => Direction::Long,
+                    _ => Direction::Short,
+                };
+                let entry_price = item.get("entry_price")?.as_f64()?;
+                let stake = item.get("stake")?.as_i64()?;
+                let closes_unix = item.get("closes_unix")?.as_u64()?;
+                let duration_label = item.get("duration_label")?.as_str()?.to_owned();
+                Some(MarketBet { id, player, symbol, market, direction, entry_price, stake, closes_unix, duration_label })
+            }).collect())
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_market_bet_delete(&self, id: uuid::Uuid) {
+        let _ = self.delete_json(&format!("/casino/market-bet/{id}")).await;
+    }
+
+    pub async fn casino_portfolio_insert(&self, pos: &crate::structure::market::types::PortfolioPosition) -> bool {
+        use crate::structure::market::types::MarketKind;
+        self.post_json(
+            "/casino/portfolio-position",
+            json!({
+                "id": pos.id.to_string(),
+                "player": pos.player,
+                "symbol": pos.symbol,
+                "market": if pos.market == MarketKind::Crypto { "crypto" } else { "stock" },
+                "entry_price": pos.entry_price,
+                "stake": pos.stake,
+                "opened_unix": pos.opened_unix,
+            }),
+        )
+        .await
+        .is_some()
+    }
+
+    pub async fn casino_portfolio_list(&self) -> Vec<crate::structure::market::types::PortfolioPosition> {
+        use crate::structure::market::types::{MarketKind, PortfolioPosition};
+        use uuid::Uuid;
+        let Some(v) = self.get_json("/casino/portfolio-positions", &[]).await else { return vec![]; };
+        v.get("positions")
+            .and_then(|b| b.as_array())
+            .map(|arr| arr.iter().filter_map(|item| {
+                let id = Uuid::parse_str(item.get("id")?.as_str()?).ok()?;
+                let player = item.get("player")?.as_str()?.to_owned();
+                let symbol = item.get("symbol")?.as_str()?.to_owned();
+                let market = match item.get("market")?.as_str()? {
+                    "crypto" => MarketKind::Crypto,
+                    _ => MarketKind::Stock,
+                };
+                let entry_price = item.get("entry_price")?.as_f64()?;
+                let stake = item.get("stake")?.as_i64()?;
+                let opened_unix = item.get("opened_unix")?.as_u64()?;
+                Some(PortfolioPosition { id, player, symbol, market, entry_price, stake, opened_unix })
+            }).collect())
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_portfolio_delete(&self, id: uuid::Uuid) {
+        let _ = self.delete_json(&format!("/casino/portfolio-position/{id}")).await;
+    }
+
     pub async fn get_user_fadv_ids(&self, uuid: &str, server: &str) -> Option<Vec<String>> {
         let v = self.get_json(
             &format!("/fadv/user-awards/{uuid}"),

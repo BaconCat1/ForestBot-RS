@@ -9,6 +9,7 @@ pub mod slots;
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::{CasinoFaucetResult, CasinoLottoPlayerTicket};
+use futures_util::future::join_all;
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -285,10 +286,11 @@ pub const WALLET_COMMAND: CommandDefinition = CommandDefinition {
 pub fn wallet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
-        let (bal, jackpot, lotto_tickets) = tokio::join!(
+        let (bal, jackpot, lotto_tickets, portfolio_summary) = tokio::join!(
             ctx.state.api.casino_get_balance(target),
             ctx.state.api.casino_jackpot_get(Some(target)),
             ctx.state.api.casino_lotto_get_tickets(target),
+            portfolio_value_summary(ctx.state, target),
         );
         match bal {
             Some(b) => {
@@ -306,10 +308,15 @@ pub fn wallet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 } else {
                     String::new()
                 };
+                let portfolio_part = match portfolio_summary {
+                    Some((value, count)) => format!(" | Portfolio: {} ({} pos)", chips_str(value), count),
+                    None => String::new(),
+                };
                 ctx.whisper(format!(
-                    "{}: {} | Streak: {}d | Lotto: {} ticket{}{} | Jackpot: {} ticket{}{}",
+                    "{}: {}{} | Streak: {}d | Lotto: {} ticket{}{} | Jackpot: {} ticket{}{}",
                     target,
                     chips_str(b.chips),
+                    portfolio_part,
                     b.streak,
                     lotto_count, if lotto_count == 1 { "" } else { "s" }, lotto_draw_info,
                     jp_tickets, if jp_tickets == 1 { "" } else { "s" }, jp_draw_info,
@@ -319,6 +326,30 @@ pub fn wallet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         }
         Ok(())
     })
+}
+
+async fn portfolio_value_summary(
+    state: &crate::structure::mineflayer::bot::AzaleaState,
+    player: &str,
+) -> Option<(i64, usize)> {
+    let positions = {
+        let map = state.portfolio_positions.lock().ok()?;
+        let v = map.get(player)?;
+        if v.is_empty() { return None; }
+        v.clone()
+    };
+    let count = positions.len();
+    let quote_futures: Vec<_> = positions.iter()
+        .map(|p| state.market_service.quote(&p.symbol))
+        .collect();
+    let quotes = join_all(quote_futures).await;
+    let total: i64 = positions.iter().zip(quotes.iter()).map(|(pos, result)| {
+        match result {
+            Ok(q) => (pos.stake as f64 * q.price / pos.entry_price).ceil() as i64,
+            Err(_) => pos.stake,
+        }
+    }).sum();
+    Some((total, count))
 }
 
 // ── !addchips (admin) ─────────────────────────────────────────────────────────
