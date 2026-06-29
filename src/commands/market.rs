@@ -26,9 +26,7 @@ pub const PORTFOLIO_COMMAND: CommandDefinition = CommandDefinition {
     execute: portfolio_execute,
 };
 
-const MAX_BETS_PER_PLAYER: usize = 5;
 const MIN_BET: i64 = 50;
-const MAX_BET: i64 = 10_000;
 
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
@@ -121,8 +119,8 @@ async fn place_bet(ctx: &CommandContext<'_>, long: bool) -> anyhow::Result<()> {
             return Ok(());
         }
     };
-    if stake < MIN_BET || stake > MAX_BET {
-        ctx.whisper(format!("Stake must be {}-{}.", chips_str(MIN_BET), chips_str(MAX_BET)));
+    if stake < MIN_BET {
+        ctx.whisper(format!("Min stake is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
     let dur_str = match ctx.args.get(3).copied() {
@@ -139,16 +137,6 @@ async fn place_bet(ctx: &CommandContext<'_>, long: bool) -> anyhow::Result<()> {
             return Ok(());
         }
     };
-
-    // Cap concurrent bets
-    {
-        let bets = ctx.state.market_bets.lock().expect("market bets lock");
-        let count = bets.get(ctx.sender).map(|v| v.len()).unwrap_or(0);
-        if count >= MAX_BETS_PER_PLAYER {
-            ctx.whisper(format!("Max {} open bets. Use !market bets to review.", MAX_BETS_PER_PLAYER));
-            return Ok(());
-        }
-    }
 
     // Fetch entry price
     let quote = match ctx.state.market_service.quote(&sym).await {
@@ -369,8 +357,8 @@ async fn portfolio_buy(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         Some(n) => n,
         None => { ctx.whisper("Usage: !market buy <symbol> <chips>"); return Ok(()); }
     };
-    if stake < MIN_BET || stake > MAX_BET {
-        ctx.whisper(format!("Stake must be {}-{}.", chips_str(MIN_BET), chips_str(MAX_BET)));
+    if stake < MIN_BET {
+        ctx.whisper(format!("Min stake is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
 
@@ -380,10 +368,6 @@ async fn portfolio_buy(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         if let Some(v) = positions.get(ctx.sender) {
             if v.iter().any(|p| p.symbol == sym) {
                 ctx.whisper(format!("Already have a {} position. Use !market sell {} to close it first.", sym, sym));
-                return Ok(());
-            }
-            if v.len() >= MAX_BETS_PER_PLAYER {
-                ctx.whisper(format!("Max {} open portfolio positions.", MAX_BETS_PER_PLAYER));
                 return Ok(());
             }
         }

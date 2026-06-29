@@ -21,7 +21,7 @@ zstd = "0.13"
 sysinfo = "0.33"
 uuid = "1.18.1"
 rand = "0.8"
-connect-four-ai = { path = "../REFERENCE_MATERIAL/connect-four-ai/crates/core" }
+connect-four-ai = { git = "https://github.com/benjaminrall/connect-four-ai", rev = "28a112adaf3ff89ee23fb09411fa592b6597010e" }
 rss = "2"
 urlencoding = "2"
 whatlang = "0.16"

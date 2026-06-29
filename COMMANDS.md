@@ -143,6 +143,10 @@
 
 See [GODS.md](GODS.md) for the full list of 75 corpora and their trigger words.
 
+## Casino, Market & Duels
+
+See [CASINO.md](CASINO.md) for all casino games, market paper trading, and duel commands.
+
 ## Trades
 
 | Command | Description |
