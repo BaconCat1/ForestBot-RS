@@ -41,3 +41,6 @@ License: MIT — © dboone. Repo: https://github.com/dboone/rusty-checkers
 
 **battleship-rs** — Rust Battleship game by Deepu K Sasidharan (2021). Board model, ship placement, hit/sunk tracking, and AI hunt logic adapted from source. Ship types replaced with standard linear fleet; AI tiers above hunt/target are original.
 License: MIT — © 2021 Deepu K Sasidharan. Repo: https://github.com/deepu105/battleship-rs
+
+**chess-tui** — Rust chess TUI by Thomas Mauran. Board orientation, perspective-flip rendering, and piece char conventions adapted as architecture reference. Move format, header row, and alpha-beta minimax AI on `shakmaty` are original. TUI code not ported.
+License: MIT — © 2023 Thomas Mauran. Repo: https://github.com/thomas-mauran/chess-tui

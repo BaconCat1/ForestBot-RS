@@ -291,5 +291,6 @@ fn session_label(s: &CasinoSession) -> &'static str {
         CasinoSession::Blackjack { .. }   => "blackjack (!bj hit/stand)",
         CasinoSession::Poker { .. }       => "poker (!pk call/check/fold/raise/allin/quit)",
         CasinoSession::ConnectFour { .. } => "Connect Four (!c4 <1-7>)",
+        CasinoSession::Chess { .. }       => "chess (!chess <from> <to>)",
     }
 }

@@ -177,6 +177,32 @@ All in whisper. Per-player — multiple games can run simultaneously.
 
 Win multipliers (by guess number): 8x / 5x / 3x / 2x / 1.5x / 1.2x. Losing forfeits stake to jackpot. Word list: NYT Wordle list (swappable).
 
+## Chess
+
+All in whisper. Per-player — multiple games can run simultaneously.
+
+| Command | Description |
+|---|---|
+| `!chess white <chips>` | Start a game as White (you move first) |
+| `!chess black <chips>` | Start a game as Black (bot moves first) |
+| `!chess <from> <to>` | Make a move. E.g. `!chess e2 e4` |
+| `!chess <from> <to> <promo>` | Promote a pawn. E.g. `!chess e7 e8 q` (q/r/b/n) |
+| `!chess` | Show current board and status |
+| `!chess quit` / `!chess q` | Forfeit — stake sent to jackpot |
+
+Board renders in whisper with Unicode pieces (♔♕♖♗♘♙ / ♚♛♜♝♞♟), empty=▢ (U+25A2). Displayed from your color's perspective (rank 1 at bottom for White, rank 8 at bottom for Black).
+
+Win multiplier: 2×. Loss or forfeit: stake sent to jackpot. Draw (50-move rule, stalemate, insufficient material): stake returned.
+
+**Opponents (random at game start):**
+| Opponent | Strength |
+|---|---|
+| Glass Joe | Random moves |
+| Piston Honda | Greedy (depth 1) |
+| Bald Bull | Alpha-beta depth 2 |
+| Soda Popinski | Alpha-beta depth 3 |
+| Mike Tyson | Alpha-beta depth 4 |
+
 ## Duels
 
 | Command | Description |

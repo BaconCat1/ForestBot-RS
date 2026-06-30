@@ -394,6 +394,13 @@ pub enum CasinoSession {
         difficulty: connect_four_ai::Difficulty,
         position: connect_four_ai::Position,
     },
+    Chess {
+        bet: i64,
+        player_color: shakmaty::Color,
+        position: Box<shakmaty::Chess>,
+        opponent_name: &'static str,
+        ai_depth: u32,
+    },
 }
 
 #[derive(Debug, Clone)]

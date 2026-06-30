@@ -1,4 +1,5 @@
 pub mod blackjack;
+pub mod chess;
 pub mod connect_four;
 pub mod craps;
 pub mod hilo;
