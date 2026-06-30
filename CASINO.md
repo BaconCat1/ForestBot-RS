@@ -109,6 +109,33 @@ All games feature a 3% house rake deposited into the jackpot. All losings are de
 
 Payout: `ceil(stake × exit_price / entry_price)` for longs, inverse for shorts. Min stake: 50 chips. One portfolio position per symbol per player.
 
+## Checkers
+
+Played in whisper, per-player. You are red (`r`/`R`), bot is black (`b`/`B`), `-` = empty. American rules: men move and capture forward-only, kings all directions. Jumps mandatory.
+
+| Command | Description |
+|---|---|
+| `!checkers <chips>` | Start a game. Randomly matched against one of five opponents at escalating difficulty. |
+| `!checkers <a1> <b2>` | Move piece from a1 to b2. |
+| `!checkers <a1> <c3> <e5>` | Multi-jump: list each landing square in the jump chain. |
+| `!checkers board` | Redisplay the current board. |
+| `!checkers quit` / `!checkers forfeit` | Forfeit — stake to jackpot. |
+
+Opponents: Glass Joe (random), Piston Honda (easy/depth 2), Bald Bull / Soda Popinski (medium/depth 4), Mike Tyson (hard/depth 6). Win = 2× stake. Lose/quit = stake to jackpot. Draw (threefold repetition or 40-move rule) = stake returned.
+
+## Reversi
+
+Played in whisper, per-player. You are `X`, bot is `O`, `+` = your legal moves. Standard Othello starting position, row 1 at top.
+
+| Command | Description |
+|---|---|
+| `!reversi <chips>` / `!othello <chips>` | Start a game. Randomly matched against an opponent at escalating difficulty. |
+| `!reversi <a1>` | Place your piece at that square. |
+| `!reversi board` | Redisplay the current board. |
+| `!reversi quit` / `!reversi forfeit` | Forfeit — stake to jackpot. |
+
+Opponents: Glass Joe (random), Piston Honda (greedy), Bald Bull (minimax 3), Soda Popinski (minimax 4), Mike Tyson (minimax 5). Win = 2× stake. Lose/quit = stake to jackpot. Draw = stake returned.
+
 ## Wordle
 
 All in whisper. Per-player — multiple games can run simultaneously.

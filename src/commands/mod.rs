@@ -37,6 +37,8 @@ pub mod weather;
 pub mod wiki;
 pub mod pearl;
 pub mod casino;
+pub mod checkers;
+pub mod reversi;
 pub mod duel;
 pub mod market;
 pub mod wordle;
@@ -270,6 +272,8 @@ pub fn registry() -> &'static [CommandDefinition] {
         market::PORTFOLIO_COMMAND,
         duel::COMMAND,
         wordle::COMMAND,
+        checkers::COMMAND,
+        reversi::COMMAND,
     ]
 }
 

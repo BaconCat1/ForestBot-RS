@@ -121,10 +121,10 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?~~
 * 🆕 add wagering to `trivia` command
 * 🆕 battleship
-* 🆕 chess
-* 🆕 reversi
+* ✅ ~~chess~~
+* ✅ ~~reversi~~
 * 🆕 uno
-* 🆕 wordle
+* ✅ ~~wordle~~
 * ✅ ~~stock market portfolios and future, mapped out but not written~~
 * 🆕 add kalshi to extend stock market system
 * 🆕 weather futures, bet on changes in the weather. depends on if weather api has historical data built in, or if we have to track it ourselves
