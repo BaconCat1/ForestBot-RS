@@ -49,7 +49,8 @@ All games feature a 3% house rake deposited into the jackpot. All losings are de
 | `!blackjack <chips>` / `!bj <chips>` | Start a blackjack hand |
 | `!blackjack hit` / `!bj h` | Hit |
 | `!blackjack stand` / `!bj s` | Stand |
-| `!blackjack double` / `!bj d` | Double down |
+| `!blackjack double` / `!bj d` | Double down (first 2 cards only) |
+| `!blackjack quit` / `!bj q` | Forfeit — stake to jackpot |
 
 ## Poker (vs bot)
 
@@ -65,23 +66,35 @@ All games feature a 3% house rake deposited into the jackpot. All losings are de
 
 | Command | Description |
 |---|---|
-| `!craps <chips>` | Roll the come-out roll (pass line bet) |
-| `!craps roll` | Roll again once a point is established |
+| `!craps pass <chips>` | Come-out roll on the pass line |
+| `!craps dontpass <chips>` / `!craps dp <chips>` | Come-out roll on the don't-pass line |
+| `!craps roll` / `!craps r` | Roll again once a point is established |
+| `!craps quit` / `!craps q` | Forfeit — stake to jackpot |
 
 ## Hi-Lo
 
 | Command | Description |
 |---|---|
 | `!hilo <chips>` | Start a hi-lo game |
-| `!hilo higher` / `!hilo h` | Guess the next card is higher |
-| `!hilo lower` / `!hilo l` | Guess the next card is lower |
-| `!hilo cashout` / `!hilo c` | Cash out current multiplier |
+| `!hilo hi` / `!hilo h` / `!hilo higher` | Guess the next card is higher |
+| `!hilo lo` / `!hilo l` / `!hilo lower` | Guess the next card is lower |
+| `!hilo skip` / `!hilo s` | Skip the current card (draw a new one) |
+| `!hilo cash` / `!hilo c` / `!hilo cashout` | Cash out current multiplier (available after first guess) |
 
 ## Roulette
 
-| Command | Description |
-|---|---|
-| `!roulette <bet> <chips>` | Place a roulette bet. Bet types: `red`, `black`, `odd`, `even`, `1-18`, `19-36`, or a number 0–36 |
+European wheel (0–36). Format: `!roulette <type> <selection> <chips>`
+
+| Type | Selection | Payout |
+|---|---|---|
+| `color` | `red` / `black` / `green` | 1:1 (green = 35:1) |
+| `parity` | `odd` / `even` | 1:1 |
+| `half` | `low` (1–18) / `high` (19–36) | 1:1 |
+| `column` | `1` / `2` / `3` | 2:1 |
+| `dozen` | `1` (1–12) / `2` (13–24) / `3` (25–36) | 2:1 |
+| `number` | `0`–`36` | 35:1 |
+
+Example: `!roulette color red 100` | `!roulette number 17 50`
 
 ## Connect Four (vs bot)
 
@@ -122,6 +135,20 @@ Played in whisper, per-player. You are red (`r`/`R`), bot is black (`b`/`B`), `-
 | `!checkers quit` / `!checkers forfeit` | Forfeit — stake to jackpot. |
 
 Opponents: Glass Joe (random), Piston Honda (easy/depth 2), Bald Bull / Soda Popinski (medium/depth 4), Mike Tyson (hard/depth 6). Win = 2× stake. Lose/quit = stake to jackpot. Draw (threefold repetition or 40-move rule) = stake returned.
+
+## Battleship
+
+Played in whisper, per-player. Ships placed randomly. Enemy board shown by default; `!bs own` for your board. Rows `a`–`j`, cols `1`–`9` then `0` (col 10). `S`=ship, `-`=water, `O`=miss, `X`=hit, `#`=sunk (full ship revealed on sink).
+
+| Command | Description |
+|---|---|
+| `!battleship <chips>` / `!bs <chips>` | Start a game. Randomly matched against one of five opponents at escalating difficulty. |
+| `!bs <coord>` | Fire at coordinate (e.g. `!bs a5`, `!bs j0`). |
+| `!bs board` | Redisplay enemy board. |
+| `!bs own` | Show your board (ships + enemy hits). |
+| `!bs forfeit` / `!bs quit` | Forfeit — stake to jackpot. |
+
+Ships: Carrier (5), Battleship (4), Cruiser (3), Submarine (3), Destroyer (2). Opponents: Glass Joe (random), Piston Honda (hunt near hits ±2), Bald Bull (hunt/target), Soda Popinski (target + checkerboard parity), Mike Tyson (probability density). Win = 2× stake. Lose/quit = stake to jackpot.
 
 ## Reversi
 
