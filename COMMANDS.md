@@ -119,8 +119,6 @@
 | `!godstats` | Show corpora count, size, compression ratio, verse count, load time, total god aliases |
 | `!godfight <god1> <god2> <keyword?>` | Two gods, one verse each — keyword narrows both draws to matching verses |
 | `!weather` / `!w <city>` | Current weather for any location — temp, feels-like, conditions, wind, humidity (Open-Meteo, no API key needed) |
-| `!trivia` | Start a trivia round — question posted publicly, all players have 15 seconds to `!answer`. Summary posted at close; late answers whispered the correct answer. |
-| `!answer <choice>` | Answer the active trivia round. Use A/B/C/D for multiple choice, true/false for T/F questions. |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
 | `!greeting` | Whispers format info + your current greeting |
 | `!greeting <message>` | Set your join greeting — fires as `"<message>, YourName!"` (12h cooldown, ASCII only) |

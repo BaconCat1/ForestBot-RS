@@ -165,6 +165,20 @@ Played in whisper, per-player. You are ◕, bot is ▣, ◌ = your legal moves, 
 
 Opponents: Glass Joe (random), Piston Honda (greedy), Bald Bull (minimax 3), Soda Popinski (minimax 4), Mike Tyson (minimax 5). Win = 2× stake. Lose/quit = stake to jackpot. Draw = stake returned.
 
+## Trivia
+
+Two-phase. Starter sets the wager; others have 30 seconds to join at the same stake. Question posts after join window closes; participants have 45 seconds to answer. Correct = 2× stake. Wrong or no answer = stake to jackpot. Min stake: 50 chips.
+
+| Command | Description |
+|---|---|
+| `!trivia <chips>` | Start a trivia round with a random category |
+| `!trivia <category> <chips>` | Start a trivia round in a specific category |
+| `!trivia join` | Join the active round within the 30s join window (matches starter's wager) |
+| `!trivia categories` | List all available categories |
+| `!answer <A/B/C/D or true/false>` | Answer the question once it goes live (participants only) |
+
+Categories: general, books, film, music, musicals, tv, games, board games, science, computers, math, mythology, sports, geography, history, politics, art, celebrities, animals, vehicles, comics, gadgets, anime, cartoons.
+
 ## Wordle
 
 All in whisper. Per-player — multiple games can run simultaneously.

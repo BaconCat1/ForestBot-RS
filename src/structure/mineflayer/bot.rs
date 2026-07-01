@@ -403,13 +403,26 @@ pub enum CasinoSession {
     },
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum TriviaPhase {
+    Joining,
+    Open,
+    Closed,
+}
+
 #[derive(Debug, Clone)]
 pub struct TriviaRound {
+    // Question data (fetched at start, revealed after join window)
     pub correct_answer: String,
-    pub is_open: bool,
     pub is_boolean: bool,
     pub letter_map: Vec<(char, String)>,
     pub correct_letter: Option<char>,
+    pub question_msg: String,
+    // Phase + wagering
+    pub phase: TriviaPhase,
+    pub stake: i64,
+    pub participants: HashSet<String>,
+    // Results
     pub correct_players: Vec<String>,
     pub wrong_players: Vec<String>,
     pub answered: HashSet<String>,

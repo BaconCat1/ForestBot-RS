@@ -119,14 +119,13 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 ## casino
 * ✅ casino style games, create ethereal "chips" currency to go along side them 
 * ✅ ~~!duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?~~
-* 🆕 add wagering to `trivia` command
+* ✅ ~~add wagering to `trivia` command~~ // !answer <guess> <chips>; correct=2×, wrong=jackpot; 45s window; category support + !trivia categories
 * ✅ ~~battleship~~
 * ✅ ~~chess~~
 * ✅ ~~reversi~~
 * ❌ ~~uno~~ // hand too complicated to represent over text, fast reactions too difficult to do by text, rejected
 * ✅ ~~wordle~~
 * ✅ ~~stock market portfolios and future, mapped out but not written~~
-	* 🆕 stock, crypto, and prediction market search
 * 🆕 add kalshi to extend stock market system
 * 🆕 weather futures, bet on changes in the weather. depends on if weather api has historical data built in, or if we have to track it ourselves
 * 🆕 server event futures, same idea, just about stuff that happens on the server
