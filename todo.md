@@ -131,6 +131,8 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🆕 server event futures, same idea, just about stuff that happens on the server
 * 🆕 chip transfer command
 * 🆕 add multiplayer where applicable to "casino games"
+* 🐛 **bug**(?): `increment_ms` for command cooldown in `config.json` does not appear to be working, meaning spammers only need to wait for the `cooldown_ms` to elapse. The original idea was that if they run it again before the cooldown is over, or if they run it without the cooldown elapsing a second time, the `increment_ms` is added for them, until eventually they stop using it an it clears from memory
+* 🐛 **bug**: !ud, I think upvotes/downvotes are supposed to be displayed but always show as 0, either drop it or fix
 
 ## new commands
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~

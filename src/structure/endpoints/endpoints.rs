@@ -957,10 +957,13 @@ impl ApiClient {
             "/casino/weather-bet",
             json!({
                 "player_uuid": bet.player,
+                "bet_type": bet.bet_type,
                 "city": bet.city,
                 "latitude": bet.latitude,
                 "longitude": bet.longitude,
-                "direction": if bet.rain_yes { "yes" } else { "no" },
+                "direction": bet.direction,
+                "threshold": bet.threshold,
+                "unit": bet.unit,
                 "forecast_prob": bet.forecast_prob,
                 "payout_mult": bet.payout_mult,
                 "stake": bet.stake,
@@ -980,16 +983,19 @@ impl ApiClient {
             .map(|arr| arr.iter().filter_map(|item| {
                 let id = item.get("id")?.as_i64()?;
                 let player = item.get("player_uuid")?.as_str()?.to_owned();
+                let bet_type = item.get("bet_type")?.as_str().unwrap_or("rain").to_owned();
                 let city = item.get("city")?.as_str()?.to_owned();
                 let latitude = item.get("latitude")?.as_f64()?;
                 let longitude = item.get("longitude")?.as_f64()?;
-                let rain_yes = item.get("direction")?.as_str()? == "yes";
+                let direction = item.get("direction")?.as_str()?.to_owned();
+                let threshold = item.get("threshold").and_then(|v| v.as_f64());
+                let unit = item.get("unit").and_then(|v| v.as_str()).map(|s| s.to_owned());
                 let forecast_prob = item.get("forecast_prob")?.as_u64()? as u8;
                 let payout_mult = item.get("payout_mult")?.as_f64()?;
                 let stake = item.get("stake")?.as_i64()?;
                 let closes_unix = item.get("closes_unix")?.as_u64()?;
                 let duration_label = item.get("duration_label")?.as_str()?.to_owned();
-                Some(WeatherBet { id, player, city, latitude, longitude, rain_yes, forecast_prob, payout_mult, stake, closes_unix, duration_label })
+                Some(WeatherBet { id, player, bet_type, city, latitude, longitude, direction, threshold, unit, forecast_prob, payout_mult, stake, closes_unix, duration_label })
             }).collect())
             .unwrap_or_default()
     }
