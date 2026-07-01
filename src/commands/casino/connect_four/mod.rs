@@ -41,7 +41,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     Some((stake, opponent_name, position)) => {
                         show_board(&ctx, &position);
                         ctx.whisper(format!(
-                            "Your turn (X) vs {} | Stake: {} | !c4 <1-7> or !c4 quit",
+                            "Your turn (\u{25D5}) vs {} | Stake: {} | !c4 <1-7> or !c4 quit",
                             opponent_name,
                             chips_str(stake)
                         ));
@@ -122,7 +122,7 @@ async fn execute_new_game(ctx: &CommandContext<'_>, stake_str: &str) -> anyhow::
         });
 
     ctx.whisper(format!(
-        "C4: You (X) vs {} | Stake: {} | You go first!",
+        "C4: You (\u{25D5}) vs {} | Stake: {} | You go first!",
         opponent_name,
         chips_str(stake)
     ));
@@ -227,7 +227,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
         });
 
     show_board(ctx, &position);
-    ctx.whisper(format!("Your turn (X) vs {} | !c4 <1-7>", opponent_name));
+    ctx.whisper(format!("Your turn (\u{25D5}) vs {} | !c4 <1-7>", opponent_name));
 
     Ok(())
 }
@@ -263,7 +263,7 @@ fn show_board(ctx: &CommandContext<'_>, pos: &Position) {
     // Even move count → player is to move → pos.position = player's pieces (◆)
     // Odd move count  → bot just moved or player just won → pos.position = bot's pieces
     let player_is_current = pos.get_moves() % 2 == 0;
-    ctx.whisper("1 2 3 4 5 6 7");
+    ctx.whisper("\u{1D7CF} \u{1D7D0} \u{1D7D1} \u{1D7D2} \u{1D7D3} \u{1D7D4} \u{1D7D5}"); // 𝟏 𝟐 𝟑 𝟒 𝟓 𝟔 𝟕
     for row in (0..Position::HEIGHT).rev() {
         let mut line = String::new();
         for col in 0..Position::WIDTH {
@@ -272,11 +272,11 @@ fn show_board(ctx: &CommandContext<'_>, pos: &Position) {
             }
             let bit = 1u64 << (row + col * (Position::HEIGHT + 1));
             let ch = if pos.position & bit != 0 {
-                if player_is_current { 'X' } else { 'O' }
+                if player_is_current { '\u{25D5}' } else { '\u{25A3}' } // ◕ ◉
             } else if pos.mask & bit != 0 {
-                if player_is_current { 'O' } else { 'X' }
+                if player_is_current { '\u{25A3}' } else { '\u{25D5}' } // ◉ ◕
             } else {
-                '-'
+                '\u{25A2}' // ▢
             };
             line.push(ch);
         }

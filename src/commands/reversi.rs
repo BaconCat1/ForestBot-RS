@@ -251,19 +251,23 @@ fn parse_pos(s: &str) -> Option<u8> {
 }
 
 fn render_board(cells: &[u8; 64], legal: &[u8]) -> Vec<String> {
-    let mut lines = vec!["# a b c d e f g h".to_string()];
+    // header: spacer + math bold a-h (all 3.5px unifont, matches piece width)
+    let mut lines = vec!["\u{25A2} \u{1D41A} \u{1D41B} \u{1D41C} \u{1D41D} \u{1D41E} \u{1D41F} \u{1D420} \u{1D421}".to_string()];
+    // math bold digits 1-8 for row labels (3.0-3.5px unifont)
+    const BD: [char; 9] = ['\0', '\u{1D7CF}', '\u{1D7D0}', '\u{1D7D1}', '\u{1D7D2}',
+                            '\u{1D7D3}', '\u{1D7D4}', '\u{1D7D5}', '\u{1D7D6}'];
     lines.extend((0..8usize).map(|row| {
-        let mut line = format!("{} ", row + 1);
+        let mut line = format!("{} ", BD[row + 1]);
         for col in 0..8usize {
             if col > 0 { line.push(' '); }
             let pos = row * 8 + col;
             line.push(if legal.contains(&(pos as u8)) {
-                '+'
+                '\u{25CC}' // ◌ legal move
             } else {
                 match cells[pos] {
-                    1 => 'X',
-                    2 => 'O',
-                    _ => '-',
+                    1 => '\u{25D5}', // ◕ player
+                    2 => '\u{25A3}', // ▣ bot
+                    _ => '\u{25A2}', // ▢ empty
                 }
             });
         }
@@ -332,7 +336,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                         let legal = gen_moves(&sess.cells, 1);
                         let lines = render_board(&sess.cells, &legal);
                         let (ps, cs) = score(&sess.cells);
-                        ctx.whisper(format!("Reversi vs {} | you X / bot O / + legal | You: {} Bot: {}", sess.opponent, ps, cs));
+                        ctx.whisper(format!("Reversi vs {} | you \u{25D5} / bot \u{25A3} / \u{25CC} legal | You: {} Bot: {}", sess.opponent, ps, cs));
                         for line in lines { ctx.whisper(line); }
                     }
                 }
@@ -402,7 +406,7 @@ async fn start_game(ctx: &CommandContext<'_>, sender: &str, stake: i64) -> anyho
     }
 
     let board_lines = render_board(&cells, &legal);
-    ctx.whisper(format!("Reversi vs {} | stake {} | you=X bot=O +=legal", opp_name, chips_str(stake)));
+    ctx.whisper(format!("Reversi vs {} | stake {} | you=\u{25D5} bot=\u{25A3} \u{25CC}=legal", opp_name, chips_str(stake)));
     for line in board_lines { ctx.whisper(line); }
     ctx.whisper("Your move. Format: !reversi a1");
 

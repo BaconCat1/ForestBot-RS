@@ -5,11 +5,19 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 
 use super::casino::chips_str;
 
+fn circled(s: &str) -> String {
+    s.chars().map(|c| match c {
+        'A'..='Z' => char::from_u32(0x24B6 + c as u32 - 'A' as u32).unwrap_or(c), // Ⓐ–Ⓩ, 9px uniform accented bitmap
+        'a'..='z' => char::from_u32(0x24D0 + c as u32 - 'a' as u32).unwrap_or(c), // ⓐ–ⓩ, 9px uniform
+        _ => c,
+    }).collect()
+}
+
 fn render_matches(matches: &cl_wordle::Matches) -> String {
     matches.iter().map(|m| match m {
-        cl_wordle::Match::Exact => '■',
-        cl_wordle::Match::Close => '●',
-        cl_wordle::Match::Wrong => '×',
+        cl_wordle::Match::Exact => '\u{25A3}', // ▣ correct (3.5px unifont)
+        cl_wordle::Match::Close => '\u{25C8}', // ◈ wrong spot (3.5px unifont)
+        cl_wordle::Match::Wrong => '\u{25A2}', // ▢ not in word (3.5px unifont)
     }).collect::<String>()
         .chars()
         .flat_map(|c| [c, ' '])
@@ -114,7 +122,7 @@ async fn start_game(ctx: &CommandContext<'_>, stake: i64, hard_mode: bool) -> an
 
     let mode_str = if hard_mode { " [hard mode]" } else { "" };
     ctx.whisper(format!(
-        "Wordle started{mode_str}! {} staked. {} guesses. ■=correct ●=wrong spot ×=not in word",
+        "Wordle started{mode_str}! {} staked. {} guesses. \u{25A3}=correct \u{25C8}=wrong spot \u{25A2}=not in word",
         chips_str(stake), MAX_GUESSES
     ));
     ctx.whisper("Win multipliers: 8x/5x/3x/2x/1.5x/1.2x — guess with !wordle <word>");
@@ -154,7 +162,7 @@ async fn submit_guess(ctx: &CommandContext<'_>, word: &str) -> anyhow::Result<()
             Ok(_) => {
                 let guesses_used = session.game.guesses().count();
                 let board: Vec<String> = session.game.guesses()
-                    .map(|(w, m)| format!("{}: {}", w.to_uppercase(), render_matches(&m)))
+                    .map(|(w, m)| format!("{}: {}", circled(&w.to_uppercase()), render_matches(&m)))
                     .collect();
 
                 use cl_wordle::state::GameOver;
@@ -233,7 +241,7 @@ fn show_board(ctx: &CommandContext) {
         mode_str, guesses_used, MAX_GUESSES, chips_str(session.stake)
     ));
     for (word, matches) in session.game.guesses() {
-        ctx.whisper(format!("{}: {}", word.to_uppercase(), render_matches(&matches)));
+        ctx.whisper(format!("{}: {}", circled(&word.to_uppercase()), render_matches(&matches)));
     }
 }
 

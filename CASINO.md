@@ -98,6 +98,8 @@ Example: `!roulette color red 100` | `!roulette number 17 50`
 
 ## Connect Four (vs bot)
 
+Played in whisper. You are ◕, bot is ▣, ▢ = empty.
+
 | Command | Description |
 |---|---|
 | `!c4` / `!connectfour <chips>` | Start a connect four game against the bot |
@@ -138,7 +140,7 @@ Opponents: Glass Joe (random), Piston Honda (easy/depth 2), Bald Bull / Soda Pop
 
 ## Battleship
 
-Played in whisper, per-player. Ships placed randomly. Enemy board shown by default; `!bs own` for your board. Rows `a`–`j`, cols `1`–`9` then `0` (col 10). `S`=ship, `-`=water, `O`=miss, `X`=hit, `#`=sunk (full ship revealed on sink).
+Played in whisper, per-player. Ships placed randomly. Enemy board shown by default; `!bs own` for your board. Rows `a`–`j`, cols `1`–`9` then `0` (col 10). ◈=ship, ▢=water, ◌=miss, ◕=hit, ▣=sunk (full ship revealed on sink).
 
 | Command | Description |
 |---|---|
@@ -152,7 +154,7 @@ Ships: Carrier (5), Battleship (4), Cruiser (3), Submarine (3), Destroyer (2). O
 
 ## Reversi
 
-Played in whisper, per-player. You are `X`, bot is `O`, `+` = your legal moves. Standard Othello starting position, row 1 at top.
+Played in whisper, per-player. You are ◕, bot is ▣, ◌ = your legal moves, ▢ = empty. Standard Othello starting position, row 1 at top.
 
 | Command | Description |
 |---|---|

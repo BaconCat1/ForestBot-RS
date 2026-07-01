@@ -133,16 +133,23 @@ fn parse_coord(s: &str) -> Option<usize> {
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
+const BS_ROW_LABELS: [char; 10] = [
+    '\u{1D41A}', '\u{1D41B}', '\u{1D41C}', '\u{1D41D}', '\u{1D41E}',
+    '\u{1D41F}', '\u{1D420}', '\u{1D421}', '\u{1D422}', '\u{1D423}',
+]; // 𝐚–𝐣, all 3.5px unifont
+const BS_HEADER: &str = "\u{25A2} \u{1D7CF} \u{1D7D0} \u{1D7D1} \u{1D7D2} \u{1D7D3} \u{1D7D4} \u{1D7D5} \u{1D7D6} \u{1D7D7} \u{1D7CE}";
+// ▢ 𝟏 𝟐 𝟑 𝟒 𝟓 𝟔 𝟕 𝟖 𝟗 𝟎
+
 fn render_enemy_board(session: &BattleshipSession) -> Vec<String> {
-    let mut lines = vec!["# 1 2 3 4 5 6 7 8 9 0".to_string()];
+    let mut lines = vec![BS_HEADER.to_string()];
     for row in 0..10usize {
-        let prefix = (b'a' + row as u8) as char;
+        let prefix = BS_ROW_LABELS[row];
         let row_str = (0..10)
             .map(|col| match session.shots[row * 10 + col] {
-                Shot::Unknown => '-',
-                Shot::Miss    => 'O',
-                Shot::Hit     => 'X',
-                Shot::Sunk    => '#',
+                Shot::Unknown => '\u{25A2}', // ▢ water
+                Shot::Miss    => '\u{25CC}', // ◌ miss
+                Shot::Hit     => '\u{25D5}', // ◕ hit
+                Shot::Sunk    => '\u{25A3}', // ▣ sunk
             })
             .map(|c| c.to_string())
             .collect::<Vec<_>>()
@@ -153,15 +160,15 @@ fn render_enemy_board(session: &BattleshipSession) -> Vec<String> {
 }
 
 fn render_own_board(session: &BattleshipSession) -> Vec<String> {
-    let mut lines = vec!["# 1 2 3 4 5 6 7 8 9 0".to_string()];
+    let mut lines = vec![BS_HEADER.to_string()];
     for row in 0..10usize {
-        let prefix = (b'a' + row as u8) as char;
+        let prefix = BS_ROW_LABELS[row];
         let row_str = (0..10)
             .map(|col| match session.my_board[row * 10 + col] {
-                0        => '-',
-                v if v >= 21 => '#',
-                v if v >= 11 => 'X',
-                _        => 'S',
+                0            => '\u{25A2}', // ▢ water
+                v if v >= 21 => '\u{25A3}', // ▣ sunk
+                v if v >= 11 => '\u{25D5}', // ◕ hit
+                _            => '\u{25C8}', // ◈ ship
             })
             .map(|c| c.to_string())
             .collect::<Vec<_>>()

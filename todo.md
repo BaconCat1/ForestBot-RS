@@ -123,7 +123,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~battleship~~
 * ✅ ~~chess~~
 * ✅ ~~reversi~~
-* 🆕 uno
+* ❌ ~~uno~~ // hand too complicated to represent over text, fast reactions too difficult to do by text, rejected
 * ✅ ~~wordle~~
 * ✅ ~~stock market portfolios and future, mapped out but not written~~
 	* 🆕 stock, crypto, and prediction market search
