@@ -240,6 +240,7 @@ impl Bot {
             market_service: Arc::new(crate::structure::market::service::MarketService::new()),
             market_bets: Arc::new(Mutex::new(HashMap::new())),
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
+            weather_bets: Arc::new(Mutex::new(HashMap::new())),
             duels: Arc::new(Mutex::new(Vec::new())),
             wordle_games: Arc::new(Mutex::new(HashMap::new())),
             checkers_games: Arc::new(Mutex::new(HashMap::new())),
@@ -264,6 +265,30 @@ impl Bot {
                     tokio::spawn(crate::commands::market::settle_task(
                         state.clone(),
                         bet.player.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                        remaining,
+                    ));
+                }
+            }
+        }
+
+        // Recover weather bets that were open when the bot last shut down
+        {
+            let open_bets = state.api.casino_weather_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let now = crate::structure::market::types::now_unix();
+                {
+                    let mut bets = state.weather_bets.lock().expect("weather_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    let remaining = bet.closes_unix.saturating_sub(now);
+                    tokio::spawn(crate::commands::weather::settle_task(
+                        state.clone(),
                         whisper_cmd.clone(),
                         bet,
                         remaining,
@@ -356,6 +381,7 @@ pub struct AzaleaState {
     pub market_service: Arc<crate::structure::market::service::MarketService>,
     pub market_bets: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::MarketBet>>>>,
     pub portfolio_positions: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::PortfolioPosition>>>>,
+    pub weather_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::weather::WeatherBet>>>>,
     pub duels: Arc<Mutex<Vec<crate::commands::duel::Duel>>>,
     pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
     pub checkers_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::checkers::CheckersSession>>>,
@@ -495,6 +521,7 @@ impl Default for AzaleaState {
             market_service: Arc::new(crate::structure::market::service::MarketService::new()),
             market_bets: Arc::new(Mutex::new(HashMap::new())),
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
+            weather_bets: Arc::new(Mutex::new(HashMap::new())),
             duels: Arc::new(Mutex::new(Vec::new())),
             wordle_games: Arc::new(Mutex::new(HashMap::new())),
             checkers_games: Arc::new(Mutex::new(HashMap::new())),
@@ -647,7 +674,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 );
             send_player_list_update(&state).await;
             deliver_offline_messages(&state, &username).await;
-            deliver_casino_notifications(&state, &username).await;
+            deliver_casino_notifications(&state, &uuid, &username).await;
             if state.initial_spawn_done.load(Ordering::Relaxed) {
                 send_player_join(&state, &username, &uuid).await;
                 fire_greeting_if_due(&state, &username).await;
@@ -1853,8 +1880,8 @@ async fn deliver_offline_messages(state: &AzaleaState, username: &str) {
     }
 }
 
-async fn deliver_casino_notifications(state: &AzaleaState, username: &str) {
-    let messages = state.api.casino_claim_notifications(username).await;
+async fn deliver_casino_notifications(state: &AzaleaState, player_uuid: &str, username: &str) {
+    let messages = state.api.casino_claim_notifications(player_uuid).await;
     for message in messages {
         enqueue_outbound_chat(state, format!("/msg {username} {message}"));
     }

@@ -57,6 +57,10 @@ fn show_state(ctx: &CommandContext, card: u8, _deck: &[u8], stake: i64, multipli
 
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
+        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+            ctx.whisper("Could not resolve your UUID.");
+            return Ok(());
+        };
         let arg = ctx.args.first().copied().unwrap_or("");
 
         // ── Start new round ──────────────────────────────────────────────────
@@ -72,7 +76,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 ctx.whisper(format!("Bet must be {}-{}.", chips_str(MIN_BET), chips_str(MAX_BET)));
                 return Ok(());
             }
-            match ctx.state.api.casino_adjust(ctx.sender, -bet).await {
+            match ctx.state.api.casino_adjust(&player_uuid, -bet).await {
                 Ok(_) => {}
                 Err(CasinoAdjustErr::InsufficientFunds(have)) => {
                     ctx.whisper(format!("Need {} but have {}.", chips_str(bet), chips_str(have)));
@@ -121,10 +125,10 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         match action.as_str() {
             "hi" | "h" | "higher" => {
-                predict(&ctx, true, stake, &mut deck, current_card, multiplier, guesses).await?;
+                predict(&ctx, true, stake, &mut deck, current_card, multiplier, guesses, &player_uuid).await?;
             }
             "lo" | "l" | "lower" => {
-                predict(&ctx, false, stake, &mut deck, current_card, multiplier, guesses).await?;
+                predict(&ctx, false, stake, &mut deck, current_card, multiplier, guesses, &player_uuid).await?;
             }
             "skip" | "s" => {
                 if deck.is_empty() {
@@ -138,13 +142,13 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                         let mut sessions = ctx.state.casino_sessions.lock().expect("casino sessions lock");
                         sessions.remove(ctx.sender);
                     }
-                    let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(stake);
+                    let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(stake);
                     ctx.whisper(format!("Deck exhausted — bet refunded. | Balance: {}", chips_str(bal)));
                     return Ok(());
                 }
                 if deck.is_empty() && guesses > 0 {
                     // Exhausted on skip after guesses — auto-cashout
-                    do_cashout(&ctx, stake, multiplier, guesses).await?;
+                    do_cashout(&ctx, stake, multiplier, guesses, &player_uuid).await?;
                     return Ok(());
                 }
                 {
@@ -161,7 +165,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     ctx.whisper("Make at least one correct guess before cashing out.");
                     return Ok(());
                 }
-                do_cashout(&ctx, stake, multiplier, guesses).await?;
+                do_cashout(&ctx, stake, multiplier, guesses, &player_uuid).await?;
             }
             _ => {
                 if guesses > 0 {
@@ -184,6 +188,7 @@ async fn predict(
     current_card: u8,
     multiplier: f64,
     guesses: u32,
+    player_uuid: &str,
 ) -> anyhow::Result<()> {
     let p = if hi { prob_hi(current_card, deck) } else { prob_lo(current_card, deck) };
     let step_mult = HOUSE_EDGE / p;
@@ -199,7 +204,7 @@ async fn predict(
                 sessions.remove(ctx.sender);
             }
             let cashout = (stake as f64 * new_mult) as i64;
-            let bal = ctx.state.api.casino_adjust(ctx.sender, cashout).await.unwrap_or(0);
+            let bal = ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0);
             ctx.whisper(format!(
                 "Correct! {} → {} | Deck exhausted — auto-cashout: x{:.2}={} | Balance: {}",
                 rank_name(current_card), rank_name(next_card), new_mult, chips_str(cashout), chips_str(bal)
@@ -220,7 +225,7 @@ async fn predict(
             let mut sessions = ctx.state.casino_sessions.lock().expect("casino sessions lock");
             sessions.remove(ctx.sender);
         }
-        let bal = ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0);
+        let bal = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0);
         ctx.whisper(format!(
             "Wrong! {} came up. Lost {}. | Balance: {}",
             rank_name(next_card), chips_str(stake), chips_str(bal)
@@ -229,14 +234,14 @@ async fn predict(
     Ok(())
 }
 
-async fn do_cashout(ctx: &CommandContext<'_>, stake: i64, multiplier: f64, guesses: u32) -> anyhow::Result<()> {
+async fn do_cashout(ctx: &CommandContext<'_>, stake: i64, multiplier: f64, guesses: u32, player_uuid: &str) -> anyhow::Result<()> {
     let cashout = (stake as f64 * multiplier) as i64;
     let profit = cashout - stake;
     {
         let mut sessions = ctx.state.casino_sessions.lock().expect("casino sessions lock");
         sessions.remove(ctx.sender);
     }
-    let bal = ctx.state.api.casino_adjust(ctx.sender, cashout).await.unwrap_or(0);
+    let bal = ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0);
     ctx.whisper(format!(
         "Cashed out! x{:.2} × {} = {} (+{}) after {} guess{} | Balance: {}",
         multiplier, chips_str(stake), chips_str(cashout), chips_str(profit),

@@ -1,5 +1,3 @@
-use uuid::Uuid;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MarketKind {
     Stock,
@@ -45,7 +43,7 @@ pub struct Asset {
 
 #[derive(Clone, Debug)]
 pub struct MarketBet {
-    pub id: Uuid,
+    pub id: i64,
     pub player: String,
     pub symbol: String,
     pub market: MarketKind,
@@ -58,7 +56,7 @@ pub struct MarketBet {
 
 #[derive(Clone, Debug)]
 pub struct PortfolioPosition {
-    pub id: uuid::Uuid,
+    pub id: i64,
     pub player: String,
     pub symbol: String,
     pub market: MarketKind,

@@ -658,15 +658,15 @@ impl ApiClient {
 
     // ── Casino API ────────────────────────────────────────────────────────────
 
-    pub async fn casino_get_balance(&self, player: &str) -> Option<CasinoBalance> {
-        self.get_json(&format!("/casino/balance/{player}"), &[])
+    pub async fn casino_get_balance(&self, player_uuid: &str) -> Option<CasinoBalance> {
+        self.get_json(&format!("/casino/balance/{player_uuid}"), &[])
             .await
             .and_then(|v| self.parse_json("/casino/balance", v))
     }
 
-    pub async fn casino_faucet(&self, player: &str) -> CasinoFaucetResult {
+    pub async fn casino_faucet(&self, player_uuid: &str) -> CasinoFaucetResult {
         let Some(v) = self
-            .post_json("/casino/faucet", json!({ "player": player }))
+            .post_json("/casino/faucet", json!({ "player_uuid": player_uuid }))
             .await
         else {
             return CasinoFaucetResult::Err;
@@ -689,11 +689,11 @@ impl ApiClient {
 
     pub async fn casino_adjust(
         &self,
-        player: &str,
+        player_uuid: &str,
         delta: i64,
     ) -> Result<i64, CasinoAdjustErr> {
         let Some(v) = self
-            .post_json("/casino/adjust", json!({ "player": player, "delta": delta }))
+            .post_json("/casino/adjust", json!({ "player_uuid": player_uuid, "delta": delta }))
             .await
         else {
             return Err(CasinoAdjustErr::NetworkErr);
@@ -707,14 +707,14 @@ impl ApiClient {
 
     pub async fn casino_transfer(
         &self,
-        from: &str,
-        to: &str,
+        from_uuid: &str,
+        to_uuid: &str,
         amount: i64,
     ) -> Result<(), String> {
         let Some(v) = self
             .post_json(
                 "/casino/transfer",
-                json!({ "from": from, "to": to, "amount": amount }),
+                json!({ "from_uuid": from_uuid, "to_uuid": to_uuid, "amount": amount }),
             )
             .await
         else {
@@ -732,9 +732,9 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn casino_free_scratch(&self, player: &str) -> CasinoScratchResult {
+    pub async fn casino_free_scratch(&self, player_uuid: &str) -> CasinoScratchResult {
         let Some(v) = self
-            .post_json("/casino/scratch/free", json!({ "player": player }))
+            .post_json("/casino/scratch/free", json!({ "player_uuid": player_uuid }))
             .await
         else {
             return CasinoScratchResult::Err;
@@ -751,7 +751,7 @@ impl ApiClient {
 
     pub async fn casino_jackpot_get(&self, player: Option<&str>) -> Option<CasinoJackpotInfo> {
         let v = match player {
-            Some(p) => self.get_json("/casino/jackpot", &[("player", p)]).await?,
+            Some(p) => self.get_json("/casino/jackpot", &[("player_uuid", p)]).await?,
             None => self.get_json("/casino/jackpot", &[]).await?,
         };
         Some(CasinoJackpotInfo {
@@ -763,11 +763,11 @@ impl ApiClient {
 
     pub async fn casino_jackpot_buy_ticket(
         &self,
-        player: &str,
+        player_uuid: &str,
         count: u32,
     ) -> Result<CasinoJackpotInfo, String> {
         let Some(v) = self
-            .post_json("/casino/jackpot/ticket", json!({ "player": player, "count": count }))
+            .post_json("/casino/jackpot/ticket", json!({ "player_uuid": player_uuid, "count": count }))
             .await
         else {
             return Err("Network error".to_owned());
@@ -791,9 +791,9 @@ impl ApiClient {
             .await;
     }
 
-    pub async fn casino_claim_notifications(&self, player: &str) -> Vec<String> {
+    pub async fn casino_claim_notifications(&self, player_uuid: &str) -> Vec<String> {
         let Some(v) = self
-            .post_json("/casino/notifications/claim", json!({ "player": player }))
+            .post_json("/casino/notifications/claim", json!({ "player_uuid": player_uuid }))
             .await
         else {
             return vec![];
@@ -804,8 +804,8 @@ impl ApiClient {
             .unwrap_or_default()
     }
 
-    pub async fn casino_lotto_get_tickets(&self, player: &str) -> Vec<CasinoLottoPlayerTicket> {
-        let Some(v) = self.get_json(&format!("/casino/lotto/tickets/{player}"), &[]).await else {
+    pub async fn casino_lotto_get_tickets(&self, player_uuid: &str) -> Vec<CasinoLottoPlayerTicket> {
+        let Some(v) = self.get_json(&format!("/casino/lotto/tickets/{player_uuid}"), &[]).await else {
             return vec![];
         };
         v.get("tickets")
@@ -847,13 +847,13 @@ impl ApiClient {
 
     pub async fn casino_lotto_buy_ticket(
         &self,
-        player: &str,
+        player_uuid: &str,
         numbers: &str,
     ) -> Result<CasinoLottoTicketInfo, String> {
         let Some(v) = self
             .post_json(
                 "/casino/lotto/ticket",
-                json!({ "player": player, "numbers": numbers }),
+                json!({ "player_uuid": player_uuid, "numbers": numbers }),
             )
             .await
         else {
@@ -876,11 +876,11 @@ impl ApiClient {
 
     pub async fn casino_lotto_buy_quick(
         &self,
-        player: &str,
+        player_uuid: &str,
         count: u32,
     ) -> Result<CasinoLottoBulkInfo, String> {
         let Some(v) = self
-            .post_json("/casino/lotto/ticket", json!({ "player": player, "count": count }))
+            .post_json("/casino/lotto/ticket", json!({ "player_uuid": player_uuid, "count": count }))
             .await
         else {
             return Err("Network error".to_owned());
@@ -903,13 +903,12 @@ impl ApiClient {
         })
     }
 
-    pub async fn casino_market_bet_insert(&self, bet: &crate::structure::market::types::MarketBet) -> bool {
+    pub async fn casino_market_bet_insert(&self, bet: &crate::structure::market::types::MarketBet) -> Option<i64> {
         use crate::structure::market::types::{Direction, MarketKind};
-        self.post_json(
+        let v = self.post_json(
             "/casino/market-bet",
             json!({
-                "id": bet.id.to_string(),
-                "player": bet.player,
+                "player_uuid": bet.player,
                 "symbol": bet.symbol,
                 "market": if bet.market == MarketKind::Crypto { "crypto" } else { "stock" },
                 "direction": if bet.direction == Direction::Long { "long" } else { "short" },
@@ -919,19 +918,18 @@ impl ApiClient {
                 "duration_label": bet.duration_label,
             }),
         )
-        .await
-        .is_some()
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
     }
 
     pub async fn casino_market_bet_list(&self) -> Vec<crate::structure::market::types::MarketBet> {
         use crate::structure::market::types::{Direction, MarketBet, MarketKind};
-        use uuid::Uuid;
         let Some(v) = self.get_json("/casino/market-bets", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| arr.iter().filter_map(|item| {
-                let id = Uuid::parse_str(item.get("id")?.as_str()?).ok()?;
-                let player = item.get("player")?.as_str()?.to_owned();
+                let id = item.get("id")?.as_i64()?;
+                let player = item.get("player_uuid")?.as_str()?.to_owned();
                 let symbol = item.get("symbol")?.as_str()?.to_owned();
                 let market = match item.get("market")?.as_str()? {
                     "crypto" => MarketKind::Crypto,
@@ -950,17 +948,62 @@ impl ApiClient {
             .unwrap_or_default()
     }
 
-    pub async fn casino_market_bet_delete(&self, id: uuid::Uuid) {
+    pub async fn casino_market_bet_delete(&self, id: i64) {
         let _ = self.delete_json(&format!("/casino/market-bet/{id}")).await;
     }
 
-    pub async fn casino_portfolio_insert(&self, pos: &crate::structure::market::types::PortfolioPosition) -> bool {
+    pub async fn casino_weather_bet_insert(&self, bet: &crate::commands::weather::WeatherBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/weather-bet",
+            json!({
+                "player_uuid": bet.player,
+                "city": bet.city,
+                "latitude": bet.latitude,
+                "longitude": bet.longitude,
+                "direction": if bet.rain_yes { "yes" } else { "no" },
+                "forecast_prob": bet.forecast_prob,
+                "payout_mult": bet.payout_mult,
+                "stake": bet.stake,
+                "closes_unix": bet.closes_unix,
+                "duration_label": bet.duration_label,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_weather_bet_list(&self) -> Vec<crate::commands::weather::WeatherBet> {
+        use crate::commands::weather::WeatherBet;
+        let Some(v) = self.get_json("/casino/weather-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| arr.iter().filter_map(|item| {
+                let id = item.get("id")?.as_i64()?;
+                let player = item.get("player_uuid")?.as_str()?.to_owned();
+                let city = item.get("city")?.as_str()?.to_owned();
+                let latitude = item.get("latitude")?.as_f64()?;
+                let longitude = item.get("longitude")?.as_f64()?;
+                let rain_yes = item.get("direction")?.as_str()? == "yes";
+                let forecast_prob = item.get("forecast_prob")?.as_u64()? as u8;
+                let payout_mult = item.get("payout_mult")?.as_f64()?;
+                let stake = item.get("stake")?.as_i64()?;
+                let closes_unix = item.get("closes_unix")?.as_u64()?;
+                let duration_label = item.get("duration_label")?.as_str()?.to_owned();
+                Some(WeatherBet { id, player, city, latitude, longitude, rain_yes, forecast_prob, payout_mult, stake, closes_unix, duration_label })
+            }).collect())
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_weather_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/weather-bet/{id}")).await;
+    }
+
+    pub async fn casino_portfolio_insert(&self, pos: &crate::structure::market::types::PortfolioPosition) -> Option<i64> {
         use crate::structure::market::types::MarketKind;
-        self.post_json(
+        let v = self.post_json(
             "/casino/portfolio-position",
             json!({
-                "id": pos.id.to_string(),
-                "player": pos.player,
+                "player_uuid": pos.player,
                 "symbol": pos.symbol,
                 "market": if pos.market == MarketKind::Crypto { "crypto" } else { "stock" },
                 "entry_price": pos.entry_price,
@@ -968,19 +1011,18 @@ impl ApiClient {
                 "opened_unix": pos.opened_unix,
             }),
         )
-        .await
-        .is_some()
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
     }
 
     pub async fn casino_portfolio_list(&self) -> Vec<crate::structure::market::types::PortfolioPosition> {
         use crate::structure::market::types::{MarketKind, PortfolioPosition};
-        use uuid::Uuid;
         let Some(v) = self.get_json("/casino/portfolio-positions", &[]).await else { return vec![]; };
         v.get("positions")
             .and_then(|b| b.as_array())
             .map(|arr| arr.iter().filter_map(|item| {
-                let id = Uuid::parse_str(item.get("id")?.as_str()?).ok()?;
-                let player = item.get("player")?.as_str()?.to_owned();
+                let id = item.get("id")?.as_i64()?;
+                let player = item.get("player_uuid")?.as_str()?.to_owned();
                 let symbol = item.get("symbol")?.as_str()?.to_owned();
                 let market = match item.get("market")?.as_str()? {
                     "crypto" => MarketKind::Crypto,
@@ -994,7 +1036,7 @@ impl ApiClient {
             .unwrap_or_default()
     }
 
-    pub async fn casino_portfolio_delete(&self, id: uuid::Uuid) {
+    pub async fn casino_portfolio_delete(&self, id: i64) {
         let _ = self.delete_json(&format!("/casino/portfolio-position/{id}")).await;
     }
 
@@ -1882,11 +1924,11 @@ pub struct TradebotScammer {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CasinoBalance {
-    pub player_name: String,
+    pub player_uuid: String,
     pub chips: i64,
     pub streak: i32,
-    pub last_claim: Option<String>,
-    pub last_scratch: Option<String>,
+    pub last_claim: Option<i64>,
+    pub last_scratch: Option<i64>,
 }
 
 #[derive(Debug)]

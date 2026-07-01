@@ -106,6 +106,22 @@ Played in whisper. You are ◕, bot is ▣, ▢ = empty.
 | `!c4 <1-7>` | Drop a piece in that column |
 | `!c4 forfeit` | Forfeit the current game |
 
+## Weather Futures
+
+Bet on whether it will rain in a city on a specific future date. Odds are derived from the Open-Meteo forecast probability — betting against the forecast pays more. Min bet: 50 chips.
+
+| Command | Description |
+|---|---|
+| `!weather <city>` | Current weather (public) + tomorrow's rain odds (whispered) |
+| `!weather odds <city>` | Rain odds for all durations 1d/3d/7d/14d (whispered) |
+| `!weather bet <city> rain yes <chips> <duration>` | Bet it will rain |
+| `!weather bet <city> rain no <chips> <duration>` | Bet it won't rain |
+| `!weather bets` | Show your open weather bets |
+
+Durations: `1d`, `3d`, `7d`, `14d`. Payout = `stake × odds` (correct) or stake to jackpot (wrong). Odds shown at bet time based on forecast probability for the target date. API failure = full refund.
+
+Example: `!weather bet London rain yes 100 3d` — if forecast says 80% rain, you get 1.25× for yes or 5× for no.
+
 ## Market (paper trading)
 
 | Command | Description |

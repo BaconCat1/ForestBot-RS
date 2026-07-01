@@ -110,7 +110,12 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         };
 
-        let balance = match ctx.state.api.casino_adjust(ctx.sender, -bet).await {
+        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+            ctx.whisper("Could not resolve your UUID.");
+            return Ok(());
+        };
+
+        let balance = match ctx.state.api.casino_adjust(&player_uuid, -bet).await {
             Ok(b) => b,
             Err(CasinoAdjustErr::InsufficientFunds(have)) => {
                 ctx.whisper(format!("Not enough chips (have {}, need {}).", chips_str(have), chips_str(bet)));
@@ -124,7 +129,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         if wins {
             let total_return = bet * multiplier;
-            let new_balance = match ctx.state.api.casino_adjust(ctx.sender, total_return).await {
+            let new_balance = match ctx.state.api.casino_adjust(&player_uuid, total_return).await {
                 Ok(b) => b,
                 Err(_) => balance + total_return,
             };

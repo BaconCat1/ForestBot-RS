@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use uuid::Uuid;
-
 use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::{
@@ -70,7 +68,11 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 place_bet(&ctx, sub == "long" || sub == "l").await?;
             }
             "bets" | "positions" | "pos" => {
-                show_bets(&ctx);
+                let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+                    ctx.whisper("Could not resolve your UUID.");
+                    return Ok(());
+                };
+                show_bets(&ctx, &player_uuid);
             }
             "cashout" | "close" | "exit" => {
                 cashout(&ctx).await?;
@@ -82,7 +84,11 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 portfolio_sell(&ctx).await?;
             }
             "portfolio" | "port" => {
-                show_portfolio(&ctx).await?;
+                let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+                    ctx.whisper("Could not resolve your UUID.");
+                    return Ok(());
+                };
+                show_portfolio(&ctx, &player_uuid).await?;
             }
             // Fallthrough: treat as symbol lookup
             sym => {
@@ -147,8 +153,13 @@ async fn place_bet(ctx: &CommandContext<'_>, long: bool) -> anyhow::Result<()> {
         }
     };
 
+    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+        ctx.whisper("Could not resolve your UUID.");
+        return Ok(());
+    };
+
     // Deduct chips
-    match ctx.state.api.casino_adjust(ctx.sender, -stake).await {
+    match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
@@ -161,9 +172,9 @@ async fn place_bet(ctx: &CommandContext<'_>, long: bool) -> anyhow::Result<()> {
     }
 
     let direction = if long { Direction::Long } else { Direction::Short };
-    let bet = MarketBet {
-        id: Uuid::new_v4(),
-        player: ctx.sender.to_owned(),
+    let mut bet = MarketBet {
+        id: 0i64,
+        player: player_uuid.clone(),
         symbol: sym.clone(),
         market: quote.market,
         direction,
@@ -173,11 +184,18 @@ async fn place_bet(ctx: &CommandContext<'_>, long: bool) -> anyhow::Result<()> {
         duration_label: dur_str.to_owned(),
     };
 
+    match ctx.state.api.casino_market_bet_insert(&bet).await {
+        Some(id) => { bet.id = id; }
+        None => {
+            ctx.whisper("Failed to save bet. Refunding chips.");
+            let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
+            return Ok(());
+        }
+    }
     {
         let mut bets = ctx.state.market_bets.lock().expect("market bets lock");
-        bets.entry(ctx.sender.to_owned()).or_default().push(bet.clone());
+        bets.entry(player_uuid.clone()).or_default().push(bet.clone());
     }
-    ctx.state.api.casino_market_bet_insert(&bet).await;
 
     ctx.whisper(format!(
         "{} {} @{} | {} chips | settles in {} | !market bets to check",
@@ -186,7 +204,7 @@ async fn place_bet(ctx: &CommandContext<'_>, long: bool) -> anyhow::Result<()> {
 
     // Spawn settlement task
     let state = ctx.state.clone();
-    let player = ctx.sender.to_owned();
+    let player = player_uuid.clone();
     let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
     tokio::spawn(settle_task(state, player, whisper_cmd, bet, dur_secs));
 
@@ -194,10 +212,15 @@ async fn place_bet(ctx: &CommandContext<'_>, long: bool) -> anyhow::Result<()> {
 }
 
 async fn cashout(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
+    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+        ctx.whisper("Could not resolve your UUID.");
+        return Ok(());
+    };
+
     // !market cashout [index]   — index is 1-based, matches !market bets output
     let bet = {
         let bets = ctx.state.market_bets.lock().expect("market bets lock");
-        let player_bets = match bets.get(ctx.sender) {
+        let player_bets = match bets.get(&player_uuid) {
             Some(v) if !v.is_empty() => v,
             _ => { ctx.whisper("No open market bets."); return Ok(()); }
         };
@@ -235,11 +258,11 @@ async fn cashout(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let net = payout - bet.stake;
 
     // Remove from state first so the settle_task finds nothing and exits cleanly.
-    remove_bet(&ctx.state, ctx.sender, bet.id);
+    remove_bet(&ctx.state, &player_uuid, bet.id);
     ctx.state.api.casino_market_bet_delete(bet.id).await;
 
     if payout > 0 {
-        let _ = ctx.state.api.casino_adjust(ctx.sender, payout).await;
+        let _ = ctx.state.api.casino_adjust(&player_uuid, payout).await;
     }
 
     let pct = (exit_price - bet.entry_price) / bet.entry_price * 100.0;
@@ -298,8 +321,11 @@ pub async fn settle_task(
             let _ = state.api.casino_adjust(&player, bet.stake).await;
             remove_bet(&state, &player, bet.id);
             state.api.casino_market_bet_delete(bet.id).await;
+            let username_for_msg = state.players.read().ok()
+                .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()))
+                .unwrap_or_else(|| player.clone());
             enqueue_chat(&state, format!(
-                "/{whisper_cmd} {player} Market data unavailable — {} {} bet refunded. +{}",
+                "/{whisper_cmd} {username_for_msg} Market data unavailable — {} {} bet refunded. +{}",
                 bet.direction.label(), bet.symbol, chips_str(bet.stake)
             ));
             return;
@@ -334,8 +360,11 @@ pub async fn settle_task(
     };
 
     let sign = if pct >= 0.0 { "+" } else { "" };
+    let username_for_msg = state.players.read().ok()
+        .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()))
+        .unwrap_or_else(|| player.clone());
     enqueue_chat(&state, format!(
-        "/{whisper_cmd} {player} {} {} settled: {} | {}→{} ({}{:.2}%) | {}",
+        "/{whisper_cmd} {username_for_msg} {} {} settled: {} | {}→{} ({}{:.2}%) | {}",
         bet.direction.label(), bet.symbol, result_str,
         fmt_price(bet.entry_price), fmt_price(exit_price), sign, pct, net_str
     ));
@@ -343,7 +372,11 @@ pub async fn settle_task(
 
 fn portfolio_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        show_portfolio(&ctx).await
+        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+            ctx.whisper("Could not resolve your UUID.");
+            return Ok(());
+        };
+        show_portfolio(&ctx, &player_uuid).await
     })
 }
 
@@ -362,10 +395,15 @@ async fn portfolio_buy(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
 
+    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+        ctx.whisper("Could not resolve your UUID.");
+        return Ok(());
+    };
+
     // One position per symbol per player
     {
         let positions = ctx.state.portfolio_positions.lock().expect("portfolio lock");
-        if let Some(v) = positions.get(ctx.sender) {
+        if let Some(v) = positions.get(&player_uuid) {
             if v.iter().any(|p| p.symbol == sym) {
                 ctx.whisper(format!("Already have a {} position. Use !market sell {} to close it first.", sym, sym));
                 return Ok(());
@@ -378,7 +416,7 @@ async fn portfolio_buy(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         Err(_) => { ctx.whisper(format!("No market data for {} — position not opened.", sym)); return Ok(()); }
     };
 
-    match ctx.state.api.casino_adjust(ctx.sender, -stake).await {
+    match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
@@ -387,9 +425,9 @@ async fn portfolio_buy(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         Err(CasinoAdjustErr::NetworkErr) => { ctx.whisper("Casino unavailable."); return Ok(()); }
     }
 
-    let pos = PortfolioPosition {
-        id: Uuid::new_v4(),
-        player: ctx.sender.to_owned(),
+    let mut pos = PortfolioPosition {
+        id: 0i64,
+        player: player_uuid.clone(),
         symbol: sym.clone(),
         market: quote.market,
         entry_price: quote.price,
@@ -397,11 +435,18 @@ async fn portfolio_buy(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         opened_unix: now_unix(),
     };
 
+    match ctx.state.api.casino_portfolio_insert(&pos).await {
+        Some(id) => { pos.id = id; }
+        None => {
+            ctx.whisper("Failed to save position. Refunding chips.");
+            let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
+            return Ok(());
+        }
+    }
     {
         let mut positions = ctx.state.portfolio_positions.lock().expect("portfolio lock");
-        positions.entry(ctx.sender.to_owned()).or_default().push(pos.clone());
+        positions.entry(player_uuid.clone()).or_default().push(pos.clone());
     }
-    ctx.state.api.casino_portfolio_insert(&pos).await;
 
     ctx.whisper(format!(
         "Opened {} position @{} | {} chips invested | use !market sell {} to close",
@@ -420,12 +465,17 @@ async fn portfolio_sell(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return portfolio_sell_all(ctx).await;
     }
 
+    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+        ctx.whisper("Could not resolve your UUID.");
+        return Ok(());
+    };
+
     // !market sell <symbol>
     let sym = arg.to_uppercase();
 
     let pos = {
         let positions = ctx.state.portfolio_positions.lock().expect("portfolio lock");
-        positions.get(ctx.sender)
+        positions.get(&player_uuid)
             .and_then(|v| v.iter().find(|p| p.symbol == sym).cloned())
     };
 
@@ -446,13 +496,13 @@ async fn portfolio_sell(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     // Remove from state first, then DB, then pay out
     {
         let mut positions = ctx.state.portfolio_positions.lock().expect("portfolio lock");
-        if let Some(v) = positions.get_mut(ctx.sender) {
+        if let Some(v) = positions.get_mut(&player_uuid) {
             v.retain(|p| p.id != pos.id);
         }
     }
     ctx.state.api.casino_portfolio_delete(pos.id).await;
     if payout > 0 {
-        let _ = ctx.state.api.casino_adjust(ctx.sender, payout).await;
+        let _ = ctx.state.api.casino_adjust(&player_uuid, payout).await;
     }
 
     let pct = (exit_price - pos.entry_price) / pos.entry_price * 100.0;
@@ -474,9 +524,14 @@ async fn portfolio_sell(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 }
 
 async fn portfolio_sell_all(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
+    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+        ctx.whisper("Could not resolve your UUID.");
+        return Ok(());
+    };
+
     let positions = {
         let map = ctx.state.portfolio_positions.lock().expect("portfolio lock");
-        match map.get(ctx.sender) {
+        match map.get(&player_uuid) {
             Some(v) if !v.is_empty() => v.clone(),
             _ => { ctx.whisper("No open portfolio positions."); return Ok(()); }
         }
@@ -502,13 +557,13 @@ async fn portfolio_sell_all(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
         {
             let mut positions_map = ctx.state.portfolio_positions.lock().expect("portfolio lock");
-            if let Some(v) = positions_map.get_mut(ctx.sender) {
+            if let Some(v) = positions_map.get_mut(&player_uuid) {
                 v.retain(|p| p.id != pos.id);
             }
         }
         ctx.state.api.casino_portfolio_delete(pos.id).await;
         if payout > 0 {
-            let _ = ctx.state.api.casino_adjust(ctx.sender, payout).await;
+            let _ = ctx.state.api.casino_adjust(&player_uuid, payout).await;
         }
     }
 
@@ -531,10 +586,10 @@ async fn portfolio_sell_all(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn show_portfolio(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
+async fn show_portfolio(ctx: &CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()> {
     let positions = {
         let map = ctx.state.portfolio_positions.lock().expect("portfolio lock");
-        match map.get(ctx.sender) {
+        match map.get(player_uuid) {
             Some(v) if !v.is_empty() => v.clone(),
             _ => { ctx.whisper("No open portfolio positions. Use !market buy <sym> <chips>."); return Ok(()); }
         }
@@ -589,7 +644,7 @@ async fn show_portfolio(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn remove_bet(state: &AzaleaState, player: &str, id: Uuid) {
+fn remove_bet(state: &AzaleaState, player: &str, id: i64) {
     if let Ok(mut bets) = state.market_bets.lock() {
         if let Some(v) = bets.get_mut(player) {
             v.retain(|b| b.id != id);
@@ -597,9 +652,9 @@ fn remove_bet(state: &AzaleaState, player: &str, id: Uuid) {
     }
 }
 
-fn show_bets(ctx: &CommandContext) {
+fn show_bets(ctx: &CommandContext, player_uuid: &str) {
     let bets = ctx.state.market_bets.lock().expect("market bets lock");
-    let player_bets = match bets.get(ctx.sender) {
+    let player_bets = match bets.get(player_uuid) {
         Some(v) if !v.is_empty() => v,
         _ => { ctx.whisper("No open market bets."); return; }
     };

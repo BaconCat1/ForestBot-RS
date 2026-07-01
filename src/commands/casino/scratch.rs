@@ -117,6 +117,11 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             }
         };
 
+        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+            ctx.whisper("Could not resolve your UUID.");
+            return Ok(());
+        };
+
         if is_free {
             {
                 let mut cooldowns = ctx.state.free_scratch_cooldowns.lock().unwrap();
@@ -133,12 +138,12 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
                 cooldowns.insert(ctx.sender.to_owned(), std::time::Instant::now());
             }
-            if let CasinoScratchResult::Err = ctx.state.api.casino_free_scratch(ctx.sender).await {
+            if let CasinoScratchResult::Err = ctx.state.api.casino_free_scratch(&player_uuid).await {
                 ctx.whisper("Scratch service unavailable.");
                 return Ok(());
             }
         } else {
-            match ctx.state.api.casino_adjust(ctx.sender, -tier.cost).await {
+            match ctx.state.api.casino_adjust(&player_uuid, -tier.cost).await {
                 Ok(_) => {}
                 Err(CasinoAdjustErr::InsufficientFunds(have)) => {
                     ctx.whisper(format!(
@@ -169,7 +174,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         if prize > 0 {
             let sym = PRIZE_SYMBOLS[prize_idx];
-            let new_balance = ctx.state.api.casino_adjust(ctx.sender, prize).await.unwrap_or(0);
+            let new_balance = ctx.state.api.casino_adjust(&player_uuid, prize).await.unwrap_or(0);
             ctx.whisper(format!(
                 "3x {sym} — WIN! +{} | Balance: {}",
                 chips_str(prize), chips_str(new_balance)
@@ -178,7 +183,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             let rake_base = if is_free { 25 } else { tier.cost };
             let rake = ((rake_base as f64) * RAKE_PCT).max(1.0) as i64;
             ctx.state.api.casino_jackpot_rake(rake).await;
-            let balance = ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0);
+            let balance = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
             ctx.whisper(format!("No match. | Balance: {}", chips_str(balance)));
         }
 

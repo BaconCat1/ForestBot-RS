@@ -127,7 +127,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~wordle~~
 * ✅ ~~stock market portfolios and future, mapped out but not written~~
 * 🆕 add kalshi to extend stock market system
-* 🆕 weather futures, bet on changes in the weather. depends on if weather api has historical data built in, or if we have to track it ourselves
+* ✅ ~~weather futures, bet on changes in the weather.~~ // rain yes/no bets; odds from forecast precipitation_probability_max; open-meteo forecast endpoint (past_days=92 for resolution); settle_task pattern matches market bets
 * 🆕 server event futures, same idea, just about stuff that happens on the server
 * 🆕 chip transfer command
 * 🆕 add multiplayer where applicable to "casino games"

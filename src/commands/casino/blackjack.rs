@@ -70,20 +70,24 @@ fn state_msg(player: &[u8], dealer_up: u8, extra: &str) -> String {
 
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
+        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+            ctx.whisper("Could not resolve your UUID.");
+            return Ok(());
+        };
         let subcmd = ctx.args.first().copied().unwrap_or("").to_ascii_lowercase();
         match subcmd.as_str() {
-            "hit" | "h"    => do_hit(ctx).await,
-            "stand" | "s"  => do_stand(ctx).await,
-            "double" | "d" => do_double(ctx).await,
-            "quit" | "q"   => do_quit(ctx).await,
-            _              => do_deal(ctx, &subcmd).await,
+            "hit" | "h"    => do_hit(ctx, &player_uuid).await,
+            "stand" | "s"  => do_stand(ctx, &player_uuid).await,
+            "double" | "d" => do_double(ctx, &player_uuid).await,
+            "quit" | "q"   => do_quit(ctx, &player_uuid).await,
+            _              => do_deal(ctx, &subcmd, &player_uuid).await,
         }
     })
 }
 
 // ── Deal ─────────────────────────────────────────────────────────────────────
 
-async fn do_deal(ctx: CommandContext<'_>, stake_str: &str) -> anyhow::Result<()> {
+async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) -> anyhow::Result<()> {
     {
         let sessions = ctx.state.casino_sessions.lock().expect("lock");
         if sessions.contains_key(ctx.sender) {
@@ -101,7 +105,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str) -> anyhow::Result<()>
         return Ok(());
     }
 
-    let balance = match ctx.state.api.casino_adjust(ctx.sender, -bet).await {
+    let balance = match ctx.state.api.casino_adjust(player_uuid, -bet).await {
         Ok(b) => b,
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper(format!("Not enough chips (have {}, need {}).", chips_str(have), chips_str(bet)));
@@ -121,7 +125,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str) -> anyhow::Result<()>
 
     if dbj && pbj {
         // Push — return bet
-        let new_balance = match ctx.state.api.casino_adjust(ctx.sender, bet).await {
+        let new_balance = match ctx.state.api.casino_adjust(player_uuid, bet).await {
             Ok(b) => b,
             Err(_) => balance + bet,
         };
@@ -145,7 +149,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str) -> anyhow::Result<()>
     if pbj {
         // Natural BJ pays 3:2
         let payout = bet + bet * 3 / 2;
-        let new_balance = match ctx.state.api.casino_adjust(ctx.sender, payout).await {
+        let new_balance = match ctx.state.api.casino_adjust(player_uuid, payout).await {
             Ok(b) => b,
             Err(_) => balance + payout,
         };
@@ -176,7 +180,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str) -> anyhow::Result<()>
 
 // ── Hit ──────────────────────────────────────────────────────────────────────
 
-async fn do_hit(ctx: CommandContext<'_>) -> anyhow::Result<()> {
+async fn do_hit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()> {
     let (bet, mut player, dealer) = {
         let sessions = ctx.state.casino_sessions.lock().expect("lock");
         match sessions.get(ctx.sender) {
@@ -200,7 +204,7 @@ async fn do_hit(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
     if ps > 21 {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-        let balance = ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0);
+        let balance = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0);
         let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
         ctx.state.api.casino_jackpot_rake(rake).await;
         ctx.whisper(format!(
@@ -213,7 +217,7 @@ async fn do_hit(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     if ps == 21 {
         // Auto-stand
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-        return resolve_dealer(ctx, bet, player, dealer).await;
+        return resolve_dealer(ctx, bet, player, dealer, player_uuid).await;
     }
 
     ctx.state.casino_sessions.lock().expect("lock").insert(
@@ -226,7 +230,7 @@ async fn do_hit(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
 // ── Stand ────────────────────────────────────────────────────────────────────
 
-async fn do_stand(ctx: CommandContext<'_>) -> anyhow::Result<()> {
+async fn do_stand(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()> {
     let (bet, player, dealer) = {
         let sessions = ctx.state.casino_sessions.lock().expect("lock");
         match sessions.get(ctx.sender) {
@@ -245,12 +249,12 @@ async fn do_stand(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         }
     };
     ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-    resolve_dealer(ctx, bet, player, dealer).await
+    resolve_dealer(ctx, bet, player, dealer, player_uuid).await
 }
 
 // ── Double ───────────────────────────────────────────────────────────────────
 
-async fn do_double(ctx: CommandContext<'_>) -> anyhow::Result<()> {
+async fn do_double(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()> {
     let (bet, player, dealer) = {
         let sessions = ctx.state.casino_sessions.lock().expect("lock");
         match sessions.get(ctx.sender) {
@@ -275,7 +279,7 @@ async fn do_double(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     // Deduct additional bet
-    let balance = match ctx.state.api.casino_adjust(ctx.sender, -bet).await {
+    let balance = match ctx.state.api.casino_adjust(player_uuid, -bet).await {
         Ok(b) => b,
         Err(CasinoAdjustErr::InsufficientFunds(_)) => {
             ctx.whisper("Not enough chips to double.");
@@ -304,18 +308,18 @@ async fn do_double(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    resolve_dealer(ctx, doubled_bet, new_player, dealer).await
+    resolve_dealer(ctx, doubled_bet, new_player, dealer, player_uuid).await
 }
 
 // ── Quit ─────────────────────────────────────────────────────────────────────
 
-async fn do_quit(ctx: CommandContext<'_>) -> anyhow::Result<()> {
+async fn do_quit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()> {
     let removed = ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
     match removed {
         Some(CasinoSession::Blackjack { bet, .. }) => {
             let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
             ctx.state.api.casino_jackpot_rake(rake).await;
-            let balance = ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0);
+            let balance = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0);
             ctx.whisper(format!("BJ | Quit — forfeited {} | Balance: {}", chips_str(bet), chips_str(balance)));
         }
         Some(_) => ctx.whisper("Quit that game with its own quit command."),
@@ -326,7 +330,7 @@ async fn do_quit(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
 // ── Dealer resolution ────────────────────────────────────────────────────────
 
-async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut dealer: Vec<u8>) -> anyhow::Result<()> {
+async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut dealer: Vec<u8>, player_uuid: &str) -> anyhow::Result<()> {
     // Dealer hits until >= 17
     while score(&dealer) < 17 {
         dealer.push(draw_card());
@@ -349,14 +353,14 @@ async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut 
     };
 
     let new_balance = if payout > 0 {
-        match ctx.state.api.casino_adjust(ctx.sender, payout).await {
+        match ctx.state.api.casino_adjust(player_uuid, payout).await {
             Ok(b) => b,
             Err(_) => 0,
         }
     } else {
         let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
         ctx.state.api.casino_jackpot_rake(rake).await;
-        ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0)
+        ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0)
     };
 
     ctx.whisper(format!(
