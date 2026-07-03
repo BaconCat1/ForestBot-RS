@@ -79,6 +79,8 @@ pub struct Config {
     pub smart_censoring: bool,
     pub together_api_key: String,
     #[serde(default)]
+    pub sharpapi_key: String,
+    #[serde(default)]
     pub wolfram_app_id: String,
     #[serde(default)]
     pub azure_translator_key: String,

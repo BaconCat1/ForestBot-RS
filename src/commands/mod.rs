@@ -270,6 +270,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         casino::connect_four::COMMAND,
         casino::hilo::COMMAND,
         casino::slots::COMMAND,
+        casino::sports::COMMAND,
         market::COMMAND,
         market::PORTFOLIO_COMMAND,
         duel::COMMAND,

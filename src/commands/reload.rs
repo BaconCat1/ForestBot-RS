@@ -65,6 +65,7 @@ async fn reload_runtime(
         wolfram_app_id: app_state.config.wolfram_app_id,
         azure_translator_key: app_state.config.azure_translator_key,
         azure_translator_region: app_state.config.azure_translator_region,
+        sharpapi_key: app_state.config.sharpapi_key,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;

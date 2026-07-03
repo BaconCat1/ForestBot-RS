@@ -804,6 +804,12 @@ impl ApiClient {
             .unwrap_or_default()
     }
 
+    pub async fn casino_add_notification(&self, player_uuid: &str, message: &str) {
+        let _ = self
+            .post_json("/casino/notifications/add", json!({ "player_uuid": player_uuid, "message": message }))
+            .await;
+    }
+
     pub async fn casino_lotto_get_tickets(&self, player_uuid: &str) -> Vec<CasinoLottoPlayerTicket> {
         let Some(v) = self.get_json(&format!("/casino/lotto/tickets/{player_uuid}"), &[]).await else {
             return vec![];
@@ -1002,6 +1008,50 @@ impl ApiClient {
 
     pub async fn casino_weather_bet_delete(&self, id: i64) {
         let _ = self.delete_json(&format!("/casino/weather-bet/{id}")).await;
+    }
+
+    pub async fn casino_sports_bet_insert(&self, bet: &crate::commands::casino::sports::SportsBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/sports-bet",
+            json!({
+                "player_uuid": bet.player,
+                "event_id": bet.event_id,
+                "sport": bet.sport,
+                "home_team": bet.home_team,
+                "away_team": bet.away_team,
+                "selection": bet.selection,
+                "payout_mult": bet.payout_mult,
+                "stake": bet.stake,
+                "start_unix": bet.start_unix,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_sports_bet_list(&self) -> Vec<crate::commands::casino::sports::SportsBet> {
+        use crate::commands::casino::sports::SportsBet;
+        let Some(v) = self.get_json("/casino/sports-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| arr.iter().filter_map(|item| {
+                let id = item.get("id")?.as_i64()?;
+                let player = item.get("player_uuid")?.as_str()?.to_owned();
+                let event_id = item.get("event_id")?.as_str()?.to_owned();
+                let sport = item.get("sport")?.as_str()?.to_owned();
+                let home_team = item.get("home_team")?.as_str()?.to_owned();
+                let away_team = item.get("away_team")?.as_str()?.to_owned();
+                let selection = item.get("selection")?.as_str()?.to_owned();
+                let payout_mult = item.get("payout_mult")?.as_f64()?;
+                let stake = item.get("stake")?.as_i64()?;
+                let start_unix = item.get("start_unix")?.as_u64()?;
+                Some(SportsBet { id, player, event_id, sport, home_team, away_team, selection, payout_mult, stake, start_unix })
+            }).collect())
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_sports_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/sports-bet/{id}")).await;
     }
 
     pub async fn casino_portfolio_insert(&self, pos: &crate::structure::market::types::PortfolioPosition) -> Option<i64> {

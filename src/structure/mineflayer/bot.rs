@@ -78,6 +78,7 @@ pub struct RuntimeConfig {
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
     pub azure_translator_region: String,
+    pub sharpapi_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +114,7 @@ pub struct Bot {
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
     pub azure_translator_region: String,
+    pub sharpapi_key: String,
     pub anti_spam_global_cooldown_ms: u64,
     pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub reconnect_time_ms: u64,
@@ -153,6 +155,7 @@ impl Bot {
             wolfram_app_id: state.config.wolfram_app_id.clone(),
             azure_translator_key: state.config.azure_translator_key.clone(),
             azure_translator_region: state.config.azure_translator_region.clone(),
+            sharpapi_key: state.config.sharpapi_key.clone(),
             anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown,
             command_cooldowns: state.config.command_cooldowns.clone(),
             reconnect_time_ms: state.config.reconnect_time,
@@ -213,6 +216,7 @@ impl Bot {
                 wolfram_app_id: self.wolfram_app_id.clone(),
                 azure_translator_key: self.azure_translator_key.clone(),
                 azure_translator_region: self.azure_translator_region.clone(),
+                sharpapi_key: self.sharpapi_key.clone(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -242,6 +246,8 @@ impl Bot {
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
             weather_bets: Arc::new(Mutex::new(HashMap::new())),
             weather_odds_cache: Arc::new(Mutex::new(HashMap::new())),
+            sports_bets: Arc::new(Mutex::new(HashMap::new())),
+            sports_cache: Arc::new(Mutex::new(crate::commands::casino::sports::SportsCache::default())),
             duels: Arc::new(Mutex::new(Vec::new())),
             wordle_games: Arc::new(Mutex::new(HashMap::new())),
             checkers_games: Arc::new(Mutex::new(HashMap::new())),
@@ -293,6 +299,32 @@ impl Bot {
                         whisper_cmd.clone(),
                         bet,
                         remaining,
+                    ));
+                }
+            }
+        }
+
+        // Recover sports bets that were open when the bot last shut down
+        {
+            let open_bets = state.api.casino_sports_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let api_key = state.runtime.read().expect("runtime lock").sharpapi_key.clone();
+                let now = crate::structure::market::types::now_unix();
+                {
+                    let mut bets = state.sports_bets.lock().expect("sports_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    let secs = bet.start_unix.saturating_sub(now);
+                    tokio::spawn(crate::commands::casino::sports::settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        api_key.clone(),
+                        bet,
+                        secs,
                     ));
                 }
             }
@@ -384,6 +416,8 @@ pub struct AzaleaState {
     pub portfolio_positions: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::PortfolioPosition>>>>,
     pub weather_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::weather::WeatherBet>>>>,
     pub weather_odds_cache: Arc<Mutex<HashMap<String, crate::commands::weather::WeatherCacheEntry>>>,
+    pub sports_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::sports::SportsBet>>>>,
+    pub sports_cache: Arc<Mutex<crate::commands::casino::sports::SportsCache>>,
     pub duels: Arc<Mutex<Vec<crate::commands::duel::Duel>>>,
     pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
     pub checkers_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::checkers::CheckersSession>>>,
@@ -496,6 +530,7 @@ impl Default for AzaleaState {
                 wolfram_app_id: String::new(),
                 azure_translator_key: String::new(),
                 azure_translator_region: String::new(),
+                sharpapi_key: String::new(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -525,6 +560,8 @@ impl Default for AzaleaState {
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
             weather_bets: Arc::new(Mutex::new(HashMap::new())),
             weather_odds_cache: Arc::new(Mutex::new(HashMap::new())),
+            sports_bets: Arc::new(Mutex::new(HashMap::new())),
+            sports_cache: Arc::new(Mutex::new(crate::commands::casino::sports::SportsCache::default())),
             duels: Arc::new(Mutex::new(Vec::new())),
             wordle_games: Arc::new(Mutex::new(HashMap::new())),
             checkers_games: Arc::new(Mutex::new(HashMap::new())),
