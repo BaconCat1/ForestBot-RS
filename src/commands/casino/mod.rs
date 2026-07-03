@@ -1,3 +1,4 @@
+pub mod baccarat;
 pub mod blackjack;
 pub mod sports;
 pub mod chess;

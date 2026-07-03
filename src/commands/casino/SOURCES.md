@@ -6,6 +6,7 @@ Game logic references and adaptations used in the ForestBot-RS casino module.
 
 | Module | Reference | Copyright |
 |--------|-----------|-----------|
+| `baccarat.rs` | _Let's Go Gambling!_ — `BaccaratScreenHandler.java` by BobR0ssiter. Card scoring (`bac_value` / `bac_score`), natural detection, simplified drawing rules (both sides draw on ≤5), and payout ratios (Player 2×, Banker 1.95×, Tie 8×) adapted from source. No session state (instant resolve); chip integration, command flow original. | MIT — © BobR0ssiter. Modrinth: https://modrinth.com/mod/QCz7p8r1 |
 | `slots.rs` | _slot-machine-gen_ by Marc S. Brooks. Weighted symbol selection algorithm (`selectRandSymbol` iterate-subtract pattern) adapted from source. Symbol set, weights, and payout table are original design from `CASINOMAP.md`. | MIT — © 2020-2025 Marc S. Brooks |
 | `roulette.rs` | _Let's Go Gambling!_ — `RouletteScreenHandler.java` by BobR0ssiter. European wheel (0–36) game model and red-number set adapted from source. Instant single-command port (no GUI). | MIT — © BobR0ssiter. Modrinth: https://modrinth.com/mod/QCz7p8r1 |
 | `craps.rs` | _Let's Go Gambling!_ — `CrapsScreenHandler.java` by BobR0ssiter. Pass/don't-pass two-phase dice model and come-out/point-phase logic adapted from source. Field, Any-7, hardway bets not ported (chat UX). | MIT — © BobR0ssiter. Modrinth: https://modrinth.com/mod/QCz7p8r1 |
