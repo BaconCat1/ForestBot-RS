@@ -1096,6 +1096,44 @@ impl ApiClient {
         let _ = self.delete_json(&format!("/casino/kalshi-bet/{id}")).await;
     }
 
+    pub async fn casino_nasa_space_weather_bet_insert(&self, bet: &crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/nasa-space-weather-bet",
+            json!({
+                "player_uuid": bet.player,
+                "bet_type":    bet.bet_type,
+                "stake":       bet.stake,
+                "multiplier":  bet.multiplier,
+                "settle_at":   bet.settle_at,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_nasa_space_weather_bet_list(&self) -> Vec<crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet> {
+        use crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet;
+        let Some(v) = self.get_json("/casino/nasa-space-weather-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id         = item.get("id")?.as_i64()?;
+                    let player     = item.get("player_uuid")?.as_str()?.to_owned();
+                    let bet_type   = item.get("bet_type")?.as_str()?.to_owned();
+                    let stake      = item.get("stake")?.as_i64()?;
+                    let multiplier = item.get("multiplier")?.as_f64()?;
+                    let settle_at  = item.get("settle_at")?.as_u64()?;
+                    Some(NasaSpaceWeatherBet { id, player, bet_type, stake, multiplier, settle_at })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_nasa_space_weather_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/nasa-space-weather-bet/{id}")).await;
+    }
+
     pub async fn casino_portfolio_insert(&self, pos: &crate::structure::market::types::PortfolioPosition) -> Option<i64> {
         use crate::structure::market::types::MarketKind;
         let v = self.post_json(

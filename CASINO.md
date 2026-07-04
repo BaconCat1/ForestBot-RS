@@ -96,6 +96,30 @@ European wheel (0–36). Format: `!roulette <type> <selection> <chips>`
 
 Example: `!roulette color red 100` | `!roulette number 17 50`
 
+## Baccarat
+
+Instant resolution. Bet on Player, Banker, or Tie. Cards drawn by standard mini-baccarat rules (draw on ≤5). Min bet: 10 chips.
+
+| Command | Description |
+|---|---|
+| `!baccarat player <chips>` / `!bac p <chips>` | Bet on Player hand — 2× |
+| `!baccarat banker <chips>` / `!bac b <chips>` | Bet on Banker hand — 1.95× (5% commission) |
+| `!baccarat tie <chips>` / `!bac t <chips>` | Bet on Tie — 8× |
+
+## Sic Bo
+
+Instant resolution. Three dice rolled on each bet. Min bet: 10 chips, max 50,000 chips.
+
+| Command | Description |
+|---|---|
+| `!sicbo small <chips>` | Total 4–10 (no triple) — 1:1 |
+| `!sicbo large <chips>` | Total 11–17 (no triple) — 1:1 |
+| `!sicbo anytriple <chips>` / `!sic any <chips>` | Any triple — 30:1 |
+| `!sicbo total <4-17> <chips>` | Exact total — 4/17: 60:1, 5/16: 30:1, 6/15: 17:1, 7/14: 12:1, 8/13: 8:1, 9–12: 6:1 |
+| `!sicbo single <1-6> <chips>` | Die value appears at least once — 1 match: 1:1, 2 match: 2:1, 3 match: 3:1 |
+| `!sicbo double <1-6> <chips>` | Value appears on ≥2 dice — 10:1 |
+| `!sicbo triple <1-6> <chips>` | All three dice show that value — 180:1 |
+
 ## Connect Four (vs bot)
 
 Played in whisper. You are ◕, bot is ▣, ▢ = empty.
@@ -121,6 +145,46 @@ Bet on whether it will rain in a city on a specific future date. Odds are derive
 Durations: `1d`, `3d`, `7d`, `14d`. Payout = `stake × odds` (correct) or stake to jackpot (wrong). Odds shown at bet time based on forecast probability for the target date. API failure = full refund.
 
 Example: `!weather bet London rain yes 100 3d` — if forecast says 80% rain, you get 1.25× for yes or 5× for no.
+
+## Sports Betting
+
+Bet on live sports events from the SharpAPI feed. Stake debited immediately; settled when the event resolves. Requires `sharpapi_key` in config. Min bet: 25 chips.
+
+| Command | Description |
+|---|---|
+| `!sports` | List available sports categories |
+| `!sports <sport>` | List upcoming events for that sport |
+| `!sports bet <#> home\|away\|draw <chips>` | Place a bet on an event |
+| `!sports bets` | Show your open sports bets |
+
+Payout = `stake × (1 / decimal_odds)`. Correct = winnings credited. Wrong = stake to jackpot. API unavailable at settlement = full refund.
+
+## Kalshi Prediction Markets
+
+Bet on real-money prediction markets via the Kalshi public API. Stake debited immediately; settled when the market resolves. Min bet: 25 chips.
+
+| Command | Description |
+|---|---|
+| `!kalshi` / `!k` | List available categories |
+| `!kalshi <category>` | List open markets (up to 5) |
+| `!kalshi <#> yes\|no <chips>` | Place a bet on a market |
+| `!kalshi bets` | Show your open Kalshi bets |
+
+Categories: sports, crypto, politics, economics, entertainment, tech, climate, finance, elections, health. Payout = `stake / price`. Correct = payout credited. Wrong = stake to jackpot. Market unavailable = full refund.
+
+## Space Weather
+
+Bet on NASA-tracked space weather events. Bets settle at midnight UTC + 1h buffer, then the bot polls the DONKI API. Min bet: 25 chips.
+
+| Command | Description |
+|---|---|
+| `!spaceweather` / `!sw` | List bet types and odds |
+| `!sw cme <chips>` | Coronal Mass Ejection recorded today — 1.9× |
+| `!sw xflare <chips>` | X-class solar flare recorded today — 12× |
+| `!sw gstorm <chips>` | Geomagnetic storm recorded today — 5× |
+| `!sw bets` | Show your open space weather bets |
+
+Events sourced from NASA DONKI (api.nasa.gov). Occurred = payout credited. Not occurred = stake to jackpot. API unavailable = full refund.
 
 ## Market (paper trading)
 
