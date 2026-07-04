@@ -150,9 +150,36 @@ enum EventStatus {
     Cancelled,
 }
 
+enum EventFetch {
+    Found(serde_json::Value),
+    NotFound, // 404 — event gone from API, refund immediately
+    Error,    // network/parse failure — retry
+}
+
+async fn fetch_event(client: &reqwest::Client, key: &str, event_id: &str) -> EventFetch {
+    let Ok(resp) = client
+        .get(format!("{SHARPAPI_BASE}/events/{event_id}"))
+        .header("X-API-Key", key)
+        .header("Accept", "application/json")
+        .send()
+        .await
+    else {
+        return EventFetch::Error;
+    };
+    if resp.status() == 404 {
+        return EventFetch::NotFound;
+    }
+    match resp.json::<serde_json::Value>().await {
+        Ok(v) => EventFetch::Found(v),
+        Err(_) => EventFetch::Error,
+    }
+}
+
 async fn poll_event_result(client: &reqwest::Client, key: &str, event_id: &str) -> EventStatus {
-    let Some(v) = sharp_get(client, key, &format!("/events/{event_id}")).await else {
-        return EventStatus::InProgress;
+    let v = match fetch_event(client, key, event_id).await {
+        EventFetch::Found(v) => v,
+        EventFetch::NotFound => return EventStatus::Cancelled,
+        EventFetch::Error    => return EventStatus::InProgress,
     };
     let data = if v["data"].is_object() { &v["data"] } else { &v };
     let status = data["status"].as_str().unwrap_or("").to_lowercase();
@@ -257,13 +284,26 @@ async fn show_events(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             return Ok(());
         }
 
+        let now = now_unix() as i64;
         let lines = matching.iter().take(5).map(|(i, ev)| {
             let draw = ev.draw_odds.map(|d| format!(" d{d:.2}")).unwrap_or_default();
-            format!("#{} {} v {} h{:.2}{draw} a{:.2}", i + 1, ev.home_team, ev.away_team, ev.home_odds, ev.away_odds)
+            let date_label = if ev.start_unix > 0 {
+                use chrono::{DateTime, Utc, Datelike};
+                let dt = DateTime::<Utc>::from_timestamp(ev.start_unix as i64, 0).unwrap_or_default();
+                let today = DateTime::<Utc>::from_timestamp(now, 0).unwrap_or_default().date_naive();
+                if dt.date_naive() == today {
+                    " [today]".to_string()
+                } else {
+                    format!(" [{} {}]", dt.format("%b"), dt.day())
+                }
+            } else {
+                String::new()
+            };
+            format!("#{} {} v {} h{:.2}{draw} a{:.2}{date_label}", i + 1, ev.home_team, ev.away_team, ev.home_odds, ev.away_odds)
         }).collect::<Vec<_>>().join(" | ");
 
         ctx.whisper(lines);
-        ctx.whisper(format!("Bet: {}sports bet <#> home|away|draw <chips>", ctx.runtime.prefix));
+        ctx.whisper(format!("Bet: {}sports bet <#> home|away|draw <chips> | Odds preview: omit <chips>", ctx.runtime.prefix));
     }
     Ok(())
 }
@@ -272,29 +312,25 @@ async fn show_events(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let tail = &ctx.args[1..]; // skip "bet"
-    let (Some(&idx_s), Some(&sel_s), Some(&amt_s)) = (tail.first(), tail.get(1), tail.get(2)) else {
-        ctx.whisper(format!("Usage: {}sports bet <#> home|away|draw <chips>", ctx.runtime.prefix));
+    let (Some(&idx_s), Some(&sel_s)) = (tail.first(), tail.get(1)) else {
+        ctx.whisper(format!("Usage: {}sports bet <#> home|away|draw <chips> | Omit chips for odds preview", ctx.runtime.prefix));
         return Ok(());
     };
+    let amt_s = tail.get(2).copied();
 
     let Ok(idx) = idx_s.parse::<usize>().map(|n| n.saturating_sub(1)) else {
         ctx.whisper("Event number must be a positive integer.");
         return Ok(());
     };
-    let sel = sel_s.to_lowercase();
-    if !matches!(sel.as_str(), "home" | "away" | "draw") {
-        ctx.whisper("Selection must be: home, away, or draw.");
-        return Ok(());
-    }
-    let Ok(stake) = amt_s.parse::<i64>() else {
-        ctx.whisper("Chip amount must be a number.");
-        return Ok(());
-    };
-    if stake < MIN_BET {
-        ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
-        return Ok(());
-    }
-
+    let sel = match sel_s.to_lowercase().as_str() {
+        "h" | "home" => "home",
+        "a" | "away" => "away",
+        "d" | "draw" => "draw",
+        _ => {
+            ctx.whisper("Selection must be: home/h, away/a, or draw/d.");
+            return Ok(());
+        }
+    }.to_string();
     let ev = {
         let cache = ctx.state.sports_cache.lock().expect("sports_cache lock");
         cache.events.get(idx).cloned()
@@ -303,10 +339,6 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper("Event not found. Run !sports to refresh the list.");
         return Ok(());
     };
-    if ev.start_unix > 0 && now_unix() >= ev.start_unix {
-        ctx.whisper("That event has already started. Bets are closed.");
-        return Ok(());
-    }
 
     let payout_mult = match sel.as_str() {
         "home" => ev.home_odds,
@@ -317,6 +349,25 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         },
         _ => unreachable!(),
     };
+
+    // preview mode — no chip amount provided
+    let Some(amt_s) = amt_s else {
+        let draw_str = ev.draw_odds.map(|d| format!(" | draw {d:.2}x")).unwrap_or_default();
+        ctx.whisper(format!(
+            "[Sports] {} v {} | home {:.2}x | away {:.2}x{draw_str} | {} {:.2}x selected",
+            ev.home_team, ev.away_team, ev.home_odds, ev.away_odds, sel, payout_mult
+        ));
+        return Ok(());
+    };
+
+    let Ok(stake) = amt_s.parse::<i64>() else {
+        ctx.whisper("Chip amount must be a number.");
+        return Ok(());
+    };
+    if stake < MIN_BET {
+        ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+        return Ok(());
+    }
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
         ctx.whisper("Could not resolve your UUID.");

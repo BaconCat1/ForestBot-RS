@@ -252,6 +252,9 @@ impl Bot {
             kalshi_cache: Arc::new(Mutex::new(crate::commands::casino::kalshi::KalshiCache::default())),
             nasa_space_weather_bets: Arc::new(Mutex::new(HashMap::new())),
             faa_airport_bets: Arc::new(Mutex::new(HashMap::new())),
+            noaa_flooding_bets: Arc::new(Mutex::new(HashMap::new())),
+            flood_cache: Arc::new(Mutex::new(crate::commands::casino::noaa_flooding::FloodCache::default())),
+            train_bets: Arc::new(Mutex::new(HashMap::new())),
             duels: Arc::new(Mutex::new(Vec::new())),
             wordle_games: Arc::new(Mutex::new(HashMap::new())),
             checkers_games: Arc::new(Mutex::new(HashMap::new())),
@@ -406,6 +409,52 @@ impl Bot {
             }
         }
 
+        // Recover NOAA flooding bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_noaa_flooding_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let now = crate::structure::market::types::now_unix();
+                {
+                    let mut bets = state.noaa_flooding_bets.lock().expect("noaa_flooding_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    let _ = now;
+                    tokio::spawn(crate::commands::casino::noaa_flooding::settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Recover train bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_train_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let now = crate::structure::market::types::now_unix();
+                {
+                    let mut bets = state.train_bets.lock().expect("train_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    let _ = now;
+                    tokio::spawn(crate::commands::casino::train::settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
         // Load portfolio positions into memory
         {
             let open_positions = state.api.casino_portfolio_list().await;
@@ -498,6 +547,9 @@ pub struct AzaleaState {
     pub kalshi_cache: Arc<Mutex<crate::commands::casino::kalshi::KalshiCache>>,
     pub nasa_space_weather_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet>>>>,
     pub faa_airport_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::faa_airport::FaaAirportBet>>>>,
+    pub noaa_flooding_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::noaa_flooding::NOAAFloodingBet>>>>,
+    pub flood_cache: Arc<Mutex<crate::commands::casino::noaa_flooding::FloodCache>>,
+    pub train_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::train::TrainBet>>>>,
     pub duels: Arc<Mutex<Vec<crate::commands::duel::Duel>>>,
     pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
     pub checkers_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::checkers::CheckersSession>>>,
@@ -646,6 +698,9 @@ impl Default for AzaleaState {
             kalshi_cache: Arc::new(Mutex::new(crate::commands::casino::kalshi::KalshiCache::default())),
             nasa_space_weather_bets: Arc::new(Mutex::new(HashMap::new())),
             faa_airport_bets: Arc::new(Mutex::new(HashMap::new())),
+            noaa_flooding_bets: Arc::new(Mutex::new(HashMap::new())),
+            flood_cache: Arc::new(Mutex::new(crate::commands::casino::noaa_flooding::FloodCache::default())),
+            train_bets: Arc::new(Mutex::new(HashMap::new())),
             duels: Arc::new(Mutex::new(Vec::new())),
             wordle_games: Arc::new(Mutex::new(HashMap::new())),
             checkers_games: Arc::new(Mutex::new(HashMap::new())),

@@ -1,7 +1,7 @@
 
 # Casino Commands
 
-All casino commands use the shared chip balance. Starting balance: 1000 chips.
+**28 games · ~165 commands.** All use the shared chip balance. Starting balance: 1000 chips.
 All games feature a 3% house rake deposited into the jackpot. All losings are deposited into the jackpot.
 
 ## Wallet & Chips
@@ -148,16 +148,17 @@ Example: `!weather bet London rain yes 100 3d` — if forecast says 80% rain, yo
 
 ## Sports Betting
 
-Bet on live sports events from the SharpAPI feed. Stake debited immediately; settled when the event resolves. Requires `sharpapi_key` in config. Min bet: 25 chips.
+Bet on live sports events from the SharpAPI feed. Stake debited immediately; settled when the event resolves. Requires `sharpapi_key` in config. Min bet: 50 chips.
 
 | Command | Description |
 |---|---|
-| `!sports` | List available sports categories |
-| `!sports <sport>` | List upcoming events for that sport |
-| `!sports bet <#> home\|away\|draw <chips>` | Place a bet on an event |
+| `!sports` / `!sb` | List available sports categories with event counts |
+| `!sports <sport>` | List upcoming bettable events — shows odds + date label |
+| `!sports bet <#> home\|away\|draw` | Preview odds for that event (no chips = no bet placed) |
+| `!sports bet <#> home\|away\|draw <chips>` | Place a bet. Aliases: `h`, `a`, `d` |
 | `!sports bets` | Show your open sports bets |
 
-Payout = `stake × (1 / decimal_odds)`. Correct = winnings credited. Wrong = stake to jackpot. API unavailable at settlement = full refund.
+Events shown are pre-game only (SharpAPI drops them once they start). Payout = `stake × decimal_odds`. Correct = winnings credited. Wrong = stake to jackpot. API unavailable at settlement = full refund.
 
 ## Kalshi Prediction Markets
 
@@ -199,6 +200,35 @@ Bet on whether a US airport will be in IFR or LIFR flight conditions in 2 hours.
 | `!faa bets` | Show your open airport condition bets |
 
 Flight categories: VFR (clear) → MVFR (marginal) → IFR (instrument) → LIFR (low instrument). IFR/LIFR = low visibility/ceiling = delays likely. Correct = payout credited. Wrong = stake to jackpot. METAR unavailable = full refund.
+
+## NOAA Flood Alerts
+
+Bet on whether a NOAA flood warning is active at a location within 2 hours. Alerts from the NOAA Weather.gov API. Min bet: 25 chips.
+
+| Command | Description |
+|---|---|
+| `!flood list` / `!flood ls` | List active flood warnings with numbered locations |
+| `!flood bet <#> yes\|no` | Preview odds for that location (no bet placed) |
+| `!flood bet <#> yes\|no <chips>` | Bet flood alert is (yes) or isn't (no) active |
+| `!flood bets` | Show your open flood bets |
+
+Run `!flood list` first to see numbered locations, then `!flood bet <#>`. Raw lat/lon also works: `!flood <lat> <lon> yes|no <chips>`. Payout = `stake / price`. Correct = payout credited. Wrong = stake to jackpot. API unavailable = full refund.
+
+## Train Delays
+
+Bet on whether a running intercity train will be on time (≤5 min delay) or delayed (>5 min delay) at settlement, 2 hours from bet placement. Data from trainstracking.com realtime feed. Train not found at settlement (arrived/cancelled) = full refund. Min bet: 25 chips.
+
+Supported countries: `us` (Amtrak), `de` (Germany), `fr`, `be`, `ch`, `fi`, `nl`, `no`, `at`, `se`, `it`, `es`, `pl`, `cz`, `my`. Multi-word train codes (e.g. `ICE 42`) are supported — type them space-separated after the country.
+
+| Command | Description |
+|---|---|
+| `!train` / `!trains` | Show usage |
+| `!train list <country>` | List up to 8 running trains with current delays |
+| `!train <country> <code> ontime\|delayed` | Preview odds (no chips = no bet placed) |
+| `!train <country> <code> ontime\|delayed <chips>` | Bet train is on time or delayed at 2h settlement |
+| `!train bets` | Show your open train bets |
+
+Payout = `stake / price`. Currently delayed → ontime is 3.03×, delayed is 1.49×. Currently on time → ontime is 1.49×, delayed is 3.03×. Correct = payout credited. Wrong = stake to jackpot.
 
 ## Market (paper trading)
 

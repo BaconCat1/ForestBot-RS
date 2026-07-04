@@ -1,6 +1,6 @@
 # !askgod — Available Gods
 
-No arg picks randomly from all corpora. Corpus files live in `godtexts/`. (75 corpora)
+**75 corpora.** No arg picks randomly. Corpus files live in `godtexts/`.
 
 | Arg(s) | Corpus |
 |---|---|

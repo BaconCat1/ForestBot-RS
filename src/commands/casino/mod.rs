@@ -4,6 +4,8 @@ pub mod blackjack;
 pub mod faa_airport;
 pub mod kalshi;
 pub mod nasa_space_weather;
+pub mod noaa_flooding;
+pub mod train;
 pub mod sports;
 pub mod chess;
 pub mod connect_four;
