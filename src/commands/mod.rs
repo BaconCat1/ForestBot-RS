@@ -266,6 +266,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         casino::craps::COMMAND,
         casino::sic_bo::COMMAND,
         casino::baccarat::COMMAND,
+        casino::faa_airport::COMMAND,
         casino::kalshi::COMMAND,
         casino::nasa_space_weather::COMMAND,
         casino::blackjack::COMMAND,

@@ -251,6 +251,7 @@ impl Bot {
             kalshi_bets: Arc::new(Mutex::new(HashMap::new())),
             kalshi_cache: Arc::new(Mutex::new(crate::commands::casino::kalshi::KalshiCache::default())),
             nasa_space_weather_bets: Arc::new(Mutex::new(HashMap::new())),
+            faa_airport_bets: Arc::new(Mutex::new(HashMap::new())),
             duels: Arc::new(Mutex::new(Vec::new())),
             wordle_games: Arc::new(Mutex::new(HashMap::new())),
             checkers_games: Arc::new(Mutex::new(HashMap::new())),
@@ -381,6 +382,30 @@ impl Bot {
             }
         }
 
+        // Recover FAA airport bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_faa_airport_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let now = crate::structure::market::types::now_unix();
+                {
+                    let mut bets = state.faa_airport_bets.lock().expect("faa_airport_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    // close_time may already be past if bot was down; settle_task handles that
+                    let _ = now; // suppress unused warning
+                    tokio::spawn(crate::commands::casino::faa_airport::settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
         // Load portfolio positions into memory
         {
             let open_positions = state.api.casino_portfolio_list().await;
@@ -472,6 +497,7 @@ pub struct AzaleaState {
     pub kalshi_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::kalshi::KalshiBet>>>>,
     pub kalshi_cache: Arc<Mutex<crate::commands::casino::kalshi::KalshiCache>>,
     pub nasa_space_weather_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet>>>>,
+    pub faa_airport_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::faa_airport::FaaAirportBet>>>>,
     pub duels: Arc<Mutex<Vec<crate::commands::duel::Duel>>>,
     pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
     pub checkers_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::checkers::CheckersSession>>>,
@@ -619,6 +645,7 @@ impl Default for AzaleaState {
             kalshi_bets: Arc::new(Mutex::new(HashMap::new())),
             kalshi_cache: Arc::new(Mutex::new(crate::commands::casino::kalshi::KalshiCache::default())),
             nasa_space_weather_bets: Arc::new(Mutex::new(HashMap::new())),
+            faa_airport_bets: Arc::new(Mutex::new(HashMap::new())),
             duels: Arc::new(Mutex::new(Vec::new())),
             wordle_games: Arc::new(Mutex::new(HashMap::new())),
             checkers_games: Arc::new(Mutex::new(HashMap::new())),

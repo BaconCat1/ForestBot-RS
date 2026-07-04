@@ -186,6 +186,20 @@ Bet on NASA-tracked space weather events. Bets settle at midnight UTC + 1h buffe
 
 Events sourced from NASA DONKI (api.nasa.gov). Occurred = payout credited. Not occurred = stake to jackpot. API unavailable = full refund.
 
+## Airport Conditions
+
+Bet on whether a US airport will be in IFR or LIFR flight conditions in 2 hours. Conditions sourced from aviationweather.gov METAR. Min bet: 25 chips.
+
+| Command | Description |
+|---|---|
+| `!faa` / `!airport` | Show usage and supported airport code examples |
+| `!faa <IATA/ICAO>` | Current flight category + odds (e.g. `!faa JFK` or `!faa KJFK`) |
+| `!faa <code> yes <chips>` | Bet airport will be IFR or LIFR in 2h |
+| `!faa <code> no <chips>` | Bet airport will be VFR or MVFR in 2h |
+| `!faa bets` | Show your open airport condition bets |
+
+Flight categories: VFR (clear) → MVFR (marginal) → IFR (instrument) → LIFR (low instrument). IFR/LIFR = low visibility/ceiling = delays likely. Correct = payout credited. Wrong = stake to jackpot. METAR unavailable = full refund.
+
 ## Market (paper trading)
 
 | Command | Description |

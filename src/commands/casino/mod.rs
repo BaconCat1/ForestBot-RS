@@ -1,6 +1,7 @@
 pub mod baccarat;
 pub mod sic_bo;
 pub mod blackjack;
+pub mod faa_airport;
 pub mod kalshi;
 pub mod nasa_space_weather;
 pub mod sports;

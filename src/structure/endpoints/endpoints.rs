@@ -1134,6 +1134,48 @@ impl ApiClient {
         let _ = self.delete_json(&format!("/casino/nasa-space-weather-bet/{id}")).await;
     }
 
+    pub async fn casino_faa_airport_bet_insert(&self, bet: &crate::commands::casino::faa_airport::FaaAirportBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/faa-airport-bet",
+            json!({
+                "player_uuid":   bet.player,
+                "airport_code":  bet.airport_code,
+                "name":          bet.name,
+                "side":          bet.side,
+                "price":         bet.price,
+                "stake":         bet.stake,
+                "close_time":    bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_faa_airport_bet_list(&self) -> Vec<crate::commands::casino::faa_airport::FaaAirportBet> {
+        use crate::commands::casino::faa_airport::FaaAirportBet;
+        let Some(v) = self.get_json("/casino/faa-airport-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id           = item.get("id")?.as_i64()?;
+                    let player       = item.get("player_uuid")?.as_str()?.to_owned();
+                    let airport_code = item.get("airport_code")?.as_str()?.to_owned();
+                    let name         = item.get("name")?.as_str()?.to_owned();
+                    let side         = item.get("side")?.as_str()?.to_owned();
+                    let price        = item.get("price")?.as_f64()?;
+                    let stake        = item.get("stake")?.as_i64()?;
+                    let close_time   = item.get("close_time")?.as_u64()?;
+                    Some(FaaAirportBet { id, player, airport_code, name, side, price, stake, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_faa_airport_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/faa-airport-bet/{id}")).await;
+    }
+
     pub async fn casino_portfolio_insert(&self, pos: &crate::structure::market::types::PortfolioPosition) -> Option<i64> {
         use crate::structure::market::types::MarketKind;
         let v = self.post_json(

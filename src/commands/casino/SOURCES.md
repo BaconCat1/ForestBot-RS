@@ -26,6 +26,7 @@ Game logic references and adaptations used in the ForestBot-RS casino module.
 | `kalshi.rs` | Original implementation. Uses Kalshi External API v2 (public read endpoints — no auth required for market data). Category→series→market fetch chain, yes/no price model (`yes_ask_dollars`/`no_ask_dollars`), settle task with POLL_INTERVAL retry loop, and chip integration original. | Original |
 | `sports.rs` | Original implementation. Uses SharpAPI sports data service (requires `sharpapi_key` in config). Event fetch, odds parse, home/away/draw side model, settle task, and chip integration original. | Original |
 | `nasa_space_weather.rs` | Original implementation. Uses NASA DONKI public API (no key required at DEMO_KEY tier). CME/FLR/GST endpoints for daily event settlement, midnight UTC settle window, 1h buffer + poll retry loop, and chip integration original. NASA API data is US government public domain. | Original |
+| `faa_airport.rs` | Original implementation. Uses aviationweather.gov METAR API (public, no auth). Fetches `fltCat` (VFR/MVFR/IFR/LIFR) from the METAR endpoint; accepts IATA (3-char, auto-prepends K for US) or ICAO (4-char) codes. Settle task polls METAR at close time; IFR/LIFR = YES wins, VFR/MVFR = NO wins. Chip integration and command flow original. Aviation weather data is US government public domain. | Original |
 
 ## Excluded
 
