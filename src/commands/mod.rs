@@ -265,6 +265,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         casino::scratch::COMMAND,
         casino::craps::COMMAND,
         casino::baccarat::COMMAND,
+        casino::kalshi::COMMAND,
         casino::blackjack::COMMAND,
         casino::poker::COMMAND,
         casino::chess::COMMAND,

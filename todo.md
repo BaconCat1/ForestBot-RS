@@ -101,7 +101,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
  * ✅ ~~extend offlinemsg to do "remindme"~~ // `!remindme`/`!remind` aliases; optional duration `1s2m3h4d`; no duration = next login; timed = background 30s tick fires when online; `!remindme stop` cancels all; `deliver_at: Option<u64>` added to `OfflineMessage`
 * ✅ ~~add pearl bot infrastructure~~ // pearlbot binary; Hub WS routing; ForestBot-RS `!pearl`/`!p <slot>` command; UUID whitelist + per-slot chamber config; multi-pearl tracking (HashSet); deployed to prod RefinedVanilla
 * 🆕 queue detection, data driven. upon detection, disconnect for 5 minutes. Needs to count "reconfiguring" screen as reconnecting to server
-* 🆕 extend `!help` to take commands as args, use existing commands md stripped of md
+* ✅ ~~extend `!help` to take commands as args~~ // `!help <command>` whispers description + aliases; unknown falls back to link
 
 
 ## !quote
@@ -127,16 +127,16 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~wordle~~
 * ✅ ~~baccarat~~ // Player 2×, Banker 1.95×, Tie 8×; simplified drawing rules from letsgogambling reference; instant resolve, no session state
 * ✅ ~~stock market portfolios and future, mapped out but not written~~
-* 🆕 add kalshi (prediction market) to extend stock market system
-* 🆕 add Betfair (horse race betting) to extend stock market system
+* ✅ ~~add kalshi (prediction market) to extend stock market system~~ // compiles, pending testing
+* ❌ ~~add Betfair (horse race betting) to extend stock market system~~ // geo-locked and low priority, won't pursue horse betting api without demand
 * ✅ ~~add SharpAPI (sports betting) to extend stock market system~~
 * 🆕 parlays across all betting types (needs mapping)
 * 🆕 side betting on any game, not just dueling
 * ✅ ~~weather futures, bet on changes in the weather.~~ // rain yes/no bets; odds from forecast precipitation_probability_max; open-meteo forecast endpoint (past_days=92 for resolution); settle_task pattern matches market bets
 * 🆕 server event futures, same idea, just about stuff that happens on the server
 * 🆕 add multiplayer where applicable to "casino games"
-* 🐛 **bug**(?): `increment_ms` for command cooldown in `config.json` does not appear to be working, meaning spammers only need to wait for the `cooldown_ms` to elapse. The original idea was that if they run it again before the cooldown is over, or if they run it without the cooldown elapsing a second time, the `increment_ms` is added for them, until eventually they stop using it an it clears from memory
-* 🐛 **bug**: !ud, I think upvotes/downvotes are supposed to be displayed but always show as 0, either drop it or fix
+* ✅ ~~**bug**: `increment_ms` cooldown not working~~ // spam path (blocked attempt) now also increments cooldown; success path already had it
+* ✅ ~~**bug**: !ud upvotes/downvotes always 0~~ // improved type parsing (i64 fallback); votes hidden when both 0 rather than showing (+0/-0)
 
 ## new commands
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~

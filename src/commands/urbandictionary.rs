@@ -40,8 +40,8 @@ async fn ud_lookup(query: &str) -> Option<String> {
 
     let word = entry.get("word").and_then(|v| v.as_str())?;
     let definition = entry.get("definition").and_then(|v| v.as_str())?;
-    let thumbs_up = entry.get("thumbs_up").and_then(|v| v.as_u64()).unwrap_or(0);
-    let thumbs_down = entry.get("thumbs_down").and_then(|v| v.as_u64()).unwrap_or(0);
+    let thumbs_up = entry.get("thumbs_up").and_then(|v| v.as_i64().or_else(|| v.as_u64().map(|n| n as i64))).unwrap_or(0);
+    let thumbs_down = entry.get("thumbs_down").and_then(|v| v.as_i64().or_else(|| v.as_u64().map(|n| n as i64))).unwrap_or(0);
 
     // Strip [bracket] link syntax UD uses inside definitions
     let clean = definition.replace('[', "").replace(']', "");
@@ -54,7 +54,13 @@ async fn ud_lookup(query: &str) -> Option<String> {
         clean.to_owned()
     };
 
-    Some(format!("[{word}] {truncated} (+{thumbs_up}/-{thumbs_down})"))
+    let votes = if thumbs_up > 0 || thumbs_down > 0 {
+        format!(" (+{thumbs_up}/-{thumbs_down})")
+    } else {
+        String::new()
+    };
+
+    Some(format!("[{word}] {truncated}{votes}"))
 }
 
 fn percent_encode(value: &str) -> String {

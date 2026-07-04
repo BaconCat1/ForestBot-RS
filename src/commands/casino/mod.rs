@@ -1,5 +1,6 @@
 pub mod baccarat;
 pub mod blackjack;
+pub mod kalshi;
 pub mod sports;
 pub mod chess;
 pub mod connect_four;

@@ -62,7 +62,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     ctx.whisper("Could not resolve your UUID.");
                     return Ok(());
                 };
-                show_bets(&ctx, &player_uuid);
+                show_bets(&ctx, &player_uuid).await;
             }
             "odds" => {
                 let location = ctx.args[1..].join(" ");
@@ -503,9 +503,9 @@ async fn place_ensemble_bet(
 
 // ── Show bets ─────────────────────────────────────────────────────────────────
 
-fn show_bets(ctx: &CommandContext<'_>, player_uuid: &str) {
-    let bets = ctx.state.weather_bets.lock().expect("weather_bets lock");
-    let player_bets = bets.get(player_uuid).cloned().unwrap_or_default();
+async fn show_bets(ctx: &CommandContext<'_>, player_uuid: &str) {
+    let all_bets = ctx.state.api.casino_weather_bet_list().await;
+    let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
         ctx.whisper("No open weather bets.");
         return;
@@ -534,22 +534,22 @@ fn show_bets(ctx: &CommandContext<'_>, player_uuid: &str) {
 pub async fn settle_task(state: AzaleaState, whisper_cmd: String, bet: WeatherBet, dur_secs: u64) {
     tokio::time::sleep(std::time::Duration::from_secs(dur_secs)).await;
 
-    {
-        let bets = state.weather_bets.lock().expect("weather_bets lock");
-        let still_open = bets.get(&bet.player)
-            .map(|v| v.iter().any(|b| b.id == bet.id))
-            .unwrap_or(false);
-        if !still_open { return; }
-    }
+    // Atomically claim the bet — only one task wins if two race here.
+    let claimed = {
+        let mut bets = state.weather_bets.lock().expect("weather_bets lock");
+        bets.get_mut(&bet.player)
+            .map(|v| { let pos = v.iter().position(|b| b.id == bet.id); pos.map(|i| { v.remove(i); }).is_some() })
+            .unwrap_or(false)
+    };
+    if !claimed { return; }
 
     let target_date = unix_to_date(bet.closes_unix);
     let client = reqwest::Client::new();
     let threshold = bet.threshold.unwrap_or(0.0);
     let unit = bet.unit.as_deref().unwrap_or("");
 
-    let display_player = state.players.read().ok()
-        .and_then(|pl| pl.values().find(|s| s.uuid == bet.player).map(|s| s.username.clone()))
-        .unwrap_or_else(|| bet.player.clone());
+    let online_username = state.players.read().ok()
+        .and_then(|pl| pl.values().find(|s| s.uuid == bet.player).map(|s| s.username.clone()));
 
     let (won, result_str) = match fetch_actual(&client, &bet, &target_date).await {
         Some(actual) => {
@@ -564,13 +564,14 @@ pub async fn settle_task(state: AzaleaState, whisper_cmd: String, bet: WeatherBe
             (won, result_str)
         }
         None => {
-            let _ = state.api.casino_adjust(&bet.player, bet.stake).await;
-            remove_bet(&state, &bet.player, bet.id);
             state.api.casino_weather_bet_delete(bet.id).await;
-            enqueue_chat(&state, format!(
-                "/{whisper_cmd} {} [Weather] Data unavailable — {} refunded.",
-                display_player, chips_str(bet.stake)
-            ));
+            let _ = state.api.casino_adjust(&bet.player, bet.stake).await;
+            let msg = format!("[Weather] Data unavailable — {} refunded.", chips_str(bet.stake));
+            if let Some(ref username) = online_username {
+                enqueue_chat(&state, format!("/{whisper_cmd} {username} {msg}"));
+            } else {
+                state.api.casino_add_notification(&bet.player, &msg).await;
+            }
             return;
         }
     };
@@ -580,30 +581,23 @@ pub async fn settle_task(state: AzaleaState, whisper_cmd: String, bet: WeatherBe
         _      => format!("{} {} {:.1}{}", bet.bet_type, bet.direction, threshold, unit),
     };
 
-    remove_bet(&state, &bet.player, bet.id);
     state.api.casino_weather_bet_delete(bet.id).await;
 
-    if won {
+    let msg = if won {
         let payout = (bet.stake as f64 * bet.payout_mult).ceil() as i64;
         let net    = payout - bet.stake;
         let _ = state.api.casino_adjust(&bet.player, payout).await;
-        enqueue_chat(&state, format!(
-            "/{whisper_cmd} {} [Weather] {} {} — {}. WIN +{} ({} @ {:.2}x).",
-            display_player, bet.city, type_str, result_str, chips_str(net), chips_str(bet.stake), bet.payout_mult
-        ));
+        format!("[Weather] {} {} — {}. WIN +{} ({} @ {:.2}x).",
+            bet.city, type_str, result_str, chips_str(net), chips_str(bet.stake), bet.payout_mult)
     } else {
         let _ = state.api.casino_jackpot_rake(bet.stake).await;
-        enqueue_chat(&state, format!(
-            "/{whisper_cmd} {} [Weather] {} {} — {}. LOSS -{} (to jackpot).",
-            display_player, bet.city, type_str, result_str, chips_str(bet.stake)
-        ));
-    }
-}
-
-fn remove_bet(state: &AzaleaState, player: &str, id: i64) {
-    let mut bets = state.weather_bets.lock().expect("weather_bets lock");
-    if let Some(v) = bets.get_mut(player) {
-        v.retain(|b| b.id != id);
+        format!("[Weather] {} {} — {}. LOSS -{} (to jackpot).",
+            bet.city, type_str, result_str, chips_str(bet.stake))
+    };
+    if let Some(ref username) = online_username {
+        enqueue_chat(&state, format!("/{whisper_cmd} {username} {msg}"));
+    } else {
+        state.api.casino_add_notification(&bet.player, &msg).await;
     }
 }
 

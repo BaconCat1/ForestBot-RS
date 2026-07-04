@@ -1054,6 +1054,48 @@ impl ApiClient {
         let _ = self.delete_json(&format!("/casino/sports-bet/{id}")).await;
     }
 
+    pub async fn casino_kalshi_bet_insert(&self, bet: &crate::commands::casino::kalshi::KalshiBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/kalshi-bet",
+            json!({
+                "player_uuid": bet.player,
+                "ticker":      bet.ticker,
+                "title":       bet.title,
+                "side":        bet.side,
+                "price":       bet.price,
+                "stake":       bet.stake,
+                "close_time":  bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_kalshi_bet_list(&self) -> Vec<crate::commands::casino::kalshi::KalshiBet> {
+        use crate::commands::casino::kalshi::KalshiBet;
+        let Some(v) = self.get_json("/casino/kalshi-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id         = item.get("id")?.as_i64()?;
+                    let player     = item.get("player_uuid")?.as_str()?.to_owned();
+                    let ticker     = item.get("ticker")?.as_str()?.to_owned();
+                    let title      = item.get("title")?.as_str()?.to_owned();
+                    let side       = item.get("side")?.as_str()?.to_owned();
+                    let price      = item.get("price")?.as_f64()?;
+                    let stake      = item.get("stake")?.as_i64()?;
+                    let close_time = item.get("close_time")?.as_u64()?;
+                    Some(KalshiBet { id, player, ticker, title, side, price, stake, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_kalshi_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/kalshi-bet/{id}")).await;
+    }
+
     pub async fn casino_portfolio_insert(&self, pos: &crate::structure::market::types::PortfolioPosition) -> Option<i64> {
         use crate::structure::market::types::MarketKind;
         let v = self.post_json(

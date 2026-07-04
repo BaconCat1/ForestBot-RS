@@ -377,10 +377,8 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper("Could not resolve your UUID.");
         return Ok(());
     };
-    let player_bets = {
-        let bets = ctx.state.sports_bets.lock().expect("sports_bets lock");
-        bets.get(&player_uuid).cloned().unwrap_or_default()
-    };
+    let all_bets = ctx.state.api.casino_sports_bet_list().await;
+    let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
         ctx.whisper("No open sports bets.");
         return Ok(());
