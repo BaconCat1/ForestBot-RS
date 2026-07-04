@@ -126,6 +126,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ❌ ~~uno~~ // hand too complicated to represent over text, fast reactions too difficult to do by text, rejected
 * ✅ ~~wordle~~
 * ✅ ~~baccarat~~ // Player 2×, Banker 1.95×, Tie 8×; simplified drawing rules from letsgogambling reference; instant resolve, no session state
+* ✅ ~~sic bo~~
 * ✅ ~~stock market portfolios and future, mapped out but not written~~
 * ✅ ~~add kalshi (prediction market) to extend stock market system~~ // compiles, pending testing
 * ❌ ~~add Betfair (horse race betting) to extend stock market system~~ // geo-locked and low priority, won't pursue horse betting api without demand

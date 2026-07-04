@@ -1,4 +1,5 @@
 pub mod baccarat;
+pub mod sic_bo;
 pub mod blackjack;
 pub mod kalshi;
 pub mod sports;
