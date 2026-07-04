@@ -169,6 +169,9 @@ fn command_cooldown_remaining(
         let should_increase = elapsed < reset_after;
 
         if elapsed < Duration::from_millis(state.cooldown_ms) {
+            if policy.increment_ms > 0 {
+                state.cooldown_ms = increased_cooldown(state.cooldown_ms, policy);
+            }
             return Some(duration_seconds(
                 Duration::from_millis(state.cooldown_ms) - elapsed,
             ));
