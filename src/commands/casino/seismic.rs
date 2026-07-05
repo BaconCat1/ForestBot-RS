@@ -131,7 +131,7 @@ async fn fetch_quake_count(
         .json()
         .await
         .ok()?;
-    body["metadata"]["count"].as_u64()
+    body["features"].as_array().map(|a| a.len() as u64)
 }
 
 fn poisson_probability(count: u64, window_days: f64) -> f64 {
@@ -286,12 +286,12 @@ fn volcano_yes_probability(alert_level: &str) -> f64 {
     }
 }
 
-fn alert_emoji(alert: &str) -> &'static str {
+fn alert_level_tag(alert: &str) -> &'static str {
     match alert.to_uppercase().as_str() {
-        "WARNING"  => "🔴",
-        "WATCH"    => "🟠",
-        "ADVISORY" => "🟡",
-        _          => "⚪",
+        "WARNING"  => "[!!!]",
+        "WATCH"    => "[!!]",
+        "ADVISORY" => "[!]",
+        _          => "[-]",
     }
 }
 
@@ -619,7 +619,7 @@ async fn volcano_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         let p = volcano_yes_probability(&v.alert_level);
         format!(
             "{} {} {:.0}%",
-            alert_emoji(&v.alert_level),
+            alert_level_tag(&v.alert_level),
             v.vname,
             p * 100.0,
         )
@@ -697,7 +697,7 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper(format!(
             "[Volcano] {} {} | yes {:.2}x | no {:.2}x | Bet resolves YES if reaches Warning within 7d",
             vs.vname,
-            alert_emoji(&vs.alert_level),
+            alert_level_tag(&vs.alert_level),
             (1.0 / (p_yes)),
             (1.0 / (p_no)),
         ));
@@ -731,7 +731,7 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper(format!(
             "[Volcano] {} {} | {} {:.2}x | yes {:.2}x | no {:.2}x",
             vs.vname,
-            alert_emoji(&vs.alert_level),
+            alert_level_tag(&vs.alert_level),
             side.to_uppercase(),
             (1.0 / (price)),
             (1.0 / (p_yes)),
@@ -793,7 +793,7 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     ctx.whisper(format!(
         "[Volcano] {} {} | {} {:.2}x | {} | profit if win: +{} | settles in 7d",
         vs.vname,
-        alert_emoji(&vs.alert_level),
+        alert_level_tag(&vs.alert_level),
         side.to_uppercase(),
         (1.0 / (price)),
         chips_str(stake),

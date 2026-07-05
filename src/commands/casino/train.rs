@@ -124,7 +124,12 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         match ctx.args.first().copied().unwrap_or("") {
             "" => show_usage(&ctx),
             "bets" | "my" => show_bets(&ctx).await?,
-            "debug" => gtfs_debug(&ctx, ctx.args.get(1).copied().unwrap_or("")).await?,
+            "debug" => {
+                let allowed = !ctx.runtime.use_whitelist
+                    || ctx.runtime.user_whitelist.iter().any(|u| u.eq_ignore_ascii_case(ctx.sender));
+                if !allowed { ctx.whisper("Whitelist only."); return Ok(()); }
+                gtfs_debug(&ctx, ctx.args.get(1).copied().unwrap_or("")).await?;
+            }
             "list" => {
                 let target = ctx.args.get(1).copied().unwrap_or("");
                 if let Some(agency) = gtfs_rt::resolve_agency(target) {
