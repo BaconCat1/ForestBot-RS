@@ -131,10 +131,14 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~add kalshi (prediction market) to extend stock market system~~ // compiles, pending testing
 * ❌ ~~add Betfair (horse race betting) to extend stock market system~~ // geo-locked and low priority, won't pursue horse betting api without demand
 * ✅ ~~add SharpAPI (sports betting) to extend stock market system~~
+* ✅ ~~weather futures, bet on changes in the weather.~~ // rain yes/no bets; odds from forecast precipitation_probability_max; open-meteo forecast endpoint (past_days=92 for resolution); settle_task pattern matches market bets
+* ✅ ~~train betting phase I~~
+* 🆕 train betting phase II (https://mobilitydatabase.org/)
+* 🆕 earthquake betting (earthquake-volcano-gambling-feature.md)
+* 🆕 volcano betting (earthquake-volcano-gambling-feature.md)
+* 🆕 server event futures, same idea, just about stuff that happens on the server
 * 🆕 parlays across all betting types (needs mapping)
 * 🆕 side betting on any game, not just dueling
-* ✅ ~~weather futures, bet on changes in the weather.~~ // rain yes/no bets; odds from forecast precipitation_probability_max; open-meteo forecast endpoint (past_days=92 for resolution); settle_task pattern matches market bets
-* 🆕 server event futures, same idea, just about stuff that happens on the server
 * 🆕 add multiplayer where applicable to "casino games"
 * ✅ ~~**bug**: `increment_ms` cooldown not working~~ // spam path (blocked attempt) now also increments cooldown; success path already had it
 * ✅ ~~**bug**: !ud upvotes/downvotes always 0~~ // improved type parsing (i64 fallback); votes hidden when both 0 rather than showing (+0/-0)

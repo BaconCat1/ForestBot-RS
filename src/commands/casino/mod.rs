@@ -5,6 +5,8 @@ pub mod faa_airport;
 pub mod kalshi;
 pub mod nasa_space_weather;
 pub mod noaa_flooding;
+pub mod gtfs_rt;
+pub mod seismic;
 pub mod train;
 pub mod sports;
 pub mod chess;

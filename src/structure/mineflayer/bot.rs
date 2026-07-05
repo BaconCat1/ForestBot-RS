@@ -255,6 +255,8 @@ impl Bot {
             noaa_flooding_bets: Arc::new(Mutex::new(HashMap::new())),
             flood_cache: Arc::new(Mutex::new(crate::commands::casino::noaa_flooding::FloodCache::default())),
             train_bets: Arc::new(Mutex::new(HashMap::new())),
+            quake_bets: Arc::new(Mutex::new(HashMap::new())),
+            volcano_bets: Arc::new(Mutex::new(HashMap::new())),
             duels: Arc::new(Mutex::new(Vec::new())),
             wordle_games: Arc::new(Mutex::new(HashMap::new())),
             checkers_games: Arc::new(Mutex::new(HashMap::new())),
@@ -455,6 +457,50 @@ impl Bot {
             }
         }
 
+        // Recover quake bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_quake_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.quake_bets.lock().expect("quake_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    let placed_at = bet.close_time.saturating_sub(crate::commands::casino::seismic::BET_WINDOW_SECS);
+                    tokio::spawn(crate::commands::casino::seismic::quake_settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                        placed_at,
+                    ));
+                }
+            }
+        }
+
+        // Recover volcano bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_volcano_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.volcano_bets.lock().expect("volcano_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::seismic::volcano_settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
         // Load portfolio positions into memory
         {
             let open_positions = state.api.casino_portfolio_list().await;
@@ -550,6 +596,8 @@ pub struct AzaleaState {
     pub noaa_flooding_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::noaa_flooding::NOAAFloodingBet>>>>,
     pub flood_cache: Arc<Mutex<crate::commands::casino::noaa_flooding::FloodCache>>,
     pub train_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::train::TrainBet>>>>,
+    pub quake_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::seismic::QuakeBet>>>>,
+    pub volcano_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::seismic::VolcanoBet>>>>,
     pub duels: Arc<Mutex<Vec<crate::commands::duel::Duel>>>,
     pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
     pub checkers_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::checkers::CheckersSession>>>,
@@ -701,6 +749,8 @@ impl Default for AzaleaState {
             noaa_flooding_bets: Arc::new(Mutex::new(HashMap::new())),
             flood_cache: Arc::new(Mutex::new(crate::commands::casino::noaa_flooding::FloodCache::default())),
             train_bets: Arc::new(Mutex::new(HashMap::new())),
+            quake_bets: Arc::new(Mutex::new(HashMap::new())),
+            volcano_bets: Arc::new(Mutex::new(HashMap::new())),
             duels: Arc::new(Mutex::new(Vec::new())),
             wordle_games: Arc::new(Mutex::new(HashMap::new())),
             checkers_games: Arc::new(Mutex::new(HashMap::new())),
