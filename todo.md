@@ -128,7 +128,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~wordle~~
 * ✅ ~~baccarat~~ // Player 2×, Banker 1.95×, Tie 8×; simplified drawing rules from letsgogambling reference; instant resolve, no session state
 * ✅ ~~sic bo~~
-* 🆕 mines
+* ✅ ~~mines~~
 * ✅ ~~stock market portfolios and future, mapped out but not written~~
 * ✅ ~~add kalshi (prediction market) to extend stock market system~~ // compiles, pending testing
 * ❌ ~~add Betfair (horse race betting) to extend stock market system~~ // geo-locked and low priority, won't pursue horse betting api without demand
@@ -140,7 +140,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~volcano betting (earthquake-volcano-gambling-feature.md)~~
 * 🆕 Air Quality Index betting (EPA AirNow, free)
 * 🆕 Rocket launches (RocketLaunch.live, free)
-* 🆕 gasbuddy betting, also just treat national gas price as a stock to let people invest/buy "real gasoline"
+* 🆕 gasbuddy betting, also just treat national gas price as a stock to let people invest/buy "real gasoline" (https://github.com/firstof9/py-gasbuddy)
 * ⏸ server event futures, same idea, just about stuff that happens on the server // on hold for casino phase II
 * ⏸ parlays across all betting types (needs mapping) // on hold for casino phase II
 * ⏸ side betting on any game, not just dueling // on hold for casino phase II

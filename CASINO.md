@@ -1,7 +1,7 @@
 
 # Casino Commands
 
-**29 games · 35 commands.** All use the shared chip balance. Starting balance: 1000 chips.
+**30 games · 36 commands.** All use the shared chip balance. Starting balance: 1000 chips.
 All games feature a 3% house rake deposited into the jackpot. All losings are deposited into the jackpot.
 
 ## Wallet & Chips
@@ -292,6 +292,21 @@ Played in whisper, per-player. Ships placed randomly. Enemy board shown by defau
 | `!bs forfeit` / `!bs quit` | Forfeit — stake to jackpot. |
 
 Ships: Carrier (5), Battleship (4), Cruiser (3), Submarine (3), Destroyer (2). Opponents: Glass Joe (random), Piston Honda (hunt near hits ±2), Bald Bull (hunt/target), Soda Popinski (target + checkerboard parity), Mike Tyson (probability density). Win = 2× stake. Lose/quit = stake to jackpot.
+
+## Minesweeper
+
+All in whisper. 10×10 board, 20 mines. Stacking multiplier per click (3% house edge per click). Min bet: 25 chips.
+
+| Command | Description |
+|---|---|
+| `!mines <chips>` / `!minesweeper <chips>` | Start a game |
+| `!mines <coord>` | Reveal a cell (e.g. `!mines a3`, `!mines j0`). Flood-fills from zero cells. |
+| `!mines f<coord>` | Flag / unflag a cell (e.g. `!mines fa3`) |
+| `!mines cash` | Cash out at current multiplier (requires ≥1 safe reveal) |
+| `!mines board` | Redisplay board and current multiplier |
+| `!mines quit` / `!mines forfeit` | Forfeit — stake to jackpot |
+
+Rows `𝐚`–`𝐣`, cols `1`–`9` then `0` (col 10). ▢=unrevealed, ◌=0 neighbors, 𝟏–𝟖=neighbor count, ◈=flag, ◕=mine (revealed on game over). First click guaranteed safe (3×3 safe zone). Reveal all 80 safe cells to win at current multiplier. Hit a mine = stake to jackpot.
 
 ## Reversi
 

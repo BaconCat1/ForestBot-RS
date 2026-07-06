@@ -266,6 +266,7 @@ impl Bot {
             checkers_games: Arc::new(Mutex::new(HashMap::new())),
             reversi_games: Arc::new(Mutex::new(HashMap::new())),
             battleship_games: Arc::new(Mutex::new(HashMap::new())),
+            mines_games: Arc::new(Mutex::new(HashMap::new())),
         };
 
         // Recover market bets that were open when the bot last shut down
@@ -611,6 +612,7 @@ pub struct AzaleaState {
     pub checkers_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::checkers::CheckersSession>>>,
     pub reversi_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::reversi::ReversiSession>>>,
     pub battleship_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::battleship::BattleshipSession>>>,
+    pub mines_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::casino::mines::MinesGame>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -765,6 +767,7 @@ impl Default for AzaleaState {
             checkers_games: Arc::new(Mutex::new(HashMap::new())),
             reversi_games: Arc::new(Mutex::new(HashMap::new())),
             battleship_games: Arc::new(Mutex::new(HashMap::new())),
+            mines_games: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }

@@ -17,6 +17,7 @@ pub mod poker;
 pub mod roulette;
 pub mod scratch;
 pub mod slots;
+pub mod mines;
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::{CasinoFaucetResult, CasinoLottoPlayerTicket};

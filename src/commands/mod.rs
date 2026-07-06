@@ -287,6 +287,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         wordle::COMMAND,
         roast::COMMAND,
         battleship::COMMAND,
+        casino::mines::COMMAND,
         checkers::COMMAND,
         reversi::COMMAND,
     ]
