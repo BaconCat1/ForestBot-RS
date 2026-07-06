@@ -67,6 +67,7 @@ async fn reload_runtime(
         azure_translator_region: app_state.config.api_keys.azure_region,
         sharpapi_key: app_state.config.api_keys.sharpapi,
         nasa_api_key: app_state.config.api_keys.nasa,
+        airnow_api_key: app_state.config.api_keys.airnow,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;

@@ -1,7 +1,7 @@
 
 # Casino Commands
 
-**30 games · 36 commands.** All use the shared chip balance. Starting balance: 1000 chips.
+**31 games · 37 commands.** All use the shared chip balance. Starting balance: 1000 chips.
 All games feature a 3% house rake deposited into the jackpot. All losings are deposited into the jackpot.
 
 ## Wallet & Chips
@@ -292,6 +292,19 @@ Played in whisper, per-player. Ships placed randomly. Enemy board shown by defau
 | `!bs forfeit` / `!bs quit` | Forfeit — stake to jackpot. |
 
 Ships: Carrier (5), Battleship (4), Cruiser (3), Submarine (3), Destroyer (2). Opponents: Glass Joe (random), Piston Honda (hunt near hits ±2), Bald Bull (hunt/target), Soda Popinski (target + checkerboard parity), Mike Tyson (probability density). Win = 2× stake. Lose/quit = stake to jackpot.
+
+## AQI (Air Quality)
+
+Bet on whether tomorrow's AQI will be Good or Unhealthy for any US zip code. Uses AirNow forecast data. 5% house edge. Min bet: 25 chips. Settles 24h after placement using live observation data.
+
+| Command | Description |
+|---|---|
+| `!aqi <zip>` / `!airquality <zip>` | Show current + tomorrow's forecast and odds for that zip |
+| `!aqi <zip> good <chips>` | Bet that tomorrow's AQI will be Good (≤50) |
+| `!aqi <zip> unhealthy <chips>` | Bet that tomorrow's AQI will be Unhealthy (>100) |
+| `!aqi bets` | List your open AQI bets |
+
+Odds derived from AirNow forecast category: Cat1(Good)→GOOD favored, Cat4+(Unhealthy)→UNHEALTHY favored. If AirNow API unavailable at settlement, stake is refunded. Requires `airnow` API key in config.
 
 ## Minesweeper
 

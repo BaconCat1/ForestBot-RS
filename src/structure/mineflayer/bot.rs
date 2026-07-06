@@ -80,6 +80,7 @@ pub struct RuntimeConfig {
     pub azure_translator_region: String,
     pub sharpapi_key: String,
     pub nasa_api_key: String,
+    pub airnow_api_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -117,6 +118,7 @@ pub struct Bot {
     pub azure_translator_region: String,
     pub sharpapi_key: String,
     pub nasa_api_key: String,
+    pub airnow_api_key: String,
     pub anti_spam_global_cooldown_ms: u64,
     pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub reconnect_time_ms: u64,
@@ -159,6 +161,7 @@ impl Bot {
             azure_translator_region: state.config.api_keys.azure_region.clone(),
             sharpapi_key: state.config.api_keys.sharpapi.clone(),
             nasa_api_key: state.config.api_keys.nasa.clone(),
+            airnow_api_key: state.config.api_keys.airnow.clone(),
             anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown,
             command_cooldowns: state.config.command_cooldowns.clone(),
             reconnect_time_ms: state.config.reconnect_time,
@@ -221,6 +224,7 @@ impl Bot {
                 azure_translator_region: self.azure_translator_region.clone(),
                 sharpapi_key: self.sharpapi_key.clone(),
                 nasa_api_key: self.nasa_api_key.clone(),
+                airnow_api_key: self.airnow_api_key.clone(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -267,6 +271,7 @@ impl Bot {
             reversi_games: Arc::new(Mutex::new(HashMap::new())),
             battleship_games: Arc::new(Mutex::new(HashMap::new())),
             mines_games: Arc::new(Mutex::new(HashMap::new())),
+            aqi_bets: Arc::new(Mutex::new(HashMap::new())),
         };
 
         // Recover market bets that were open when the bot last shut down
@@ -510,6 +515,27 @@ impl Bot {
             }
         }
 
+        // Recover AQI bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_aqi_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.aqi_bets.lock().expect("aqi_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::aqi::aqi_settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
         // Load portfolio positions into memory
         {
             let open_positions = state.api.casino_portfolio_list().await;
@@ -613,6 +639,7 @@ pub struct AzaleaState {
     pub reversi_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::reversi::ReversiSession>>>,
     pub battleship_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::battleship::BattleshipSession>>>,
     pub mines_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::casino::mines::MinesGame>>>,
+    pub aqi_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::aqi::AqiBet>>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -722,6 +749,7 @@ impl Default for AzaleaState {
                 azure_translator_region: String::new(),
                 sharpapi_key: String::new(),
                 nasa_api_key: String::new(),
+                airnow_api_key: String::new(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -768,6 +796,7 @@ impl Default for AzaleaState {
             reversi_games: Arc::new(Mutex::new(HashMap::new())),
             battleship_games: Arc::new(Mutex::new(HashMap::new())),
             mines_games: Arc::new(Mutex::new(HashMap::new())),
+            aqi_bets: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }

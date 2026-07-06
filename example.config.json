@@ -5,7 +5,8 @@
         "wolfram": "",
         "azure_key": "",
         "azure_region": "",
-        "sharpapi": ""
+        "sharpapi": "",
+        "airnow": ""
     },
     "mc_server": "newtest_new",
     "host": "localhost",
@@ -164,7 +165,11 @@
         "trivia":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "wallet":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "weather":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "wordle":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 }
+        "wordle":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
+        "aqi":              { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
+        "mines":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
+        "quake":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
+        "volcano":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 }
     },
     "welcome_messages": true,
     "useCommands": true,
@@ -325,7 +330,11 @@
         "trivia":           true,
         "wallet":           true,
         "weather":          true,
-        "wordle":           true
+        "wordle":           true,
+        "aqi":              true,
+        "mines":            true,
+        "quake":            true,
+        "volcano":          true
     },
     "usePViewer": true,
     "pViewerPort": 8080

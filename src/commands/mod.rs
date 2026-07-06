@@ -288,6 +288,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         roast::COMMAND,
         battleship::COMMAND,
         casino::mines::COMMAND,
+        casino::aqi::COMMAND,
         checkers::COMMAND,
         reversi::COMMAND,
     ]

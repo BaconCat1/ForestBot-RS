@@ -1220,6 +1220,48 @@ impl ApiClient {
         let _ = self.delete_json(&format!("/casino/noaa-flooding-bet/{id}")).await;
     }
 
+    pub async fn casino_aqi_bet_insert(&self, bet: &crate::commands::casino::aqi::AqiBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/aqi-bet",
+            json!({
+                "player_uuid": bet.player,
+                "zip":         bet.zip,
+                "area":        bet.area,
+                "side":        bet.side,
+                "price":       bet.price,
+                "stake":       bet.stake,
+                "close_time":  bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_aqi_bet_list(&self) -> Vec<crate::commands::casino::aqi::AqiBet> {
+        use crate::commands::casino::aqi::AqiBet;
+        let Some(v) = self.get_json("/casino/aqi-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id         = item.get("id")?.as_i64()?;
+                    let player     = item.get("player_uuid")?.as_str()?.to_owned();
+                    let zip        = item.get("zip")?.as_str()?.to_owned();
+                    let area       = item.get("area")?.as_str()?.to_owned();
+                    let side       = item.get("side")?.as_str()?.to_owned();
+                    let price      = item.get("price")?.as_f64()?;
+                    let stake      = item.get("stake")?.as_i64()?;
+                    let close_time = item.get("close_time")?.as_u64()?;
+                    Some(AqiBet { id, player, zip, area, side, price, stake, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_aqi_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/aqi-bet/{id}")).await;
+    }
+
     pub async fn casino_train_bet_insert(&self, bet: &crate::commands::casino::train::TrainBet) -> Option<i64> {
         let v = self.post_json(
             "/casino/train-bet",

@@ -30,6 +30,8 @@ pub struct ApiKeys {
     pub azure_region: String,
     #[serde(default)]
     pub sharpapi: String,
+    #[serde(default)]
+    pub airnow: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
