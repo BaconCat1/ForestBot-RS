@@ -102,6 +102,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~add pearl bot infrastructure~~ // pearlbot binary; Hub WS routing; ForestBot-RS `!pearl`/`!p <slot>` command; UUID whitelist + per-slot chamber config; multi-pearl tracking (HashSet); deployed to prod RefinedVanilla
 * 🆕 queue detection, data driven. upon detection, disconnect for 5 minutes. Needs to count "reconfiguring" screen as reconnecting to server
 * ✅ ~~extend `!help` to take commands as args~~ // `!help <command>` whispers description + aliases; unknown falls back to link
+* 🐛 **behavioural tweak**: if API limits are reached, users should be informed that is specifically why it failed, since a more generic error could waste time hunting a bug that doesn't exist
 
 
 ## !quote
@@ -127,19 +128,23 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~wordle~~
 * ✅ ~~baccarat~~ // Player 2×, Banker 1.95×, Tie 8×; simplified drawing rules from letsgogambling reference; instant resolve, no session state
 * ✅ ~~sic bo~~
+* 🆕 mines
 * ✅ ~~stock market portfolios and future, mapped out but not written~~
 * ✅ ~~add kalshi (prediction market) to extend stock market system~~ // compiles, pending testing
 * ❌ ~~add Betfair (horse race betting) to extend stock market system~~ // geo-locked and low priority, won't pursue horse betting api without demand
 * ✅ ~~add SharpAPI (sports betting) to extend stock market system~~
 * ✅ ~~weather futures, bet on changes in the weather.~~ // rain yes/no bets; odds from forecast precipitation_probability_max; open-meteo forecast endpoint (past_days=92 for resolution); settle_task pattern matches market bets
 * ✅ ~~train betting phase I~~
-* 🆕 train betting phase II (https://mobilitydatabase.org/)
-* 🆕 earthquake betting (earthquake-volcano-gambling-feature.md)
-* 🆕 volcano betting (earthquake-volcano-gambling-feature.md)
-* 🆕 server event futures, same idea, just about stuff that happens on the server
-* 🆕 parlays across all betting types (needs mapping)
-* 🆕 side betting on any game, not just dueling
-* 🆕 add multiplayer where applicable to "casino games"
+* ✅ ~~train betting phase II (https://mobilitydatabase.org/)~~
+* ✅ ~~earthquake betting (earthquake-volcano-gambling-feature.md)~~
+* ✅ ~~volcano betting (earthquake-volcano-gambling-feature.md)~~
+* 🆕 Air Quality Index betting (EPA AirNow, free)
+* 🆕 Rocket launches (RocketLaunch.live, free)
+* 🆕 gasbuddy betting, also just treat national gas price as a stock to let people invest/buy "real gasoline"
+* ⏸ server event futures, same idea, just about stuff that happens on the server // on hold for casino phase II
+* ⏸ parlays across all betting types (needs mapping) // on hold for casino phase II
+* ⏸ side betting on any game, not just dueling // on hold for casino phase II
+* ⏸️ add multiplayer where applicable to "casino games" // on hold for casino phase II
 * ✅ ~~**bug**: `increment_ms` cooldown not working~~ // spam path (blocked attempt) now also increments cooldown; success path already had it
 * ✅ ~~**bug**: !ud upvotes/downvotes always 0~~ // improved type parsing (i64 fallback); votes hidden when both 0 rather than showing (+0/-0)
 
@@ -162,6 +167,13 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!calc, alias !wolframalpha, !wa, sends requests to the wolframalpha public api~~ // LLM API endpoint; `wolfram_app_id` in bot config; parses all labeled sections with priority order (Result→Solution→Derivative→Definite integral→Indefinite integral→Infinite sum→Sum→Limit→Decimal approximation→Property→…), posts `query = answer` truncated to 220 chars; aliases `!calc`/`!wa`/`!wolframalpha`
 * ✅ ~~!translate, add support for azure api for translation~~ // Azure AI Translator; `azure_translator_key` + `azure_translator_region` in config; lang optional (default `en`); single-word input checks online players → translates last message; FROM-English blocked (whatlang local detection, 4+ words); aliases `!translate`/`!tr`/`!tl`
 * ✅ ~~!trivia / !answer — server trivia round via Open Trivia DB (no key); boolean and MCQ; 15s answer window open to all players; whispers "Answer received!" on submit; public summary at close shows ✓/✗ lists + answer; latecomers whispered answer for 60s after close~~
+* 🆕 !roast, leverage together api to roast a player, takes user name as arg
+* 🆕 !ai, leverage free tier llm providers to respond to querys from chat. idea is to use highest quality to lowest quality, as usage gets consumed. known "truly free" providers: gemini, groq, cerebras, mistral, openrouter, cloudflare workers ai.
+* 🆕 !marry, as well as !divorce and !spouse, let's you marry a player, check their spouse. Append marital status to whois, alimony system based on winning casino games?
+* 🆕 !afk, let you set a response if people say your name at the beginning of a message or whisper to you, resets if you talk in chat or disconnect.
+* 🆕 !poll, popular enough in other bots to warrant inclusion, might end up disabled like `fadvs`. Needs high cooldown, 5 min minimum
+* 🆕 !tps, if azalea/minecraft or wtv lets you see server performance, report it via a command
+* 🆕 !url, don't webpages have some seo text built in by default? if so, leverage that for a text only preview of a url, so you can see what it is without having to leave the game.
 
 ---
 

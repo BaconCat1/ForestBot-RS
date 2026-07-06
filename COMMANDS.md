@@ -1,6 +1,7 @@
+
 # ForestBot Commands
 
-**~130 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md).
+**106 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md).
 
 ## General
 
@@ -114,6 +115,7 @@
 | `!shout <message>` | Broadcast to all connected servers (not enabled) |
 | `!nickname <name>` | Change bot's in-game nickname |
 | `!febzey` | 🤷 |
+| `!roast <username\|server>` | AI-generated roast of a player or server based on their stats (5 min cooldown, requires together_api_key) |
 | `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, specify a god below (75 corpora), or ask a multi-word question for an oracle response |
 | `!listgods` / `!gods` | List one god per corpus with its trigger word |
 | `!searchgod` / `!godsearch` / `!sgod <words>` | Search sacred texts for a keyword or phrase |
@@ -121,10 +123,6 @@
 | `!godstats` | Show corpora count, size, compression ratio, verse count, load time, total god aliases |
 | `!godfight <god1> <god2> <keyword?>` | Two gods, one verse each — keyword narrows both draws to matching verses |
 | `!weather` / `!w <city>` | Current weather for any location — temp, feels-like, conditions, wind, humidity (Open-Meteo, no API key needed) |
-| `!flood list` | List active NOAA flood warnings with coords |
-| `!flood bet <#> yes\|no [chips]` | Bet on a flood alert. Omit chips for odds preview. |
-| `!train list <country>` | List running trains with current delays (us/de/fr/be/ch/fi/nl/no/at/se/it/es/pl/cz/my) |
-| `!train <country> <code> ontime\|delayed [chips]` | Bet on a train's punctuality at 2h settlement. Omit chips for odds preview. Multi-word codes supported (e.g. `ICE 42`) |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
 | `!greeting` | Whispers format info + your current greeting |
 | `!greeting <message>` | Set your join greeting — fires as `"<message>, YourName!"` (12h cooldown, ASCII only) |
@@ -168,7 +166,7 @@ See [CASINO.md](CASINO.md) for all casino games, market paper trading, and duel 
 
 Cooldowns: 60s to re-propose after a trade. If someone rejects your proposal, you're locked out for 10 minutes.
 
-## Stasis Pearl
+## Stasis Pearl (using [pearlbot](https://github.com/jollycurv-e/pearlbot))
 
 | Command | Description |
 |---|---|

@@ -79,6 +79,7 @@ pub struct RuntimeConfig {
     pub azure_translator_key: String,
     pub azure_translator_region: String,
     pub sharpapi_key: String,
+    pub nasa_api_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -115,6 +116,7 @@ pub struct Bot {
     pub azure_translator_key: String,
     pub azure_translator_region: String,
     pub sharpapi_key: String,
+    pub nasa_api_key: String,
     pub anti_spam_global_cooldown_ms: u64,
     pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub reconnect_time_ms: u64,
@@ -151,11 +153,12 @@ impl Bot {
             custom_chat_prefix: state.config.custom_chat_prefix.clone(),
             allow_chatbridge_input: state.config.allow_chatbridge_input,
             smart_censoring: state.config.smart_censoring,
-            together_api_key: state.config.together_api_key.clone(),
-            wolfram_app_id: state.config.wolfram_app_id.clone(),
-            azure_translator_key: state.config.azure_translator_key.clone(),
-            azure_translator_region: state.config.azure_translator_region.clone(),
-            sharpapi_key: state.config.sharpapi_key.clone(),
+            together_api_key: state.config.api_keys.together.clone(),
+            wolfram_app_id: state.config.api_keys.wolfram.clone(),
+            azure_translator_key: state.config.api_keys.azure_key.clone(),
+            azure_translator_region: state.config.api_keys.azure_region.clone(),
+            sharpapi_key: state.config.api_keys.sharpapi.clone(),
+            nasa_api_key: state.config.api_keys.nasa.clone(),
             anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown,
             command_cooldowns: state.config.command_cooldowns.clone(),
             reconnect_time_ms: state.config.reconnect_time,
@@ -217,6 +220,7 @@ impl Bot {
                 azure_translator_key: self.azure_translator_key.clone(),
                 azure_translator_region: self.azure_translator_region.clone(),
                 sharpapi_key: self.sharpapi_key.clone(),
+                nasa_api_key: self.nasa_api_key.clone(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -367,7 +371,10 @@ impl Bot {
         {
             let open_bets = state.api.casino_nasa_space_weather_bet_list().await;
             if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let (whisper_cmd, nasa_api_key) = {
+                    let rt = state.runtime.read().expect("runtime lock");
+                    (rt.whisper_command.clone(), rt.nasa_api_key.clone())
+                };
                 let now = crate::structure::market::types::now_unix();
                 {
                     let mut bets = state.nasa_space_weather_bets.lock().expect("nasa_space_weather_bets lock");
@@ -380,6 +387,7 @@ impl Bot {
                     tokio::spawn(crate::commands::casino::nasa_space_weather::settle_task(
                         state.clone(),
                         whisper_cmd.clone(),
+                        nasa_api_key.clone(),
                         bet,
                         secs,
                     ));
@@ -711,6 +719,7 @@ impl Default for AzaleaState {
                 azure_translator_key: String::new(),
                 azure_translator_region: String::new(),
                 sharpapi_key: String::new(),
+                nasa_api_key: String::new(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),

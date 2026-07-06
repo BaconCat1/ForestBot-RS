@@ -43,6 +43,7 @@ pub mod reversi;
 pub mod duel;
 pub mod market;
 pub mod wordle;
+pub mod roast;
 
 use crate::structure::mineflayer::bot::{AzaleaState, RuntimeConfig};
 
@@ -284,6 +285,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         market::PORTFOLIO_COMMAND,
         duel::COMMAND,
         wordle::COMMAND,
+        roast::COMMAND,
         battleship::COMMAND,
         checkers::COMMAND,
         reversi::COMMAND,

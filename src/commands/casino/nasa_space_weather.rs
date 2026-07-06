@@ -13,7 +13,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 };
 
 const NASA_BASE: &str = "https://api.nasa.gov";
-const NASA_KEY: &str = "DEMO_KEY";
 const MIN_BET: i64 = 25;
 const POLL_INTERVAL_SECS: u64 = 600;
 const MAX_POLL_SECS: u64 = 7200;
@@ -71,8 +70,8 @@ fn fmt_close(settle_at: u64) -> String {
     else                 { format!("{}d", secs / 86400) }
 }
 
-async fn donki_array(client: &reqwest::Client, endpoint: &str, date: &str) -> Option<Vec<serde_json::Value>> {
-    let url = format!("{NASA_BASE}/DONKI/{endpoint}?startDate={date}&endDate={date}&api_key={NASA_KEY}");
+async fn donki_array(client: &reqwest::Client, endpoint: &str, date: &str, nasa_key: &str) -> Option<Vec<serde_json::Value>> {
+    let url = format!("{NASA_BASE}/DONKI/{endpoint}?startDate={date}&endDate={date}&api_key={nasa_key}");
     client
         .get(&url)
         .header("Accept", "application/json")
@@ -86,20 +85,20 @@ async fn donki_array(client: &reqwest::Client, endpoint: &str, date: &str) -> Op
         .cloned()
 }
 
-async fn poll_event_occurred(client: &reqwest::Client, bet_type: &str, date: &str) -> Option<bool> {
+async fn poll_event_occurred(client: &reqwest::Client, bet_type: &str, date: &str, nasa_key: &str) -> Option<bool> {
     match bet_type {
         "cme" => {
-            let arr = donki_array(client, "CME", date).await?;
+            let arr = donki_array(client, "CME", date, nasa_key).await?;
             Some(!arr.is_empty())
         }
         "xflare" => {
-            let arr = donki_array(client, "FLR", date).await?;
+            let arr = donki_array(client, "FLR", date, nasa_key).await?;
             Some(arr.iter().any(|e| {
                 e["classType"].as_str().map_or(false, |c| c.starts_with('X'))
             }))
         }
         "gstorm" => {
-            let arr = donki_array(client, "GST", date).await?;
+            let arr = donki_array(client, "GST", date, nasa_key).await?;
             Some(!arr.is_empty())
         }
         _ => None,
@@ -161,6 +160,10 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 // ── place_bet ─────────────────────────────────────────────────────────────────
 
 async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
+    if ctx.runtime.nasa_api_key.trim().is_empty() {
+        ctx.whisper("Space weather bets are not configured on this server.");
+        return Ok(());
+    }
     let (Some(&type_s), Some(&amt_s)) = (ctx.args.first(), ctx.args.get(1)) else {
         show_types(ctx);
         return Ok(());
@@ -226,8 +229,9 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         fmt_close(settle_at),
     ));
     let wcmd = ctx.runtime.whisper_command.clone();
+    let nasa_key = ctx.runtime.nasa_api_key.clone();
     let secs = settle_at.saturating_sub(now_unix());
-    tokio::spawn(settle_task(ctx.state.clone(), wcmd, bet, secs));
+    tokio::spawn(settle_task(ctx.state.clone(), wcmd, nasa_key, bet, secs));
     Ok(())
 }
 
@@ -236,14 +240,21 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 pub async fn settle_task(
     state: AzaleaState,
     whisper_cmd: String,
+    nasa_api_key: String,
     bet: NasaSpaceWeatherBet,
     secs_to_close: u64,
 ) {
     if secs_to_close > 0 {
         tokio::time::sleep(std::time::Duration::from_secs(secs_to_close)).await;
     }
-    // Buffer: give NASA 1h after midnight to log events
-    tokio::time::sleep(std::time::Duration::from_secs(SETTLE_BUFFER_SECS)).await;
+    // Buffer: give NASA 1h after midnight to log events.
+    // If the bet's close time is already in the past, credit elapsed time against the buffer
+    // so stale bets don't spin forever through bot restarts.
+    let elapsed_past_close = now_unix().saturating_sub(bet.settle_at);
+    let remaining_buffer = SETTLE_BUFFER_SECS.saturating_sub(elapsed_past_close);
+    if remaining_buffer > 0 {
+        tokio::time::sleep(std::time::Duration::from_secs(remaining_buffer)).await;
+    }
 
     let claimed = {
         let mut bets = state.nasa_space_weather_bets.lock().expect("nasa_space_weather_bets lock");
@@ -265,7 +276,7 @@ pub async fn settle_task(
 
     let deadline = now_unix() + MAX_POLL_SECS;
     let result: Option<bool> = loop {
-        match poll_event_occurred(&client, &bet.bet_type, &settle_date).await {
+        match poll_event_occurred(&client, &bet.bet_type, &settle_date, &nasa_api_key).await {
             Some(r) => break Some(r),
             None => {
                 if now_unix() >= deadline { break None; }

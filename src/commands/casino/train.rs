@@ -644,6 +644,14 @@ async fn gtfs_settle(state: AzaleaState, whisper_cmd: String, bet: TrainBet) {
     let tu_url = agency.map(|a| a.tu_url).unwrap_or("");
     let online_username = online_username_for(&state, &bet.player);
 
+    // If the bet is already >1h past close_time the trip is gone from the feed — refund immediately.
+    if now_unix() > bet.close_time + 3600 {
+        state.api.casino_train_bet_delete(bet.id).await;
+        let msg = apply_outcome(&state, &bet, None).await;
+        deliver_msg(&state, &whisper_cmd, &bet.player, online_username, msg).await;
+        return;
+    }
+
     // Poll up to 10 minutes to catch the trip near its last stop.
     let deadline = now_unix() + 600;
     let client = reqwest::Client::new();

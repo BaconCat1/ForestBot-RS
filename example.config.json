@@ -1,4 +1,12 @@
 {
+    "api_keys": {
+        "nasa": "",
+        "together": "",
+        "wolfram": "",
+        "azure_key": "",
+        "azure_region": "",
+        "sharpapi": ""
+    },
     "mc_server": "newtest_new",
     "host": "localhost",
     "port": 25565,
@@ -18,7 +26,6 @@
     "announce": true,
     "antiafk": false,
     "use_mc_whitelist": true,
-    "wolfram_app_id": "",
     "reconnect_time": 30000,
     "anti_spam_cooldown": 10000,
     "anti_spam_global_cooldown": 1000,
@@ -85,6 +92,7 @@
         "profile":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "quote":            { "cooldown_ms": 10000, "increment_ms": 1000, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "randomquote":      { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
+        "roast":            { "cooldown_ms": 300000, "increment_ms": 30000, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "randomquoteall":   { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "realname":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "reload":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
@@ -173,10 +181,6 @@
     "allow_chatbridge_input": true,
     "rotateHeadOnJoin": false,
     "smart_censoring": false,
-    "sharpapi_key": "",
-    "together_api_key": "",
-    "azure_translator_key": "",
-    "azure_translator_region": "",
     "useLegacyChat": false,
     "useCustomChatFormatParser": false,
     "customChatFormats": [
@@ -249,6 +253,7 @@
         "profile":          true,
         "quote":            true,
         "randomquote":      true,
+        "roast":            true,
         "randomquoteall":   true,
         "realname":         true,
         "reload":           true,

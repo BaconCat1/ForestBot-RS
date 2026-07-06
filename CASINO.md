@@ -1,7 +1,7 @@
 
 # Casino Commands
 
-**28 games · ~165 commands.** All use the shared chip balance. Starting balance: 1000 chips.
+**29 games · 35 commands.** All use the shared chip balance. Starting balance: 1000 chips.
 All games feature a 3% house rake deposited into the jackpot. All losings are deposited into the jackpot.
 
 ## Wallet & Chips
@@ -213,6 +213,23 @@ Bet on whether a NOAA flood warning is active at a location within 2 hours. Aler
 | `!flood bets` | Show your open flood bets |
 
 Run `!flood list` first to see numbered locations, then `!flood bet <#>`. Raw lat/lon also works: `!flood <lat> <lon> yes|no <chips>`. Payout = `stake / price`. Correct = payout credited. Wrong = stake to jackpot. API unavailable = full refund.
+
+## Seismic Events
+
+Bet on whether an earthquake or volcanic eruption occurs within 7 days. Data from USGS. Min bet: 25 chips. 5% house edge.
+
+| Command | Description |
+|---|---|
+| `!quake list` / `!eq list` | List available earthquake regions |
+| `!quake <region> yes\|no` | Preview odds (no chips = no bet placed) |
+| `!quake <region> yes\|no <chips>` | Bet on M5+ quake in region within 7 days. Optional magnitude override: `m<mag>` (e.g. `!quake california m6 yes 100`) |
+| `!quake bets` | Show your open quake bets |
+| `!volcano list` / `!vol list` | List active/monitored volcanoes |
+| `!volcano <name> yes\|no` | Preview odds (no chips = no bet placed) |
+| `!volcano <name> yes\|no <chips>` | Bet on volcanic eruption within 7 days |
+| `!volcano bets` | Show your open volcano bets |
+
+Regions: `california`, `alaska`, `pacific-nw`, `japan`, `indonesia`, `chile`, `italy`, `turkey`, `new-zealand`. Payout = `stake / price`. Correct = payout credited. Wrong = stake to jackpot. API unavailable = full refund.
 
 ## Train Delays
 

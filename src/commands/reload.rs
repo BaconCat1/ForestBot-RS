@@ -61,11 +61,12 @@ async fn reload_runtime(
         use_custom_chat_prefix: app_state.config.use_custom_chat_prefix,
         custom_chat_prefix: app_state.config.custom_chat_prefix,
         smart_censoring: app_state.config.smart_censoring,
-        together_api_key: app_state.config.together_api_key,
-        wolfram_app_id: app_state.config.wolfram_app_id,
-        azure_translator_key: app_state.config.azure_translator_key,
-        azure_translator_region: app_state.config.azure_translator_region,
-        sharpapi_key: app_state.config.sharpapi_key,
+        together_api_key: app_state.config.api_keys.together,
+        wolfram_app_id: app_state.config.api_keys.wolfram,
+        azure_translator_key: app_state.config.api_keys.azure_key,
+        azure_translator_region: app_state.config.api_keys.azure_region,
+        sharpapi_key: app_state.config.api_keys.sharpapi,
+        nasa_api_key: app_state.config.api_keys.nasa,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;
