@@ -1,16 +1,17 @@
 
 # Casino Commands
 
-**31 games · 37 commands.** All use the shared chip balance. Starting balance: 1000 chips.
+**31 games · 40 commands.** All use the shared chip balance. Starting balance: 1000 chips.
 All games feature a 3% house rake deposited into the jackpot. All losings are deposited into the jackpot.
 
 ## Wallet & Chips
 
 | Command | Description |
 |---|---|
-| `!wallet <player?>` | Balance, jackpot tickets, lotto tickets, and live portfolio value |
+| `!wallet <player?>` | Balance, jackpot tickets, lotto tickets, live portfolio value, and open event bet count |
 | `!faucet` / `!daily` | Daily chip claim — base 100 chips + 10 per streak day (streak resets if you miss a day) |
 | `!give <player> <chips>` | Send chips to another player |
+| `!bets` | List all open event bets (AQI, launch, gas, sports, Kalshi, seismic, floods) |
 
 ## Slots
 
@@ -305,6 +306,33 @@ Bet on whether tomorrow's AQI will be Good or Unhealthy for any US zip code. Use
 | `!aqi bets` | List your open AQI bets |
 
 Odds derived from AirNow forecast category: Cat1(Good)→GOOD favored, Cat4+(Unhealthy)→UNHEALTHY favored. If AirNow API unavailable at settlement, stake is refunded. Requires `airnow` API key in config.
+
+## Rocket Launch
+
+Bet on upcoming rocket launches using real LL2 (Launch Library 2) data. Two bet types per launch: **success** (launch succeeds) and **ontime** (no scrub or delay >24h). 5% house edge. Min bet: 25 chips. Bets lock 2h before launch window. Settles when LL2 reports a final status; polls hourly up to 7 days after window end. Refunds if no final status after 7 days.
+
+| Command | Description |
+|---|---|
+| `!launch` / `!rocket` | List next 5 Go/TBC launches with short IDs |
+| `!launch <id>` | Show odds for a specific launch (success + ontime) |
+| `!launch <id> success <chips>` | Bet that the launch succeeds |
+| `!launch <id> ontime <chips>` | Bet the launch isn't delayed more than 24h |
+| `!launch bets` | List your open launch bets |
+
+Odds derived from the provider's recent launch history (last 50 launches). Success floor: 0.70×, ontime floor: 0.50×. No API key required (uses public LL2 API).
+
+## Gas Price
+
+Bet on whether the average regular gas price in your area will be higher or lower tomorrow. Uses GasBuddy data. 5% house edge. Min bet: 25 chips. 24h window. Refunds if GasBuddy is unavailable at settlement.
+
+| Command | Description |
+|---|---|
+| `!gas <zip>` | Show current avg price and odds for up/down |
+| `!gas <zip> up <chips>` | Bet the price will be higher tomorrow |
+| `!gas <zip> down <chips>` | Bet the price will be lower tomorrow |
+| `!gas bets` | List your open gas bets |
+
+Odds: ~50/50 baseline. GasBuddy requires Cloudflare bypass — set `gasbuddy_solver_url` in config (FlareSolver endpoint) or the command will gracefully report unavailability. Without FlareSolver, gas bets are disabled.
 
 ## Minesweeper
 

@@ -1,9 +1,9 @@
-use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
+use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::chips_str;
+use super::{chips_str, fmt_close, sleep_until, deliver};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["spaceweather", "sw"],
@@ -59,15 +59,6 @@ fn unix_to_ymd(unix: u64) -> String {
         .single()
         .map(|dt| dt.format("%Y-%m-%d").to_string())
         .unwrap_or_else(|| "1970-01-01".to_owned())
-}
-
-fn fmt_close(settle_at: u64) -> String {
-    let now = now_unix();
-    if settle_at <= now { return "settling".into(); }
-    let secs = settle_at - now;
-    if secs < 3600       { format!("{}m", secs / 60) }
-    else if secs < 86400 { format!("{}h", secs / 3600) }
-    else                 { format!("{}d", secs / 86400) }
 }
 
 async fn donki_array(client: &reqwest::Client, endpoint: &str, date: &str, nasa_key: &str) -> Option<Vec<serde_json::Value>> {
@@ -230,8 +221,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     ));
     let wcmd = ctx.runtime.whisper_command.clone();
     let nasa_key = ctx.runtime.nasa_api_key.clone();
-    let secs = settle_at.saturating_sub(now_unix());
-    tokio::spawn(settle_task(ctx.state.clone(), wcmd, nasa_key, bet, secs));
+    tokio::spawn(settle_task(ctx.state.clone(), wcmd, nasa_key, bet));
     Ok(())
 }
 
@@ -242,14 +232,10 @@ pub async fn settle_task(
     whisper_cmd: String,
     nasa_api_key: String,
     bet: NasaSpaceWeatherBet,
-    secs_to_close: u64,
 ) {
-    if secs_to_close > 0 {
-        tokio::time::sleep(std::time::Duration::from_secs(secs_to_close)).await;
-    }
+    sleep_until(bet.settle_at).await;
     // Buffer: give NASA 1h after midnight to log events.
-    // If the bet's close time is already in the past, credit elapsed time against the buffer
-    // so stale bets don't spin forever through bot restarts.
+    // Credit elapsed time against buffer so stale bets don't spin forever through bot restarts.
     let elapsed_past_close = now_unix().saturating_sub(bet.settle_at);
     let remaining_buffer = SETTLE_BUFFER_SECS.saturating_sub(elapsed_past_close);
     if remaining_buffer > 0 {
@@ -268,8 +254,6 @@ pub async fn settle_task(
     if !claimed { return; }
 
     let client = reqwest::Client::new();
-    let online_username = state.players.read().ok()
-        .and_then(|pl| pl.values().find(|s| s.uuid == bet.player).map(|s| s.username.clone()));
 
     // Settle date = the day before midnight (i.e. the day the bet was placed on)
     let settle_date = unix_to_ymd(bet.settle_at - 86400);
@@ -292,7 +276,9 @@ pub async fn settle_task(
     let msg = match result {
         Some(true) => {
             let payout = (bet.stake as f64 * bet.multiplier) as i64;
-            let _ = state.api.casino_adjust(&bet.player, payout).await;
+            if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
+                eprintln!("[SpaceWX settle] casino_adjust failed for {}: {e:?}", bet.player);
+            }
             format!(
                 "[SpaceWX] {} — YES. WIN +{} ({} @ {:.1}x).",
                 label,
@@ -302,7 +288,7 @@ pub async fn settle_task(
             )
         }
         Some(false) => {
-            let _ = state.api.casino_jackpot_rake(bet.stake).await;
+            state.api.casino_jackpot_rake(bet.stake).await;
             format!(
                 "[SpaceWX] {} — NO. LOSS -{} (to jackpot).",
                 label,
@@ -310,7 +296,9 @@ pub async fn settle_task(
             )
         }
         None => {
-            let _ = state.api.casino_adjust(&bet.player, bet.stake).await;
+            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
+                eprintln!("[SpaceWX settle] refund failed for {}: {e:?}", bet.player);
+            }
             format!(
                 "[SpaceWX] {} — NASA API unavailable. {} refunded.",
                 label,
@@ -319,9 +307,5 @@ pub async fn settle_task(
         }
     };
 
-    if let Some(ref username) = online_username {
-        enqueue_chat(&state, format!("/{whisper_cmd} {username} {msg}"));
-    } else {
-        state.api.casino_add_notification(&bet.player, &msg).await;
-    }
+    deliver(&state, &whisper_cmd, &bet.player, msg).await;
 }

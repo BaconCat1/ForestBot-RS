@@ -1,9 +1,9 @@
-use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
+use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::chips_str;
+use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver};
 
 // ── Command definitions ───────────────────────────────────────────────────────
 
@@ -86,15 +86,6 @@ pub struct VolcanoBet {
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
-
-fn fmt_close(close_time: u64) -> String {
-    let now = now_unix();
-    if close_time <= now { return "settling".into(); }
-    let secs = close_time - now;
-    if secs < 3600       { format!("{}m", secs / 60) }
-    else if secs < 86400 { format!("{}h", secs / 3600) }
-    else                 { format!("{}d", secs / 86400) }
-}
 
 // Inflate probability by house-edge factor so actual payout = (1/price) ≈ (1-edge)/p_true.
 fn probability_to_price(p: f64) -> f64 {
@@ -518,10 +509,7 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 // ── Quake settlement ──────────────────────────────────────────────────────────
 
 pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: QuakeBet, placed_at: u64) {
-    let now = now_unix();
-    if bet.close_time > now {
-        tokio::time::sleep(std::time::Duration::from_secs(bet.close_time - now)).await;
-    }
+    sleep_until(bet.close_time).await;
 
     let claimed = {
         let mut bets = state.quake_bets.lock().expect("quake_bets lock");
@@ -532,9 +520,6 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
     if !claimed { return; }
 
     let client = reqwest::Client::new();
-    let online_username = state.players.read().ok()
-        .and_then(|pl| pl.values().find(|s| s.uuid == bet.player).map(|s| s.username.clone()));
-
     let result = quake_occurred(&client, bet.lat, bet.lon, bet.radius_km, bet.mag, placed_at, bet.close_time).await;
 
     state.api.casino_quake_bet_delete(bet.id).await;
@@ -543,8 +528,10 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
         Some(occurred) => {
             let won = (bet.side == "yes") == occurred;
             if won {
-                let payout = (bet.stake as f64 / bet.price).floor() as i64;
-                let _ = state.api.casino_adjust(&bet.player, payout).await;
+                let payout = calc_payout(bet.stake, bet.price);
+                if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
+                    eprintln!("[Quake settle] casino_adjust failed for {}: {e:?}", bet.player);
+                }
                 format!(
                     "[Quake] {} — {}. {} wins. WIN +{} ({} @ {:.2}x).",
                     bet.display,
@@ -555,7 +542,7 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
                     (1.0 / (bet.price)),
                 )
             } else {
-                let _ = state.api.casino_jackpot_rake(bet.stake).await;
+                state.api.casino_jackpot_rake(bet.stake).await;
                 format!(
                     "[Quake] {} — {}. {} loses. LOSS -{} (to jackpot).",
                     bet.display,
@@ -566,7 +553,9 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
             }
         }
         None => {
-            let _ = state.api.casino_adjust(&bet.player, bet.stake).await;
+            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
+                eprintln!("[Quake settle] refund failed for {}: {e:?}", bet.player);
+            }
             format!(
                 "[Quake] {} — FDSN API unavailable. {} refunded.",
                 bet.display,
@@ -575,7 +564,7 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
         }
     };
 
-    deliver_msg(&state, &whisper_cmd, &bet.player, online_username, msg).await;
+    deliver(&state, &whisper_cmd, &bet.player, msg).await;
 }
 
 // ── Volcano command ───────────────────────────────────────────────────────────
@@ -808,10 +797,7 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 // ── Volcano settlement ────────────────────────────────────────────────────────
 
 pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: VolcanoBet) {
-    let now = now_unix();
-    if bet.close_time > now {
-        tokio::time::sleep(std::time::Duration::from_secs(bet.close_time - now)).await;
-    }
+    sleep_until(bet.close_time).await;
 
     let claimed = {
         let mut bets = state.volcano_bets.lock().expect("volcano_bets lock");
@@ -822,8 +808,6 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
     if !claimed { return; }
 
     let client = reqwest::Client::new();
-    let online_username = state.players.read().ok()
-        .and_then(|pl| pl.values().find(|s| s.uuid == bet.player).map(|s| s.username.clone()));
 
     // Resolve: check if current alert level is WARNING/RED
     let result: Option<bool> = match fetch_volcano_status_by_vnum(&client, &bet.vnum).await {
@@ -837,8 +821,10 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
         Some(at_warning) => {
             let won = (bet.side == "yes") == at_warning;
             if won {
-                let payout = (bet.stake as f64 / bet.price).floor() as i64;
-                let _ = state.api.casino_adjust(&bet.player, payout).await;
+                let payout = calc_payout(bet.stake, bet.price);
+                if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
+                    eprintln!("[Volcano settle] casino_adjust failed for {}: {e:?}", bet.player);
+                }
                 format!(
                     "[Volcano] {} — {}. {} wins. WIN +{} ({} @ {:.2}x).",
                     bet.vname,
@@ -849,7 +835,7 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
                     (1.0 / (bet.price)),
                 )
             } else {
-                let _ = state.api.casino_jackpot_rake(bet.stake).await;
+                state.api.casino_jackpot_rake(bet.stake).await;
                 format!(
                     "[Volcano] {} — {}. {} loses. LOSS -{} (to jackpot).",
                     bet.vname,
@@ -860,7 +846,9 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
             }
         }
         None => {
-            let _ = state.api.casino_adjust(&bet.player, bet.stake).await;
+            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
+                eprintln!("[Volcano settle] refund failed for {}: {e:?}", bet.player);
+            }
             format!(
                 "[Volcano] {} — VHP API unavailable. {} refunded.",
                 bet.vname,
@@ -869,21 +857,5 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
         }
     };
 
-    deliver_msg(&state, &whisper_cmd, &bet.player, online_username, msg).await;
-}
-
-// ── Shared deliver helper ─────────────────────────────────────────────────────
-
-async fn deliver_msg(
-    state: &AzaleaState,
-    whisper_cmd: &str,
-    player_uuid: &str,
-    online_username: Option<String>,
-    msg: String,
-) {
-    if let Some(ref username) = online_username {
-        enqueue_chat(state, format!("/{whisper_cmd} {username} {msg}"));
-    } else {
-        state.api.casino_add_notification(player_uuid, &msg).await;
-    }
+    deliver(&state, &whisper_cmd, &bet.player, msg).await;
 }

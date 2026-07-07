@@ -6,7 +6,9 @@
         "azure_key": "",
         "azure_region": "",
         "sharpapi": "",
-        "airnow": ""
+        "airnow": "",
+        "gasbuddy_solver_url": "",
+        "gasbuddy_csrf_readonly": false
     },
     "mc_server": "newtest_new",
     "host": "localhost",
@@ -169,7 +171,10 @@
         "aqi":              { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "mines":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "quake":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "volcano":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 }
+        "volcano":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
+        "launch":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
+        "gas":              { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
+        "bets":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 }
     },
     "welcome_messages": true,
     "useCommands": true,
@@ -334,7 +339,10 @@
         "aqi":              true,
         "mines":            true,
         "quake":            true,
-        "volcano":          true
+        "volcano":          true,
+        "launch":           true,
+        "gas":              true,
+        "bets":             true
     },
     "usePViewer": true,
     "pViewerPort": 8080

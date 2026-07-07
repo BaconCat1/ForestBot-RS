@@ -32,6 +32,10 @@ pub struct ApiKeys {
     pub sharpapi: String,
     #[serde(default)]
     pub airnow: String,
+    #[serde(default)]
+    pub gasbuddy_solver_url: String,
+    #[serde(default)]
+    pub gasbuddy_csrf_readonly: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -1,9 +1,9 @@
-use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
+use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::chips_str;
+use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["faa", "airport"],
@@ -54,15 +54,6 @@ fn compute_odds(currently_ifr: bool) -> (f64, f64) {
     } else {
         (0.33, 0.67) // YES 3.03x, NO 1.49x
     }
-}
-
-fn fmt_close(close_time: u64) -> String {
-    let now = now_unix();
-    if close_time <= now { return "settling".into(); }
-    let secs = close_time - now;
-    if secs < 3600       { format!("{}m", secs / 60) }
-    else if secs < 86400 { format!("{}h", secs / 3600) }
-    else                 { format!("{}d", secs / 86400) }
 }
 
 async fn fetch_metar(client: &reqwest::Client, icao: &str) -> Option<serde_json::Value> {
@@ -250,10 +241,7 @@ pub async fn settle_task(
     whisper_cmd: String,
     bet: FaaAirportBet,
 ) {
-    let now = now_unix();
-    if bet.close_time > now {
-        tokio::time::sleep(std::time::Duration::from_secs(bet.close_time - now)).await;
-    }
+    sleep_until(bet.close_time).await;
 
     let claimed = {
         let mut bets = state.faa_airport_bets.lock().expect("faa_airport_bets lock");
@@ -267,8 +255,6 @@ pub async fn settle_task(
     if !claimed { return; }
 
     let client = reqwest::Client::new();
-    let online_username = state.players.read().ok()
-        .and_then(|pl| pl.values().find(|s| s.uuid == bet.player).map(|s| s.username.clone()));
 
     let deadline = now_unix() + MAX_POLL_SECS;
     let result: Option<String> = loop {
@@ -286,16 +272,14 @@ pub async fn settle_task(
     let (flt_cat, outcome_is_ifr) = match result {
         Some(ref cat) => (cat.as_str(), is_ifr(cat)),
         None => {
-            let _ = state.api.casino_adjust(&bet.player, bet.stake).await;
+            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
+                eprintln!("[FAA settle] refund failed for {}: {e:?}", bet.player);
+            }
             let msg = format!(
                 "[FAA] {} ({}) — METAR unavailable. {} refunded.",
                 bet.name, bet.airport_code, chips_str(bet.stake)
             );
-            if let Some(ref username) = online_username {
-                enqueue_chat(&state, format!("/{whisper_cmd} {username} {msg}"));
-            } else {
-                state.api.casino_add_notification(&bet.player, &msg).await;
-            }
+            deliver(&state, &whisper_cmd, &bet.player, msg).await;
             return;
         }
     };
@@ -303,8 +287,10 @@ pub async fn settle_task(
     let won = (bet.side == "yes") == outcome_is_ifr;
 
     let msg = if won {
-        let payout = (bet.stake as f64 / bet.price).floor() as i64;
-        let _ = state.api.casino_adjust(&bet.player, payout).await;
+        let payout = calc_payout(bet.stake, bet.price);
+        if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
+            eprintln!("[FAA settle] casino_adjust failed for {}: {e:?}", bet.player);
+        }
         format!(
             "[FAA] {} ({}) — {}. {} wins. WIN +{} ({} @ {:.2}x).",
             bet.name, bet.airport_code, flt_cat,
@@ -314,7 +300,7 @@ pub async fn settle_task(
             1.0 / bet.price,
         )
     } else {
-        let _ = state.api.casino_jackpot_rake(bet.stake).await;
+        state.api.casino_jackpot_rake(bet.stake).await;
         format!(
             "[FAA] {} ({}) — {}. {} loses. LOSS -{} (to jackpot).",
             bet.name, bet.airport_code, flt_cat,
@@ -323,9 +309,5 @@ pub async fn settle_task(
         )
     };
 
-    if let Some(ref username) = online_username {
-        enqueue_chat(&state, format!("/{whisper_cmd} {username} {msg}"));
-    } else {
-        state.api.casino_add_notification(&bet.player, &msg).await;
-    }
+    deliver(&state, &whisper_cmd, &bet.player, msg).await;
 }

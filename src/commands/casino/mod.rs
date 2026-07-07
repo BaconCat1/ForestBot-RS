@@ -19,12 +19,20 @@ pub mod scratch;
 pub mod slots;
 pub mod mines;
 pub mod aqi;
+pub mod launch;
+pub mod gas;
+pub mod bets;
 
-use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
+use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::{CasinoFaucetResult, CasinoLottoPlayerTicket};
+use crate::structure::market::types::now_unix;
+use crate::structure::mineflayer::bot::AzaleaState;
 use futures_util::future::join_all;
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
+
+pub const MIN_BET: i64 = 25;
+pub const HOUSE_EDGE: f64 = 0.05;
 
 pub fn chips_str(n: i64) -> String {
     format!("{} chip{}", n, if n == 1 { "" } else { "s" })
@@ -37,6 +45,53 @@ pub fn fmt_duration(secs: u64) -> String {
         format!("{}m {}s", secs / 60, secs % 60)
     } else {
         format!("{}h {}m", secs / 3600, (secs % 3600) / 60)
+    }
+}
+
+pub fn to_price(p: f64) -> f64 {
+    (p / (1.0 - HOUSE_EDGE)).clamp(0.05, 0.98)
+}
+
+pub fn fmt_odds(price: f64) -> String {
+    format!("{:.2}×", 1.0 / price)
+}
+
+pub fn fmt_time(unix: u64) -> String {
+    let now = now_unix();
+    if unix <= now { return "now".into(); }
+    let d = unix - now;
+    if d < 3600       { format!("{}m", d / 60) }
+    else if d < 86400 { format!("{}h", d / 3600) }
+    else              { format!("{}d {}h", d / 86400, (d % 86400) / 3600) }
+}
+
+pub fn fmt_close(close_time: u64) -> String {
+    let now = now_unix();
+    if close_time <= now { return "settling".into(); }
+    let secs = close_time - now;
+    if secs < 3600       { format!("{}m", secs / 60) }
+    else if secs < 86400 { format!("{}h", secs / 3600) }
+    else                 { format!("{}d", secs / 86400) }
+}
+
+pub fn calc_payout(stake: i64, price: f64) -> i64 {
+    (stake as f64 / price).floor() as i64
+}
+
+pub async fn sleep_until(t: u64) {
+    let now = now_unix();
+    if t > now {
+        tokio::time::sleep(std::time::Duration::from_secs(t - now)).await;
+    }
+}
+
+pub async fn deliver(state: &AzaleaState, whisper_cmd: &str, player: &str, msg: String) {
+    let online = state.players.read().ok()
+        .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()));
+    if let Some(username) = online {
+        enqueue_chat(state, format!("/{whisper_cmd} {username} {msg}"));
+    } else {
+        state.api.casino_add_notification(player, &msg).await;
     }
 }
 
@@ -365,8 +420,21 @@ pub fn wallet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     })
 }
 
+pub fn count_event_bets(state: &AzaleaState, player_uuid: &str) -> usize {
+    let mut total = 0;
+    if let Ok(m) = state.sports_bets.lock()        { total += m.get(player_uuid).map(|v| v.len()).unwrap_or(0); }
+    if let Ok(m) = state.kalshi_bets.lock()        { total += m.get(player_uuid).map(|v| v.len()).unwrap_or(0); }
+    if let Ok(m) = state.noaa_flooding_bets.lock() { total += m.get(player_uuid).map(|v| v.len()).unwrap_or(0); }
+    if let Ok(m) = state.quake_bets.lock()         { total += m.get(player_uuid).map(|v| v.len()).unwrap_or(0); }
+    if let Ok(m) = state.volcano_bets.lock()       { total += m.get(player_uuid).map(|v| v.len()).unwrap_or(0); }
+    if let Ok(m) = state.aqi_bets.lock()           { total += m.get(player_uuid).map(|v| v.len()).unwrap_or(0); }
+    if let Ok(m) = state.launch_bets.lock()        { total += m.get(player_uuid).map(|v| v.len()).unwrap_or(0); }
+    if let Ok(m) = state.gas_bets.lock()           { total += m.get(player_uuid).map(|v| v.len()).unwrap_or(0); }
+    total
+}
+
 async fn portfolio_value_summary(
-    state: &crate::structure::mineflayer::bot::AzaleaState,
+    state: &AzaleaState,
     player_uuid: &str,
 ) -> Option<(i64, usize)> {
     let positions = {

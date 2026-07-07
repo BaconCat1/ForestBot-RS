@@ -29,6 +29,56 @@ const USAGE: &str = "Usage: !roulette <type> <selection> <bet>  |  \
     types: color red/black/green | parity odd/even | \
     half low/high | column 1/2/3 | dozen 1/2/3 | number 0-36";
 
+// ── Pure game logic ───────────────────────────────────────────────────────────
+
+// Returns (wins, total_return_multiplier, label) or an error string to display.
+fn eval_spin(bet_type: &str, selection: &str, spin: u8) -> Result<(bool, i64, &'static str), &'static str> {
+    match bet_type {
+        "color" => match selection {
+            "red"   => Ok((spin != 0 && is_red(spin),   2, "Color Red")),
+            "black" => Ok((is_black(spin),               2, "Color Black")),
+            "green" => Ok((spin == 0,                   36, "Color Green")),
+            _ => Err(USAGE),
+        },
+        "parity" => match selection {
+            "odd"  => Ok((spin != 0 && spin % 2 == 1, 2, "Odd")),
+            "even" => Ok((spin != 0 && spin % 2 == 0, 2, "Even")),
+            _ => Err(USAGE),
+        },
+        "half" => match selection {
+            "low"  | "1-18"  => Ok((spin >= 1 && spin <= 18, 2, "Low 1-18")),
+            "high" | "19-36" => Ok((spin >= 19,              2, "High 19-36")),
+            _ => Err(USAGE),
+        },
+        "column" => {
+            let col: u8 = match selection {
+                "1" | "1st" => 1, "2" | "2nd" => 2, "3" | "3rd" => 3, _ => 0,
+            };
+            if col == 0 { return Err(USAGE); }
+            Ok((spin != 0 && column_of(spin) == col, 3, "Column"))
+        },
+        "dozen" => {
+            let doz: u8 = match selection {
+                "1" | "1st" | "1-12"  => 1,
+                "2" | "2nd" | "13-24" => 2,
+                "3" | "3rd" | "25-36" => 3,
+                _ => 0,
+            };
+            if doz == 0 { return Err(USAGE); }
+            Ok((spin != 0 && dozen_of(spin) == doz, 3, "Dozen"))
+        },
+        "number" => {
+            match selection.parse::<u8>() {
+                Ok(n) if n <= 36 => Ok((spin == n, 36, "Number")),
+                _ => Err("Number must be 0–36."),
+            }
+        },
+        _ => Err(USAGE),
+    }
+}
+
+// ── Imperative shell ──────────────────────────────────────────────────────────
+
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         if ctx.args.len() < 3 {
@@ -50,64 +100,11 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let selection = ctx.args[1..ctx.args.len() - 1].join(" ").to_ascii_lowercase();
 
         let spin: u8 = OsRng.gen_range(0..=36);
-        let color_str = if spin == 0 {
-            "GREEN"
-        } else if is_red(spin) {
-            "RED"
-        } else {
-            "BLACK"
-        };
+        let color_str = if spin == 0 { "GREEN" } else if is_red(spin) { "RED" } else { "BLACK" };
 
-        // (wins, total_return_multiplier, label)
-        let parsed = match bet_type.as_str() {
-            "color" => match selection.as_str() {
-                "red"   => Some((spin != 0 && is_red(spin),   2i64, "Color Red")),
-                "black" => Some((is_black(spin),               2,    "Color Black")),
-                "green" => Some((spin == 0,                    36,   "Color Green")),
-                _ => None,
-            },
-            "parity" => match selection.as_str() {
-                "odd"  => Some((spin != 0 && spin % 2 == 1, 2, "Odd")),
-                "even" => Some((spin != 0 && spin % 2 == 0, 2, "Even")),
-                _ => None,
-            },
-            "half" => match selection.as_str() {
-                "low"  | "1-18"  => Some((spin >= 1 && spin <= 18, 2, "Low 1-18")),
-                "high" | "19-36" => Some((spin >= 19,              2, "High 19-36")),
-                _ => None,
-            },
-            "column" => {
-                let col: u8 = match selection.as_str() {
-                    "1" | "1st" => 1, "2" | "2nd" => 2, "3" | "3rd" => 3, _ => 0,
-                };
-                if col == 0 { None } else { Some((spin != 0 && column_of(spin) == col, 3, "Column")) }
-            },
-            "dozen" => {
-                let doz: u8 = match selection.as_str() {
-                    "1" | "1st" | "1-12"  => 1,
-                    "2" | "2nd" | "13-24" => 2,
-                    "3" | "3rd" | "25-36" => 3,
-                    _ => 0,
-                };
-                if doz == 0 { None } else { Some((spin != 0 && dozen_of(spin) == doz, 3, "Dozen")) }
-            },
-            "number" => {
-                let Ok(n) = selection.parse::<u8>() else {
-                    ctx.whisper("Number must be 0–36.");
-                    return Ok(());
-                };
-                if n > 36 {
-                    ctx.whisper("Number must be 0–36.");
-                    return Ok(());
-                }
-                Some((spin == n, 36, "Number"))
-            },
-            _ => None,
-        };
-
-        let Some((wins, multiplier, label)) = parsed else {
-            ctx.whisper(USAGE);
-            return Ok(());
+        let (wins, multiplier, label) = match eval_spin(&bet_type, &selection, spin) {
+            Ok(outcome) => outcome,
+            Err(msg) => { ctx.whisper(msg); return Ok(()); }
         };
 
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
@@ -135,18 +132,14 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             };
             ctx.whisper(format!(
                 "Roulette: {} {color_str} | {label} — Win! +{} | Balance: {}",
-                spin,
-                chips_str(total_return - bet),
-                chips_str(new_balance),
+                spin, chips_str(total_return - bet), chips_str(new_balance),
             ));
         } else {
             let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
             ctx.state.api.casino_jackpot_rake(rake).await;
             ctx.whisper(format!(
                 "Roulette: {} {color_str} | {label} — Lost {} | Balance: {}",
-                spin,
-                chips_str(bet),
-                chips_str(balance),
+                spin, chips_str(bet), chips_str(balance),
             ));
         }
 

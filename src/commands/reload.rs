@@ -68,6 +68,8 @@ async fn reload_runtime(
         sharpapi_key: app_state.config.api_keys.sharpapi,
         nasa_api_key: app_state.config.api_keys.nasa,
         airnow_api_key: app_state.config.api_keys.airnow,
+        gasbuddy_solver_url: app_state.config.api_keys.gasbuddy_solver_url,
+        gasbuddy_csrf_readonly: app_state.config.api_keys.gasbuddy_csrf_readonly,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;

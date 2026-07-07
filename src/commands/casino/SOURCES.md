@@ -29,9 +29,63 @@ Game logic references and adaptations used in the ForestBot-RS casino module.
 | `faa_airport.rs` | Original implementation. Uses aviationweather.gov METAR API (public, no auth). Fetches `fltCat` (VFR/MVFR/IFR/LIFR) from the METAR endpoint; accepts IATA (3-char, auto-prepends K for US) or ICAO (4-char) codes. Settle task polls METAR at close time; IFR/LIFR = YES wins, VFR/MVFR = NO wins. Chip integration and command flow original. Aviation weather data is US government public domain. | Original |
 | `train.rs` | Original implementation. Uses trainstracking.com realtime API (`/api/live/realtime?source=<country>`). Non-commercial use. Multi-word train codes (e.g. "ICE 42") supported via joined-arg parsing. Settle task polls at close_time; delay ≤ 5 min = ontime wins, > 5 min = delayed wins, not found = refund. Chip integration and command flow original. **Attribution required:** data via TrainsTracking (trainstracking.com). |
 | `noaa_flooding.rs` | Original implementation. Uses api.weather.gov active alerts endpoint (public, no auth). Fetches alerts for a lat/lon point and checks `properties.event/headline/description` for flood-related keywords ("flood", "storm surge"). YES wins if any flood alert is active at close time, NO wins otherwise. Chip integration and command flow original. NOAA weather alert data is US government public domain. | Original |
+| `gas.rs` | Original implementation. Uses GasBuddy GraphQL API (`https://www.gasbuddy.com/graphql`, `LocationBySearchTerm` query). CSRF token extracted from `window.gbcsrf = "..."` in homepage HTML, cached to `gasbuddy_token.json`, refreshed lazily on 4xx. FlareSolver optional fallback if CF blocks homepage. 24h settlement window; refund if GasBuddy unavailable. Probability model (p_up=0.48, p_down=0.52) and chip integration original. GasBuddy is a free public web service; no ToS agreement or API key required. | Original |
+| `launch.rs` | Original implementation. Uses Launch Library 2 public API (`ll.thespacedevs.com/2.2.0`). Upcoming launch list, provider history, and settlement outcome (status IDs 3=success, 4=failure, 7=partial failure) fetched from LL2. Provider success/on-time probabilities derived from last 50 launches per LSP. Bet lock at T-2h; settlement polls every 1h up to 7 days. Chip integration and command flow original. LL2 is free public API (rate limited; no auth required for public endpoints). | Original |
+| `seismic.rs` | Original implementation. **Quake:** Uses USGS FDSN event API (`earthquake.usgs.gov/fdsnws/event/1/query`). 9 predefined regions; Poisson base rate from 3-year historical catalog (2023–2026); `p = 1 - e^(-λ·7d)`. Settlement queries FDSN for events in region during bet window. **Volcano:** Uses USGS Volcano Hazards Program API (`volcanoes.usgs.gov/vhpstatus.json`). Elevated volcanoes only; probability tiers Advisory=5%/Watch=20%/Warning=70%; resolves YES if `colorCode == "RED"` at 7-day close. USGS data is US government public domain. Chip integration and command flow original. | Original |
 
-## Excluded
+## Excluded — Games
 
-| Reference | Reason |
-|-----------|--------|
-| _camelot_ — JS Camelot board game (no author listed). No license declared; issue filed requesting MIT. | Board is 12×16 squares; individual board rows wrap before board content even starts. MC chat width = 240 source px (measured from 2560×1440 GUI scale 3, `chatWidth:1.0` confirmed in options.txt). `[ForestBot -> Player] 04 - - - - - - - - - - - -` measures ~248 source px — already over the limit. Each of 16 rows becomes 2 wrapped lines = 32+ whispers minimum; not fixable by reformatting. Verified via mc-chat-simulator (canonical ascii.png, MC 1.21.4). No Rust impl exists; minimax would also need writing from scratch. |
+| Idea | Reason |
+|------|--------|
+| _camelot_ — JS Camelot board game (no author listed). | Board is 12×16 squares; rows wrap before board content even starts. MC chat width = 240 source px (measured from 2560×1440 GUI scale 3). `[ForestBot -> Player] 04 - - - - - - - - - - - -` measures ~248 source px — already over the limit. 32+ whispers minimum, not fixable by reformatting. No Rust impl exists. |
+| Keno | No color in Minecraft chat; draw results become unreadable wall of numbers. |
+| Video Poker | Hold mechanic requires two-step chat exchange, loses poker's social element. |
+| Crash | Too abstract without a live visual multiplier; tension is entirely visual. |
+
+## Excluded — Economy Mechanics
+
+| Idea | Reason |
+|------|--------|
+| Chip loans | No enforcement mechanism; transfer command already covers manual lending. |
+| Bounties | Alt-account kill abuse; no way to verify target identity. |
+| Speedrun markets | No clear implementation path. |
+| Tournaments | Too much buy-in/understanding required from playerbase right now. On hold, not dead. |
+
+## Excluded — Real-World Markets
+
+| Idea | Reason |
+|------|--------|
+| Horse racing (Betfair) | Geo-locked for US users; US parimutuel data hard to get cheaply. On hold. |
+| Wikipedia edit stream | Too boring; no real tension or outcome to bet against. |
+| Polymarket | Same ground as Kalshi; redundant. |
+| Cherry blossom bloom date | Too niche. |
+| Monarch butterfly migration | Too niche. |
+| Aurora sighting reports | Crowd-sourced, unreliable for settlement. |
+| ISS visibility pass | No meaningful variance; pass times are deterministic. |
+| Satellite reentry | Window too wide until near-event; thin frequency (few/month). Marginal at best. |
+| Asteroid betting (NASA NEO API) | Close-approach dates are deterministic and known years in advance — no uncertainty to bet on. "Within N lunar distances" is always known beforehand; no variance. |
+| Blood donation supply (American Red Cross regional shortage data) | No clear odds derivation; shortage classifications are coarse (adequate/limited/critical). |
+| Solar/lunar eclipse cloud cover | Too compound; requires both eclipse timing + weather forecast; niche. |
+| Meteor shower peak count | Niche; counts vary too much on observer conditions to settle reliably. |
+| Beach rip current/surf height | Niche. |
+| National park visitor counts | Niche; no real-time data, only historical stats. |
+| Power outage tracker | No unified national API; fragmented by utility. |
+| School closing/snow day | No unified API; district-level only, dead end. |
+| Amusement park wait times (Queue-Times) | No derivable odds without pre-built historical baseline per park. |
+| Traffic congestion (TomTom/INRIX) | Same issue — no odds without pre-built baseline. Enterprise-gated data. |
+| CDC WONDER | Historical stats only; no forecast, no derivable odds. |
+| data.cdc.gov (Socrata hub) | Reporting data, not forecast; no derivable odds. |
+
+## Excluded — Rail/Transit Dead Ends (Geography)
+
+| Region | Reason |
+|--------|--------|
+| China | Closed data; 12306.cn is domestic only, no public API. |
+| Southeast Asia | No national rail APIs; Malaysia GTFS has vehicle position only, no trip updates (check back 2026+). |
+| Russia | No official API; reverse-engineered one is stale (2021); sanctions/hosting risk. |
+| Middle East (Saudi, UAE, Turkey) | No public developer APIs found; all closed. |
+| Central Asia | No public APIs; Soviet-era closed systems. |
+| Africa | No major rail operator has a public API. |
+| Latin America | No national rail APIs; only scattered city GTFS. |
+| Greyhound (bus) | No public API; unofficial reverse-engineered tracker only. |
+| Freight rail (BNSF/UP/CSX/NS) | Enterprise-gated (mTLS + waybill auth); no fixed passenger schedule to bet against. |

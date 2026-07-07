@@ -1,9 +1,9 @@
-use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
+use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::chips_str;
+use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["kalshi", "k"],
@@ -78,15 +78,6 @@ fn parse_iso_unix(s: &str) -> Option<u64> {
                 .ok()
                 .map(|dt| dt.timestamp() as u64)
         })
-}
-
-fn fmt_close(close_time: u64) -> String {
-    let now = now_unix();
-    if close_time <= now { return "closing".into(); }
-    let secs = close_time - now;
-    if secs < 3600      { format!("{}m", secs / 60) }
-    else if secs < 86400 { format!("{}h", secs / 3600) }
-    else                 { format!("{}d", secs / 86400) }
 }
 
 async fn kalshi_get(
@@ -339,9 +330,8 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         chips_str(profit),
     ));
 
-    let wcmd    = ctx.runtime.whisper_command.clone();
-    let secs    = market.close_time.saturating_sub(now);
-    tokio::spawn(settle_task(ctx.state.clone(), wcmd, bet, secs));
+    let wcmd = ctx.runtime.whisper_command.clone();
+    tokio::spawn(settle_task(ctx.state.clone(), wcmd, bet));
     Ok(())
 }
 
@@ -379,11 +369,8 @@ pub async fn settle_task(
     state: AzaleaState,
     whisper_cmd: String,
     bet: KalshiBet,
-    secs_to_close: u64,
 ) {
-    if secs_to_close > 0 {
-        tokio::time::sleep(std::time::Duration::from_secs(secs_to_close)).await;
-    }
+    sleep_until(bet.close_time).await;
 
     let claimed = {
         let mut bets = state.kalshi_bets.lock().expect("kalshi_bets lock");
@@ -397,8 +384,6 @@ pub async fn settle_task(
     if !claimed { return; }
 
     let client = reqwest::Client::new();
-    let online_username = state.players.read().ok()
-        .and_then(|pl| pl.values().find(|s| s.uuid == bet.player).map(|s| s.username.clone()));
 
     let deadline = now_unix() + MAX_POLL_SECS;
     let result: Option<String> = loop {
@@ -415,8 +400,10 @@ pub async fn settle_task(
 
     let msg = match result {
         Some(ref winner) if *winner == bet.side => {
-            let payout = (bet.stake as f64 / bet.price).floor() as i64;
-            let _ = state.api.casino_adjust(&bet.player, payout).await;
+            let payout = calc_payout(bet.stake, bet.price);
+            if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
+                eprintln!("[Kalshi settle] casino_adjust failed for {}: {e:?}", bet.player);
+            }
             format!(
                 "[Kalshi] {} — {} wins. WIN +{} ({} @ {:.2}x).",
                 bet.title,
@@ -427,7 +414,7 @@ pub async fn settle_task(
             )
         }
         Some(ref winner) => {
-            let _ = state.api.casino_jackpot_rake(bet.stake).await;
+            state.api.casino_jackpot_rake(bet.stake).await;
             format!(
                 "[Kalshi] {} — {} wins. LOSS -{} (to jackpot).",
                 bet.title,
@@ -436,7 +423,9 @@ pub async fn settle_task(
             )
         }
         None => {
-            let _ = state.api.casino_adjust(&bet.player, bet.stake).await;
+            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
+                eprintln!("[Kalshi settle] refund failed for {}: {e:?}", bet.player);
+            }
             format!(
                 "[Kalshi] {} — result unavailable. {} refunded.",
                 bet.title,
@@ -445,9 +434,5 @@ pub async fn settle_task(
         }
     };
 
-    if let Some(ref username) = online_username {
-        enqueue_chat(&state, format!("/{whisper_cmd} {username} {msg}"));
-    } else {
-        state.api.casino_add_notification(&bet.player, &msg).await;
-    }
+    deliver(&state, &whisper_cmd, &bet.player, msg).await;
 }

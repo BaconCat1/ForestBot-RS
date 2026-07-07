@@ -21,6 +21,31 @@ fn roll_dice() -> (u8, u8) {
     (OsRng.gen_range(1u8..=6), OsRng.gen_range(1u8..=6))
 }
 
+// ── Pure game logic ───────────────────────────────────────────────────────────
+
+// Classifies dice total on the come-out roll.
+enum ComeOutRoll { Natural, Craps, BarTwelve, Point(u8) }
+
+fn come_out_eval(total: u8) -> ComeOutRoll {
+    match total {
+        7 | 11 => ComeOutRoll::Natural,
+        12     => ComeOutRoll::BarTwelve,
+        2 | 3  => ComeOutRoll::Craps,
+        _      => ComeOutRoll::Point(total),
+    }
+}
+
+// Classifies dice total in the point phase.
+enum PointRoll { HitPoint, SevenOut, Ongoing }
+
+fn point_phase_eval(total: u8, point: u32) -> PointRoll {
+    if total as u32 == point { PointRoll::HitPoint }
+    else if total == 7       { PointRoll::SevenOut }
+    else                     { PointRoll::Ongoing }
+}
+
+// ── Command dispatch ──────────────────────────────────────────────────────────
+
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let subcmd = ctx.args.first().copied().unwrap_or("").to_ascii_lowercase();
@@ -37,7 +62,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     })
 }
 
-// ── Come-out roll ────────────────────────────────────────────────────────────
+// ── Come-out roll ─────────────────────────────────────────────────────────────
 
 async fn do_come_out(ctx: CommandContext<'_>, pass_line: bool) -> anyhow::Result<()> {
     {
@@ -80,61 +105,40 @@ async fn do_come_out(ctx: CommandContext<'_>, pass_line: bool) -> anyhow::Result
     let total = d1 + d2;
     let bet_label = if pass_line { "Pass" } else { "Don't Pass" };
 
-    match total {
-        7 | 11 => {
-            // Natural: pass wins, dontpass loses
+    match come_out_eval(total) {
+        ComeOutRoll::Natural => {
             if pass_line {
                 let payout = bet * 2;
-                let new_balance = match ctx.state.api.casino_adjust(&player_uuid, payout).await {
-                    Ok(b) => b,
-                    Err(_) => balance + payout,
-                };
-                ctx.whisper(format!(
-                    "Craps [{d1}+{d2}={total}] Natural {total}! {bet_label} wins +{} | Balance: {}",
-                    chips_str(bet), chips_str(new_balance)
-                ));
+                let new_balance = ctx.state.api.casino_adjust(&player_uuid, payout).await.unwrap_or(balance + payout);
+                ctx.whisper(format!("Craps [{d1}+{d2}={total}] Natural {total}! {bet_label} wins +{} | Balance: {}", chips_str(bet), chips_str(new_balance)));
             } else {
                 let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
                 ctx.state.api.casino_jackpot_rake(rake).await;
-                ctx.whisper(format!(
-                    "Craps [{d1}+{d2}={total}] Natural {total}! {bet_label} loses {} | Balance: {}",
-                    chips_str(bet), chips_str(balance)
-                ));
+                ctx.whisper(format!("Craps [{d1}+{d2}={total}] Natural {total}! {bet_label} loses {} | Balance: {}", chips_str(bet), chips_str(balance)));
             }
         }
-        2 | 3 | 12 => {
-            // Craps: pass loses, dontpass wins (12 = push for dontpass)
+        ComeOutRoll::Craps => {
             if pass_line {
                 let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
                 ctx.state.api.casino_jackpot_rake(rake).await;
-                ctx.whisper(format!(
-                    "Craps [{d1}+{d2}={total}] Craps {total}! {bet_label} loses {} | Balance: {}",
-                    chips_str(bet), chips_str(balance)
-                ));
-            } else if total == 12 {
-                // Push for don't pass on 12
-                let new_balance = match ctx.state.api.casino_adjust(&player_uuid, bet).await {
-                    Ok(b) => b,
-                    Err(_) => balance + bet,
-                };
-                ctx.whisper(format!(
-                    "Craps [{d1}+{d2}={total}] Craps 12 — {bet_label} push, returned {} | Balance: {}",
-                    chips_str(bet), chips_str(new_balance)
-                ));
+                ctx.whisper(format!("Craps [{d1}+{d2}={total}] Craps {total}! {bet_label} loses {} | Balance: {}", chips_str(bet), chips_str(balance)));
             } else {
                 let payout = bet * 2;
-                let new_balance = match ctx.state.api.casino_adjust(&player_uuid, payout).await {
-                    Ok(b) => b,
-                    Err(_) => balance + payout,
-                };
-                ctx.whisper(format!(
-                    "Craps [{d1}+{d2}={total}] Craps {total}! {bet_label} wins +{} | Balance: {}",
-                    chips_str(bet), chips_str(new_balance)
-                ));
+                let new_balance = ctx.state.api.casino_adjust(&player_uuid, payout).await.unwrap_or(balance + payout);
+                ctx.whisper(format!("Craps [{d1}+{d2}={total}] Craps {total}! {bet_label} wins +{} | Balance: {}", chips_str(bet), chips_str(new_balance)));
             }
         }
-        point => {
-            // Point established
+        ComeOutRoll::BarTwelve => {
+            if pass_line {
+                let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
+                ctx.state.api.casino_jackpot_rake(rake).await;
+                ctx.whisper(format!("Craps [{d1}+{d2}={total}] Craps 12! {bet_label} loses {} | Balance: {}", chips_str(bet), chips_str(balance)));
+            } else {
+                let new_balance = ctx.state.api.casino_adjust(&player_uuid, bet).await.unwrap_or(balance + bet);
+                ctx.whisper(format!("Craps [{d1}+{d2}={total}] Craps 12 — {bet_label} push, returned {} | Balance: {}", chips_str(bet), chips_str(new_balance)));
+            }
+        }
+        ComeOutRoll::Point(point) => {
             ctx.state.casino_sessions.lock().expect("lock").insert(
                 ctx.sender.to_owned(),
                 CasinoSession::Craps { bet, pass_line, point: point as u32 },
@@ -149,7 +153,7 @@ async fn do_come_out(ctx: CommandContext<'_>, pass_line: bool) -> anyhow::Result
     Ok(())
 }
 
-// ── Point-phase roll ─────────────────────────────────────────────────────────
+// ── Point-phase roll ──────────────────────────────────────────────────────────
 
 async fn do_roll(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
@@ -176,60 +180,44 @@ async fn do_roll(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let total = d1 + d2;
     let bet_label = if pass_line { "Pass" } else { "Don't Pass" };
 
-    if total as u32 == point {
-        // Point hit: pass wins, dontpass loses
-        ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-        if pass_line {
-            let payout = bet * 2;
-            let new_balance = match ctx.state.api.casino_adjust(&player_uuid, payout).await {
-                Ok(b) => b,
-                Err(_) => 0,
-            };
+    match point_phase_eval(total, point) {
+        PointRoll::HitPoint => {
+            ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
+            if pass_line {
+                let payout = bet * 2;
+                let new_balance = ctx.state.api.casino_adjust(&player_uuid, payout).await.unwrap_or(0);
+                ctx.whisper(format!("Craps [{d1}+{d2}={total}] Hit the point {point}! {bet_label} wins +{} | Balance: {}", chips_str(bet), chips_str(new_balance)));
+            } else {
+                let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
+                ctx.state.api.casino_jackpot_rake(rake).await;
+                let balance = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
+                ctx.whisper(format!("Craps [{d1}+{d2}={total}] Hit the point {point}! {bet_label} loses {} | Balance: {}", chips_str(bet), chips_str(balance)));
+            }
+        }
+        PointRoll::SevenOut => {
+            ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
+            if pass_line {
+                let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
+                ctx.state.api.casino_jackpot_rake(rake).await;
+                let balance = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
+                ctx.whisper(format!("Craps [{d1}+{d2}={total}] Seven out! {bet_label} loses {} | Balance: {}", chips_str(bet), chips_str(balance)));
+            } else {
+                let payout = bet * 2;
+                let new_balance = ctx.state.api.casino_adjust(&player_uuid, payout).await.unwrap_or(0);
+                ctx.whisper(format!("Craps [{d1}+{d2}={total}] Seven out! {bet_label} wins +{} | Balance: {}", chips_str(bet), chips_str(new_balance)));
+            }
+        }
+        PointRoll::Ongoing => {
             ctx.whisper(format!(
-                "Craps [{d1}+{d2}={total}] Hit the point {point}! {bet_label} wins +{} | Balance: {}",
-                chips_str(bet), chips_str(new_balance)
-            ));
-        } else {
-            let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
-            ctx.state.api.casino_jackpot_rake(rake).await;
-            let balance = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
-            ctx.whisper(format!(
-                "Craps [{d1}+{d2}={total}] Hit the point {point}! {bet_label} loses {} | Balance: {}",
-                chips_str(bet), chips_str(balance)
+                "Craps [{d1}+{d2}={total}] Rolled {total} (need {point} or 7). Keep rolling with !craps roll.",
             ));
         }
-    } else if total == 7 {
-        // Seven-out: pass loses, dontpass wins
-        ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-        if pass_line {
-            let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
-            ctx.state.api.casino_jackpot_rake(rake).await;
-            let balance = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
-            ctx.whisper(format!(
-                "Craps [{d1}+{d2}={total}] Seven out! {bet_label} loses {} | Balance: {}",
-                chips_str(bet), chips_str(balance)
-            ));
-        } else {
-            let payout = bet * 2;
-            let new_balance = match ctx.state.api.casino_adjust(&player_uuid, payout).await {
-                Ok(b) => b,
-                Err(_) => 0,
-            };
-            ctx.whisper(format!(
-                "Craps [{d1}+{d2}={total}] Seven out! {bet_label} wins +{} | Balance: {}",
-                chips_str(bet), chips_str(new_balance)
-            ));
-        }
-    } else {
-        ctx.whisper(format!(
-            "Craps [{d1}+{d2}={total}] Rolled {total} (need {point} or 7). Keep rolling with !craps roll.",
-        ));
     }
 
     Ok(())
 }
 
-// ── Quit ─────────────────────────────────────────────────────────────────────
+// ── Quit ──────────────────────────────────────────────────────────────────────
 
 async fn do_quit(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {

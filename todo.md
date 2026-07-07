@@ -138,16 +138,30 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~train betting phase II (https://mobilitydatabase.org/)~~
 * ✅ ~~earthquake betting (earthquake-volcano-gambling-feature.md)~~
 * ✅ ~~volcano betting (earthquake-volcano-gambling-feature.md)~~
-* 🆕 Air Quality Index betting (EPA AirNow, free)
-* 🆕 Rocket launches (RocketLaunch.live, free)
-* 🆕 gasbuddy betting, also just treat national gas price as a stock to let people invest/buy "real gasoline" (https://github.com/firstof9/py-gasbuddy)
-* ⏸ server event futures, same idea, just about stuff that happens on the server // on hold for casino phase II
-* ⏸ parlays across all betting types (needs mapping) // on hold for casino phase II
-* ⏸ side betting on any game, not just dueling // on hold for casino phase II
+* ✅ ~~Air Quality Index betting (EPA AirNow, free)~~
+* ✅ ~~Rocket launches (RocketLaunch.live, free)~~
+* ✅ ~~gasbuddy betting, also just treat national gas price as a stock to let people invest/buy "real gasoline" (https://github.com/firstof9/py-gasbuddy)~~
+	* 🆕 extend gasbuddy feature to support diesel // casino phase II
+
+### Casino Phase II
+* 🆕 eSports betting (OddsPapi — oddspapi.io, free key, 250 req/month) — CS2, LoL, Dota 2, Valorant, CoD, Rocket League, Overwatch, R6, StarCraft; match winner moneyline; reuses existing odds-market UI // casino phase II
+* 🆕 Hurricane betting (NHC — nhc.noaa.gov, no auth, flat file/GeoJSON) — "will storm X make landfall in region Y?"; seasonal; no REST API, flat file parse required // casino phase II
+* 🆕 River/streamflow betting (NOAA NWPS — water.noaa.gov, no auth) — HEFS ensemble forecast, "will river X exceed flood stage?"; distinct from existing alert-based noaa_flooding.rs // casino phase II
+* 🆕 Tide betting (NOAA CO-OPS — tidesandcurrents.noaa.gov, no auth) — over/under tide height at a station; deterministic, low-variance market // casino phase II
+* 🆕 Ocean buoy betting (NOAA NDBC or Open-Meteo marine endpoint) — wave height over/under; Open-Meteo marine = zero new integration cost // casino phase II
+* 🆕 Wildfire betting (NIFC — nifc.gov, no auth) — "will fire X grow today?" based on perimeter data // casino phase II
+* 🆕 Migratory bird betting (eBird — free key) — "first sighting of species X in region Y by date Z?"; citizen-science, settleable against reported sightings // casino phase II
+* 🆕 Pollen betting (Ambee Pollen API — free key) — daily pollen severity over/under; seasonal variance // casino phase II
+* 🆕 Public health forecast betting (CDC FluSight + RSV + COVID Forecast Hub, free, no key) — weekly regional ensemble; same odds derivation as Open-Meteo; no Kalshi overlap // casino phase II
+* 🆕 Boat/vessel arrival betting (Norway Coastal Administration AIS, free) — arrival-time over/under for tracked vessels; same shape as train delay bets // casino phase II
+* ⏸️ server event futures, same idea, just about stuff that happens on the server // on hold for casino phase II
+* ⏸️ parlays across all betting types (needs mapping) // on hold for casino phase II
+* ⏸️ side betting on any game, not just dueling // on hold for casino phase II
 * ⏸️ add multiplayer where applicable to "casino games" // on hold for casino phase II
+
 * ✅ ~~**bug**: `increment_ms` cooldown not working~~ // spam path (blocked attempt) now also increments cooldown; success path already had it
 * ✅ ~~**bug**: !ud upvotes/downvotes always 0~~ // improved type parsing (i64 fallback); votes hidden when both 0 rather than showing (+0/-0)
-* 🆕 portfolio shows all bets, not just stocks
+* ✅ ~~portfolio shows all bets, not just stocks~~ // !bets command lists all open event bets; !wallet + !portfolio show event bet count inline
 
 ## new commands
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~

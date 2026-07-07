@@ -1,9 +1,9 @@
-use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
+use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::chips_str;
+use super::{chips_str, fmt_close, fmt_odds, calc_payout, sleep_until, deliver};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["aqi", "airquality"],
@@ -127,10 +127,6 @@ fn to_price(p: f64) -> f64 {
     (p / (1.0 - HOUSE_EDGE)).clamp(0.02, 0.98)
 }
 
-fn fmt_odds(price: f64) -> String {
-    format!("{:.2}×", 1.0 / price)
-}
-
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
 fn tomorrow_date_str() -> String {
@@ -163,15 +159,6 @@ fn days_to_ymd(mut days: i64) -> (i32, u32, u32) {
 
 fn is_leap(y: i32) -> bool {
     (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
-}
-
-fn fmt_close(close_time: u64) -> String {
-    let now = now_unix();
-    if close_time <= now { return "settling".into(); }
-    let secs = close_time - now;
-    if secs < 3600       { format!("{}m", secs / 60) }
-    else if secs < 86400 { format!("{}h", secs / 3600) }
-    else                 { format!("{}d", secs / 86400) }
 }
 
 // ── Command ───────────────────────────────────────────────────────────────────
@@ -346,10 +333,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
 // ── Settlement task ───────────────────────────────────────────────────────────
 
 pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBet) {
-    let now = now_unix();
-    if bet.close_time > now {
-        tokio::time::sleep(std::time::Duration::from_secs(bet.close_time - now)).await;
-    }
+    sleep_until(bet.close_time).await;
 
     let claimed = {
         let mut bets = state.aqi_bets.lock().unwrap();
@@ -365,9 +349,6 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
 
     state.api.casino_aqi_bet_delete(bet.id).await;
 
-    let online_username = state.players.read().ok()
-        .and_then(|pl| pl.values().find(|s| s.uuid == bet.player).map(|s| s.username.clone()));
-
     let msg = match readings.and_then(|r| worst(&r).map(|w| w.aqi)) {
         Some(actual_aqi) => {
             let won = match bet.side.as_str() {
@@ -376,8 +357,10 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
                 _           => false,
             };
             if won {
-                let payout = (bet.stake as f64 / bet.price).floor() as i64;
-                let _ = state.api.casino_adjust(&bet.player, payout).await;
+                let payout = calc_payout(bet.stake, bet.price);
+                if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
+                    eprintln!("[AQI settle] casino_adjust failed for {}: {e:?}", bet.player);
+                }
                 format!(
                     "[AQI] {} {} — actual AQI {}. {} wins. WIN +{} ({} @ {:.2}×).",
                     bet.zip, bet.side.to_uppercase(), actual_aqi,
@@ -387,7 +370,7 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
                     1.0 / bet.price,
                 )
             } else {
-                let _ = state.api.casino_jackpot_rake(bet.stake).await;
+                state.api.casino_jackpot_rake(bet.stake).await;
                 format!(
                     "[AQI] {} {} — actual AQI {}. {} loses. LOSS -{} (to jackpot).",
                     bet.zip, bet.side.to_uppercase(), actual_aqi,
@@ -397,7 +380,9 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
             }
         }
         None => {
-            let _ = state.api.casino_adjust(&bet.player, bet.stake).await;
+            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
+                eprintln!("[AQI settle] refund failed for {}: {e:?}", bet.player);
+            }
             format!(
                 "[AQI] {} {} — AirNow API unavailable at settlement. {} refunded.",
                 bet.zip, bet.side.to_uppercase(),
@@ -406,19 +391,5 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
         }
     };
 
-    deliver_msg(&state, &whisper_cmd, &bet.player, online_username, msg).await;
-}
-
-async fn deliver_msg(
-    state: &AzaleaState,
-    whisper_cmd: &str,
-    player: &str,
-    online_username: Option<String>,
-    msg: String,
-) {
-    if let Some(username) = online_username {
-        enqueue_chat(state, format!("/{whisper_cmd} {username} {msg}"));
-    } else {
-        state.api.casino_add_notification(player, &msg).await;
-    }
+    deliver(&state, &whisper_cmd, &bet.player, msg).await;
 }

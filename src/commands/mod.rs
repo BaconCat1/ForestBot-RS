@@ -289,6 +289,9 @@ pub fn registry() -> &'static [CommandDefinition] {
         battleship::COMMAND,
         casino::mines::COMMAND,
         casino::aqi::COMMAND,
+        casino::launch::COMMAND,
+        casino::gas::COMMAND,
+        casino::bets::COMMAND,
         checkers::COMMAND,
         reversi::COMMAND,
     ]

@@ -1,9 +1,7 @@
-use std::sync::Arc;
-
 use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::{
-    fmt_price, format_remaining, now_unix, parse_duration, Direction, MarketBet, MarketKind,
+    fmt_price, format_remaining, now_unix, parse_duration, Direction, MarketBet,
     PortfolioPosition,
 };
 use crate::structure::mineflayer::bot::AzaleaState;
@@ -637,9 +635,15 @@ async fn show_portfolio(ctx: &CommandContext<'_>, player_uuid: &str) -> anyhow::
     } else {
         format!("-{}", chips_str(net_total.abs()))
     };
+    let event_bet_count = crate::commands::casino::count_event_bets(ctx.state, player_uuid);
+    let bets_suffix = if event_bet_count > 0 {
+        format!(" | {} event bet{} (!bets)", event_bet_count, if event_bet_count == 1 { "" } else { "s" })
+    } else {
+        String::new()
+    };
     ctx.whisper(format!(
-        "Total: {} positions | Invested: {} | Value: {} | Net: {}",
-        positions.len(), chips_str(total_invested), chips_str(total_value), net_str
+        "Total: {} positions | Invested: {} | Value: {} | Net: {}{}",
+        positions.len(), chips_str(total_invested), chips_str(total_value), net_str, bets_suffix
     ));
     Ok(())
 }

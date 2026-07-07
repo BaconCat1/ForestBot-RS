@@ -28,13 +28,8 @@ const SYMBOLS: &[Symbol] = &[
 //        🍒 ♣  ♠  🍒 ♣  🍒 ♥  ♠  ♣  🍒 ♥  ♣  ♠  🍒 ♣  ♥  ♠  🍒 ♦  7
 const STRIP: &[usize] = &[0, 1, 2, 0, 1, 0, 3, 2, 1, 0, 3, 1, 2, 0, 1, 3, 2, 0, 4, 5];
 
-fn spin_reel(rng: &mut OsRng) -> usize {
-    rng.gen_range(0..STRIP.len())
-}
-
-fn sym_at(pos: usize) -> usize {
-    STRIP[pos % STRIP.len()]
-}
+fn spin_reel(rng: &mut OsRng) -> usize { rng.gen_range(0..STRIP.len()) }
+fn sym_at(pos: usize) -> usize { STRIP[pos % STRIP.len()] }
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["slots", "slot"],
@@ -42,6 +37,28 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     whitelisted: false,
     execute,
 };
+
+// ── Pure game logic ───────────────────────────────────────────────────────────
+
+// Returns (total_win, matched_line_names). total_win=0 means no win.
+fn evaluate_paylines(above: [usize; 3], center: [usize; 3], below: [usize; 3], bet: i64) -> (i64, Vec<&'static str>) {
+    let paylines: [([usize; 3], &'static str); 5] = [
+        (above,                          "Top row"),
+        (center,                         "Center row"),
+        (below,                          "Bottom row"),
+        ([above[0], center[1], below[2]], "Diagonal"),
+        ([below[0], center[1], above[2]], "Diagonal"),
+    ];
+    let wins: Vec<(i64, &'static str)> = paylines.iter()
+        .filter(|(line, _)| line[0] == line[1] && line[1] == line[2])
+        .map(|(line, name)| ((bet as f64 * SYMBOLS[line[0]].triple_mult) as i64, *name))
+        .collect();
+    let total: i64 = wins.iter().map(|(w, _)| w).sum();
+    let names: Vec<&'static str> = wins.into_iter().map(|(_, n)| n).collect();
+    (total, names)
+}
+
+// ── Imperative shell ──────────────────────────────────────────────────────────
 
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
@@ -88,29 +105,15 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         tokio::time::sleep(std::time::Duration::from_millis(800)).await;
 
-        // All 5 paylines: top, center, bottom, diagonal ↘, diagonal ↙
-        let paylines: [([usize; 3], &str); 5] = [
-            ([above[0],  above[1],  above[2]],  "Top row"),
-            ([center[0], center[1], center[2]], "Center row"),
-            ([below[0],  below[1],  below[2]],  "Bottom row"),
-            ([above[0],  center[1], below[2]],  "Diagonal"),
-            ([below[0],  center[1], above[2]],  "Diagonal"),
-        ];
+        let (total_win, line_names) = evaluate_paylines(above, center, below, bet);
 
-        let wins: Vec<(i64, &str)> = paylines.iter()
-            .filter(|(line, _)| line[0] == line[1] && line[1] == line[2])
-            .map(|(line, name)| ((bet as f64 * SYMBOLS[line[0]].triple_mult) as i64, *name))
-            .collect();
-
-        if wins.is_empty() {
+        if total_win == 0 {
             let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
             ctx.state.api.casino_jackpot_rake(rake).await;
             ctx.whisper(format!("-{} | Balance: {}", chips_str(bet), chips_str(balance)));
         } else {
-            let total_win: i64 = wins.iter().map(|(w, _)| w).sum();
-            let lines: Vec<&str> = wins.iter().map(|(_, n)| *n).collect();
             let bal = ctx.state.api.casino_adjust(&player_uuid, total_win).await.unwrap_or(balance + total_win);
-            ctx.whisper(format!("{} match! +{} | Balance: {}", lines.join(" + "), chips_str(total_win), chips_str(bal)));
+            ctx.whisper(format!("{} match! +{} | Balance: {}", line_names.join(" + "), chips_str(total_win), chips_str(bal)));
         }
 
         Ok(())

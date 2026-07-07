@@ -1262,6 +1262,106 @@ impl ApiClient {
         let _ = self.delete_json(&format!("/casino/aqi-bet/{id}")).await;
     }
 
+    pub async fn casino_launch_bet_insert(&self, bet: &crate::commands::casino::launch::LaunchBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/launch-bet",
+            json!({
+                "player_uuid":   bet.player,
+                "launch_id":     bet.launch_id,
+                "launch_name":   bet.launch_name,
+                "lsp_id":        bet.lsp_id,
+                "lsp_name":      bet.lsp_name,
+                "side":          bet.side.as_str(),
+                "price":         bet.price,
+                "stake":         bet.stake,
+                "window_start":  bet.window_start,
+                "close_time":    bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_launch_bet_list(&self) -> Vec<crate::commands::casino::launch::LaunchBet> {
+        use crate::commands::casino::launch::{LaunchBet, LaunchBetSide};
+        let Some(v) = self.get_json("/casino/launch-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id           = item.get("id")?.as_i64()?;
+                    let player       = item.get("player_uuid")?.as_str()?.to_owned();
+                    let launch_id    = item.get("launch_id")?.as_str()?.to_owned();
+                    let launch_name  = item.get("launch_name")?.as_str()?.to_owned();
+                    let lsp_id       = item.get("lsp_id")?.as_u64()? as u32;
+                    let lsp_name     = item.get("lsp_name")?.as_str()?.to_owned();
+                    let side         = LaunchBetSide::from_str(item.get("side")?.as_str()?)?;
+                    let price        = item.get("price")?.as_f64()?;
+                    let stake        = item.get("stake")?.as_i64()?;
+                    let window_start = item.get("window_start")?.as_u64()?;
+                    let close_time   = item.get("close_time")?.as_u64()?;
+                    Some(LaunchBet { id: Some(id), player, launch_id, launch_name, lsp_id, lsp_name, side, price, stake, window_start, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_launch_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/launch-bet/{id}")).await;
+    }
+
+    pub async fn casino_gas_bet_insert(&self, bet: &crate::commands::casino::gas::GasBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/gas-bet",
+            json!({
+                "player_uuid": bet.player,
+                "region":      bet.region,
+                "zip":         bet.zip,
+                "side":        bet.side,
+                "baseline":    bet.baseline as f64 / 1000.0,
+                "price":       bet.price as f64 / 10000.0,
+                "stake":       bet.stake,
+                "close_time":  bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_gas_bet_list(&self) -> Vec<crate::commands::casino::gas::GasBet> {
+        use crate::commands::casino::gas::GasBet;
+        let Some(v) = self.get_json("/casino/gas-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id         = item.get("id")?.as_i64()?;
+                    let player     = item.get("player_uuid")?.as_str()?.to_owned();
+                    let region     = item.get("region")?.as_str()?.to_owned();
+                    let zip        = item.get("zip")?.as_str()?.to_owned();
+                    let side       = item.get("side")?.as_str()?.to_owned();
+                    let baseline   = (item.get("baseline")?.as_f64()? * 1000.0).round() as i64;
+                    let price      = (item.get("price")?.as_f64()? * 10000.0).round() as i64;
+                    let stake      = item.get("stake")?.as_i64()?;
+                    let close_time = item.get("close_time")?.as_u64()?;
+                    Some(GasBet { id: Some(id), player, region, zip, side, baseline, price, stake, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_gas_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/gas-bet/{id}")).await;
+    }
+
+    pub async fn casino_event_bets_list(&self, player_uuid: &str) -> Vec<serde_json::Value> {
+        let Some(v) = self.get_json(&format!("/casino/event-bets/{player_uuid}"), &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .cloned()
+            .unwrap_or_default()
+    }
+
     pub async fn casino_train_bet_insert(&self, bet: &crate::commands::casino::train::TrainBet) -> Option<i64> {
         let v = self.post_json(
             "/casino/train-bet",

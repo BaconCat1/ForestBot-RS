@@ -81,6 +81,8 @@ pub struct RuntimeConfig {
     pub sharpapi_key: String,
     pub nasa_api_key: String,
     pub airnow_api_key: String,
+    pub gasbuddy_solver_url: String,
+    pub gasbuddy_csrf_readonly: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -119,6 +121,8 @@ pub struct Bot {
     pub sharpapi_key: String,
     pub nasa_api_key: String,
     pub airnow_api_key: String,
+    pub gasbuddy_solver_url: String,
+    pub gasbuddy_csrf_readonly: bool,
     pub anti_spam_global_cooldown_ms: u64,
     pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub reconnect_time_ms: u64,
@@ -162,6 +166,8 @@ impl Bot {
             sharpapi_key: state.config.api_keys.sharpapi.clone(),
             nasa_api_key: state.config.api_keys.nasa.clone(),
             airnow_api_key: state.config.api_keys.airnow.clone(),
+            gasbuddy_solver_url: state.config.api_keys.gasbuddy_solver_url.clone(),
+            gasbuddy_csrf_readonly: state.config.api_keys.gasbuddy_csrf_readonly,
             anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown,
             command_cooldowns: state.config.command_cooldowns.clone(),
             reconnect_time_ms: state.config.reconnect_time,
@@ -225,6 +231,8 @@ impl Bot {
                 sharpapi_key: self.sharpapi_key.clone(),
                 nasa_api_key: self.nasa_api_key.clone(),
                 airnow_api_key: self.airnow_api_key.clone(),
+                gasbuddy_solver_url: self.gasbuddy_solver_url.clone(),
+                gasbuddy_csrf_readonly: self.gasbuddy_csrf_readonly,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -272,7 +280,18 @@ impl Bot {
             battleship_games: Arc::new(Mutex::new(HashMap::new())),
             mines_games: Arc::new(Mutex::new(HashMap::new())),
             aqi_bets: Arc::new(Mutex::new(HashMap::new())),
+            launch_bets: Arc::new(Mutex::new(HashMap::new())),
+            launch_cache: Arc::new(Mutex::new(HashMap::new())),
+            gas_bets: Arc::new(Mutex::new(HashMap::new())),
+            gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
+            gasbuddy_csrf: Arc::new(Mutex::new(None)),
+            http: reqwest::Client::new(),
         };
+
+        // Load cached GasBuddy CSRF token
+        if let Some(token) = crate::commands::casino::gas::load_cached_token().await {
+            *state.gasbuddy_csrf.lock().expect("gasbuddy_csrf") = Some(token);
+        }
 
         // Recover market bets that were open when the bot last shut down
         {
@@ -329,7 +348,6 @@ impl Bot {
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
                 let api_key = state.runtime.read().expect("runtime lock").sharpapi_key.clone();
-                let now = crate::structure::market::types::now_unix();
                 {
                     let mut bets = state.sports_bets.lock().expect("sports_bets lock");
                     for bet in &open_bets {
@@ -337,13 +355,11 @@ impl Bot {
                     }
                 }
                 for bet in open_bets {
-                    let secs = bet.start_unix.saturating_sub(now);
                     tokio::spawn(crate::commands::casino::sports::settle_task(
                         state.clone(),
                         whisper_cmd.clone(),
                         api_key.clone(),
                         bet,
-                        secs,
                     ));
                 }
             }
@@ -354,7 +370,6 @@ impl Bot {
             let open_bets = state.api.casino_kalshi_bet_list().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                let now = crate::structure::market::types::now_unix();
                 {
                     let mut bets = state.kalshi_bets.lock().expect("kalshi_bets lock");
                     for bet in &open_bets {
@@ -362,12 +377,10 @@ impl Bot {
                     }
                 }
                 for bet in open_bets {
-                    let secs = bet.close_time.saturating_sub(now);
                     tokio::spawn(crate::commands::casino::kalshi::settle_task(
                         state.clone(),
                         whisper_cmd.clone(),
                         bet,
-                        secs,
                     ));
                 }
             }
@@ -381,7 +394,6 @@ impl Bot {
                     let rt = state.runtime.read().expect("runtime lock");
                     (rt.whisper_command.clone(), rt.nasa_api_key.clone())
                 };
-                let now = crate::structure::market::types::now_unix();
                 {
                     let mut bets = state.nasa_space_weather_bets.lock().expect("nasa_space_weather_bets lock");
                     for bet in &open_bets {
@@ -389,13 +401,11 @@ impl Bot {
                     }
                 }
                 for bet in open_bets {
-                    let secs = bet.settle_at.saturating_sub(now);
                     tokio::spawn(crate::commands::casino::nasa_space_weather::settle_task(
                         state.clone(),
                         whisper_cmd.clone(),
                         nasa_api_key.clone(),
                         bet,
-                        secs,
                     ));
                 }
             }
@@ -536,6 +546,48 @@ impl Bot {
             }
         }
 
+        // Recover launch bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_launch_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.launch_bets.lock().expect("launch_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::launch::launch_settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Recover gas bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_gas_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.gas_bets.lock().expect("gas_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::gas::gas_settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
         // Load portfolio positions into memory
         {
             let open_positions = state.api.casino_portfolio_list().await;
@@ -640,6 +692,13 @@ pub struct AzaleaState {
     pub battleship_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::battleship::BattleshipSession>>>,
     pub mines_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::casino::mines::MinesGame>>>,
     pub aqi_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::aqi::AqiBet>>>>,
+    pub launch_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::launch::LaunchBet>>>>,
+    pub launch_cache: Arc<Mutex<std::collections::HashMap<u32, (f64, f64, u64)>>>,
+    pub gas_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::gas::GasBet>>>>,
+    // (price, display_name, fetched_at)
+    pub gas_price_cache: Arc<Mutex<std::collections::HashMap<String, (f64, String, u64)>>>,
+    pub gasbuddy_csrf: Arc<Mutex<Option<String>>>,
+    pub http: reqwest::Client,
 }
 
 #[derive(Debug, Clone)]
@@ -750,6 +809,8 @@ impl Default for AzaleaState {
                 sharpapi_key: String::new(),
                 nasa_api_key: String::new(),
                 airnow_api_key: String::new(),
+                gasbuddy_solver_url: String::new(),
+                gasbuddy_csrf_readonly: false,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -797,6 +858,12 @@ impl Default for AzaleaState {
             battleship_games: Arc::new(Mutex::new(HashMap::new())),
             mines_games: Arc::new(Mutex::new(HashMap::new())),
             aqi_bets: Arc::new(Mutex::new(HashMap::new())),
+            launch_bets: Arc::new(Mutex::new(HashMap::new())),
+            launch_cache: Arc::new(Mutex::new(HashMap::new())),
+            gas_bets: Arc::new(Mutex::new(HashMap::new())),
+            gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
+            gasbuddy_csrf: Arc::new(Mutex::new(None)),
+            http: reqwest::Client::new(),
         }
     }
 }

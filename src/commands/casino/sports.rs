@@ -1,9 +1,9 @@
-use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
+use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::chips_str;
+use super::{chips_str, sleep_until, deliver};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["sports", "sb"],
@@ -416,8 +416,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let key = ctx.runtime.sharpapi_key.clone();
     let wcmd = ctx.runtime.whisper_command.clone();
-    let secs = ev.start_unix.saturating_sub(now_unix());
-    tokio::spawn(settle_task(ctx.state.clone(), wcmd, key, bet, secs));
+    tokio::spawn(settle_task(ctx.state.clone(), wcmd, key, bet));
     Ok(())
 }
 
@@ -455,11 +454,8 @@ pub async fn settle_task(
     whisper_cmd: String,
     api_key: String,
     bet: SportsBet,
-    secs_to_start: u64,
 ) {
-    if secs_to_start > 0 {
-        tokio::time::sleep(std::time::Duration::from_secs(secs_to_start)).await;
-    }
+    sleep_until(bet.start_unix).await;
 
     let claimed = {
         let mut bets = state.sports_bets.lock().expect("sports_bets lock");
@@ -470,8 +466,6 @@ pub async fn settle_task(
     if !claimed { return; }
 
     let client = reqwest::Client::new();
-    let online_username = state.players.read().ok()
-        .and_then(|pl| pl.values().find(|s| s.uuid == bet.player).map(|s| s.username.clone()));
 
     let deadline = now_unix() + MAX_POLL_SECS;
     let outcome: Option<String> = loop {
@@ -491,25 +485,25 @@ pub async fn settle_task(
         Some(ref winner) => {
             if *winner == bet.selection {
                 let payout = (bet.stake as f64 * bet.payout_mult).ceil() as i64;
-                let _ = state.api.casino_adjust(&bet.player, payout).await;
+                if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
+                    eprintln!("[Sports settle] casino_adjust failed for {}: {e:?}", bet.player);
+                }
                 format!("[Sports] {} vs {} — {winner} wins. WIN +{} ({} @ {:.2}x).",
                     bet.home_team, bet.away_team,
                     chips_str(payout - bet.stake), chips_str(bet.stake), bet.payout_mult)
             } else {
-                let _ = state.api.casino_jackpot_rake(bet.stake).await;
+                state.api.casino_jackpot_rake(bet.stake).await;
                 format!("[Sports] {} vs {} — {winner} wins. LOSS -{} (to jackpot).",
                     bet.home_team, bet.away_team, chips_str(bet.stake))
             }
         }
         None => {
-            let _ = state.api.casino_adjust(&bet.player, bet.stake).await;
+            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
+                eprintln!("[Sports settle] refund failed for {}: {e:?}", bet.player);
+            }
             format!("[Sports] {} vs {} — result unavailable. {} refunded.",
                 bet.home_team, bet.away_team, chips_str(bet.stake))
         }
     };
-    if let Some(ref username) = online_username {
-        enqueue_chat(&state, format!("/{whisper_cmd} {username} {msg}"));
-    } else {
-        state.api.casino_add_notification(&bet.player, &msg).await;
-    }
+    deliver(&state, &whisper_cmd, &bet.player, msg).await;
 }
