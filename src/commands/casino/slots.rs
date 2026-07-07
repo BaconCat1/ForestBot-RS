@@ -12,11 +12,12 @@ struct Symbol {
     triple_mult: f64,
 }
 
-// Weights (strip counts / 20): 🍒 30%, ♣ 25%, ♠ 20%, ♥ 15%, ♦ 5%, 7 5%
+// Weights (strip counts / 20): $ 30%, ♣ 25%, ♠ 20%, ♥ 15%, ♦ 5%, 7 5%
 // Triple-match RTP ≈ 68% across all symbols.
 // Adapted from slot-machine-gen strip model (MIT, Marc S. Brooks 2020-2025).
+// All symbols 5px in MC 26.x: $ (ascii), ♣♠♥♦ (nonlatin_european bitmap), 7 (ascii).
 const SYMBOLS: &[Symbol] = &[
-    Symbol { label: "\u{1f352}", triple_mult:   3.0 }, // 0 🍒 Cherry
+    Symbol { label: "$",         triple_mult:   3.0 }, // 0 $ Dollar
     Symbol { label: "\u{2663}", triple_mult:  10.0 }, // 1 ♣ Clubs
     Symbol { label: "\u{2660}", triple_mult:  20.0 }, // 2 ♠ Spades
     Symbol { label: "\u{2665}", triple_mult:  50.0 }, // 3 ♥ Hearts
@@ -24,7 +25,7 @@ const SYMBOLS: &[Symbol] = &[
     Symbol { label: "7",        triple_mult: 777.0 }, // 5   Seven
 ];
 
-// 20-position strip. Counts: ✿=6, ♣=5, ♠=4, ♥=3, ♦=1, 7=1.
+// 20-position strip. Counts: $=6, ♣=5, ♠=4, ♥=3, ♦=1, 7=1.
 //        🍒 ♣  ♠  🍒 ♣  🍒 ♥  ♠  ♣  🍒 ♥  ♣  ♠  🍒 ♣  ♥  ♠  🍒 ♦  7
 const STRIP: &[usize] = &[0, 1, 2, 0, 1, 0, 3, 2, 1, 0, 3, 1, 2, 0, 1, 3, 2, 0, 4, 5];
 

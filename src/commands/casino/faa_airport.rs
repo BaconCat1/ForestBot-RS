@@ -3,7 +3,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver};
+use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver, FetchErr, check_resp};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["faa", "airport"],
@@ -56,21 +56,16 @@ fn compute_odds(currently_ifr: bool) -> (f64, f64) {
     }
 }
 
-async fn fetch_metar(client: &reqwest::Client, icao: &str) -> Option<serde_json::Value> {
+async fn fetch_metar(client: &reqwest::Client, icao: &str) -> Result<serde_json::Value, FetchErr> {
     let url = format!("{METAR_BASE}?ids={icao}&format=json");
-    let arr: serde_json::Value = client
-        .get(&url)
-        .send()
-        .await
-        .ok()?
-        .json()
-        .await
-        .ok()?;
-    arr.as_array()?.first().cloned()
+    let resp = client.get(&url).send().await.map_err(|_| FetchErr::Error)?;
+    let resp = check_resp(resp).await?;
+    let arr: serde_json::Value = resp.json().await.map_err(|_| FetchErr::Error)?;
+    arr.as_array().and_then(|a| a.first().cloned()).ok_or(FetchErr::Error)
 }
 
 async fn poll_flt_cat(client: &reqwest::Client, icao: &str) -> Option<String> {
-    let v = fetch_metar(client, icao).await?;
+    let v = fetch_metar(client, icao).await.ok()?;
     v["fltCat"].as_str().map(|s| s.to_owned())
 }
 
@@ -100,9 +95,16 @@ fn show_usage(ctx: &CommandContext<'_>) {
 async fn show_airport(ctx: &CommandContext<'_>, code: &str) -> anyhow::Result<()> {
     let icao = to_icao(code);
     let client = reqwest::Client::new();
-    let Some(v) = fetch_metar(&client, &icao).await else {
-        ctx.whisper(format!("Could not fetch METAR for {code}. Check IATA/ICAO code."));
-        return Ok(());
+    let v = match fetch_metar(&client, &icao).await {
+        Ok(v) => v,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("aviationweather.gov API rate limit reached. Try again later.");
+            return Ok(());
+        }
+        Err(_) => {
+            ctx.whisper(format!("Could not fetch METAR for {code}. Check IATA/ICAO code."));
+            return Ok(());
+        }
     };
     let flt_cat = v["fltCat"].as_str().unwrap_or("?");
     let name = v["name"].as_str().unwrap_or(code);
@@ -170,9 +172,16 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     let client = reqwest::Client::new();
-    let Some(v) = fetch_metar(&client, &icao).await else {
-        ctx.whisper(format!("Could not fetch METAR for {code}."));
-        return Ok(());
+    let v = match fetch_metar(&client, &icao).await {
+        Ok(v) => v,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("aviationweather.gov API rate limit reached. Try again later.");
+            return Ok(());
+        }
+        Err(_) => {
+            ctx.whisper(format!("Could not fetch METAR for {code}."));
+            return Ok(());
+        }
     };
     let flt_cat = v["fltCat"].as_str().unwrap_or("VFR");
     let name = v["name"].as_str().unwrap_or(&code).to_owned();
@@ -210,8 +219,12 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     match ctx.state.api.casino_faa_airport_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
-            ctx.whisper("Failed to save bet. Refunding chips.");
-            let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
+                eprintln!("[FAA] refund failed for {player_uuid}: {e:?}");
+                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to save bet. Chips refunded.");
+            }
             return Ok(());
         }
     }

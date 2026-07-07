@@ -5,7 +5,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{MIN_BET, chips_str, to_price, fmt_odds, sleep_until, deliver};
+use super::{MIN_BET, chips_str, to_price, fmt_odds, sleep_until, deliver, FetchErr};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["gas", "gasbuddy", "gasprice"],
@@ -90,7 +90,7 @@ async fn fetch_csrf(client: &reqwest::Client, solver_url: &str) -> Option<String
     None
 }
 
-enum GqlResult { Ok(f64, String), TokenBad, NoData }
+enum GqlResult { Ok(f64, String), RateLimit, TokenBad, NoData }
 
 async fn gql_price(client: &reqwest::Client, zip: &str, token: &str) -> GqlResult {
     let query = r#"query LocationBySearchTerm($brandId: Int, $cursor: String, $fuel: Int, $lat: Float, $lng: Float, $maxAge: Int, $search: String) {
@@ -120,6 +120,7 @@ async fn gql_price(client: &reqwest::Client, zip: &str, token: &str) -> GqlResul
         Err(_) => return GqlResult::NoData,
     };
 
+    if resp.status().as_u16() == 429 { return GqlResult::RateLimit; }
     if !resp.status().is_success() { return GqlResult::TokenBad; }
 
     let v: serde_json::Value = match resp.json().await {
@@ -148,21 +149,23 @@ async fn fetch_gas_price(
     zip: &str,
     solver_url: &str,
     readonly: bool,
-) -> Option<(f64, String)> {
+) -> Result<(f64, String), FetchErr> {
     let token = state.gasbuddy_csrf.lock().unwrap().clone().unwrap_or_default();
 
     match gql_price(&state.http, zip, &token).await {
-        GqlResult::Ok(p, n) => Some((p, n)),
+        GqlResult::Ok(p, n) => Ok((p, n)),
+        GqlResult::RateLimit => Err(FetchErr::RateLimit),
         GqlResult::TokenBad => {
-            let new_token = fetch_csrf(&state.http, solver_url).await?;
+            let new_token = fetch_csrf(&state.http, solver_url).await.ok_or(FetchErr::Error)?;
             if !readonly { save_token(&new_token).await; }
             *state.gasbuddy_csrf.lock().unwrap() = Some(new_token.clone());
             match gql_price(&state.http, zip, &new_token).await {
-                GqlResult::Ok(p, n) => Some((p, n)),
-                _ => None,
+                GqlResult::Ok(p, n) => Ok((p, n)),
+                GqlResult::RateLimit => Err(FetchErr::RateLimit),
+                _ => Err(FetchErr::Error),
             }
         }
-        GqlResult::NoData => None,
+        GqlResult::NoData => Err(FetchErr::Error),
     }
 }
 
@@ -236,12 +239,16 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
         hit
     } else {
         match fetch_gas_price(&ctx.state, zip, &solver_url, readonly).await {
-            Some(r) => {
+            Ok(r) => {
                 ctx.state.gas_price_cache.lock().unwrap()
                     .insert(zip.to_owned(), (r.0, r.1.clone(), now_unix()));
                 r
             }
-            None => {
+            Err(FetchErr::RateLimit) => {
+                ctx.whisper("GasBuddy API rate limit reached. Try again later.");
+                return Ok(());
+            }
+            Err(_) => {
                 ctx.whisper("Could not fetch gas price — GasBuddy unavailable or zip not found.");
                 return Ok(());
             }
@@ -296,8 +303,12 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
     match ctx.state.api.casino_gas_bet_insert(&bet).await {
         Some(i) => bet.id = Some(i),
         None => {
-            let _ = ctx.state.api.casino_adjust(&ctx.sender.to_string(), chips).await;
-            ctx.whisper("Failed to record bet. Chips refunded.");
+            if let Err(e) = ctx.state.api.casino_adjust(&ctx.sender.to_string(), chips).await {
+                eprintln!("[Gas] refund failed for {}: {e:?}", ctx.sender);
+                ctx.whisper("Failed to record bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to record bet. Chips refunded.");
+            }
             return Ok(());
         }
     }
@@ -337,7 +348,7 @@ pub async fn gas_settle_task(state: AzaleaState, whisper_cmd: String, bet: GasBe
         (rt.gasbuddy_solver_url.clone(), rt.gasbuddy_csrf_readonly)
     };
 
-    let current = fetch_gas_price(&state, &bet.zip, &solver_url, readonly).await;
+    let current = fetch_gas_price(&state, &bet.zip, &solver_url, readonly).await.ok();
 
     state.api.casino_gas_bet_delete(bet.id.unwrap()).await;
 

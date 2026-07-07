@@ -3,7 +3,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver};
+use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver, FetchErr, check_resp};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["flood", "flooding", "noaa"],
@@ -72,23 +72,22 @@ fn is_flood_related(alert: &serde_json::Value) -> bool {
     text.to_lowercase().contains("flood") || text.to_lowercase().contains("storm surge")
 }
 
-async fn fetch_active_alerts(client: &reqwest::Client, lat: f64, lon: f64) -> Option<Vec<serde_json::Value>> {
+async fn fetch_active_alerts(client: &reqwest::Client, lat: f64, lon: f64) -> Result<Vec<serde_json::Value>, FetchErr> {
     let url = format!("{NOAA_BASE}/alerts/active?point={lat},{lon}&status=actual");
-    let body = client
+    let resp = client
         .get(&url)
         .header("User-Agent", "ForestBot-RS/1.0")
         .header("Accept", "application/geo+json")
         .send()
         .await
-        .ok()?
-        .json::<serde_json::Value>()
-        .await
-        .ok()?;
-    body["features"].as_array().cloned()
+        .map_err(|_| FetchErr::Error)?;
+    let resp = check_resp(resp).await?;
+    let body = resp.json::<serde_json::Value>().await.map_err(|_| FetchErr::Error)?;
+    body["features"].as_array().cloned().ok_or(FetchErr::Error)
 }
 
 async fn poll_flood_state(client: &reqwest::Client, lat: f64, lon: f64) -> Option<bool> {
-    let alerts = fetch_active_alerts(client, lat, lon).await?;
+    let alerts = fetch_active_alerts(client, lat, lon).await.ok()?;
     Some(alerts.iter().any(is_flood_related))
 }
 
@@ -234,8 +233,14 @@ async fn place_bet_indexed(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     // preview mode — no chips provided
     let Some(&amt_s) = ctx.args.get(3) else {
         let client = reqwest::Client::new();
-        let flooding = fetch_active_alerts(&client, latitude, longitude)
-            .await.map(|a| a.iter().any(is_flood_related)).unwrap_or(false);
+        let flooding = match fetch_active_alerts(&client, latitude, longitude).await {
+            Ok(alerts) => alerts.iter().any(is_flood_related),
+            Err(FetchErr::RateLimit) => {
+                ctx.whisper("NOAA API rate limit reached. Try again later.");
+                return Ok(());
+            }
+            Err(_) => false,
+        };
         let (yes_price, no_price) = compute_odds(flooding);
         ctx.whisper(format!(
             "[NOAA Flood] {area} | {} | yes {:.2}x | no {:.2}x",
@@ -305,10 +310,19 @@ async fn place_bet_inner(
     }
 
     let client = reqwest::Client::new();
-    let currently_flooding = fetch_active_alerts(&client, latitude, longitude)
-        .await
-        .map(|alerts| alerts.iter().any(is_flood_related))
-        .unwrap_or(false);
+    let currently_flooding = match fetch_active_alerts(&client, latitude, longitude).await {
+        Ok(alerts) => alerts.iter().any(is_flood_related),
+        Err(FetchErr::RateLimit) => {
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
+                eprintln!("[NOAA] refund failed for {player_uuid}: {e:?}");
+                ctx.whisper("NOAA API rate limit reached. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("NOAA API rate limit reached. Chips refunded.");
+            }
+            return Ok(());
+        }
+        Err(_) => false,
+    };
     let (yes_price, no_price) = compute_odds(currently_flooding);
     let price = if side == "yes" { yes_price } else { no_price };
 
@@ -327,8 +341,12 @@ async fn place_bet_inner(
     match ctx.state.api.casino_noaa_flooding_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
-            ctx.whisper("Failed to save bet. Refunding chips.");
-            let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
+                eprintln!("[NOAA] refund failed for {player_uuid}: {e:?}");
+                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to save bet. Chips refunded.");
+            }
             return Ok(());
         }
     }

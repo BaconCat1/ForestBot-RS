@@ -201,8 +201,12 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     match ctx.state.api.casino_nasa_space_weather_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
-            ctx.whisper("Failed to save bet. Refunding chips.");
-            let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
+                eprintln!("[NASA] refund failed for {player_uuid}: {e:?}");
+                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to save bet. Chips refunded.");
+            }
             return Ok(());
         }
     }

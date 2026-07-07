@@ -3,7 +3,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, sleep_until, deliver};
+use super::{chips_str, sleep_until, deliver, FetchErr, check_resp};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["sports", "sb"],
@@ -54,13 +54,14 @@ pub struct SportsCache {
 
 // ── SharpAPI helpers ──────────────────────────────────────────────────────────
 
-async fn sharp_get(client: &reqwest::Client, key: &str, path: &str) -> Option<serde_json::Value> {
-    client
+async fn sharp_get(client: &reqwest::Client, key: &str, path: &str) -> Result<serde_json::Value, FetchErr> {
+    let resp = client
         .get(format!("{SHARPAPI_BASE}{path}"))
         .header("X-API-Key", key)
         .header("Accept", "application/json")
-        .send().await.ok()?
-        .json::<serde_json::Value>().await.ok()
+        .send().await.map_err(|_| FetchErr::Error)?;
+    let resp = check_resp(resp).await?;
+    resp.json::<serde_json::Value>().await.map_err(|_| FetchErr::Error)
 }
 
 fn strip_book_suffix(id: &str) -> &str {
@@ -83,12 +84,10 @@ fn date_from_base_id(base: &str) -> u64 {
     }
 }
 
-async fn build_event_cache(client: &reqwest::Client, key: &str) -> Vec<EventDisplay> {
-    let Some(odds_val) = sharp_get(client, key, "/odds/best?market_type=moneyline&limit=200").await else {
-        return vec![];
-    };
+async fn build_event_cache(client: &reqwest::Client, key: &str) -> Result<Vec<EventDisplay>, FetchErr> {
+    let odds_val = sharp_get(client, key, "/odds/best?market_type=moneyline&limit=200").await?;
     let Some(odds_arr) = odds_val["data"].as_array() else {
-        return vec![];
+        return Ok(vec![]);
     };
 
     let mut event_map: std::collections::HashMap<String, EventDisplay> = std::collections::HashMap::new();
@@ -141,7 +140,7 @@ async fn build_event_cache(client: &reqwest::Client, key: &str) -> Vec<EventDisp
         .collect();
     out.sort_by_key(|ev| ev.start_unix);
     out.truncate(15);
-    out
+    Ok(out)
 }
 
 enum EventStatus {
@@ -242,7 +241,14 @@ async fn load_events(ctx: &CommandContext<'_>) -> Option<Vec<EventDisplay>> {
         return Some(c);
     }
     let client = reqwest::Client::new();
-    let evs = build_event_cache(&client, &key).await;
+    let evs = match build_event_cache(&client, &key).await {
+        Ok(e) => e,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("SharpAPI rate limit reached. Try again later.");
+            return None;
+        }
+        Err(_) => vec![],
+    };
     let mut cache = ctx.state.sports_cache.lock().expect("sports_cache lock");
     cache.fetched_at = now_unix();
     cache.events = evs.clone();
@@ -398,8 +404,12 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     match ctx.state.api.casino_sports_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
-            ctx.whisper("Failed to save bet. Refunding chips.");
-            let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
+                eprintln!("[Sports] refund failed for {player_uuid}: {e:?}");
+                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to save bet. Chips refunded.");
+            }
             return Ok(());
         }
     }

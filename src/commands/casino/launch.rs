@@ -6,7 +6,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{MIN_BET, chips_str, to_price, fmt_odds, fmt_time, sleep_until, deliver};
+use super::{MIN_BET, chips_str, to_price, fmt_odds, fmt_time, sleep_until, deliver, FetchErr, check_resp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LaunchBetSide {
@@ -82,25 +82,27 @@ const CACHE_TTL: u64 = 3600; // 1h
 
 // ── LL2 helpers ───────────────────────────────────────────────────────────────
 
-async fn fetch_upcoming(client: &reqwest::Client) -> Option<Vec<LaunchInfo>> {
+async fn fetch_upcoming(client: &reqwest::Client) -> Result<Vec<LaunchInfo>, FetchErr> {
     let url = format!("{LL2_BASE}/launch/upcoming/?limit=5&status__in=1,8&format=json");
-    let v: serde_json::Value = client
+    let resp = client
         .get(&url)
         .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
-        .send().await.ok()?
-        .json().await.ok()?;
-    parse_launches(v.get("results")?)
+        .send().await.map_err(|_| FetchErr::Error)?;
+    let resp = check_resp(resp).await?;
+    let v: serde_json::Value = resp.json().await.map_err(|_| FetchErr::Error)?;
+    parse_launches(v.get("results").ok_or(FetchErr::Error)?).ok_or(FetchErr::Error)
 }
 
-async fn fetch_single(client: &reqwest::Client, short_id: &str) -> Option<LaunchInfo> {
+async fn fetch_single(client: &reqwest::Client, short_id: &str) -> Result<LaunchInfo, FetchErr> {
     let url = format!("{LL2_BASE}/launch/upcoming/?limit=20&status__in=1,8&format=json");
-    let v: serde_json::Value = client
+    let resp = client
         .get(&url)
         .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
-        .send().await.ok()?
-        .json().await.ok()?;
-    let all = parse_launches(v.get("results")?)?;
-    all.into_iter().find(|l| l.id.starts_with(short_id))
+        .send().await.map_err(|_| FetchErr::Error)?;
+    let resp = check_resp(resp).await?;
+    let v: serde_json::Value = resp.json().await.map_err(|_| FetchErr::Error)?;
+    let all = parse_launches(v.get("results").ok_or(FetchErr::Error)?).ok_or(FetchErr::Error)?;
+    all.into_iter().find(|l| l.id.starts_with(short_id)).ok_or(FetchErr::Error)
 }
 
 async fn fetch_single_by_full_id(client: &reqwest::Client, full_id: &str) -> Option<LaunchInfo> {
@@ -208,18 +210,23 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 }
 
 async fn show_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
-    let launches = fetch_upcoming(&ctx.state.http).await;
-    match launches {
-        Some(launches) if !launches.is_empty() => {
-            let p = &ctx.runtime.prefix;
-            ctx.whisper(format!("Upcoming launches (use {p}rocket <id> for odds):"));
-            for l in launches.iter().take(5) {
-                let short = &l.id[..8];
-                let in_ = fmt_time(l.window_start);
-                ctx.whisper(format!("[{}] {} — {} | T-{}", short, &l.name[..l.name.len().min(35)], l.lsp_name, in_));
-            }
+    let launches = match fetch_upcoming(&ctx.state.http).await {
+        Ok(l) if !l.is_empty() => l,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("Launch Library API rate limit reached. Try again later.");
+            return Ok(());
         }
-        _ => { ctx.whisper("No upcoming Go/TBC launches found."); }
+        _ => {
+            ctx.whisper("No upcoming Go/TBC launches found.");
+            return Ok(());
+        }
+    };
+    let p = &ctx.runtime.prefix;
+    ctx.whisper(format!("Upcoming launches (use {p}rocket <id> for odds):"));
+    for l in launches.iter().take(5) {
+        let short = &l.id[..8];
+        let in_ = fmt_time(l.window_start);
+        ctx.whisper(format!("[{}] {} — {} | T-{}", short, &l.name[..l.name.len().min(35)], l.lsp_name, in_));
     }
     Ok(())
 }
@@ -239,7 +246,7 @@ async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     }
     for b in &bets {
         ctx.whisper(format!(
-            "[LAUNCH] {} {} {} — {:.2}× | closes in {}",
+            "[ROCKET] {} {} {} — {:.2}× | closes in {}",
             &b.launch_name[..b.launch_name.len().min(25)],
             b.side.display(),
             chips_str(b.stake),
@@ -251,9 +258,16 @@ async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 }
 
 async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<()> {
-    let Some(l) = fetch_single(&ctx.state.http, short_id).await else {
-        ctx.whisper(format!("Launch '{short_id}' not found. Use !rocket to list upcoming."));
-        return Ok(());
+    let l = match fetch_single(&ctx.state.http, short_id).await {
+        Ok(l) => l,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("Launch Library API rate limit reached. Try again later.");
+            return Ok(());
+        }
+        Err(_) => {
+            ctx.whisper(format!("Launch '{short_id}' not found. Use !rocket to list upcoming."));
+            return Ok(());
+        }
     };
 
     let now = now_unix();
@@ -297,9 +311,16 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
         return Ok(());
     };
 
-    let Some(l) = fetch_single(&ctx.state.http, short_id).await else {
-        ctx.whisper(format!("Launch '{short_id}' not found."));
-        return Ok(());
+    let l = match fetch_single(&ctx.state.http, short_id).await {
+        Ok(l) => l,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("Launch Library API rate limit reached. Try again later.");
+            return Ok(());
+        }
+        Err(_) => {
+            ctx.whisper(format!("Launch '{short_id}' not found."));
+            return Ok(());
+        }
     };
 
     let now = now_unix();
@@ -341,15 +362,19 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
     match ctx.state.api.casino_launch_bet_insert(&bet).await {
         Some(i) => bet.id = Some(i),
         None => {
-            let _ = ctx.state.api.casino_adjust(&player_uuid, chips).await;
-            ctx.whisper("Failed to record bet. Chips refunded.");
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, chips).await {
+                eprintln!("[Launch] refund failed for {player_uuid}: {e:?}");
+                ctx.whisper("Failed to record bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to record bet. Chips refunded.");
+            }
             return Ok(());
         }
     }
 
     let payout = (chips as f64 / price).floor() as i64;
     ctx.whisper(format!(
-        "[LAUNCH] {} {} {} — pays {} if {} | T-{} | bets lock T-2h",
+        "[ROCKET] {} {} {} — pays {} if {} | T-{} | bets lock T-2h",
         &l.name[..l.name.len().min(25)],
         side.display(),
         chips_str(chips),
@@ -403,11 +428,18 @@ pub async fn launch_settle_task(state: AzaleaState, whisper_cmd: String, bet: La
     // Give-up path: refund
     remove_bet(&state, &bet);
     state.api.casino_launch_bet_delete(bet.id.unwrap()).await;
-    let _ = state.api.casino_adjust(&bet.player, bet.stake).await;
-    let msg = format!(
-        "[LAUNCH] {} {} — no final status after 7 days. {} refunded.",
-        bet.launch_name, bet.side.display(), chips_str(bet.stake)
-    );
+    let msg = if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
+        eprintln!("[Launch settle] refund failed for {}: {e:?}", bet.player);
+        format!(
+            "[ROCKET] {} {} — no final status after 7 days. Refund failed — contact an admin.",
+            bet.launch_name, bet.side.display()
+        )
+    } else {
+        format!(
+            "[ROCKET] {} {} — no final status after 7 days. {} refunded.",
+            bet.launch_name, bet.side.display(), chips_str(bet.stake)
+        )
+    };
     deliver(&state, &whisper_cmd, &bet.player, msg).await;
 }
 
@@ -419,18 +451,25 @@ async fn settle(state: &AzaleaState, whisper_cmd: &str, bet: &LaunchBet, l: &Lau
 
     let msg = if won {
         let payout = (bet.stake as f64 / bet.price).floor() as i64;
-        let _ = state.api.casino_adjust(&bet.player, payout).await;
-        format!(
-            "[LAUNCH] {} {} — {}. WIN +{} ({} @ {:.2}×).",
-            bet.launch_name, bet.side.display(), l.status_name,
-            chips_str(payout - bet.stake),
-            chips_str(bet.stake),
-            1.0 / bet.price,
-        )
+        if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
+            eprintln!("[Launch settle] payout failed for {}: {e:?}", bet.player);
+            format!(
+                "[ROCKET] {} {} — {}. Win detected but payout failed — contact an admin.",
+                bet.launch_name, bet.side.display(), l.status_name
+            )
+        } else {
+            format!(
+                "[ROCKET] {} {} — {}. WIN +{} ({} @ {:.2}×).",
+                bet.launch_name, bet.side.display(), l.status_name,
+                chips_str(payout - bet.stake),
+                chips_str(bet.stake),
+                1.0 / bet.price,
+            )
+        }
     } else {
         let _ = state.api.casino_jackpot_rake(bet.stake).await;
         format!(
-            "[LAUNCH] {} {} — {}. LOSS -{} (to jackpot).",
+            "[ROCKET] {} {} — {}. LOSS -{} (to jackpot).",
             bet.launch_name, bet.side.display(), l.status_name,
             chips_str(bet.stake),
         )

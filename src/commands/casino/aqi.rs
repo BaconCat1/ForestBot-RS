@@ -3,7 +3,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, fmt_close, fmt_odds, calc_payout, sleep_until, deliver};
+use super::{chips_str, fmt_close, fmt_odds, calc_payout, sleep_until, deliver, FetchErr, check_resp};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["aqi", "airquality"],
@@ -43,37 +43,35 @@ struct AqiReading {
     area:      String,
 }
 
-async fn fetch_forecast(client: &reqwest::Client, zip: &str, key: &str) -> Option<Vec<AqiReading>> {
+async fn fetch_forecast(client: &reqwest::Client, zip: &str, key: &str) -> Result<Vec<AqiReading>, FetchErr> {
     let date = tomorrow_date_str();
     let url = format!(
         "{AIRNOW_BASE}/forecast/zipCode/?format=application/json&zipCode={zip}&date={date}&distance=25&API_KEY={key}"
     );
-    let body: serde_json::Value = client
+    let resp = client
         .get(&url)
         .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
         .send()
         .await
-        .ok()?
-        .json()
-        .await
-        .ok()?;
-    parse_readings_for_date(&body, Some(&date))
+        .map_err(|_| FetchErr::Error)?;
+    let resp = check_resp(resp).await?;
+    let body: serde_json::Value = resp.json().await.map_err(|_| FetchErr::Error)?;
+    parse_readings_for_date(&body, Some(&date)).ok_or(FetchErr::Error)
 }
 
-async fn fetch_current(client: &reqwest::Client, zip: &str, key: &str) -> Option<Vec<AqiReading>> {
+async fn fetch_current(client: &reqwest::Client, zip: &str, key: &str) -> Result<Vec<AqiReading>, FetchErr> {
     let url = format!(
         "{AIRNOW_BASE}/observation/zipCode/current/?format=application/json&zipCode={zip}&distance=25&API_KEY={key}"
     );
-    let body: serde_json::Value = client
+    let resp = client
         .get(&url)
         .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
         .send()
         .await
-        .ok()?
-        .json()
-        .await
-        .ok()?;
-    parse_readings(&body)
+        .map_err(|_| FetchErr::Error)?;
+    let resp = check_resp(resp).await?;
+    let body: serde_json::Value = resp.json().await.map_err(|_| FetchErr::Error)?;
+    parse_readings(&body).ok_or(FetchErr::Error)
 }
 
 fn parse_readings(body: &serde_json::Value) -> Option<Vec<AqiReading>> {
@@ -220,14 +218,21 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
 
     let client = reqwest::Client::new();
 
-    let (current, forecast) = tokio::join!(
+    let (current_result, forecast_result) = tokio::join!(
         fetch_current(&client, &zip, &key),
         fetch_forecast(&client, &zip, &key),
     );
 
-    let Some(forecast_readings) = forecast else {
-        ctx.whisper(format!("AirNow returned no forecast for zip {zip}. Check the zip code."));
-        return Ok(());
+    let forecast_readings = match forecast_result {
+        Ok(r) => r,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("AirNow API rate limit reached. Try again later.");
+            return Ok(());
+        }
+        Err(_) => {
+            ctx.whisper(format!("AirNow returned no forecast for zip {zip}. Check the zip code."));
+            return Ok(());
+        }
     };
     let Some(forecast_worst) = worst(&forecast_readings) else {
         ctx.whisper("No forecast data available.");
@@ -241,7 +246,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     let price_unhealthy = to_price(p_unhealthy(f_cat));
 
     // Info display (always show, whether preview or placing)
-    let current_str = current
+    let current_str = current_result.ok()
         .as_ref()
         .and_then(|r| worst(r))
         .map(|w| format!("{} {} ({})", w.parameter, w.aqi, w.cat_name))
@@ -302,8 +307,12 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     match id {
         Some(i) => bet.id = i,
         None => {
-            let _ = ctx.state.api.casino_adjust(&ctx.sender.to_string(), chips).await;
-            ctx.whisper("Failed to record bet. Chips refunded.");
+            if let Err(e) = ctx.state.api.casino_adjust(&ctx.sender.to_string(), chips).await {
+                eprintln!("[AQI] refund failed for {}: {e:?}", ctx.sender);
+                ctx.whisper("Failed to record bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to record bet. Chips refunded.");
+            }
             return Ok(());
         }
     }
@@ -345,7 +354,7 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
 
     let key = state.runtime.read().expect("runtime lock").airnow_api_key.clone();
     let client = reqwest::Client::new();
-    let readings = fetch_current(&client, &bet.zip, &key).await;
+    let readings = fetch_current(&client, &bet.zip, &key).await.ok();
 
     state.api.casino_aqi_bet_delete(bet.id).await;
 

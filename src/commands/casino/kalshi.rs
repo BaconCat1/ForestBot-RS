@@ -3,7 +3,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver};
+use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver, FetchErr, check_resp};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["kalshi", "k"],
@@ -84,7 +84,7 @@ async fn kalshi_get(
     client: &reqwest::Client,
     path: &str,
     params: &[(&str, &str)],
-) -> Option<serde_json::Value> {
+) -> Result<serde_json::Value, FetchErr> {
     let mut url = format!("{KALSHI_BASE}{path}");
     if !params.is_empty() {
         let qs = params
@@ -95,15 +95,14 @@ async fn kalshi_get(
         url.push('?');
         url.push_str(&qs);
     }
-    client
+    let resp = client
         .get(url)
         .header("Accept", "application/json")
         .send()
         .await
-        .ok()?
-        .json::<serde_json::Value>()
-        .await
-        .ok()
+        .map_err(|_| FetchErr::Error)?;
+    let resp = check_resp(resp).await?;
+    resp.json::<serde_json::Value>().await.map_err(|_| FetchErr::Error)
 }
 
 fn parse_market(m: &serde_json::Value) -> Option<KalshiMarket> {
@@ -116,10 +115,8 @@ fn parse_market(m: &serde_json::Value) -> Option<KalshiMarket> {
     Some(KalshiMarket { ticker, title, yes_ask, no_ask, close_time })
 }
 
-async fn fetch_markets(client: &reqwest::Client, category: &str) -> Vec<KalshiMarket> {
-    let Some(sv) = kalshi_get(client, "/series", &[("category", category), ("limit", "5")]).await else {
-        return vec![];
-    };
+async fn fetch_markets(client: &reqwest::Client, category: &str) -> Result<Vec<KalshiMarket>, FetchErr> {
+    let sv = kalshi_get(client, "/series", &[("category", category), ("limit", "5")]).await?;
     let tickers: Vec<String> = sv["series"]
         .as_array()
         .map(|arr| {
@@ -132,7 +129,7 @@ async fn fetch_markets(client: &reqwest::Client, category: &str) -> Vec<KalshiMa
 
     let mut out: Vec<KalshiMarket> = vec![];
     for t in &tickers {
-        let Some(mv) = kalshi_get(client, "/markets", &[
+        let Ok(mv) = kalshi_get(client, "/markets", &[
             ("status", "open"),
             ("mve_filter", "exclude"),
             ("series_ticker", t.as_str()),
@@ -145,11 +142,11 @@ async fn fetch_markets(client: &reqwest::Client, category: &str) -> Vec<KalshiMa
     }
     out.sort_by_key(|m| m.close_time);
     out.truncate(5);
-    out
+    Ok(out)
 }
 
 async fn poll_market_result(client: &reqwest::Client, ticker: &str) -> Option<String> {
-    let v = kalshi_get(client, &format!("/markets/{ticker}"), &[]).await?;
+    let v = kalshi_get(client, &format!("/markets/{ticker}"), &[]).await.ok()?;
     let result = v["market"]["result"]
         .as_str()
         .or_else(|| v["result"].as_str())
@@ -184,7 +181,7 @@ async fn show_categories(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 // ── show_markets ──────────────────────────────────────────────────────────────
 
-async fn load_markets(ctx: &CommandContext<'_>, category: &str) -> Vec<KalshiMarket> {
+async fn load_markets(ctx: &CommandContext<'_>, category: &str) -> Result<Vec<KalshiMarket>, FetchErr> {
     let cached = {
         let cache = ctx.state.kalshi_cache.lock().expect("kalshi_cache lock");
         let age = now_unix().saturating_sub(cache.fetched_at);
@@ -194,17 +191,17 @@ async fn load_markets(ctx: &CommandContext<'_>, category: &str) -> Vec<KalshiMar
             None
         }
     };
-    if let Some(c) = cached { return c; }
+    if let Some(c) = cached { return Ok(c); }
 
     let client = reqwest::Client::new();
-    let markets = fetch_markets(&client, category).await;
+    let markets = fetch_markets(&client, category).await?;
     {
         let mut cache = ctx.state.kalshi_cache.lock().expect("kalshi_cache lock");
         cache.fetched_at = now_unix();
         cache.category   = category.to_owned();
         cache.markets    = markets.clone();
     }
-    markets
+    Ok(markets)
 }
 
 async fn show_markets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
@@ -214,7 +211,17 @@ async fn show_markets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     };
 
-    let markets = load_markets(ctx, category).await;
+    let markets = match load_markets(ctx, category).await {
+        Ok(m) => m,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("Kalshi API rate limit reached. Try again later.");
+            return Ok(());
+        }
+        Err(_) => {
+            ctx.whisper(format!("No open markets for {kw} right now."));
+            return Ok(());
+        }
+    };
     if markets.is_empty() {
         ctx.whisper(format!("No open markets for {kw} right now."));
         return Ok(());
@@ -309,8 +316,12 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     match ctx.state.api.casino_kalshi_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
-            ctx.whisper("Failed to save bet. Refunding chips.");
-            let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
+                eprintln!("[Kalshi] refund failed for {player_uuid}: {e:?}");
+                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to save bet. Chips refunded.");
+            }
             return Ok(());
         }
     }

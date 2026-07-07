@@ -3,7 +3,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver, gtfs_rt};
+use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver, gtfs_rt, FetchErr, check_resp};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["train", "trains"],
@@ -78,22 +78,21 @@ fn compute_odds(currently_delayed: bool) -> (f64, f64) {
 }
 
 
-async fn fetch_trains(client: &reqwest::Client, country: &str) -> Option<Vec<serde_json::Value>> {
+async fn fetch_trains(client: &reqwest::Client, country: &str) -> Result<Vec<serde_json::Value>, FetchErr> {
     let url = format!("{TRAINS_BASE}/api/live/realtime?source={country}");
-    let body: serde_json::Value = client
+    let resp = client
         .get(&url)
         .header("User-Agent", "ForestBot-RS/1.0")
         .send()
         .await
-        .ok()?
-        .json()
-        .await
-        .ok()?;
-    body["trains"].as_array().cloned()
+        .map_err(|_| FetchErr::Error)?;
+    let resp = check_resp(resp).await?;
+    let body: serde_json::Value = resp.json().await.map_err(|_| FetchErr::Error)?;
+    body["trains"].as_array().cloned().ok_or(FetchErr::Error)
 }
 
 async fn poll_train_legacy(client: &reqwest::Client, country: &str, train_code: &str) -> PollOutcome {
-    let Some(trains) = fetch_trains(client, country).await else {
+    let Ok(trains) = fetch_trains(client, country).await else {
         return PollOutcome::ApiError;
     };
     match trains.iter().find(|t| {
@@ -206,9 +205,16 @@ async fn show_trains(ctx: &CommandContext<'_>, country_raw: &str) -> anyhow::Res
         return Ok(());
     };
     let client = reqwest::Client::new();
-    let Some(trains) = fetch_trains(&client, country).await else {
-        ctx.whisper(format!("Could not fetch trains for {country}."));
-        return Ok(());
+    let trains = match fetch_trains(&client, country).await {
+        Ok(t) => t,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("Trains API rate limit reached. Try again later.");
+            return Ok(());
+        }
+        Err(_) => {
+            ctx.whisper(format!("Could not fetch trains for {country}."));
+            return Ok(());
+        }
     };
     if trains.is_empty() {
         ctx.whisper(format!("No running trains in {country} feed right now."));
@@ -387,8 +393,12 @@ async fn gtfs_place_bet(
     match ctx.state.api.casino_train_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
-            ctx.whisper("Failed to save bet. Refunding chips.");
-            let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
+                eprintln!("[Train] refund failed for {player_uuid}: {e:?}");
+                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to save bet. Chips refunded.");
+            }
             return Ok(());
         }
     }
@@ -475,9 +485,16 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     let client = reqwest::Client::new();
-    let Some(trains) = fetch_trains(&client, country).await else {
-        ctx.whisper(format!("Could not fetch trains for {country}."));
-        return Ok(());
+    let trains = match fetch_trains(&client, country).await {
+        Ok(t) => t,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("Trains API rate limit reached. Try again later.");
+            return Ok(());
+        }
+        Err(_) => {
+            ctx.whisper(format!("Could not fetch trains for {country}."));
+            return Ok(());
+        }
     };
     let Some(train) = trains.iter().find(|t| {
         t["trainCode"].as_str()
@@ -551,8 +568,12 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     match ctx.state.api.casino_train_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
-            ctx.whisper("Failed to save bet. Refunding chips.");
-            let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
+                eprintln!("[Train] refund failed for {player_uuid}: {e:?}");
+                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to save bet. Chips refunded.");
+            }
             return Ok(());
         }
     }

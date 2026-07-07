@@ -3,7 +3,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver};
+use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver, FetchErr, check_resp};
 
 // ── Command definitions ───────────────────────────────────────────────────────
 
@@ -106,23 +106,22 @@ async fn fetch_quake_count(
     lon: f64,
     radius_km: f64,
     min_mag: f64,
-) -> Option<u64> {
+) -> Result<u64, FetchErr> {
     let url = format!(
         "{FDSN_BASE}?format=geojson&starttime={LOOKBACK_START}&endtime={LOOKBACK_END}\
          &minmagnitude={min_mag}&latitude={lat}&longitude={lon}&maxradiuskm={radius_km}\
          &limit=20000&eventtype=earthquake"
     );
-    let body: serde_json::Value = client
+    let resp = client
         .get(&url)
         .header("User-Agent", "ForestBot-RS/1.0")
         .timeout(std::time::Duration::from_secs(15))
         .send()
         .await
-        .ok()?
-        .json()
-        .await
-        .ok()?;
-    body["features"].as_array().map(|a| a.len() as u64)
+        .map_err(|_| FetchErr::Error)?;
+    let resp = check_resp(resp).await?;
+    let body: serde_json::Value = resp.json().await.map_err(|_| FetchErr::Error)?;
+    body["features"].as_array().map(|a| a.len() as u64).ok_or(FetchErr::Error)
 }
 
 fn poisson_probability(count: u64, window_days: f64) -> f64 {
@@ -214,19 +213,18 @@ struct VolcanoStatus {
     color_code: String,
 }
 
-async fn fetch_all_volcano_status(client: &reqwest::Client) -> Option<Vec<VolcanoStatus>> {
-    let body: serde_json::Value = client
+async fn fetch_all_volcano_status(client: &reqwest::Client) -> Result<Vec<VolcanoStatus>, FetchErr> {
+    let resp = client
         .get(VHP_STATUS)
         .header("User-Agent", "ForestBot-RS/1.0")
         .timeout(std::time::Duration::from_secs(10))
         .send()
         .await
-        .ok()?
-        .json()
-        .await
-        .ok()?;
-    let arr = body.as_array()?;
-    Some(arr.iter().filter_map(|v| {
+        .map_err(|_| FetchErr::Error)?;
+    let resp = check_resp(resp).await?;
+    let body: serde_json::Value = resp.json().await.map_err(|_| FetchErr::Error)?;
+    let arr = body.as_array().ok_or(FetchErr::Error)?;
+    Ok(arr.iter().filter_map(|v| {
         let vnum   = v["vnum"].as_str()?.to_owned();
         let vname  = v["vName"].as_str()?.to_owned();
         let alert  = v["alertLevel"].as_str().unwrap_or("UNASSIGNED").to_owned();
@@ -413,10 +411,16 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let amt_s = ctx.args.get(idx + 1).copied().unwrap_or("");
 
     let client = reqwest::Client::new();
-    let count = fetch_quake_count(&client, region.lat, region.lon, region.radius_km, mag).await;
-    let Some(count) = count else {
-        ctx.whisper("FDSN API unavailable. Try again later.");
-        return Ok(());
+    let count = match fetch_quake_count(&client, region.lat, region.lon, region.radius_km, mag).await {
+        Ok(c) => c,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("USGS API rate limit reached. Try again later.");
+            return Ok(());
+        }
+        Err(_) => {
+            ctx.whisper("FDSN API unavailable. Try again later.");
+            return Ok(());
+        }
     };
     let p_yes = probability_to_price(poisson_probability(count, 7.0));
     let p_no  = probability_to_price(1.0 - poisson_probability(count, 7.0));
@@ -481,8 +485,12 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     match ctx.state.api.casino_quake_bet_insert(&bet, placed_at).await {
         Some(id) => { bet.id = id; }
         None => {
-            ctx.whisper("Failed to save bet. Refunding chips.");
-            let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
+                eprintln!("[Seismic] refund failed for {player_uuid}: {e:?}");
+                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to save bet. Chips refunded.");
+            }
             return Ok(());
         }
     }
@@ -595,9 +603,16 @@ fn volcano_usage(ctx: &CommandContext<'_>) {
 
 async fn volcano_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let client = reqwest::Client::new();
-    let Some(statuses) = fetch_all_volcano_status(&client).await else {
-        ctx.whisper("VHP API unavailable.");
-        return Ok(());
+    let statuses = match fetch_all_volcano_status(&client).await {
+        Ok(s) => s,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("USGS VHP API rate limit reached. Try again later.");
+            return Ok(());
+        }
+        Err(_) => {
+            ctx.whisper("VHP API unavailable.");
+            return Ok(());
+        }
     };
     let elevated: Vec<_> = statuses.iter().filter(|v| is_elevated(v)).collect();
     if elevated.is_empty() {
@@ -672,9 +687,16 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     if side != "yes" && side != "no" {
         // Odds preview
         let client = reqwest::Client::new();
-        let Some(statuses) = fetch_all_volcano_status(&client).await else {
-            ctx.whisper("VHP API unavailable.");
-            return Ok(());
+        let statuses = match fetch_all_volcano_status(&client).await {
+            Ok(s) => s,
+            Err(FetchErr::RateLimit) => {
+                ctx.whisper("USGS VHP API rate limit reached. Try again later.");
+                return Ok(());
+            }
+            Err(_) => {
+                ctx.whisper("VHP API unavailable.");
+                return Ok(());
+            }
         };
         let Some(vs) = statuses.iter().find(|v| v.vname.to_lowercase().contains(&name_query)) else {
             ctx.whisper(format!("Volcano '{name_query}' not found. Use !volcano list to see elevated volcanoes."));
@@ -694,9 +716,16 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     let client = reqwest::Client::new();
-    let Some(statuses) = fetch_all_volcano_status(&client).await else {
-        ctx.whisper("VHP API unavailable.");
-        return Ok(());
+    let statuses = match fetch_all_volcano_status(&client).await {
+        Ok(s) => s,
+        Err(FetchErr::RateLimit) => {
+            ctx.whisper("USGS VHP API rate limit reached. Try again later.");
+            return Ok(());
+        }
+        Err(_) => {
+            ctx.whisper("VHP API unavailable.");
+            return Ok(());
+        }
     };
     let Some(vs) = statuses.iter().find(|v| v.vname.to_lowercase().contains(&name_query)) else {
         ctx.whisper(format!("Volcano '{name_query}' not found. Use !volcano list to see elevated volcanoes."));
@@ -768,8 +797,12 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     match ctx.state.api.casino_volcano_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
-            ctx.whisper("Failed to save bet. Refunding chips.");
-            let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
+                eprintln!("[Seismic] refund failed for {player_uuid}: {e:?}");
+                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+            } else {
+                ctx.whisper("Failed to save bet. Chips refunded.");
+            }
             return Ok(());
         }
     }

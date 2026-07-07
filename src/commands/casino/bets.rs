@@ -18,18 +18,6 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         let db_rows = ctx.state.api.casino_event_bets_list(&player_uuid).await;
 
-        let launch_bets: Vec<String> = {
-            let map = ctx.state.launch_bets.lock().unwrap();
-            map.get(&player_uuid).map(|v| v.iter().map(|b| {
-                let payout = (b.stake as f64 / b.price).floor() as i64;
-                format!("[ROCKET] [{}] {} {} → pays {} | T-{}",
-                    &b.launch_id[..8.min(b.launch_id.len())],
-                    &b.launch_name[..b.launch_name.len().min(20)],
-                    b.side.display(),
-                    chips_str(payout), fmt_time(b.close_time))
-            }).collect()).unwrap_or_default()
-        };
-
         let gas_bets: Vec<String> = {
             let map = ctx.state.gas_bets.lock().unwrap();
             map.get(&player_uuid).map(|v| v.iter().map(|b| {
@@ -40,7 +28,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             }).collect()).unwrap_or_default()
         };
 
-        let total = db_rows.len() + launch_bets.len() + gas_bets.len();
+        let total = db_rows.len() + gas_bets.len();
         if total == 0 {
             ctx.whisper("No open event bets.");
             return Ok(());
@@ -55,14 +43,14 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             let close_time = row["close_time"].as_u64().unwrap_or(0);
             let payout     = (stake as f64 / price).floor() as i64;
             let label      = describe_bet(bet_type, row);
+            let bracket = if bet_type == "launch" { "ROCKET".to_owned() } else { bet_type.to_uppercase() };
             ctx.whisper(format!(
                 "[{}] {} {} → pays {} | T-{}",
-                bet_type.to_uppercase(), label, chips_str(stake), chips_str(payout),
+                bracket, label, chips_str(stake), chips_str(payout),
                 fmt_time(close_time),
             ));
         }
-        for line in launch_bets { ctx.whisper(line); }
-        for line in gas_bets    { ctx.whisper(line); }
+        for line in gas_bets { ctx.whisper(line); }
 
         Ok(())
     })

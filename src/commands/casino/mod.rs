@@ -85,6 +85,19 @@ pub async fn sleep_until(t: u64) {
     }
 }
 
+// ── API rate-limit helper ─────────────────────────────────────────────────────
+
+#[derive(Debug)]
+pub enum FetchErr { RateLimit, Error }
+
+pub async fn check_resp(resp: reqwest::Response) -> Result<reqwest::Response, FetchErr> {
+    match resp.status().as_u16() {
+        429 => Err(FetchErr::RateLimit),
+        200..=299 => Ok(resp),
+        _ => Err(FetchErr::Error),
+    }
+}
+
 pub async fn deliver(state: &AzaleaState, whisper_cmd: &str, player: &str, msg: String) {
     let online = state.players.read().ok()
         .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()));

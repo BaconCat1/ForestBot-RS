@@ -142,7 +142,11 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         };
 
         if payout > 0 {
-            let _ = ctx.state.api.casino_adjust(&player_uuid, payout).await;
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, payout).await {
+                eprintln!("[Baccarat] payout failed for {player_uuid}: {e:?}");
+                ctx.whisper("[Baccarat] Win detected but payout failed — contact an admin.");
+                return Ok(());
+            }
         }
 
         let natural_tag = if natural { " [natural]" } else { "" };
