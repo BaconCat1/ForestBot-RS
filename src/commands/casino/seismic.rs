@@ -23,7 +23,7 @@ pub const VOLCANO_COMMAND: CommandDefinition = CommandDefinition {
 
 const MIN_BET: i64 = 25;
 pub const BET_WINDOW_SECS: u64 = 7 * 24 * 3600; // 7 days
-const HOUSE_EDGE: f64 = 0.05;
+const HOUSE_EDGE: f64 = 0.03;
 
 // ── Quake region definitions ──────────────────────────────────────────────────
 

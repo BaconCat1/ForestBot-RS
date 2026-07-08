@@ -49,10 +49,11 @@ fn is_ifr(flt_cat: &str) -> bool {
 // Currently IFR:  YES likely to continue → lower payout; NO contrarian → higher
 // Currently VFR:  YES risky → higher payout; NO safe → lower
 fn compute_odds(currently_ifr: bool) -> (f64, f64) {
+    const RAKE: f64 = 0.03;
     if currently_ifr {
-        (0.67, 0.33) // yes_price, no_price — YES 1.49x, NO 3.03x
+        (0.67 / (1.0 - RAKE), 0.33 / (1.0 - RAKE))
     } else {
-        (0.33, 0.67) // YES 3.03x, NO 1.49x
+        (0.33 / (1.0 - RAKE), 0.67 / (1.0 - RAKE))
     }
 }
 

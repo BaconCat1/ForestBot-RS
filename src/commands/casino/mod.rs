@@ -32,7 +32,7 @@ use futures_util::future::join_all;
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
 pub const MIN_BET: i64 = 25;
-pub const HOUSE_EDGE: f64 = 0.05;
+pub const HOUSE_EDGE: f64 = 0.03;
 
 pub fn chips_str(n: i64) -> String {
     format!("{} chip{}", n, if n == 1 { "" } else { "s" })

@@ -205,9 +205,13 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 }
 
 async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
+    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+        ctx.whisper("Could not resolve your UUID.");
+        return Ok(());
+    };
     let bets = {
         let map = ctx.state.gas_bets.lock().unwrap();
-        map.get(&ctx.sender.to_string()).cloned().unwrap_or_default()
+        map.get(&player_uuid).cloned().unwrap_or_default()
     };
     if bets.is_empty() {
         ctx.whisper("No open gas bets.");
@@ -278,7 +282,12 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
         Err(_) => { ctx.whisper("Usage: !gas <zip> up|down <chips>"); return Ok(()); }
     };
 
-    match ctx.state.api.casino_adjust(&ctx.sender.to_string(), -chips).await {
+    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+        ctx.whisper("Could not resolve your UUID.");
+        return Ok(());
+    };
+
+    match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper(format!("Not enough chips (have {}).", chips_str(have)));
             return Ok(());
@@ -290,7 +299,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
     let close_time = now_unix() + SETTLE_SECS;
     let mut bet = GasBet {
         id: None,
-        player:     ctx.sender.to_string(),
+        player:     player_uuid.clone(),
         region:     region.clone(),
         zip:        zip.to_owned(),
         side:       side.to_owned(),
@@ -303,8 +312,8 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
     match ctx.state.api.casino_gas_bet_insert(&bet).await {
         Some(i) => bet.id = Some(i),
         None => {
-            if let Err(e) = ctx.state.api.casino_adjust(&ctx.sender.to_string(), chips).await {
-                eprintln!("[Gas] refund failed for {}: {e:?}", ctx.sender);
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, chips).await {
+                eprintln!("[Gas] refund failed for {player_uuid}: {e:?}");
                 ctx.whisper("Failed to record bet. Refund also failed — contact an admin.");
             } else {
                 ctx.whisper("Failed to record bet. Chips refunded.");
@@ -320,7 +329,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
     ));
 
     ctx.state.gas_bets.lock().unwrap()
-        .entry(ctx.sender.to_string())
+        .entry(player_uuid)
         .or_default()
         .push(bet.clone());
 

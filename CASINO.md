@@ -1,7 +1,8 @@
 
+
 # Casino Commands
 
-**31 games · 40 commands.** All use the shared chip balance. Starting balance: 1000 chips.
+**18 games · 13 markets · 40 commands. ** All use the shared chip balance. Starting balance: 1000 chips.
 All games feature a 3% house rake deposited into the jackpot. All losings are deposited into the jackpot.
 
 ## Wallet & Chips
@@ -19,14 +20,14 @@ All games feature a 3% house rake deposited into the jackpot. All losings are de
 |---|---|
 | `!slots <chips>` | Spin the slot machine |
 
-## Scratch
+## Scratch Off Tickets
 
 | Command | Description |
 |---|---|
 | `!scratch` | Free scratch card (once per day) |
 | `!scratch <chips>` | Paid scratch card |
 
-## Jackpot
+## Jackpot (Raffle)
 
 | Command | Description |
 |---|---|
@@ -130,6 +131,153 @@ Played in whisper. You are ◕, bot is ▣, ▢ = empty.
 | `!c4` / `!connectfour <chips>` | Start a connect four game against the bot |
 | `!c4 <1-7>` | Drop a piece in that column |
 | `!c4 forfeit` | Forfeit the current game |
+
+## Battleship
+
+Played in whisper, per-player. Ships placed randomly. Enemy board shown by default; `!bs own` for your board. Rows `a`–`j`, cols `1`–`9` then `0` (col 10). ◈=ship, ▢=water, ◌=miss, ◕=hit, ▣=sunk (full ship revealed on sink).
+
+| Command | Description |
+|---|---|
+| `!battleship <chips>` / `!bs <chips>` | Start a game. Randomly matched against one of five opponents at escalating difficulty. |
+| `!bs <coord>` | Fire at coordinate (e.g. `!bs a5`, `!bs j0`). |
+| `!bs board` | Redisplay enemy board. |
+| `!bs own` | Show your board (ships + enemy hits). |
+| `!bs forfeit` / `!bs quit` | Forfeit — stake to jackpot. |
+
+Ships: Carrier (5), Battleship (4), Cruiser (3), Submarine (3), Destroyer (2). Opponents: Glass Joe (random), Piston Honda (hunt near hits ±2), Bald Bull (hunt/target), Soda Popinski (target + checkerboard parity), Mike Tyson (probability density). Win = 2× stake. Lose/quit = stake to jackpot.
+
+## Checkers
+
+Played in whisper, per-player. You are red (`r`/`R`), bot is black (`b`/`B`), `-` = empty. American rules: men move and capture forward-only, kings all directions. Jumps mandatory.
+
+| Command | Description |
+|---|---|
+| `!checkers <chips>` | Start a game. Randomly matched against one of five opponents at escalating difficulty. |
+| `!checkers <a1> <b2>` | Move piece from a1 to b2. |
+| `!checkers <a1> <c3> <e5>` | Multi-jump: list each landing square in the jump chain. |
+| `!checkers board` | Redisplay the current board. |
+| `!checkers quit` / `!checkers forfeit` | Forfeit — stake to jackpot. |
+
+Opponents: Glass Joe (random), Piston Honda (easy/depth 2), Bald Bull / Soda Popinski (medium/depth 4), Mike Tyson (hard/depth 6). Win = 2× stake. Lose/quit = stake to jackpot. Draw (threefold repetition or 40-move rule) = stake returned.
+
+## Minesweeper
+
+All in whisper. 10×10 board, 20 mines. Stacking multiplier per click (3% house edge per click). Min bet: 25 chips.
+
+| Command | Description |
+|---|---|
+| `!mines <chips>` / `!minesweeper <chips>` | Start a game |
+| `!mines <coord>` | Reveal a cell (e.g. `!mines a3`, `!mines j0`). Flood-fills from zero cells. |
+| `!mines f<coord>` | Flag / unflag a cell (e.g. `!mines fa3`) |
+| `!mines cash` | Cash out at current multiplier (requires ≥1 safe reveal) |
+| `!mines board` | Redisplay board and current multiplier |
+| `!mines quit` / `!mines forfeit` | Forfeit — stake to jackpot |
+
+Rows `𝐚`–`𝐣`, cols `1`–`9` then `0` (col 10). ▢=unrevealed, ◌=0 neighbors, 𝟏–𝟖=neighbor count, ◈=flag, ◕=mine (revealed on game over). First click guaranteed safe (3×3 safe zone). Reveal all 80 safe cells to win at current multiplier. Hit a mine = stake to jackpot.
+
+## Reversi
+
+Played in whisper, per-player. You are ◕, bot is ▣, ◌ = your legal moves, ▢ = empty. Standard Othello starting position, row 1 at top.
+
+| Command | Description |
+|---|---|
+| `!reversi <chips>` / `!othello <chips>` | Start a game. Randomly matched against an opponent at escalating difficulty. |
+| `!reversi <a1>` | Place your piece at that square. |
+| `!reversi board` | Redisplay the current board. |
+| `!reversi quit` / `!reversi forfeit` | Forfeit — stake to jackpot. |
+
+Opponents: Glass Joe (random), Piston Honda (greedy), Bald Bull (minimax 3), Soda Popinski (minimax 4), Mike Tyson (minimax 5). Win = 2× stake. Lose/quit = stake to jackpot. Draw = stake returned.
+
+## Trivia
+
+Two-phase. Starter sets the wager; others have 30 seconds to join at the same stake. Question posts after join window closes; participants have 45 seconds to answer. Correct = 2× stake. Wrong or no answer = stake to jackpot. Min stake: 50 chips.
+
+| Command | Description |
+|---|---|
+| `!trivia <chips>` | Start a trivia round with a random category |
+| `!trivia <category> <chips>` | Start a trivia round in a specific category |
+| `!trivia join` | Join the active round within the 30s join window (matches starter's wager) |
+| `!trivia categories` | List all available categories |
+| `!answer <A/B/C/D or true/false>` | Answer the question once it goes live (participants only) |
+
+Categories: general, books, film, music, musicals, tv, games, board games, science, computers, math, mythology, sports, geography, history, politics, art, celebrities, animals, vehicles, comics, gadgets, anime, cartoons.
+
+## Wordle
+
+All in whisper. Per-player — multiple games can run simultaneously.
+
+| Command | Description |
+|---|---|
+| `!wordle <chips>` | Start a game. Stake deducted immediately. |
+| `!wordle <chips> hard` | Start in hard mode — exact matches must stay fixed in later guesses |
+| `!wordle <word>` | Submit a 5-letter guess |
+| `!wordle board` | Show current board |
+| `!wordle quit` / `!wordle forfeit` | Forfeit — stake sent to jackpot |
+
+Win multipliers (by guess number): 8x / 5x / 3x / 2x / 1.5x / 1.2x. Losing forfeits stake to jackpot. Word list: NYT Wordle list (swappable).
+
+## Chess
+
+All in whisper. Per-player — multiple games can run simultaneously.
+
+| Command | Description |
+|---|---|
+| `!chess white <chips>` | Start a game as White (you move first) |
+| `!chess black <chips>` | Start a game as Black (bot moves first) |
+| `!chess <from> <to>` | Make a move. E.g. `!chess e2 e4` |
+| `!chess <from> <to> <promo>` | Promote a pawn. E.g. `!chess e7 e8 q` (q/r/b/n) |
+| `!chess` | Show current board and status |
+| `!chess quit` / `!chess q` | Forfeit — stake sent to jackpot |
+
+Board renders in whisper with Unicode pieces (♔♕♖♗♘♙ / ♚♛♜♝♞♟), empty=▢ (U+25A2). Displayed from your color's perspective (rank 1 at bottom for White, rank 8 at bottom for Black).
+
+Win multiplier: 2×. Loss or forfeit: stake sent to jackpot. Draw (50-move rule, stalemate, insufficient material): stake returned.
+
+**Opponents (random at game start):**
+| Opponent | Strength |
+|---|---|
+| Glass Joe | Random moves |
+| Piston Honda | Greedy (depth 1) |
+| Bald Bull | Alpha-beta depth 2 |
+| Soda Popinski | Alpha-beta depth 3 |
+| Mike Tyson | Alpha-beta depth 4 |
+
+## Duels
+
+| Command | Description |
+|---|---|
+| `!duel <player> <chips>` | Challenge a player to a duel. Chips escrowed immediately. Challenged has 60s to respond. |
+| `!duel confirm` | Accept the pending duel challenge directed at you |
+| `!duel reject` / `!duel cancel` | Decline or cancel a pending duel. Challenger gets refund. |
+| `!duel odds [player]` | Show win probabilities for an active duel (K/D based, 50/50 if under 10 kills) |
+| `!duel bet <player> <chips>` | Side bet on a participant in an active duel. Pays at implied odds. One bet per duel. |
+
+**Duel rules:**
+- Both players escrow equal chips
+- Winner takes pot minus 3% rake (goes to jackpot)
+- Duel auto-cancels (full refund) on: 10-minute timeout, either player disconnecting, third-party kill
+- Side bet winners paid at implied odds from bet placement time; losers go to jackpot
+- Participants cannot place side bets on their own duel
+
+# Betting Markets
+
+## Market (paper trading)
+
+| Command | Description |
+|---|---|
+| `!market <symbol>` | Live quote for a stock or crypto symbol |
+| `!market history <symbol> [1d/7d/30d/1y]` | Price history |
+| `!market search <query>` | Search for a symbol by name |
+| `!market long <symbol> <chips> <duration>` | Bet the price goes up. Duration: `1m`, `15m`, `1h`, `4h`, `1d`. Min 50 chips, max 10,000. |
+| `!market short <symbol> <chips> <duration>` | Bet the price goes down |
+| `!market bets` / `!market pos` | Show your open timed bets |
+| `!market cashout [index]` | Exit a timed bet early at current price. Index required if you have multiple open bets. |
+| `!market buy <symbol> <chips>` | Open a portfolio position (no expiry). One position per symbol. |
+| `!market sell <symbol>` | Close a portfolio position at current price |
+| `!market sell all` | Close all portfolio positions at once |
+| `!portfolio` / `!port` | Live P&L breakdown of all open portfolio positions (whispered) |
+
+Payout: `ceil(stake × exit_price / entry_price)` for longs, inverse for shorts. Min stake: 50 chips. One portfolio position per symbol per player.
 
 ## Weather Futures
 
@@ -248,52 +396,6 @@ Supported countries: `us` (Amtrak), `de` (Germany), `fr`, `be`, `ch`, `fi`, `nl`
 
 Payout = `stake / price`. Currently delayed → ontime is 3.03×, delayed is 1.49×. Currently on time → ontime is 1.49×, delayed is 3.03×. Correct = payout credited. Wrong = stake to jackpot.
 
-## Market (paper trading)
-
-| Command | Description |
-|---|---|
-| `!market <symbol>` | Live quote for a stock or crypto symbol |
-| `!market history <symbol> [1d/7d/30d/1y]` | Price history |
-| `!market search <query>` | Search for a symbol by name |
-| `!market long <symbol> <chips> <duration>` | Bet the price goes up. Duration: `1m`, `15m`, `1h`, `4h`, `1d`. Min 50 chips, max 10,000. |
-| `!market short <symbol> <chips> <duration>` | Bet the price goes down |
-| `!market bets` / `!market pos` | Show your open timed bets |
-| `!market cashout [index]` | Exit a timed bet early at current price. Index required if you have multiple open bets. |
-| `!market buy <symbol> <chips>` | Open a portfolio position (no expiry). One position per symbol. |
-| `!market sell <symbol>` | Close a portfolio position at current price |
-| `!market sell all` | Close all portfolio positions at once |
-| `!portfolio` / `!port` | Live P&L breakdown of all open portfolio positions (whispered) |
-
-Payout: `ceil(stake × exit_price / entry_price)` for longs, inverse for shorts. Min stake: 50 chips. One portfolio position per symbol per player.
-
-## Checkers
-
-Played in whisper, per-player. You are red (`r`/`R`), bot is black (`b`/`B`), `-` = empty. American rules: men move and capture forward-only, kings all directions. Jumps mandatory.
-
-| Command | Description |
-|---|---|
-| `!checkers <chips>` | Start a game. Randomly matched against one of five opponents at escalating difficulty. |
-| `!checkers <a1> <b2>` | Move piece from a1 to b2. |
-| `!checkers <a1> <c3> <e5>` | Multi-jump: list each landing square in the jump chain. |
-| `!checkers board` | Redisplay the current board. |
-| `!checkers quit` / `!checkers forfeit` | Forfeit — stake to jackpot. |
-
-Opponents: Glass Joe (random), Piston Honda (easy/depth 2), Bald Bull / Soda Popinski (medium/depth 4), Mike Tyson (hard/depth 6). Win = 2× stake. Lose/quit = stake to jackpot. Draw (threefold repetition or 40-move rule) = stake returned.
-
-## Battleship
-
-Played in whisper, per-player. Ships placed randomly. Enemy board shown by default; `!bs own` for your board. Rows `a`–`j`, cols `1`–`9` then `0` (col 10). ◈=ship, ▢=water, ◌=miss, ◕=hit, ▣=sunk (full ship revealed on sink).
-
-| Command | Description |
-|---|---|
-| `!battleship <chips>` / `!bs <chips>` | Start a game. Randomly matched against one of five opponents at escalating difficulty. |
-| `!bs <coord>` | Fire at coordinate (e.g. `!bs a5`, `!bs j0`). |
-| `!bs board` | Redisplay enemy board. |
-| `!bs own` | Show your board (ships + enemy hits). |
-| `!bs forfeit` / `!bs quit` | Forfeit — stake to jackpot. |
-
-Ships: Carrier (5), Battleship (4), Cruiser (3), Submarine (3), Destroyer (2). Opponents: Glass Joe (random), Piston Honda (hunt near hits ±2), Bald Bull (hunt/target), Soda Popinski (target + checkerboard parity), Mike Tyson (probability density). Win = 2× stake. Lose/quit = stake to jackpot.
-
 ## AQI (Air Quality)
 
 Bet on whether tomorrow's AQI will be Good or Unhealthy for any US zip code. Uses AirNow forecast data. 5% house edge. Min bet: 25 chips. Settles 24h after placement using live observation data.
@@ -313,11 +415,11 @@ Bet on upcoming rocket launches using real LL2 (Launch Library 2) data. Two bet 
 
 | Command | Description |
 |---|---|
-| `!launch` / `!rocket` | List next 5 Go/TBC launches with short IDs |
-| `!launch <id>` | Show odds for a specific launch (success + ontime) |
-| `!launch <id> success <chips>` | Bet that the launch succeeds |
-| `!launch <id> ontime <chips>` | Bet the launch isn't delayed more than 24h |
-| `!launch bets` | List your open launch bets |
+| `!rocket` / `!launch` | List next 5 Go/TBC launches with short IDs |
+| `!rocket <id>` | Show odds for a specific launch (success + ontime) |
+| `!rocket <id> success <chips>` | Bet that the launch succeeds |
+| `!rocket <id> ontime <chips>` | Bet the launch isn't delayed more than 24h |
+| `!rocket bets` | List your open launch bets |
 
 Odds derived from the provider's recent launch history (last 50 launches). Success floor: 0.70×, ontime floor: 0.50×. No API key required (uses public LL2 API).
 
@@ -332,103 +434,4 @@ Bet on whether the average regular gas price in your area will be higher or lowe
 | `!gas <zip> down <chips>` | Bet the price will be lower tomorrow |
 | `!gas bets` | List your open gas bets |
 
-Odds: ~50/50 baseline. GasBuddy requires Cloudflare bypass — set `gasbuddy_solver_url` in config (FlareSolver endpoint) or the command will gracefully report unavailability. Without FlareSolver, gas bets are disabled.
-
-## Minesweeper
-
-All in whisper. 10×10 board, 20 mines. Stacking multiplier per click (3% house edge per click). Min bet: 25 chips.
-
-| Command | Description |
-|---|---|
-| `!mines <chips>` / `!minesweeper <chips>` | Start a game |
-| `!mines <coord>` | Reveal a cell (e.g. `!mines a3`, `!mines j0`). Flood-fills from zero cells. |
-| `!mines f<coord>` | Flag / unflag a cell (e.g. `!mines fa3`) |
-| `!mines cash` | Cash out at current multiplier (requires ≥1 safe reveal) |
-| `!mines board` | Redisplay board and current multiplier |
-| `!mines quit` / `!mines forfeit` | Forfeit — stake to jackpot |
-
-Rows `𝐚`–`𝐣`, cols `1`–`9` then `0` (col 10). ▢=unrevealed, ◌=0 neighbors, 𝟏–𝟖=neighbor count, ◈=flag, ◕=mine (revealed on game over). First click guaranteed safe (3×3 safe zone). Reveal all 80 safe cells to win at current multiplier. Hit a mine = stake to jackpot.
-
-## Reversi
-
-Played in whisper, per-player. You are ◕, bot is ▣, ◌ = your legal moves, ▢ = empty. Standard Othello starting position, row 1 at top.
-
-| Command | Description |
-|---|---|
-| `!reversi <chips>` / `!othello <chips>` | Start a game. Randomly matched against an opponent at escalating difficulty. |
-| `!reversi <a1>` | Place your piece at that square. |
-| `!reversi board` | Redisplay the current board. |
-| `!reversi quit` / `!reversi forfeit` | Forfeit — stake to jackpot. |
-
-Opponents: Glass Joe (random), Piston Honda (greedy), Bald Bull (minimax 3), Soda Popinski (minimax 4), Mike Tyson (minimax 5). Win = 2× stake. Lose/quit = stake to jackpot. Draw = stake returned.
-
-## Trivia
-
-Two-phase. Starter sets the wager; others have 30 seconds to join at the same stake. Question posts after join window closes; participants have 45 seconds to answer. Correct = 2× stake. Wrong or no answer = stake to jackpot. Min stake: 50 chips.
-
-| Command | Description |
-|---|---|
-| `!trivia <chips>` | Start a trivia round with a random category |
-| `!trivia <category> <chips>` | Start a trivia round in a specific category |
-| `!trivia join` | Join the active round within the 30s join window (matches starter's wager) |
-| `!trivia categories` | List all available categories |
-| `!answer <A/B/C/D or true/false>` | Answer the question once it goes live (participants only) |
-
-Categories: general, books, film, music, musicals, tv, games, board games, science, computers, math, mythology, sports, geography, history, politics, art, celebrities, animals, vehicles, comics, gadgets, anime, cartoons.
-
-## Wordle
-
-All in whisper. Per-player — multiple games can run simultaneously.
-
-| Command | Description |
-|---|---|
-| `!wordle <chips>` | Start a game. Stake deducted immediately. |
-| `!wordle <chips> hard` | Start in hard mode — exact matches must stay fixed in later guesses |
-| `!wordle <word>` | Submit a 5-letter guess |
-| `!wordle board` | Show current board |
-| `!wordle quit` / `!wordle forfeit` | Forfeit — stake sent to jackpot |
-
-Win multipliers (by guess number): 8x / 5x / 3x / 2x / 1.5x / 1.2x. Losing forfeits stake to jackpot. Word list: NYT Wordle list (swappable).
-
-## Chess
-
-All in whisper. Per-player — multiple games can run simultaneously.
-
-| Command | Description |
-|---|---|
-| `!chess white <chips>` | Start a game as White (you move first) |
-| `!chess black <chips>` | Start a game as Black (bot moves first) |
-| `!chess <from> <to>` | Make a move. E.g. `!chess e2 e4` |
-| `!chess <from> <to> <promo>` | Promote a pawn. E.g. `!chess e7 e8 q` (q/r/b/n) |
-| `!chess` | Show current board and status |
-| `!chess quit` / `!chess q` | Forfeit — stake sent to jackpot |
-
-Board renders in whisper with Unicode pieces (♔♕♖♗♘♙ / ♚♛♜♝♞♟), empty=▢ (U+25A2). Displayed from your color's perspective (rank 1 at bottom for White, rank 8 at bottom for Black).
-
-Win multiplier: 2×. Loss or forfeit: stake sent to jackpot. Draw (50-move rule, stalemate, insufficient material): stake returned.
-
-**Opponents (random at game start):**
-| Opponent | Strength |
-|---|---|
-| Glass Joe | Random moves |
-| Piston Honda | Greedy (depth 1) |
-| Bald Bull | Alpha-beta depth 2 |
-| Soda Popinski | Alpha-beta depth 3 |
-| Mike Tyson | Alpha-beta depth 4 |
-
-## Duels
-
-| Command | Description |
-|---|---|
-| `!duel <player> <chips>` | Challenge a player to a duel. Chips escrowed immediately. Challenged has 60s to respond. |
-| `!duel confirm` | Accept the pending duel challenge directed at you |
-| `!duel reject` / `!duel cancel` | Decline or cancel a pending duel. Challenger gets refund. |
-| `!duel odds [player]` | Show win probabilities for an active duel (K/D based, 50/50 if under 10 kills) |
-| `!duel bet <player> <chips>` | Side bet on a participant in an active duel. Pays at implied odds. One bet per duel. |
-
-**Duel rules:**
-- Both players escrow equal chips
-- Winner takes pot minus 3% rake (goes to jackpot)
-- Duel auto-cancels (full refund) on: 10-minute timeout, either player disconnecting, third-party kill
-- Side bet winners paid at implied odds from bet placement time; losers go to jackpot
-- Participants cannot place side bets on their own duel
+Odds: ~50/50 baseline.

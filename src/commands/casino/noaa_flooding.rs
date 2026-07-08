@@ -50,10 +50,11 @@ fn fmt_location(lat: f64, lon: f64) -> String {
 }
 
 fn compute_odds(currently_flooding: bool) -> (f64, f64) {
+    const RAKE: f64 = 0.03;
     if currently_flooding {
-        (0.67, 0.33)
+        (0.67 / (1.0 - RAKE), 0.33 / (1.0 - RAKE))
     } else {
-        (0.33, 0.67)
+        (0.33 / (1.0 - RAKE), 0.67 / (1.0 - RAKE))
     }
 }
 

@@ -13,10 +13,14 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 };
 
 const NASA_BASE: &str = "https://api.nasa.gov";
+const SWPC_KP_URL: &str = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json";
 const MIN_BET: i64 = 25;
 const POLL_INTERVAL_SECS: u64 = 600;
 const MAX_POLL_SECS: u64 = 7200;
 const SETTLE_BUFFER_SECS: u64 = 3600;
+const ODDS_CACHE_TTL: u64 = 3600;
+const HOUSE_EDGE: f64 = 0.97;
+const DONKI_WINDOW_DAYS: i64 = 27;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,16 +34,35 @@ pub struct NasaSpaceWeatherBet {
     pub settle_at: u64,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct SwOdds {
+    pub cme: f64,
+    pub xflare: f64,
+    pub gstorm: f64,
+}
+
+impl SwOdds {
+    fn for_type(&self, slug: &str) -> f64 {
+        match slug {
+            "cme" => self.cme,
+            "xflare" => self.xflare,
+            "gstorm" => self.gstorm,
+            _ => 2.0,
+        }
+    }
+}
+
+const FALLBACK_ODDS: SwOdds = SwOdds { cme: 1.9, xflare: 12.0, gstorm: 5.0 };
+
 struct BetKind {
     slug: &'static str,
     label: &'static str,
-    multiplier: f64,
 }
 
 const BET_KINDS: &[BetKind] = &[
-    BetKind { slug: "cme",    label: "Coronal Mass Ejection today",  multiplier: 1.9  },
-    BetKind { slug: "xflare", label: "X-class solar flare today",    multiplier: 12.0 },
-    BetKind { slug: "gstorm", label: "Geomagnetic storm today",      multiplier: 5.0  },
+    BetKind { slug: "cme",    label: "Coronal Mass Ejection today"  },
+    BetKind { slug: "xflare", label: "X-class solar flare today"    },
+    BetKind { slug: "gstorm", label: "Geomagnetic storm today"      },
 ];
 
 fn find_kind(slug: &str) -> Option<&'static BetKind> {
@@ -61,8 +84,23 @@ fn unix_to_ymd(unix: u64) -> String {
         .unwrap_or_else(|| "1970-01-01".to_owned())
 }
 
-async fn donki_array(client: &reqwest::Client, endpoint: &str, date: &str, nasa_key: &str) -> Option<Vec<serde_json::Value>> {
-    let url = format!("{NASA_BASE}/DONKI/{endpoint}?startDate={date}&endDate={date}&api_key={nasa_key}");
+fn today_utc_ymd() -> String {
+    unix_to_ymd(now_unix())
+}
+
+fn prob_to_mult(p: f64) -> f64 {
+    let p = p.clamp(0.03, 0.95);
+    (HOUSE_EDGE / p * 100.0).round() / 100.0
+}
+
+async fn donki_array(
+    client: &reqwest::Client,
+    endpoint: &str,
+    start_date: &str,
+    end_date: &str,
+    nasa_key: &str,
+) -> Option<Vec<serde_json::Value>> {
+    let url = format!("{NASA_BASE}/DONKI/{endpoint}?startDate={start_date}&endDate={end_date}&api_key={nasa_key}");
     client
         .get(&url)
         .header("Accept", "application/json")
@@ -79,21 +117,125 @@ async fn donki_array(client: &reqwest::Client, endpoint: &str, date: &str, nasa_
 async fn poll_event_occurred(client: &reqwest::Client, bet_type: &str, date: &str, nasa_key: &str) -> Option<bool> {
     match bet_type {
         "cme" => {
-            let arr = donki_array(client, "CME", date, nasa_key).await?;
+            let arr = donki_array(client, "CME", date, date, nasa_key).await?;
             Some(!arr.is_empty())
         }
         "xflare" => {
-            let arr = donki_array(client, "FLR", date, nasa_key).await?;
+            let arr = donki_array(client, "FLR", date, date, nasa_key).await?;
             Some(arr.iter().any(|e| {
                 e["classType"].as_str().map_or(false, |c| c.starts_with('X'))
             }))
         }
         "gstorm" => {
-            let arr = donki_array(client, "GST", date, nasa_key).await?;
+            let arr = donki_array(client, "GST", date, date, nasa_key).await?;
             Some(!arr.is_empty())
         }
         _ => None,
     }
+}
+
+// ── Live odds ─────────────────────────────────────────────────────────────────
+
+async fn fetch_gstorm_prob(client: &reqwest::Client) -> Option<f64> {
+    let arr: Vec<serde_json::Value> = client
+        .get(SWPC_KP_URL)
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
+
+    let today = today_utc_ymd();
+    let today_entries: Vec<&serde_json::Value> = arr.iter()
+        .filter(|e| e["time_tag"].as_str().map_or(false, |t| t.starts_with(&today)))
+        .collect();
+
+    // Storm already occurred today — high confidence win.
+    if today_entries.iter().any(|e| {
+        e["observed"].as_str() == Some("observed")
+            && e["kp"].as_f64().map_or(false, |kp| kp >= 5.0)
+    }) {
+        return Some(0.93);
+    }
+
+    let uncertain: Vec<&&serde_json::Value> = today_entries.iter().filter(|e| {
+        matches!(e["observed"].as_str(), Some("predicted") | Some("estimated"))
+    }).collect();
+
+    if uncertain.is_empty() {
+        // All slots observed, none hit Kp 5 — storm not happening today.
+        return Some(0.03);
+    }
+
+    let storm_slots = uncertain.iter()
+        .filter(|e| e["kp"].as_f64().map_or(false, |kp| kp >= 5.0))
+        .count();
+
+    Some((storm_slots as f64 / uncertain.len() as f64).max(0.03))
+}
+
+async fn donki_base_rate<F>(
+    client: &reqwest::Client,
+    endpoint: &str,
+    filter: F,
+    nasa_key: &str,
+) -> Option<f64>
+where
+    F: Fn(&serde_json::Value) -> bool,
+{
+    use chrono::{Duration, Utc};
+    let end = Utc::now();
+    let start = end - Duration::days(DONKI_WINDOW_DAYS);
+    let start_str = start.format("%Y-%m-%d").to_string();
+    let end_str = end.format("%Y-%m-%d").to_string();
+    let arr = donki_array(client, endpoint, &start_str, &end_str, nasa_key).await?;
+    let count = arr.iter().filter(|e| filter(e)).count();
+    Some(count as f64 / DONKI_WINDOW_DAYS as f64)
+}
+
+async fn fetch_sw_odds_live(client: &reqwest::Client, nasa_key: &str) -> SwOdds {
+    let gstorm_p = fetch_gstorm_prob(client).await.unwrap_or(0.2);
+
+    let cme_p = donki_base_rate(client, "CME", |_| true, nasa_key)
+        .await
+        .unwrap_or(0.55);
+
+    let xflare_p = donki_base_rate(
+        client, "FLR",
+        |e| e["classType"].as_str().map_or(false, |c| c.starts_with('X')),
+        nasa_key,
+    )
+    .await
+    .unwrap_or(0.08);
+
+    SwOdds {
+        cme: prob_to_mult(cme_p),
+        xflare: prob_to_mult(xflare_p),
+        gstorm: prob_to_mult(gstorm_p),
+    }
+}
+
+async fn load_odds(state: &AzaleaState, client: &reqwest::Client, nasa_key: &str) -> SwOdds {
+    if nasa_key.trim().is_empty() {
+        return FALLBACK_ODDS;
+    }
+
+    {
+        let lock = state.sw_odds_cache.lock().expect("sw_odds_cache lock");
+        if let Some((odds, fetched_at)) = *lock {
+            if now_unix().saturating_sub(fetched_at) < ODDS_CACHE_TTL {
+                return odds;
+            }
+        }
+    }
+
+    let odds = fetch_sw_odds_live(client, nasa_key).await;
+    {
+        let mut lock = state.sw_odds_cache.lock().expect("sw_odds_cache lock");
+        *lock = Some((odds, now_unix()));
+    }
+    odds
 }
 
 // ── Command entry ─────────────────────────────────────────────────────────────
@@ -101,19 +243,23 @@ async fn poll_event_occurred(client: &reqwest::Client, bet_type: &str, date: &st
 fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let first = ctx.args.first().copied().unwrap_or("");
-        match first {
-            "" => show_types(&ctx),
-            "bets" | "my" => show_bets(&ctx).await?,
-            _ => place_bet(&ctx).await?,
+        if first.is_empty() {
+            show_types(&ctx).await;
+        } else if first == "bets" || first == "my" {
+            show_bets(&ctx).await?;
+        } else {
+            place_bet(&ctx).await?;
         }
         Ok(())
     })
 }
 
-fn show_types(ctx: &CommandContext<'_>) {
+async fn show_types(ctx: &CommandContext<'_>) {
     let p = &ctx.runtime.prefix;
+    let nasa_key = ctx.runtime.nasa_api_key.clone();
+    let odds = load_odds(ctx.state, &ctx.state.http, &nasa_key).await;
     let kinds: Vec<String> = BET_KINDS.iter()
-        .map(|k| format!("{} {:.1}x", k.slug, k.multiplier))
+        .map(|k| format!("{} {:.2}x", k.slug, odds.for_type(k.slug)))
         .collect();
     ctx.whisper(format!(
         "Space Weather bets: {} | Settles midnight UTC | {p}spaceweather <type> <chips>",
@@ -156,7 +302,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
     let (Some(&type_s), Some(&amt_s)) = (ctx.args.first(), ctx.args.get(1)) else {
-        show_types(ctx);
+        show_types(ctx).await;
         return Ok(());
     };
     let Some(kind) = find_kind(type_s) else {
@@ -174,6 +320,11 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
+
+    let nasa_key = ctx.runtime.nasa_api_key.clone();
+    let odds = load_odds(ctx.state, &ctx.state.http, &nasa_key).await;
+    let multiplier = odds.for_type(kind.slug);
+
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
         ctx.whisper("Could not resolve your UUID.");
         return Ok(());
@@ -195,7 +346,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         player: player_uuid.clone(),
         bet_type: kind.slug.to_owned(),
         stake,
-        multiplier: kind.multiplier,
+        multiplier,
         settle_at,
     };
     match ctx.state.api.casino_nasa_space_weather_bet_insert(&bet).await {
@@ -214,17 +365,16 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         let mut bets = ctx.state.nasa_space_weather_bets.lock().expect("nasa_space_weather_bets lock");
         bets.entry(player_uuid.clone()).or_default().push(bet.clone());
     }
-    let payout = (stake as f64 * kind.multiplier) as i64;
+    let payout = (stake as f64 * multiplier) as i64;
     ctx.whisper(format!(
-        "[SpaceWX] {} | {} | {:.1}x | profit if YES: +{} | settles {}",
+        "[SpaceWX] {} | {} | {:.2}x | profit if YES: +{} | settles {}",
         kind.label,
         chips_str(stake),
-        kind.multiplier,
+        multiplier,
         chips_str(payout - stake),
         fmt_close(settle_at),
     ));
     let wcmd = ctx.runtime.whisper_command.clone();
-    let nasa_key = ctx.runtime.nasa_api_key.clone();
     tokio::spawn(settle_task(ctx.state.clone(), wcmd, nasa_key, bet));
     Ok(())
 }
@@ -257,14 +407,14 @@ pub async fn settle_task(
     };
     if !claimed { return; }
 
-    let client = reqwest::Client::new();
+    let client = &state.http;
 
     // Settle date = the day before midnight (i.e. the day the bet was placed on)
     let settle_date = unix_to_ymd(bet.settle_at - 86400);
 
     let deadline = now_unix() + MAX_POLL_SECS;
     let result: Option<bool> = loop {
-        match poll_event_occurred(&client, &bet.bet_type, &settle_date, &nasa_api_key).await {
+        match poll_event_occurred(client, &bet.bet_type, &settle_date, &nasa_api_key).await {
             Some(r) => break Some(r),
             None => {
                 if now_unix() >= deadline { break None; }
@@ -284,7 +434,7 @@ pub async fn settle_task(
                 eprintln!("[SpaceWX settle] casino_adjust failed for {}: {e:?}", bet.player);
             }
             format!(
-                "[SpaceWX] {} — YES. WIN +{} ({} @ {:.1}x).",
+                "[SpaceWX] {} — YES. WIN +{} ({} @ {:.2}x).",
                 label,
                 chips_str(payout - bet.stake),
                 chips_str(bet.stake),

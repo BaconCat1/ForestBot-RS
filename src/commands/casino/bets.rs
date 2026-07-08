@@ -43,7 +43,11 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             let close_time = row["close_time"].as_u64().unwrap_or(0);
             let payout     = (stake as f64 / price).floor() as i64;
             let label      = describe_bet(bet_type, row);
-            let bracket = if bet_type == "launch" { "ROCKET".to_owned() } else { bet_type.to_uppercase() };
+            let bracket = match bet_type {
+                "launch" => "ROCKET".to_owned(),
+                "nasa"   => "SPACEWX".to_owned(),
+                other    => other.to_uppercase(),
+            };
             ctx.whisper(format!(
                 "[{}] {} {} → pays {} | T-{}",
                 bracket, label, chips_str(stake), chips_str(payout),
@@ -68,6 +72,10 @@ fn describe_bet(bet_type: &str, row: &serde_json::Value) -> String {
             let name = row["train_name"].as_str().unwrap_or("?");
             let short = row["location"].as_str().map(|s| &s[..s.len().min(8)]).unwrap_or("?");
             format!("[{}] {} {}", short, &name[..name.len().min(20)], side.to_uppercase())
+        }
+        "nasa" => {
+            let subtype = row["nasa_subtype"].as_str().unwrap_or("?");
+            subtype.to_uppercase()
         }
         "gas" => {
             let region = row["train_name"].as_str().unwrap_or("?");

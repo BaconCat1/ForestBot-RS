@@ -15,7 +15,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 const MIN_BET: i64 = 10;
 const MAX_BET: i64 = 5_000;
-const HOUSE_EDGE: f64 = 0.99; // 1% house edge per prediction
+const HOUSE_EDGE: f64 = 0.97; // 3% house rake per prediction
 
 fn rank_name(r: u8) -> &'static str {
     match r {

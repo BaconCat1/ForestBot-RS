@@ -70,10 +70,11 @@ fn is_delayed_legacy(delay_mins: i64) -> bool {
 
 // Currently delayed → ontime harder; on time → delayed harder.
 fn compute_odds(currently_delayed: bool) -> (f64, f64) {
+    const RAKE: f64 = 0.03;
     if currently_delayed {
-        (0.33, 0.67)
+        (0.33 / (1.0 - RAKE), 0.67 / (1.0 - RAKE))
     } else {
-        (0.67, 0.33)
+        (0.67 / (1.0 - RAKE), 0.33 / (1.0 - RAKE))
     }
 }
 

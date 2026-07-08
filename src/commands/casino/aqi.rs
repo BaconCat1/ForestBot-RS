@@ -13,7 +13,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 };
 
 const MIN_BET: i64 = 25;
-const HOUSE_EDGE: f64 = 0.05;
+const HOUSE_EDGE: f64 = 0.03;
 const SETTLE_SECS: u64 = 24 * 3600; // 24h
 const AIRNOW_BASE: &str = "https://www.airnowapi.org/aq";
 const TIMEOUT_SECS: u64 = 10;
@@ -185,9 +185,13 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 }
 
 async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
+    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+        ctx.whisper("Could not resolve your UUID.");
+        return Ok(());
+    };
     let bets = {
         let map = ctx.state.aqi_bets.lock().unwrap();
-        map.get(&ctx.sender.to_string()).cloned().unwrap_or_default()
+        map.get(&player_uuid).cloned().unwrap_or_default()
     };
     if bets.is_empty() {
         ctx.whisper("No open AQI bets.");
@@ -281,8 +285,13 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
         Err(_) => return Ok(()), // no chips = preview only
     };
 
+    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+        ctx.whisper("Could not resolve your UUID.");
+        return Ok(());
+    };
+
     // Deduct chips
-    match ctx.state.api.casino_adjust(&ctx.sender.to_string(), -chips).await {
+    match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper(format!("Not enough chips (have {}).", chips_str(have)));
             return Ok(());
@@ -294,7 +303,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     let close_time = now_unix() + SETTLE_SECS;
     let mut bet = AqiBet {
         id: 0,
-        player: ctx.sender.to_string(),
+        player: player_uuid.clone(),
         zip: zip.clone(),
         area: area.clone(),
         side: side.clone(),
@@ -307,8 +316,8 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     match id {
         Some(i) => bet.id = i,
         None => {
-            if let Err(e) = ctx.state.api.casino_adjust(&ctx.sender.to_string(), chips).await {
-                eprintln!("[AQI] refund failed for {}: {e:?}", ctx.sender);
+            if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, chips).await {
+                eprintln!("[AQI] refund failed for {player_uuid}: {e:?}");
                 ctx.whisper("Failed to record bet. Refund also failed — contact an admin.");
             } else {
                 ctx.whisper("Failed to record bet. Chips refunded.");
@@ -328,7 +337,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     ));
 
     ctx.state.aqi_bets.lock().unwrap()
-        .entry(ctx.sender.to_string())
+        .entry(player_uuid.clone())
         .or_default()
         .push(bet.clone());
 
@@ -353,8 +362,7 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
     if !claimed { return; }
 
     let key = state.runtime.read().expect("runtime lock").airnow_api_key.clone();
-    let client = reqwest::Client::new();
-    let readings = fetch_current(&client, &bet.zip, &key).await.ok();
+    let readings = fetch_current(&state.http, &bet.zip, &key).await.ok();
 
     state.api.casino_aqi_bet_delete(bet.id).await;
 
