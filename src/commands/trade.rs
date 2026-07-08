@@ -23,6 +23,7 @@ pub fn execute_trade(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         match ctx.args.first().copied() {
             Some("confirm") | Some("c") => confirm_trade(&ctx).await,
             Some("reject") | Some("r") => reject_trade(&ctx).await,
+            Some("preview") => preview_trade(&ctx).await,
             _ => propose_trade(&ctx).await,
         }
     })
@@ -59,7 +60,10 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let existing = ctx.state.api.tradebot_get_user_trades(&sender_uuid).await;
     if existing.iter().any(|t| t.status == "pending" && t.initiator_id == sender_uuid) {
-        ctx.whisper(&format!("You already have a pending trade. Cancel it with {}trade reject.", ctx.runtime.prefix));
+        ctx.whisper(&format!(
+            "You already have a pending trade. Run {}trade preview to see it, or {}trade reject to cancel it.",
+            ctx.runtime.prefix, ctx.runtime.prefix
+        ));
         return Ok(());
     }
 
@@ -165,6 +169,59 @@ async fn reject_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             }
         }
         Err(msg) => ctx.whisper(format!("Could not reject: {msg}")),
+    }
+
+    Ok(())
+}
+
+async fn preview_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
+    let sender_uuid = match resolve_target_uuid(ctx, ctx.sender).await {
+        Some(u) => u,
+        None => {
+            ctx.whisper("Could not resolve your UUID.");
+            return Ok(());
+        }
+    };
+
+    let trades = ctx.state.api.tradebot_get_user_trades(&sender_uuid).await;
+    let pending: Vec<_> = trades.iter().filter(|t| t.status == "pending").collect();
+
+    if pending.is_empty() {
+        ctx.whisper("No pending trade.");
+        return Ok(());
+    }
+
+    for trade in pending {
+        let (init_name, recv_name) = {
+            let players = ctx.state.players.read().expect("player cache lock poisoned");
+            let init = if trade.initiator_id == sender_uuid {
+                ctx.sender.to_owned()
+            } else {
+                uuid_to_name(&trade.initiator_id, &players)
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| trade.initiator_id.chars().take(8).collect())
+            };
+            let recv = if trade.recipient_id == sender_uuid {
+                ctx.sender.to_owned()
+            } else {
+                uuid_to_name(&trade.recipient_id, &players)
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| trade.recipient_id.chars().take(8).collect())
+            };
+            (init, recv)
+        };
+
+        let role = if trade.initiator_id == sender_uuid {
+            format!("run {}trade reject to cancel", ctx.runtime.prefix)
+        } else {
+            format!("run {}trade confirm or {}trade reject", ctx.runtime.prefix, ctx.runtime.prefix)
+        };
+
+        ctx.whisper(format!(
+            "#{} [{init_name}→{recv_name}] {} | {role}",
+            trade.id,
+            truncate(&trade.description, 120)
+        ));
     }
 
     Ok(())

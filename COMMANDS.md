@@ -2,7 +2,7 @@
 
 # ForestBot Commands
 
-**107 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md). Gods and corpora in [GODS.md](GODS.md).
+**108 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md). Gods and corpora in [GODS.md](GODS.md).
 
 ## General
 
@@ -158,6 +158,7 @@ See [CASINO.md](CASINO.md) for all casino games, market paper trading, and duel 
 | `!trade <player> <description>` / `!t <player> <description>` | Propose a trade; whispers the recipient |
 | `!trade confirm` / `!t c` | Confirm the pending trade addressed to you |
 | `!trade reject` / `!t r` | Reject a pending trade you're part of |
+| `!trade preview` | Whispers your current pending trade — who it's with, description, and next steps |
 | `!trades <player?>` | Show last 3 trades (whispered) |
 | `!tradestats <player?>` | Show confirmed/rejected count in public chat |
 | `!tradestats full <player?>` | Full trade statistics (whispered) |

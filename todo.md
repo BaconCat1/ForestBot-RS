@@ -119,7 +119,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~optimize db calls for efficiency~~ // `top messages`: was N Hub calls → new Hub `GET /top-messages` (single SQL GROUP BY); `top slurcount`: was N×M calls → new Hub `GET /top-slurcount` (single SQL SUM of REGEXP per word); kills/deaths/joins/playtime/trades/rejects already single-call; advancements already uses leaderboard endpoint
 
 ## !trade
-* 🆕 !trade preview, let you see the proposed trade that's preventing you from making a new one, prompt people when they hit that snag
+* ✅ ~~!trade preview, let you see the proposed trade that's preventing you from making a new one, prompt people when they hit that snag~~ // `!trade preview` whispers pending trade details + next steps; propose error now hints about preview
 
 ## casino
 * ✅ casino style games, create ethereal "chips" currency to go along side them 
@@ -194,7 +194,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🆕 !afk, let you set a response if people say your name at the beginning of a message or whisper to you, resets if you talk in chat or disconnect.
 * 🆕 !poll, popular enough in other bots to warrant inclusion, might end up disabled like `fadvs`. Needs high cooldown, 5 min minimum
 * 🆕 !tps, if azalea/minecraft or wtv lets you see server performance, report it via a command
-* ✅ ~~!url, don't webpages have some seo text built in by default? if so, leverage that for a text only preview of a url, so you can see what it is without having to leave the game.~~ // working, needs some fall back and further testing
+* ✅ ~~!url, don't webpages have some seo text built in by default? if so, leverage that for a text only preview of a url, so you can see what it is without having to leave the game.~~ // ~~working, needs some fall back and further testing~~
 
 ---
 

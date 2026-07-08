@@ -23,7 +23,10 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         }
 
-        let url = ctx.args[0];
+        // Some MC servers mangle "https://" → "https: //" in chat to prevent clickable links.
+        // Rejoin args and normalize so both forms work.
+        let url_owned = ctx.args.join("").replace(": //", "://");
+        let url = url_owned.as_str();
 
         // Blocklist check — refuse if still loading; clone so guard drops before awaits
         let blocklist = {
