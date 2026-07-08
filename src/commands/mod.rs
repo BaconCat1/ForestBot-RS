@@ -36,6 +36,14 @@ pub mod trivia;
 pub mod weather;
 pub mod wiki;
 pub mod pearl;
+pub mod casino;
+pub mod battleship;
+pub mod checkers;
+pub mod reversi;
+pub mod duel;
+pub mod market;
+pub mod wordle;
+pub mod roast;
 
 use crate::structure::mineflayer::bot::{AzaleaState, RuntimeConfig};
 
@@ -247,6 +255,45 @@ pub fn registry() -> &'static [CommandDefinition] {
         trivia::TRIVIA_COMMAND,
         trivia::ANSWER_COMMAND,
         pearl::COMMAND,
+        casino::ADDCHIPS_COMMAND,
+        casino::FAUCET_COMMAND,
+        casino::GIVE_COMMAND,
+        casino::WALLET_COMMAND,
+        casino::JACKPOT_COMMAND,
+        casino::LOTTO_COMMAND,
+        casino::DRAW_COMMAND,
+        casino::roulette::COMMAND,
+        casino::scratch::COMMAND,
+        casino::craps::COMMAND,
+        casino::sic_bo::COMMAND,
+        casino::baccarat::COMMAND,
+        casino::faa_airport::COMMAND,
+        casino::kalshi::COMMAND,
+        casino::nasa_space_weather::COMMAND,
+        casino::noaa_flooding::COMMAND,
+        casino::train::COMMAND,
+        casino::seismic::QUAKE_COMMAND,
+        casino::seismic::VOLCANO_COMMAND,
+        casino::blackjack::COMMAND,
+        casino::poker::COMMAND,
+        casino::chess::COMMAND,
+        casino::connect_four::COMMAND,
+        casino::hilo::COMMAND,
+        casino::slots::COMMAND,
+        casino::sports::COMMAND,
+        market::COMMAND,
+        market::PORTFOLIO_COMMAND,
+        duel::COMMAND,
+        wordle::COMMAND,
+        roast::COMMAND,
+        battleship::COMMAND,
+        casino::mines::COMMAND,
+        casino::aqi::COMMAND,
+        casino::launch::COMMAND,
+        casino::gas::COMMAND,
+        casino::bets::COMMAND,
+        checkers::COMMAND,
+        reversi::COMMAND,
     ]
 }
 

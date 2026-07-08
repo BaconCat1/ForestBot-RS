@@ -1,4 +1,5 @@
 /target
+/_tainted_archive/*
 .env
 config.json
 /ForestBot
@@ -47,3 +48,4 @@ godtexts/scratchpad.txt
 godtexts/commofchr.txt.zst
 FADVS.md
 godtexts/meherbaba.txt.zst
+gasbuddy_token.json

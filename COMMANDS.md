@@ -1,4 +1,8 @@
+
+
 # ForestBot Commands
+
+**106 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md). Gods and corpora in [GODS.md](GODS.md).
 
 ## General
 
@@ -112,6 +116,7 @@
 | `!shout <message>` | Broadcast to all connected servers (not enabled) |
 | `!nickname <name>` | Change bot's in-game nickname |
 | `!febzey` | 🤷 |
+| `!roast <username\|server>` | AI-generated roast of a player or server based on their stats (5 min cooldown, requires together_api_key) |
 | `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, specify a god below (75 corpora), or ask a multi-word question for an oracle response |
 | `!listgods` / `!gods` | List one god per corpus with its trigger word |
 | `!searchgod` / `!godsearch` / `!sgod <words>` | Search sacred texts for a keyword or phrase |
@@ -119,8 +124,6 @@
 | `!godstats` | Show corpora count, size, compression ratio, verse count, load time, total god aliases |
 | `!godfight <god1> <god2> <keyword?>` | Two gods, one verse each — keyword narrows both draws to matching verses |
 | `!weather` / `!w <city>` | Current weather for any location — temp, feels-like, conditions, wind, humidity (Open-Meteo, no API key needed) |
-| `!trivia` | Start a trivia round — question posted publicly, all players have 15 seconds to `!answer`. Summary posted at close; late answers whispered the correct answer. |
-| `!answer <choice>` | Answer the active trivia round. Use A/B/C/D for multiple choice, true/false for T/F questions. |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
 | `!greeting` | Whispers format info + your current greeting |
 | `!greeting <message>` | Set your join greeting — fires as `"<message>, YourName!"` (12h cooldown, ASCII only) |
@@ -143,6 +146,10 @@
 
 See [GODS.md](GODS.md) for the full list of 75 corpora and their trigger words.
 
+## Casino, Market & Duels
+
+See [CASINO.md](CASINO.md) for all casino games, market paper trading, and duel commands.
+
 ## Trades
 
 | Command | Description |
@@ -160,7 +167,7 @@ See [GODS.md](GODS.md) for the full list of 75 corpora and their trigger words.
 
 Cooldowns: 60s to re-propose after a trade. If someone rejects your proposal, you're locked out for 10 minutes.
 
-## Stasis Pearl
+## Stasis Pearl (using [pearlbot](https://github.com/jollycurv-e/pearlbot))
 
 | Command | Description |
 |---|---|

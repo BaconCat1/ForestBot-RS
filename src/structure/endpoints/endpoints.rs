@@ -656,6 +656,897 @@ impl ApiClient {
         }
     }
 
+    // ── Casino API ────────────────────────────────────────────────────────────
+
+    pub async fn casino_get_balance(&self, player_uuid: &str) -> Option<CasinoBalance> {
+        self.get_json(&format!("/casino/balance/{player_uuid}"), &[])
+            .await
+            .and_then(|v| self.parse_json("/casino/balance", v))
+    }
+
+    pub async fn casino_faucet(&self, player_uuid: &str) -> CasinoFaucetResult {
+        let Some(v) = self
+            .post_json("/casino/faucet", json!({ "player_uuid": player_uuid }))
+            .await
+        else {
+            return CasinoFaucetResult::Err;
+        };
+        if v.get("error").and_then(|e| e.as_str()) == Some("cooldown") {
+            let next_secs = v
+                .get("next_claim_secs")
+                .and_then(|s| s.as_u64())
+                .unwrap_or(0);
+            return CasinoFaucetResult::OnCooldown { next_secs };
+        }
+        CasinoFaucetResult::Awarded {
+            chips_awarded: v.get("chips_awarded").and_then(|c| c.as_i64()).unwrap_or(0),
+            streak: v.get("streak").and_then(|s| s.as_i64()).unwrap_or(0) as i32,
+            chips: v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0),
+            lotto_pick: v.get("lotto_pick").and_then(|p| p.as_str()).unwrap_or("").to_owned(),
+            draw_date: v.get("draw_date").and_then(|d| d.as_str()).unwrap_or("").to_owned(),
+        }
+    }
+
+    pub async fn casino_adjust(
+        &self,
+        player_uuid: &str,
+        delta: i64,
+    ) -> Result<i64, CasinoAdjustErr> {
+        let Some(v) = self
+            .post_json("/casino/adjust", json!({ "player_uuid": player_uuid, "delta": delta }))
+            .await
+        else {
+            return Err(CasinoAdjustErr::NetworkErr);
+        };
+        if v.get("error").and_then(|e| e.as_str()) == Some("insufficient_funds") {
+            let chips = v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0);
+            return Err(CasinoAdjustErr::InsufficientFunds(chips));
+        }
+        Ok(v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0))
+    }
+
+    pub async fn casino_transfer(
+        &self,
+        from_uuid: &str,
+        to_uuid: &str,
+        amount: i64,
+    ) -> Result<(), String> {
+        let Some(v) = self
+            .post_json(
+                "/casino/transfer",
+                json!({ "from_uuid": from_uuid, "to_uuid": to_uuid, "amount": amount }),
+            )
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(match err {
+                "insufficient_funds" => {
+                    let chips = v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0);
+                    format!("Not enough chips (have {chips})")
+                }
+                other => other.to_owned(),
+            });
+        }
+        Ok(())
+    }
+
+    pub async fn casino_free_scratch(&self, player_uuid: &str) -> CasinoScratchResult {
+        let Some(v) = self
+            .post_json("/casino/scratch/free", json!({ "player_uuid": player_uuid }))
+            .await
+        else {
+            return CasinoScratchResult::Err;
+        };
+        if v.get("error").and_then(|e| e.as_str()) == Some("cooldown") {
+            let next_secs = v
+                .get("next_scratch_secs")
+                .and_then(|s| s.as_u64())
+                .unwrap_or(0);
+            return CasinoScratchResult::OnCooldown { next_secs };
+        }
+        CasinoScratchResult::Ok
+    }
+
+    pub async fn casino_jackpot_get(&self, player: Option<&str>) -> Option<CasinoJackpotInfo> {
+        let v = match player {
+            Some(p) => self.get_json("/casino/jackpot", &[("player_uuid", p)]).await?,
+            None => self.get_json("/casino/jackpot", &[]).await?,
+        };
+        Some(CasinoJackpotInfo {
+            pot: v.get("pot").and_then(|p| p.as_i64()).unwrap_or(0),
+            tickets: v.get("tickets").and_then(|t| t.as_i64()).unwrap_or(0) as i32,
+            next_draw: v.get("next_draw").and_then(|d| d.as_str()).unwrap_or("").to_owned(),
+        })
+    }
+
+    pub async fn casino_jackpot_buy_ticket(
+        &self,
+        player_uuid: &str,
+        count: u32,
+    ) -> Result<CasinoJackpotInfo, String> {
+        let Some(v) = self
+            .post_json("/casino/jackpot/ticket", json!({ "player_uuid": player_uuid, "count": count }))
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(match err {
+                "insufficient_funds" => format!("Not enough chips (25 each, {} total)", 25 * count as i64),
+                other => other.to_owned(),
+            });
+        }
+        Ok(CasinoJackpotInfo {
+            pot: v.get("pot").and_then(|p| p.as_i64()).unwrap_or(0),
+            tickets: v.get("tickets").and_then(|t| t.as_i64()).unwrap_or(0) as i32,
+            next_draw: v.get("next_draw").and_then(|d| d.as_str()).unwrap_or("").to_owned(),
+        })
+    }
+
+    pub async fn casino_jackpot_rake(&self, amount: i64) {
+        let _ = self
+            .post_json("/casino/jackpot/rake", json!({ "amount": amount }))
+            .await;
+    }
+
+    pub async fn casino_claim_notifications(&self, player_uuid: &str) -> Vec<String> {
+        let Some(v) = self
+            .post_json("/casino/notifications/claim", json!({ "player_uuid": player_uuid }))
+            .await
+        else {
+            return vec![];
+        };
+        v.get("messages")
+            .and_then(|m| m.as_array())
+            .map(|arr| arr.iter().filter_map(|s| s.as_str().map(str::to_owned)).collect())
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_add_notification(&self, player_uuid: &str, message: &str) {
+        let _ = self
+            .post_json("/casino/notifications/add", json!({ "player_uuid": player_uuid, "message": message }))
+            .await;
+    }
+
+    pub async fn casino_lotto_get_tickets(&self, player_uuid: &str) -> Vec<CasinoLottoPlayerTicket> {
+        let Some(v) = self.get_json(&format!("/casino/lotto/tickets/{player_uuid}"), &[]).await else {
+            return vec![];
+        };
+        v.get("tickets")
+            .and_then(|t| t.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    Some(CasinoLottoPlayerTicket {
+                        numbers: item.get("numbers")?.as_str()?.to_owned(),
+                        draw_date: item.get("draw_date")?.as_str()?.to_owned(),
+                    })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_lotto_get_pot(&self) -> Option<CasinoLottoPot> {
+        let v = self.get_json("/casino/lotto/pot", &[]).await?;
+        Some(CasinoLottoPot {
+            pot: v.get("pot").and_then(|p| p.as_i64()).unwrap_or(0),
+            draw_date: v.get("draw_date").and_then(|d| d.as_str()).map(|s| s.to_owned()),
+        })
+    }
+
+    pub async fn casino_lotto_last_draw(&self) -> Option<CasinoLastLottoDraw> {
+        let v = self.get_json("/casino/lotto/results/last", &[]).await?;
+        Some(CasinoLastLottoDraw {
+            draw_date: v.get("draw_date")?.as_str()?.to_owned(),
+            numbers: v.get("numbers")?.as_str()?.to_owned(),
+        })
+    }
+
+    pub async fn casino_fire_lotto_draw(&self) -> bool {
+        self.post_json("/casino/draw/lotto", json!({})).await.is_some()
+    }
+
+    pub async fn casino_fire_jackpot_draw(&self) -> bool {
+        self.post_json("/casino/draw/jackpot", json!({})).await.is_some()
+    }
+
+    pub async fn casino_lotto_buy_ticket(
+        &self,
+        player_uuid: &str,
+        numbers: &str,
+    ) -> Result<CasinoLottoTicketInfo, String> {
+        let Some(v) = self
+            .post_json(
+                "/casino/lotto/ticket",
+                json!({ "player_uuid": player_uuid, "numbers": numbers }),
+            )
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(match err {
+                "insufficient_funds" => "Not enough chips (costs 50)".to_owned(),
+                "invalid_numbers" => "Pick 5 unique numbers between 1-40".to_owned(),
+                other => other.to_owned(),
+            });
+        }
+        Ok(CasinoLottoTicketInfo {
+            numbers: v.get("numbers").and_then(|n| n.as_str()).unwrap_or("").to_owned(),
+            draw_date: v.get("draw_date").and_then(|d| d.as_str()).unwrap_or("").to_owned(),
+            pot: v.get("pot").and_then(|p| p.as_i64()).unwrap_or(0),
+            chips: v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0),
+        })
+    }
+
+    pub async fn casino_lotto_buy_quick(
+        &self,
+        player_uuid: &str,
+        count: u32,
+    ) -> Result<CasinoLottoBulkInfo, String> {
+        let Some(v) = self
+            .post_json("/casino/lotto/ticket", json!({ "player_uuid": player_uuid, "count": count }))
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(match err {
+                "insufficient_funds" => format!("Not enough chips (50 each, {} total)", 50 * count as i64),
+                other => other.to_owned(),
+            });
+        }
+        let tickets = v.get("tickets")
+            .and_then(|t| t.as_array())
+            .map(|arr| arr.iter().filter_map(|s| s.as_str().map(str::to_owned)).collect())
+            .unwrap_or_default();
+        Ok(CasinoLottoBulkInfo {
+            tickets,
+            draw_date: v.get("draw_date").and_then(|d| d.as_str()).unwrap_or("").to_owned(),
+            pot: v.get("pot").and_then(|p| p.as_i64()).unwrap_or(0),
+            chips: v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0),
+        })
+    }
+
+    pub async fn casino_market_bet_insert(&self, bet: &crate::structure::market::types::MarketBet) -> Option<i64> {
+        use crate::structure::market::types::{Direction, MarketKind};
+        let v = self.post_json(
+            "/casino/market-bet",
+            json!({
+                "player_uuid": bet.player,
+                "symbol": bet.symbol,
+                "market": if bet.market == MarketKind::Crypto { "crypto" } else { "stock" },
+                "direction": if bet.direction == Direction::Long { "long" } else { "short" },
+                "entry_price": bet.entry_price,
+                "stake": bet.stake,
+                "closes_unix": bet.closes_unix,
+                "duration_label": bet.duration_label,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_market_bet_list(&self) -> Vec<crate::structure::market::types::MarketBet> {
+        use crate::structure::market::types::{Direction, MarketBet, MarketKind};
+        let Some(v) = self.get_json("/casino/market-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| arr.iter().filter_map(|item| {
+                let id = item.get("id")?.as_i64()?;
+                let player = item.get("player_uuid")?.as_str()?.to_owned();
+                let symbol = item.get("symbol")?.as_str()?.to_owned();
+                let market = match item.get("market")?.as_str()? {
+                    "crypto" => MarketKind::Crypto,
+                    _ => MarketKind::Stock,
+                };
+                let direction = match item.get("direction")?.as_str()? {
+                    "long" => Direction::Long,
+                    _ => Direction::Short,
+                };
+                let entry_price = item.get("entry_price")?.as_f64()?;
+                let stake = item.get("stake")?.as_i64()?;
+                let closes_unix = item.get("closes_unix")?.as_u64()?;
+                let duration_label = item.get("duration_label")?.as_str()?.to_owned();
+                Some(MarketBet { id, player, symbol, market, direction, entry_price, stake, closes_unix, duration_label })
+            }).collect())
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_market_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/market-bet/{id}")).await;
+    }
+
+    pub async fn casino_weather_bet_insert(&self, bet: &crate::commands::weather::WeatherBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/weather-bet",
+            json!({
+                "player_uuid": bet.player,
+                "bet_type": bet.bet_type,
+                "city": bet.city,
+                "latitude": bet.latitude,
+                "longitude": bet.longitude,
+                "direction": bet.direction,
+                "threshold": bet.threshold,
+                "unit": bet.unit,
+                "forecast_prob": bet.forecast_prob,
+                "payout_mult": bet.payout_mult,
+                "stake": bet.stake,
+                "closes_unix": bet.closes_unix,
+                "duration_label": bet.duration_label,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_weather_bet_list(&self) -> Vec<crate::commands::weather::WeatherBet> {
+        use crate::commands::weather::WeatherBet;
+        let Some(v) = self.get_json("/casino/weather-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| arr.iter().filter_map(|item| {
+                let id = item.get("id")?.as_i64()?;
+                let player = item.get("player_uuid")?.as_str()?.to_owned();
+                let bet_type = item.get("bet_type")?.as_str().unwrap_or("rain").to_owned();
+                let city = item.get("city")?.as_str()?.to_owned();
+                let latitude = item.get("latitude")?.as_f64()?;
+                let longitude = item.get("longitude")?.as_f64()?;
+                let direction = item.get("direction")?.as_str()?.to_owned();
+                let threshold = item.get("threshold").and_then(|v| v.as_f64());
+                let unit = item.get("unit").and_then(|v| v.as_str()).map(|s| s.to_owned());
+                let forecast_prob = item.get("forecast_prob")?.as_u64()? as u8;
+                let payout_mult = item.get("payout_mult")?.as_f64()?;
+                let stake = item.get("stake")?.as_i64()?;
+                let closes_unix = item.get("closes_unix")?.as_u64()?;
+                let duration_label = item.get("duration_label")?.as_str()?.to_owned();
+                Some(WeatherBet { id, player, bet_type, city, latitude, longitude, direction, threshold, unit, forecast_prob, payout_mult, stake, closes_unix, duration_label })
+            }).collect())
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_weather_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/weather-bet/{id}")).await;
+    }
+
+    pub async fn casino_sports_bet_insert(&self, bet: &crate::commands::casino::sports::SportsBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/sports-bet",
+            json!({
+                "player_uuid": bet.player,
+                "event_id": bet.event_id,
+                "sport": bet.sport,
+                "home_team": bet.home_team,
+                "away_team": bet.away_team,
+                "selection": bet.selection,
+                "payout_mult": bet.payout_mult,
+                "stake": bet.stake,
+                "start_unix": bet.start_unix,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_sports_bet_list(&self) -> Vec<crate::commands::casino::sports::SportsBet> {
+        use crate::commands::casino::sports::SportsBet;
+        let Some(v) = self.get_json("/casino/sports-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| arr.iter().filter_map(|item| {
+                let id = item.get("id")?.as_i64()?;
+                let player = item.get("player_uuid")?.as_str()?.to_owned();
+                let event_id = item.get("event_id")?.as_str()?.to_owned();
+                let sport = item.get("sport")?.as_str()?.to_owned();
+                let home_team = item.get("home_team")?.as_str()?.to_owned();
+                let away_team = item.get("away_team")?.as_str()?.to_owned();
+                let selection = item.get("selection")?.as_str()?.to_owned();
+                let payout_mult = item.get("payout_mult")?.as_f64()?;
+                let stake = item.get("stake")?.as_i64()?;
+                let start_unix = item.get("start_unix")?.as_u64()?;
+                Some(SportsBet { id, player, event_id, sport, home_team, away_team, selection, payout_mult, stake, start_unix })
+            }).collect())
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_sports_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/sports-bet/{id}")).await;
+    }
+
+    pub async fn casino_kalshi_bet_insert(&self, bet: &crate::commands::casino::kalshi::KalshiBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/kalshi-bet",
+            json!({
+                "player_uuid": bet.player,
+                "ticker":      bet.ticker,
+                "title":       bet.title,
+                "side":        bet.side,
+                "price":       bet.price,
+                "stake":       bet.stake,
+                "close_time":  bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_kalshi_bet_list(&self) -> Vec<crate::commands::casino::kalshi::KalshiBet> {
+        use crate::commands::casino::kalshi::KalshiBet;
+        let Some(v) = self.get_json("/casino/kalshi-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id         = item.get("id")?.as_i64()?;
+                    let player     = item.get("player_uuid")?.as_str()?.to_owned();
+                    let ticker     = item.get("ticker")?.as_str()?.to_owned();
+                    let title      = item.get("title")?.as_str()?.to_owned();
+                    let side       = item.get("side")?.as_str()?.to_owned();
+                    let price      = item.get("price")?.as_f64()?;
+                    let stake      = item.get("stake")?.as_i64()?;
+                    let close_time = item.get("close_time")?.as_u64()?;
+                    Some(KalshiBet { id, player, ticker, title, side, price, stake, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_kalshi_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/kalshi-bet/{id}")).await;
+    }
+
+    pub async fn casino_nasa_space_weather_bet_insert(&self, bet: &crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/nasa-space-weather-bet",
+            json!({
+                "player_uuid": bet.player,
+                "bet_type":    bet.bet_type,
+                "stake":       bet.stake,
+                "multiplier":  bet.multiplier,
+                "settle_at":   bet.settle_at,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_nasa_space_weather_bet_list(&self) -> Vec<crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet> {
+        use crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet;
+        let Some(v) = self.get_json("/casino/nasa-space-weather-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id         = item.get("id")?.as_i64()?;
+                    let player     = item.get("player_uuid")?.as_str()?.to_owned();
+                    let bet_type   = item.get("bet_type")?.as_str()?.to_owned();
+                    let stake      = item.get("stake")?.as_i64()?;
+                    let multiplier = item.get("multiplier")?.as_f64()?;
+                    let settle_at  = item.get("settle_at")?.as_u64()?;
+                    Some(NasaSpaceWeatherBet { id, player, bet_type, stake, multiplier, settle_at })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_nasa_space_weather_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/nasa-space-weather-bet/{id}")).await;
+    }
+
+    pub async fn casino_faa_airport_bet_insert(&self, bet: &crate::commands::casino::faa_airport::FaaAirportBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/faa-airport-bet",
+            json!({
+                "player_uuid":   bet.player,
+                "airport_code":  bet.airport_code,
+                "name":          bet.name,
+                "side":          bet.side,
+                "price":         bet.price,
+                "stake":         bet.stake,
+                "close_time":    bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_faa_airport_bet_list(&self) -> Vec<crate::commands::casino::faa_airport::FaaAirportBet> {
+        use crate::commands::casino::faa_airport::FaaAirportBet;
+        let Some(v) = self.get_json("/casino/faa-airport-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id           = item.get("id")?.as_i64()?;
+                    let player       = item.get("player_uuid")?.as_str()?.to_owned();
+                    let airport_code = item.get("airport_code")?.as_str()?.to_owned();
+                    let name         = item.get("name")?.as_str()?.to_owned();
+                    let side         = item.get("side")?.as_str()?.to_owned();
+                    let price        = item.get("price")?.as_f64()?;
+                    let stake        = item.get("stake")?.as_i64()?;
+                    let close_time   = item.get("close_time")?.as_u64()?;
+                    Some(FaaAirportBet { id, player, airport_code, name, side, price, stake, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_faa_airport_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/faa-airport-bet/{id}")).await;
+    }
+
+    pub async fn casino_noaa_flooding_bet_insert(&self, bet: &crate::commands::casino::noaa_flooding::NOAAFloodingBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/noaa-flooding-bet",
+            json!({
+                "player_uuid": bet.player,
+                "location":    bet.location,
+                "latitude":    bet.latitude,
+                "longitude":   bet.longitude,
+                "side":        bet.side,
+                "price":       bet.price,
+                "stake":       bet.stake,
+                "close_time":  bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_noaa_flooding_bet_list(&self) -> Vec<crate::commands::casino::noaa_flooding::NOAAFloodingBet> {
+        use crate::commands::casino::noaa_flooding::NOAAFloodingBet;
+        let Some(v) = self.get_json("/casino/noaa-flooding-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id          = item.get("id")?.as_i64()?;
+                    let player      = item.get("player_uuid")?.as_str()?.to_owned();
+                    let location    = item.get("location")?.as_str()?.to_owned();
+                    let latitude    = item.get("latitude")?.as_f64()?;
+                    let longitude   = item.get("longitude")?.as_f64()?;
+                    let side        = item.get("side")?.as_str()?.to_owned();
+                    let price       = item.get("price")?.as_f64()?;
+                    let stake       = item.get("stake")?.as_i64()?;
+                    let close_time  = item.get("close_time")?.as_u64()?;
+                    Some(NOAAFloodingBet { id, player, location, latitude, longitude, side, price, stake, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_noaa_flooding_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/noaa-flooding-bet/{id}")).await;
+    }
+
+    pub async fn casino_aqi_bet_insert(&self, bet: &crate::commands::casino::aqi::AqiBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/aqi-bet",
+            json!({
+                "player_uuid": bet.player,
+                "zip":         bet.zip,
+                "area":        bet.area,
+                "side":        bet.side,
+                "price":       bet.price,
+                "stake":       bet.stake,
+                "close_time":  bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_aqi_bet_list(&self) -> Vec<crate::commands::casino::aqi::AqiBet> {
+        use crate::commands::casino::aqi::AqiBet;
+        let Some(v) = self.get_json("/casino/aqi-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id         = item.get("id")?.as_i64()?;
+                    let player     = item.get("player_uuid")?.as_str()?.to_owned();
+                    let zip        = item.get("zip")?.as_str()?.to_owned();
+                    let area       = item.get("area")?.as_str()?.to_owned();
+                    let side       = item.get("side")?.as_str()?.to_owned();
+                    let price      = item.get("price")?.as_f64()?;
+                    let stake      = item.get("stake")?.as_i64()?;
+                    let close_time = item.get("close_time")?.as_u64()?;
+                    Some(AqiBet { id, player, zip, area, side, price, stake, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_aqi_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/aqi-bet/{id}")).await;
+    }
+
+    pub async fn casino_launch_bet_insert(&self, bet: &crate::commands::casino::launch::LaunchBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/launch-bet",
+            json!({
+                "player_uuid":   bet.player,
+                "launch_id":     bet.launch_id,
+                "launch_name":   bet.launch_name,
+                "lsp_id":        bet.lsp_id,
+                "lsp_name":      bet.lsp_name,
+                "side":          bet.side.as_str(),
+                "price":         bet.price,
+                "stake":         bet.stake,
+                "window_start":  bet.window_start,
+                "close_time":    bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_launch_bet_list(&self) -> Vec<crate::commands::casino::launch::LaunchBet> {
+        use crate::commands::casino::launch::{LaunchBet, LaunchBetSide};
+        let Some(v) = self.get_json("/casino/launch-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id           = item.get("id")?.as_i64()?;
+                    let player       = item.get("player_uuid")?.as_str()?.to_owned();
+                    let launch_id    = item.get("launch_id")?.as_str()?.to_owned();
+                    let launch_name  = item.get("launch_name")?.as_str()?.to_owned();
+                    let lsp_id       = item.get("lsp_id")?.as_u64()? as u32;
+                    let lsp_name     = item.get("lsp_name")?.as_str()?.to_owned();
+                    let side         = LaunchBetSide::from_str(item.get("side")?.as_str()?)?;
+                    let price        = item.get("price")?.as_f64()?;
+                    let stake        = item.get("stake")?.as_i64()?;
+                    let window_start = item.get("window_start")?.as_u64()?;
+                    let close_time   = item.get("close_time")?.as_u64()?;
+                    Some(LaunchBet { id: Some(id), player, launch_id, launch_name, lsp_id, lsp_name, side, price, stake, window_start, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_launch_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/launch-bet/{id}")).await;
+    }
+
+    pub async fn casino_gas_bet_insert(&self, bet: &crate::commands::casino::gas::GasBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/gas-bet",
+            json!({
+                "player_uuid": bet.player,
+                "region":      bet.region,
+                "zip":         bet.zip,
+                "side":        bet.side,
+                "baseline":    bet.baseline as f64 / 1000.0,
+                "price":       bet.price as f64 / 10000.0,
+                "stake":       bet.stake,
+                "close_time":  bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_gas_bet_list(&self) -> Vec<crate::commands::casino::gas::GasBet> {
+        use crate::commands::casino::gas::GasBet;
+        let Some(v) = self.get_json("/casino/gas-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id         = item.get("id")?.as_i64()?;
+                    let player     = item.get("player_uuid")?.as_str()?.to_owned();
+                    let region     = item.get("region")?.as_str()?.to_owned();
+                    let zip        = item.get("zip")?.as_str()?.to_owned();
+                    let side       = item.get("side")?.as_str()?.to_owned();
+                    let baseline   = (item.get("baseline")?.as_f64()? * 1000.0).round() as i64;
+                    let price      = (item.get("price")?.as_f64()? * 10000.0).round() as i64;
+                    let stake      = item.get("stake")?.as_i64()?;
+                    let close_time = item.get("close_time")?.as_u64()?;
+                    Some(GasBet { id: Some(id), player, region, zip, side, baseline, price, stake, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_gas_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/gas-bet/{id}")).await;
+    }
+
+    pub async fn casino_event_bets_list(&self, player_uuid: &str) -> Vec<serde_json::Value> {
+        let Some(v) = self.get_json(&format!("/casino/event-bets/{player_uuid}"), &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_train_bet_insert(&self, bet: &crate::commands::casino::train::TrainBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/train-bet",
+            json!({
+                "player_uuid": bet.player,
+                "country":     bet.country,
+                "train_code":  bet.train_code,
+                "train_name":  bet.train_name,
+                "side":        bet.side,
+                "price":       bet.price,
+                "stake":       bet.stake,
+                "close_time":  bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_train_bet_list(&self) -> Vec<crate::commands::casino::train::TrainBet> {
+        use crate::commands::casino::train::TrainBet;
+        let Some(v) = self.get_json("/casino/train-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id         = item.get("id")?.as_i64()?;
+                    let player     = item.get("player_uuid")?.as_str()?.to_owned();
+                    let country    = item.get("country")?.as_str()?.to_owned();
+                    let train_code = item.get("train_code")?.as_str()?.to_owned();
+                    let train_name = item.get("train_name")?.as_str()?.to_owned();
+                    let side       = item.get("side")?.as_str()?.to_owned();
+                    let price      = item.get("price")?.as_f64()?;
+                    let stake      = item.get("stake")?.as_i64()?;
+                    let close_time = item.get("close_time")?.as_u64()?;
+                    Some(TrainBet { id, player, country, train_code, train_name, side, price, stake, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_train_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/train-bet/{id}")).await;
+    }
+
+    pub async fn casino_quake_bet_insert(&self, bet: &crate::commands::casino::seismic::QuakeBet, placed_at: u64) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/quake-bet",
+            json!({
+                "player_uuid": bet.player,
+                "region_slug": bet.region_slug,
+                "display":     bet.display,
+                "side":        bet.side,
+                "price":       bet.price,
+                "stake":       bet.stake,
+                "close_time":  bet.close_time,
+                "mag":         bet.mag,
+                "lat":         bet.lat,
+                "lon":         bet.lon,
+                "radius_km":   bet.radius_km,
+                "placed_at":   placed_at,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_quake_bet_list(&self) -> Vec<crate::commands::casino::seismic::QuakeBet> {
+        use crate::commands::casino::seismic::{QuakeBet, resolve_region};
+        let Some(v) = self.get_json("/casino/quake-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id          = item.get("id")?.as_i64()?;
+                    let player      = item.get("player_uuid")?.as_str()?.to_owned();
+                    let region_slug = item.get("region_slug")?.as_str()?.to_owned();
+                    let display     = item.get("display")?.as_str()?.to_owned();
+                    let side        = item.get("side")?.as_str()?.to_owned();
+                    let price       = item.get("price")?.as_f64()?;
+                    let stake       = item.get("stake")?.as_i64()?;
+                    let close_time  = item.get("close_time")?.as_u64()?;
+                    let mag         = item.get("mag")?.as_f64()?;
+                    // lat/lon/radius reconstructed from region config (not stored in DB)
+                    let region = resolve_region(&region_slug);
+                    let lat       = region.map(|r| r.lat).unwrap_or(0.0);
+                    let lon       = region.map(|r| r.lon).unwrap_or(0.0);
+                    let radius_km = region.map(|r| r.radius_km).unwrap_or(500.0);
+                    Some(QuakeBet { id, player, region_slug, display, side, price, stake, close_time, mag, lat, lon, radius_km })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_quake_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/quake-bet/{id}")).await;
+    }
+
+    pub async fn casino_volcano_bet_insert(&self, bet: &crate::commands::casino::seismic::VolcanoBet) -> Option<i64> {
+        let v = self.post_json(
+            "/casino/volcano-bet",
+            json!({
+                "player_uuid": bet.player,
+                "vnum":        bet.vnum,
+                "vname":       bet.vname,
+                "side":        bet.side,
+                "price":       bet.price,
+                "stake":       bet.stake,
+                "close_time":  bet.close_time,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_volcano_bet_list(&self) -> Vec<crate::commands::casino::seismic::VolcanoBet> {
+        use crate::commands::casino::seismic::VolcanoBet;
+        let Some(v) = self.get_json("/casino/volcano-bets", &[]).await else { return vec![]; };
+        v.get("bets")
+            .and_then(|b| b.as_array())
+            .map(|arr| {
+                arr.iter().filter_map(|item| {
+                    let id         = item.get("id")?.as_i64()?;
+                    let player     = item.get("player_uuid")?.as_str()?.to_owned();
+                    let vnum       = item.get("vnum")?.as_str()?.to_owned();
+                    let vname      = item.get("vname")?.as_str()?.to_owned();
+                    let side       = item.get("side")?.as_str()?.to_owned();
+                    let price      = item.get("price")?.as_f64()?;
+                    let stake      = item.get("stake")?.as_i64()?;
+                    let close_time = item.get("close_time")?.as_u64()?;
+                    Some(VolcanoBet { id, player, vnum, vname, side, price, stake, close_time })
+                }).collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_volcano_bet_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/volcano-bet/{id}")).await;
+    }
+
+    pub async fn casino_portfolio_insert(&self, pos: &crate::structure::market::types::PortfolioPosition) -> Option<i64> {
+        use crate::structure::market::types::MarketKind;
+        let v = self.post_json(
+            "/casino/portfolio-position",
+            json!({
+                "player_uuid": pos.player,
+                "symbol": pos.symbol,
+                "market": if pos.market == MarketKind::Crypto { "crypto" } else { "stock" },
+                "entry_price": pos.entry_price,
+                "stake": pos.stake,
+                "opened_unix": pos.opened_unix,
+            }),
+        )
+        .await?;
+        v.get("id").and_then(|id| id.as_i64())
+    }
+
+    pub async fn casino_portfolio_list(&self) -> Vec<crate::structure::market::types::PortfolioPosition> {
+        use crate::structure::market::types::{MarketKind, PortfolioPosition};
+        let Some(v) = self.get_json("/casino/portfolio-positions", &[]).await else { return vec![]; };
+        v.get("positions")
+            .and_then(|b| b.as_array())
+            .map(|arr| arr.iter().filter_map(|item| {
+                let id = item.get("id")?.as_i64()?;
+                let player = item.get("player_uuid")?.as_str()?.to_owned();
+                let symbol = item.get("symbol")?.as_str()?.to_owned();
+                let market = match item.get("market")?.as_str()? {
+                    "crypto" => MarketKind::Crypto,
+                    _ => MarketKind::Stock,
+                };
+                let entry_price = item.get("entry_price")?.as_f64()?;
+                let stake = item.get("stake")?.as_i64()?;
+                let opened_unix = item.get("opened_unix")?.as_u64()?;
+                Some(PortfolioPosition { id, player, symbol, market, entry_price, stake, opened_unix })
+            }).collect())
+            .unwrap_or_default()
+    }
+
+    pub async fn casino_portfolio_delete(&self, id: i64) {
+        let _ = self.delete_json(&format!("/casino/portfolio-position/{id}")).await;
+    }
+
+    pub async fn increment_duel_wins(&self, username: &str) {
+        let _ = self.post_json("/users/duel-win", json!({ "username": username })).await;
+    }
+
     pub async fn get_user_fadv_ids(&self, uuid: &str, server: &str) -> Option<Vec<String>> {
         let v = self.get_json(
             &format!("/fadv/user-awards/{uuid}"),
@@ -1405,6 +2296,8 @@ pub enum WebsocketEvent {
     TradesUnreset(TradesResetData),
     FadvAwards(FadvAwardsEvent),
     PearlResult(PearlResultData),
+    CasinoDrawResult(CasinoDrawData),
+    CasinoWinnerNotify(CasinoWinnerNotifyData),
     Ignored,
     #[allow(dead_code)]
     MinecraftPlayerDeath(MinecraftPlayerDeathMessage),
@@ -1416,6 +2309,19 @@ pub enum WebsocketEvent {
     MinecraftPlayerLeave(MinecraftPlayerLeaveMessage),
     #[allow(dead_code)]
     MinecraftAdvancement(MinecraftAdvancementMessage),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CasinoDrawData {
+    #[serde(rename = "type")]
+    pub draw_type: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CasinoWinnerNotifyData {
+    pub player: String,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1517,6 +2423,78 @@ pub struct TradebotScammer {
     pub created_at: i64,
 }
 
+// ── Casino types ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CasinoBalance {
+    pub player_uuid: String,
+    pub chips: i64,
+    pub streak: i32,
+    pub last_claim: Option<i64>,
+    pub last_scratch: Option<i64>,
+}
+
+#[derive(Debug)]
+pub enum CasinoAdjustErr {
+    InsufficientFunds(i64),
+    NetworkErr,
+}
+
+#[derive(Debug)]
+pub enum CasinoFaucetResult {
+    Awarded { chips_awarded: i64, streak: i32, chips: i64, lotto_pick: String, draw_date: String },
+    OnCooldown { next_secs: u64 },
+    Err,
+}
+
+#[derive(Debug)]
+pub enum CasinoScratchResult {
+    Ok,
+    OnCooldown { next_secs: u64 },
+    Err,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoJackpotInfo {
+    pub pot: i64,
+    pub tickets: i32,
+    pub next_draw: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoLottoTicketInfo {
+    pub numbers: String,
+    pub draw_date: String,
+    pub pot: i64,
+    pub chips: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoLottoBulkInfo {
+    pub tickets: Vec<String>,
+    pub draw_date: String,
+    pub pot: i64,
+    pub chips: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoLottoPlayerTicket {
+    pub numbers: String,
+    pub draw_date: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoLastLottoDraw {
+    pub draw_date: String,
+    pub numbers: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct CasinoLottoPot {
+    pub pot: i64,
+    pub draw_date: Option<String>,
+}
+
 fn unwrap_data(value: Value) -> Value {
     value
         .get("data")
@@ -1591,6 +2569,12 @@ fn parse_inbound_message(text: &str) -> Option<WebsocketEvent> {
         "pearl_result" => serde_json::from_value(value.data)
             .ok()
             .map(WebsocketEvent::PearlResult),
+        "casino_draw_result" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::CasinoDrawResult),
+        "casino_winner_notify" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::CasinoWinnerNotify),
         "report_created" | "trade_confirmed" | "trade_rejected" | "content_flagged" => Some(WebsocketEvent::Ignored),
         "error" => Some(WebsocketEvent::Error(value.data.to_string())),
         _ => Some(WebsocketEvent::UnknownMessage(text.to_owned())),

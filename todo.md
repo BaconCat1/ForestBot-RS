@@ -1,3 +1,5 @@
+
+
 # ForestBot Rust Port Remaining TypeScript Parity (``todo.md``)
 
 Only behavior still missing or partial compared to `ForestBot/src` is listed here.
@@ -97,8 +99,11 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~custom advancements! — ForestBot announces fake MC-style advancement unlocks triggered by tracked events (deaths, kills, etc.)~~ // Hub `fadv_awards` table + threshold checks in `checkFadv.ts`; WS event `fadvAwards` → craftbot announces public + whispers player; `!fadvs [category]` command shows per-category progress; one-time per player
  * ✅ ~~Change all relevant functionality to be toggleable via config.json~~ // all automatic chat-sending behaviors now gated via `disabled_events` keys; all commands toggleable via `commands` map
  * ✅ ~~extend offlinemsg to do "remindme"~~ // `!remindme`/`!remind` aliases; optional duration `1s2m3h4d`; no duration = next login; timed = background 30s tick fires when online; `!remindme stop` cancels all; `deliver_at: Option<u64>` added to `OfflineMessage`
-* ⏸️ casino style games, create ethereal "chips" currency to go along side them, add wagering to `trivia` command. // ON HOLD need feedback from people first.
 * ✅ ~~add pearl bot infrastructure~~ // pearlbot binary; Hub WS routing; ForestBot-RS `!pearl`/`!p <slot>` command; UUID whitelist + per-slot chamber config; multi-pearl tracking (HashSet); deployed to prod RefinedVanilla
+* 🆕 queue detection, data driven. upon detection, disconnect for 5 minutes. Needs to count "reconfiguring" screen as reconnecting to server
+* ✅ ~~extend `!help` to take commands as args~~ // `!help <command>` whispers description + aliases; unknown falls back to link
+* ✅ ~~**behavioural tweak**: if API limits are reached, users should be informed that is specifically why it failed, since a more generic error could waste time hunting a bug that doesn't exist~~ // `FetchErr::RateLimit` + `check_resp` in `casino/mod.rs`; all 9 external-API casino files surface 429 with specific message; settle paths treat rate limit as refund (`.ok()`)
+* 🆕 Universe: need watchdog and alerts, bypass/restart vpn 
 
 
 ## !quote
@@ -112,6 +117,53 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 ## !top
 * ✅ ~~"we need !top slurcount"~~ // `!top slurcount`/`!top slurs`; sums `get_word_occurrence` across all slurs in `slurcount_list.json` per player; cached same as other top stats
 * ✅ ~~optimize db calls for efficiency~~ // `top messages`: was N Hub calls → new Hub `GET /top-messages` (single SQL GROUP BY); `top slurcount`: was N×M calls → new Hub `GET /top-slurcount` (single SQL SUM of REGEXP per word); kills/deaths/joins/playtime/trades/rejects already single-call; advancements already uses leaderboard endpoint
+
+## casino
+* ✅ casino style games, create ethereal "chips" currency to go along side them 
+* ✅ ~~!duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?~~
+* ✅ ~~add wagering to `trivia` command~~ // !answer <guess> <chips>; correct=2×, wrong=jackpot; 45s window; category support + !trivia categories
+* ✅ ~~battleship~~
+* ✅ ~~chess~~
+* ✅ ~~reversi~~
+* ❌ ~~uno~~ // hand too complicated to represent over text, fast reactions too difficult to do by text, rejected
+* ✅ ~~wordle~~
+* ✅ ~~baccarat~~ // Player 2×, Banker 1.95×, Tie 8×; simplified drawing rules from letsgogambling reference; instant resolve, no session state
+* ✅ ~~sic bo~~
+* ✅ ~~mines~~
+* ✅ ~~stock market portfolios and future, mapped out but not written~~
+* ✅ ~~add kalshi (prediction market) to extend stock market system~~ // compiles, pending testing
+* ❌ ~~add Betfair (horse race betting) to extend stock market system~~ // geo-locked and low priority, won't pursue horse betting api without demand
+* ✅ ~~add SharpAPI (sports betting) to extend stock market system~~
+* ✅ ~~weather futures, bet on changes in the weather.~~ // rain yes/no bets; odds from forecast precipitation_probability_max; open-meteo forecast endpoint (past_days=92 for resolution); settle_task pattern matches market bets
+* ✅ ~~train betting phase I~~
+* ✅ ~~train betting phase II (https://mobilitydatabase.org/)~~
+* ✅ ~~earthquake betting (earthquake-volcano-gambling-feature.md)~~
+* ✅ ~~volcano betting (earthquake-volcano-gambling-feature.md)~~
+* ✅ ~~Air Quality Index betting (EPA AirNow, free)~~
+* ✅ ~~Rocket launches (RocketLaunch.live, free)~~
+* ✅ ~~gasbuddy betting, also just treat national gas price as a stock to let people invest/buy "real gasoline" (https://github.com/firstof9/py-gasbuddy)~~
+	* ⏸️ extend gasbuddy feature to support diesel // casino phase II
+
+### Casino Phase II
+* ⏸️ migrate to a betting api over the current approach (requires Hub changes, deslopify-2026-07-07.md line 111)
+* ⏸️ eSports betting (OddsPapi — oddspapi.io (or panda api... wtv), free key, 250 req/month) — CS2, LoL, Dota 2, Valorant, CoD, Rocket League, Overwatch, R6, StarCraft; match winner moneyline; reuses existing odds-market UI // casino phase II
+* ⏸️ Hurricane betting (NHC — nhc.noaa.gov, no auth, flat file/GeoJSON) — "will storm X make landfall in region Y?"; seasonal; no REST API, flat file parse required // casino phase II
+* ⏸️ River/streamflow betting (NOAA NWPS — water.noaa.gov, no auth) — HEFS ensemble forecast, "will river X exceed flood stage?"; distinct from existing alert-based noaa_flooding.rs // casino phase II
+* ⏸️ Tide betting (NOAA CO-OPS — tidesandcurrents.noaa.gov, no auth) — over/under tide height at a station; deterministic, low-variance market // casino phase II
+* ⏸️ Ocean buoy betting (NOAA NDBC or Open-Meteo marine endpoint) — wave height over/under; Open-Meteo marine = zero new integration cost // casino phase II
+* ⏸️ Wildfire betting (NIFC — nifc.gov, no auth) — "will fire X grow today?" based on perimeter data // casino phase II
+* ⏸️ Migratory bird betting (eBird — free key) — "first sighting of species X in region Y by date Z?"; citizen-science, settleable against reported sightings // casino phase II
+* ⏸️ Pollen betting (Ambee Pollen API — free key) — daily pollen severity over/under; seasonal variance // casino phase II
+* ⏸️ Public health forecast betting (CDC FluSight + RSV + COVID Forecast Hub, free, no key) — weekly regional ensemble; same odds derivation as Open-Meteo; no Kalshi overlap // casino phase II
+* ⏸️ Boat/vessel arrival betting (Norway Coastal Administration AIS, free) — arrival-time over/under for tracked vessels; same shape as train delay bets // casino phase II
+* ⏸️ server event futures, same idea, just about stuff that happens on the server // on hold for casino phase II
+* ⏸️ parlays across all betting types (needs mapping) // on hold for casino phase II
+* ⏸️ side betting on any game, not just dueling // on hold for casino phase II
+* ⏸️ add multiplayer where applicable to "casino games" // on hold for casino phase II
+
+* ✅ ~~**bug**: `increment_ms` cooldown not working~~ // spam path (blocked attempt) now also increments cooldown; success path already had it
+* ✅ ~~**bug**: !ud upvotes/downvotes always 0~~ // improved type parsing (i64 fallback); votes hidden when both 0 rather than showing (+0/-0)
+* ✅ ~~portfolio shows all bets, not just stocks~~ // !bets command lists all open event bets; !wallet + !portfolio show event bet count inline
 
 ## new commands
 * ✅ ~~!hardware - shows os and hardware info, aliased to !hw~~
@@ -129,10 +181,16 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!greeting, users can give themselves a welcome back message that has a 12 hour cooldown~~ // `greeting` + `greeting_last_fired_at` columns on `users` table; fires on join as `"<message>, Username!"`; 12h cooldown via DB timestamp; preview/clear subcommands
 * ✅ ~~!minewiki, same behaviour as !wiki, only for the minecraft wiki~~ // same 2-step flow against minecraft.wiki (`/api.php`); public chat; 1-min cooldown per player; aliases `!minewiki`/`!mcwiki`
 * ❌ ~~!weather — predict next weather change using Java LCG seed calibration~~ // not feasible: Azalea does not expose server-internal game time; the tick value available via `SetTime` is client-side and drifts from the server's `ServerLevel.random` draw counter, making LCG calibration impossible
-* ⏸️ !duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats? // ON HOLD because the extra infrastrucure for this isn't justified in isolation. maybe if casino games get added?
 * ✅ ~~!calc, alias !wolframalpha, !wa, sends requests to the wolframalpha public api~~ // LLM API endpoint; `wolfram_app_id` in bot config; parses all labeled sections with priority order (Result→Solution→Derivative→Definite integral→Indefinite integral→Infinite sum→Sum→Limit→Decimal approximation→Property→…), posts `query = answer` truncated to 220 chars; aliases `!calc`/`!wa`/`!wolframalpha`
 * ✅ ~~!translate, add support for azure api for translation~~ // Azure AI Translator; `azure_translator_key` + `azure_translator_region` in config; lang optional (default `en`); single-word input checks online players → translates last message; FROM-English blocked (whatlang local detection, 4+ words); aliases `!translate`/`!tr`/`!tl`
 * ✅ ~~!trivia / !answer — server trivia round via Open Trivia DB (no key); boolean and MCQ; 15s answer window open to all players; whispers "Answer received!" on submit; public summary at close shows ✓/✗ lists + answer; latecomers whispered answer for 60s after close~~
+* ✅ ~~!roast, leverage together api to roast a player, takes user name as arg~~
+* 🆕 !ai, leverage free tier llm providers to respond to querys from chat. idea is to use highest quality to lowest quality, as usage gets consumed. known "truly free" providers: gemini, groq, cerebras, mistral, openrouter, cloudflare workers ai.
+* 🆕 !marry, as well as !divorce and !spouse, let's you marry a player, check their spouse. Append marital status to whois, alimony system based on winning casino games?
+* 🆕 !afk, let you set a response if people say your name at the beginning of a message or whisper to you, resets if you talk in chat or disconnect.
+* 🆕 !poll, popular enough in other bots to warrant inclusion, might end up disabled like `fadvs`. Needs high cooldown, 5 min minimum
+* 🆕 !tps, if azalea/minecraft or wtv lets you see server performance, report it via a command
+* 🆕 !url, don't webpages have some seo text built in by default? if so, leverage that for a text only preview of a url, so you can see what it is without having to leave the game.
 
 ---
 

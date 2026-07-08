@@ -78,6 +78,11 @@ pub struct RuntimeConfig {
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
     pub azure_translator_region: String,
+    pub sharpapi_key: String,
+    pub nasa_api_key: String,
+    pub airnow_api_key: String,
+    pub gasbuddy_solver_url: String,
+    pub gasbuddy_csrf_readonly: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +118,11 @@ pub struct Bot {
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
     pub azure_translator_region: String,
+    pub sharpapi_key: String,
+    pub nasa_api_key: String,
+    pub airnow_api_key: String,
+    pub gasbuddy_solver_url: String,
+    pub gasbuddy_csrf_readonly: bool,
     pub anti_spam_global_cooldown_ms: u64,
     pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub reconnect_time_ms: u64,
@@ -149,10 +159,15 @@ impl Bot {
             custom_chat_prefix: state.config.custom_chat_prefix.clone(),
             allow_chatbridge_input: state.config.allow_chatbridge_input,
             smart_censoring: state.config.smart_censoring,
-            together_api_key: state.config.together_api_key.clone(),
-            wolfram_app_id: state.config.wolfram_app_id.clone(),
-            azure_translator_key: state.config.azure_translator_key.clone(),
-            azure_translator_region: state.config.azure_translator_region.clone(),
+            together_api_key: state.config.api_keys.together.clone(),
+            wolfram_app_id: state.config.api_keys.wolfram.clone(),
+            azure_translator_key: state.config.api_keys.azure_key.clone(),
+            azure_translator_region: state.config.api_keys.azure_region.clone(),
+            sharpapi_key: state.config.api_keys.sharpapi.clone(),
+            nasa_api_key: state.config.api_keys.nasa.clone(),
+            airnow_api_key: state.config.api_keys.airnow.clone(),
+            gasbuddy_solver_url: state.config.api_keys.gasbuddy_solver_url.clone(),
+            gasbuddy_csrf_readonly: state.config.api_keys.gasbuddy_csrf_readonly,
             anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown,
             command_cooldowns: state.config.command_cooldowns.clone(),
             reconnect_time_ms: state.config.reconnect_time,
@@ -213,6 +228,11 @@ impl Bot {
                 wolfram_app_id: self.wolfram_app_id.clone(),
                 azure_translator_key: self.azure_translator_key.clone(),
                 azure_translator_region: self.azure_translator_region.clone(),
+                sharpapi_key: self.sharpapi_key.clone(),
+                nasa_api_key: self.nasa_api_key.clone(),
+                airnow_api_key: self.airnow_api_key.clone(),
+                gasbuddy_solver_url: self.gasbuddy_solver_url.clone(),
+                gasbuddy_csrf_readonly: self.gasbuddy_csrf_readonly,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -224,6 +244,7 @@ impl Bot {
             seen_player_detections: Arc::new(RwLock::new(HashSet::new())),
             next_player_detection_scan_at: Arc::new(RwLock::new(0)),
             trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            free_scratch_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             initial_spawn_done: Arc::new(AtomicBool::new(false)),
             antiafk: self.antiafk,
             antiafk_active: Arc::new(AtomicBool::new(false)),
@@ -235,7 +256,349 @@ impl Bot {
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
+            casino_sessions: Arc::new(Mutex::new(HashMap::new())),
+            market_service: Arc::new(crate::structure::market::service::MarketService::new()),
+            market_bets: Arc::new(Mutex::new(HashMap::new())),
+            portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
+            weather_bets: Arc::new(Mutex::new(HashMap::new())),
+            weather_odds_cache: Arc::new(Mutex::new(HashMap::new())),
+            sports_bets: Arc::new(Mutex::new(HashMap::new())),
+            sports_cache: Arc::new(Mutex::new(crate::commands::casino::sports::SportsCache::default())),
+            kalshi_bets: Arc::new(Mutex::new(HashMap::new())),
+            kalshi_cache: Arc::new(Mutex::new(crate::commands::casino::kalshi::KalshiCache::default())),
+            nasa_space_weather_bets: Arc::new(Mutex::new(HashMap::new())),
+            sw_odds_cache: Arc::new(Mutex::new(None)),
+            faa_airport_bets: Arc::new(Mutex::new(HashMap::new())),
+            noaa_flooding_bets: Arc::new(Mutex::new(HashMap::new())),
+            flood_cache: Arc::new(Mutex::new(crate::commands::casino::noaa_flooding::FloodCache::default())),
+            train_bets: Arc::new(Mutex::new(HashMap::new())),
+            quake_bets: Arc::new(Mutex::new(HashMap::new())),
+            volcano_bets: Arc::new(Mutex::new(HashMap::new())),
+            duels: Arc::new(Mutex::new(Vec::new())),
+            wordle_games: Arc::new(Mutex::new(HashMap::new())),
+            checkers_games: Arc::new(Mutex::new(HashMap::new())),
+            reversi_games: Arc::new(Mutex::new(HashMap::new())),
+            battleship_games: Arc::new(Mutex::new(HashMap::new())),
+            mines_games: Arc::new(Mutex::new(HashMap::new())),
+            aqi_bets: Arc::new(Mutex::new(HashMap::new())),
+            launch_bets: Arc::new(Mutex::new(HashMap::new())),
+            launch_cache: Arc::new(Mutex::new(HashMap::new())),
+            gas_bets: Arc::new(Mutex::new(HashMap::new())),
+            gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
+            gasbuddy_csrf: Arc::new(Mutex::new(None)),
+            http: reqwest::Client::new(),
         };
+
+        // Load cached GasBuddy CSRF token
+        if let Some(token) = crate::commands::casino::gas::load_cached_token().await {
+            *state.gasbuddy_csrf.lock().expect("gasbuddy_csrf") = Some(token);
+        }
+
+        // Recover market bets that were open when the bot last shut down
+        {
+            let open_bets = state.api.casino_market_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let now = crate::structure::market::types::now_unix();
+                {
+                    let mut bets = state.market_bets.lock().expect("market_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    let remaining = bet.closes_unix.saturating_sub(now);
+                    tokio::spawn(crate::commands::market::settle_task(
+                        state.clone(),
+                        bet.player.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                        remaining,
+                    ));
+                }
+            }
+        }
+
+        // Recover weather bets that were open when the bot last shut down
+        {
+            let open_bets = state.api.casino_weather_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let now = crate::structure::market::types::now_unix();
+                {
+                    let mut bets = state.weather_bets.lock().expect("weather_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    let remaining = bet.closes_unix.saturating_sub(now);
+                    tokio::spawn(crate::commands::weather::settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                        remaining,
+                    ));
+                }
+            }
+        }
+
+        // Recover sports bets that were open when the bot last shut down
+        {
+            let open_bets = state.api.casino_sports_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let api_key = state.runtime.read().expect("runtime lock").sharpapi_key.clone();
+                {
+                    let mut bets = state.sports_bets.lock().expect("sports_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::sports::settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        api_key.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Recover Kalshi bets that were open when the bot last shut down
+        {
+            let open_bets = state.api.casino_kalshi_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.kalshi_bets.lock().expect("kalshi_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::kalshi::settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Recover NASA space weather bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_nasa_space_weather_bet_list().await;
+            if !open_bets.is_empty() {
+                let (whisper_cmd, nasa_api_key) = {
+                    let rt = state.runtime.read().expect("runtime lock");
+                    (rt.whisper_command.clone(), rt.nasa_api_key.clone())
+                };
+                {
+                    let mut bets = state.nasa_space_weather_bets.lock().expect("nasa_space_weather_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::nasa_space_weather::settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        nasa_api_key.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Recover FAA airport bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_faa_airport_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let now = crate::structure::market::types::now_unix();
+                {
+                    let mut bets = state.faa_airport_bets.lock().expect("faa_airport_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    // close_time may already be past if bot was down; settle_task handles that
+                    let _ = now; // suppress unused warning
+                    tokio::spawn(crate::commands::casino::faa_airport::settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Recover NOAA flooding bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_noaa_flooding_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let now = crate::structure::market::types::now_unix();
+                {
+                    let mut bets = state.noaa_flooding_bets.lock().expect("noaa_flooding_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    let _ = now;
+                    tokio::spawn(crate::commands::casino::noaa_flooding::settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Recover train bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_train_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                let now = crate::structure::market::types::now_unix();
+                {
+                    let mut bets = state.train_bets.lock().expect("train_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    let _ = now;
+                    tokio::spawn(crate::commands::casino::train::settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Recover quake bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_quake_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.quake_bets.lock().expect("quake_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    let placed_at = bet.close_time.saturating_sub(crate::commands::casino::seismic::BET_WINDOW_SECS);
+                    tokio::spawn(crate::commands::casino::seismic::quake_settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                        placed_at,
+                    ));
+                }
+            }
+        }
+
+        // Recover volcano bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_volcano_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.volcano_bets.lock().expect("volcano_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::seismic::volcano_settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Recover AQI bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_aqi_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.aqi_bets.lock().expect("aqi_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::aqi::aqi_settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Recover launch bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_launch_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.launch_bets.lock().expect("launch_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::launch::launch_settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Recover gas bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_gas_bet_list().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.gas_bets.lock().expect("gas_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::gas::gas_settle_task(
+                        state.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
+        // Load portfolio positions into memory
+        {
+            let open_positions = state.api.casino_portfolio_list().await;
+            if !open_positions.is_empty() {
+                let mut map = state.portfolio_positions.lock().expect("portfolio lock");
+                for pos in open_positions {
+                    map.entry(pos.player.clone()).or_default().push(pos);
+                }
+            }
+        }
 
         let mut builder = if self.options.disable_chat_signing {
             logger::info("Chat signing disabled.");
@@ -294,6 +657,7 @@ pub struct AzaleaState {
     pub seen_player_detections: Arc<RwLock<HashSet<String>>>,
     pub next_player_detection_scan_at: Arc<RwLock<i64>>,
     pub trade_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
+    pub free_scratch_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
     pub initial_spawn_done: Arc<AtomicBool>,
     pub antiafk: bool,
     pub antiafk_active: Arc<AtomicBool>,
@@ -305,15 +669,100 @@ pub struct AzaleaState {
     pub nick_cache: Arc<RwLock<HashMap<String, String>>>,
     pub world_time_ticks: Arc<RwLock<u64>>,
     pub active_trivia: Arc<Mutex<Option<TriviaRound>>>,
+    pub casino_sessions: Arc<Mutex<HashMap<String, CasinoSession>>>,
+    pub market_service: Arc<crate::structure::market::service::MarketService>,
+    pub market_bets: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::MarketBet>>>>,
+    pub portfolio_positions: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::PortfolioPosition>>>>,
+    pub weather_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::weather::WeatherBet>>>>,
+    pub weather_odds_cache: Arc<Mutex<HashMap<String, crate::commands::weather::WeatherCacheEntry>>>,
+    pub sports_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::sports::SportsBet>>>>,
+    pub sports_cache: Arc<Mutex<crate::commands::casino::sports::SportsCache>>,
+    pub kalshi_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::kalshi::KalshiBet>>>>,
+    pub kalshi_cache: Arc<Mutex<crate::commands::casino::kalshi::KalshiCache>>,
+    pub nasa_space_weather_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet>>>>,
+    pub sw_odds_cache: Arc<Mutex<Option<(crate::commands::casino::nasa_space_weather::SwOdds, u64)>>>,
+    pub faa_airport_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::faa_airport::FaaAirportBet>>>>,
+    pub noaa_flooding_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::noaa_flooding::NOAAFloodingBet>>>>,
+    pub flood_cache: Arc<Mutex<crate::commands::casino::noaa_flooding::FloodCache>>,
+    pub train_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::train::TrainBet>>>>,
+    pub quake_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::seismic::QuakeBet>>>>,
+    pub volcano_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::seismic::VolcanoBet>>>>,
+    pub duels: Arc<Mutex<Vec<crate::commands::duel::Duel>>>,
+    pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
+    pub checkers_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::checkers::CheckersSession>>>,
+    pub reversi_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::reversi::ReversiSession>>>,
+    pub battleship_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::battleship::BattleshipSession>>>,
+    pub mines_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::casino::mines::MinesGame>>>,
+    pub aqi_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::aqi::AqiBet>>>>,
+    pub launch_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::launch::LaunchBet>>>>,
+    pub launch_cache: Arc<Mutex<std::collections::HashMap<u32, (f64, f64, u64)>>>,
+    pub gas_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::gas::GasBet>>>>,
+    // (price, display_name, fetched_at)
+    pub gas_price_cache: Arc<Mutex<std::collections::HashMap<String, (f64, String, u64)>>>,
+    pub gasbuddy_csrf: Arc<Mutex<Option<String>>>,
+    pub http: reqwest::Client,
+}
+
+#[derive(Debug, Clone)]
+pub enum CasinoSession {
+    Craps {
+        bet: i64,
+        pass_line: bool,
+        point: u32,
+    },
+    Hilo {
+        stake: i64,
+        deck: Vec<u8>,
+        current_card: u8,
+        multiplier: f64,
+        guesses: u32,
+    },
+    Blackjack {
+        bet: i64,
+        player_hand: Vec<u8>,
+        dealer_hand: Vec<u8>,
+    },
+    Poker {
+        stake: i64,
+        opponent_name: &'static str,
+        aggression: f64,
+        game: Box<crate::commands::casino::poker::game::state::GameState>,
+    },
+    ConnectFour {
+        stake: i64,
+        opponent_name: &'static str,
+        difficulty: connect_four_ai::Difficulty,
+        position: connect_four_ai::Position,
+    },
+    Chess {
+        bet: i64,
+        player_color: shakmaty::Color,
+        position: Box<shakmaty::Chess>,
+        opponent_name: &'static str,
+        ai_depth: u32,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TriviaPhase {
+    Joining,
+    Open,
+    Closed,
 }
 
 #[derive(Debug, Clone)]
 pub struct TriviaRound {
+    // Question data (fetched at start, revealed after join window)
     pub correct_answer: String,
-    pub is_open: bool,
     pub is_boolean: bool,
     pub letter_map: Vec<(char, String)>,
     pub correct_letter: Option<char>,
+    pub question_msg: String,
+    // Phase + wagering
+    pub phase: TriviaPhase,
+    pub stake: i64,
+    pub participants: HashSet<String>,
+    // Results
     pub correct_players: Vec<String>,
     pub wrong_players: Vec<String>,
     pub answered: HashSet<String>,
@@ -359,6 +808,11 @@ impl Default for AzaleaState {
                 wolfram_app_id: String::new(),
                 azure_translator_key: String::new(),
                 azure_translator_region: String::new(),
+                sharpapi_key: String::new(),
+                nasa_api_key: String::new(),
+                airnow_api_key: String::new(),
+                gasbuddy_solver_url: String::new(),
+                gasbuddy_csrf_readonly: false,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -370,6 +824,7 @@ impl Default for AzaleaState {
             seen_player_detections: Arc::new(RwLock::new(HashSet::new())),
             next_player_detection_scan_at: Arc::new(RwLock::new(0)),
             trade_cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            free_scratch_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             initial_spawn_done: Arc::new(AtomicBool::new(false)),
             antiafk: false,
             antiafk_active: Arc::new(AtomicBool::new(false)),
@@ -381,6 +836,37 @@ impl Default for AzaleaState {
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
+            casino_sessions: Arc::new(Mutex::new(HashMap::new())),
+            market_service: Arc::new(crate::structure::market::service::MarketService::new()),
+            market_bets: Arc::new(Mutex::new(HashMap::new())),
+            portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
+            weather_bets: Arc::new(Mutex::new(HashMap::new())),
+            weather_odds_cache: Arc::new(Mutex::new(HashMap::new())),
+            sports_bets: Arc::new(Mutex::new(HashMap::new())),
+            sports_cache: Arc::new(Mutex::new(crate::commands::casino::sports::SportsCache::default())),
+            kalshi_bets: Arc::new(Mutex::new(HashMap::new())),
+            kalshi_cache: Arc::new(Mutex::new(crate::commands::casino::kalshi::KalshiCache::default())),
+            nasa_space_weather_bets: Arc::new(Mutex::new(HashMap::new())),
+            sw_odds_cache: Arc::new(Mutex::new(None)),
+            faa_airport_bets: Arc::new(Mutex::new(HashMap::new())),
+            noaa_flooding_bets: Arc::new(Mutex::new(HashMap::new())),
+            flood_cache: Arc::new(Mutex::new(crate::commands::casino::noaa_flooding::FloodCache::default())),
+            train_bets: Arc::new(Mutex::new(HashMap::new())),
+            quake_bets: Arc::new(Mutex::new(HashMap::new())),
+            volcano_bets: Arc::new(Mutex::new(HashMap::new())),
+            duels: Arc::new(Mutex::new(Vec::new())),
+            wordle_games: Arc::new(Mutex::new(HashMap::new())),
+            checkers_games: Arc::new(Mutex::new(HashMap::new())),
+            reversi_games: Arc::new(Mutex::new(HashMap::new())),
+            battleship_games: Arc::new(Mutex::new(HashMap::new())),
+            mines_games: Arc::new(Mutex::new(HashMap::new())),
+            aqi_bets: Arc::new(Mutex::new(HashMap::new())),
+            launch_bets: Arc::new(Mutex::new(HashMap::new())),
+            launch_cache: Arc::new(Mutex::new(HashMap::new())),
+            gas_bets: Arc::new(Mutex::new(HashMap::new())),
+            gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
+            gasbuddy_csrf: Arc::new(Mutex::new(None)),
+            http: reqwest::Client::new(),
         }
     }
 }
@@ -528,6 +1014,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 );
             send_player_list_update(&state).await;
             deliver_offline_messages(&state, &username).await;
+            deliver_casino_notifications(&state, &uuid, &username).await;
             if state.initial_spawn_done.load(Ordering::Relaxed) {
                 send_player_join(&state, &username, &uuid).await;
                 fire_greeting_if_due(&state, &username).await;
@@ -572,6 +1059,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 .expect("player cache lock poisoned")
                 .remove(&username);
             stat_history::clear_delete_faq_pending(&username);
+            crate::commands::duel::handle_disconnect(&state, &username).await;
             send_player_leave(&state, &username, &uuid).await;
             send_player_list_update(&state).await;
         }
@@ -629,25 +1117,17 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
 }
 
 async fn flush_outbound_chat(bot: &Client, state: &AzaleaState) {
-    let messages = {
-        let mut queue = state
-            .outbound_chat
-            .lock()
-            .expect("outbound chat queue lock poisoned");
-        let mut messages = Vec::new();
-        for _ in 0..3 {
-            let Some(message) = queue.pop_front() else {
-                break;
-            };
-            messages.push(message);
-        }
-        messages
-    };
+    let message = state
+        .outbound_chat
+        .lock()
+        .expect("outbound chat queue lock poisoned")
+        .pop_front();
 
-    for message in messages {
+    if let Some(message) = message {
         let message = filter_outgoing_message(state, &message).await;
         logger::chat(format!("Sending chat reply: {message}"));
         bot.chat(message);
+        tokio::time::sleep(Duration::from_millis(25)).await;
     }
 }
 
@@ -1132,6 +1612,7 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
         let murderer_uuid = murderer
             .as_deref()
             .and_then(|name| players.get(name).map(|player| player.uuid.clone()));
+        crate::commands::duel::handle_death(state, &player, murderer.as_deref()).await;
         send_player_death(state, &player, &uuid, &full_msg, murderer, murderer_uuid).await;
         logger::death(format!("Death: {full_msg}"));
         return;
@@ -1280,6 +1761,12 @@ fn spawn_websocket_event_task(state: AzaleaState) {
                         format!("🔴 Pearl failed: {}", data.message)
                     };
                     enqueue_outbound_chat(&state, format!("/{whisper_cmd} {} {msg}", data.requester));
+                }
+                WebsocketEvent::CasinoDrawResult(data) => {
+                    enqueue_outbound_chat(&state, &data.message);
+                }
+                WebsocketEvent::CasinoWinnerNotify(data) => {
+                    enqueue_outbound_chat(&state, format!("/msg {} {}", data.player, data.message));
                 }
                 WebsocketEvent::UnknownMessage(message) => {
                     logger::websocket(format!("Unknown websocket message: {message}"));
@@ -1730,6 +2217,13 @@ async fn deliver_offline_messages(state: &AzaleaState, username: &str) {
 
     if let Err(error) = save_offline_messages(&remaining).await {
         logger::warn(format!("Failed to save offline messages: {error:#}"));
+    }
+}
+
+async fn deliver_casino_notifications(state: &AzaleaState, player_uuid: &str, username: &str) {
+    let messages = state.api.casino_claim_notifications(player_uuid).await;
+    for message in messages {
+        enqueue_outbound_chat(state, format!("/msg {username} {message}"));
     }
 }
 

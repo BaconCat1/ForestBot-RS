@@ -16,6 +16,28 @@ fn default_viaversion_target_version() -> String {
     "1.21.11".to_owned()
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ApiKeys {
+    #[serde(default)]
+    pub nasa: String,
+    #[serde(default)]
+    pub together: String,
+    #[serde(default)]
+    pub wolfram: String,
+    #[serde(default)]
+    pub azure_key: String,
+    #[serde(default)]
+    pub azure_region: String,
+    #[serde(default)]
+    pub sharpapi: String,
+    #[serde(default)]
+    pub airnow: String,
+    #[serde(default)]
+    pub gasbuddy_solver_url: String,
+    #[serde(default)]
+    pub gasbuddy_csrf_readonly: bool,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub mc_server: String,
@@ -77,13 +99,8 @@ pub struct Config {
     #[allow(dead_code)]
     pub rotate_head_on_join: bool,
     pub smart_censoring: bool,
-    pub together_api_key: String,
     #[serde(default)]
-    pub wolfram_app_id: String,
-    #[serde(default)]
-    pub azure_translator_key: String,
-    #[serde(default)]
-    pub azure_translator_region: String,
+    pub api_keys: ApiKeys,
     #[serde(rename = "useLegacyChat")]
     #[allow(dead_code)]
     pub use_legacy_chat: bool,
