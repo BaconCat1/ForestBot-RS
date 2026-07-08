@@ -1,0 +1,50 @@
+# Local curated blocklist — hosts format (0.0.0.0 domain.com) or bare domain per line
+# Add domains here and run !reload to apply without restarting.
+
+# Hate / extremist
+# --- manually curated ---
+gab.com
+rumble.com
+bitchute.com
+odysee.com
+4chan.org
+stormfront.org
+poal.co
+minds.com
+kiwifarms.st
+kiwifarms.net
+gettr.com
+truthsocial.com
+parler.com
+telegram.org
+voat.co
+8kun.top
+endchan.org
+dailystormer.su
+soniche.com
+nationalvanguard.org
+vdare.com
+www.amren.com
+www.resist.com
+
+# --- Wikipedia infobox extraction 2026-07-08 ---
+albanianthirdposition.com
+aryanguard.org
+format18.freeforums.net
+vigrid.net
+vtforeignpolicy.com
+carolynyeager.net
+
+# IP grabbers / loggers
+0.0.0.0 grabify.link
+0.0.0.0 2no.co
+0.0.0.0 ps3cfw.com
+0.0.0.0 yip.su
+0.0.0.0 iplogger.org
+0.0.0.0 iplogger.co
+0.0.0.0 iplogger.ru
+0.0.0.0 blasze.com
+0.0.0.0 blasze.tk
+0.0.0.0 ipgrabber.ru
+0.0.0.0 iplis.ru
+0.0.0.0 02ip.ru

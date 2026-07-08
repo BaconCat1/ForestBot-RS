@@ -2,7 +2,7 @@
 
 # ForestBot Commands
 
-**106 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md). Gods and corpora in [GODS.md](GODS.md).
+**107 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md). Gods and corpora in [GODS.md](GODS.md).
 
 ## General
 
@@ -139,6 +139,7 @@
 | `!compare <serverA> <serverB>` | Compares two servers side by side in a single message |
 | `!wiki` / `!wikipedia <query\|random>` | Search Wikipedia — posts `[Title] summary url` to public chat. `!wiki random` for a random article. Disambiguation pages prompt for a more specific term. (60s cooldown) |
 | `!minewiki` / `!mcwiki <query>` | Search the Minecraft Wiki — same format as `!wiki` with article URL included (60s cooldown) |
+| `!url` / `!preview` / `!www <link>` | Fetch og:title and og:description from a URL and post a preview — blocked URLs and flagged content are filtered (60s cooldown) |
 | `!urbandictionary` / `!ud <query>` | Search Urban Dictionary — posts `[Word] definition (+N/-N)` to public chat (60s cooldown) |
 | `!translate` / `!tr` / `!tl [lang] <text\|player>` | Translate non-English text to English (default) or a target lang — posts `[from→to] result` to public chat. Single-word input checks online players and translates their last message. Requires Azure AI Translator key in config. |
 

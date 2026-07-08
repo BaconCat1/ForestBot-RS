@@ -38,6 +38,8 @@ pub struct ApiKeys {
     pub gasbuddy_solver_url: String,
     #[serde(default)]
     pub gasbuddy_csrf_readonly: bool,
+    #[serde(default)]
+    pub google_safe_browsing: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -111,6 +113,10 @@ pub struct Config {
     #[serde(rename = "customChatFormats")]
     pub custom_chat_formats: Vec<String>,
     pub commands: HashMap<String, bool>,
+    #[serde(default)]
+    pub url_blocklist_sources: Vec<String>,
+    #[serde(default)]
+    pub url_whitelist_file: String,
     #[serde(rename = "usePViewer")]
     #[allow(dead_code)]
     pub use_p_viewer: bool,

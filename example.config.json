@@ -9,7 +9,8 @@
         "airnow": "",
         "coingecko": "",
         "gasbuddy_solver_url": "",
-        "gasbuddy_csrf_readonly": false
+        "gasbuddy_csrf_readonly": false,
+        "google_safe_browsing": ""
     },
     "mc_server": "newtest_new",
     "host": "localhost",
@@ -175,7 +176,8 @@
         "volcano":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "launch":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "gas":              { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "bets":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 }
+        "bets":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
+        "url":              { "cooldown_ms": 60000, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 }
     },
     "welcome_messages": true,
     "useCommands": true,
@@ -343,8 +345,16 @@
         "volcano":          true,
         "launch":           true,
         "gas":              true,
-        "bets":             true
+        "bets":             true,
+        "url":              true
     },
+    "url_whitelist_file": "./json/url_whitelist.hosts",
+    "url_blocklist_sources": [
+        "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts",
+        "https://blocklist.sefinek.net/generated/v1/0.0.0.0/fakenews/StevenBlack/hosts.fork.txt",
+        "https://blocklist.sefinek.net/generated/v1/0.0.0.0/fakenews/marktron/hosts.fork.txt",
+        "./json/blocked_domains.hosts"
+    ],
     "usePViewer": true,
     "pViewerPort": 8080
 }

@@ -70,8 +70,21 @@ async fn reload_runtime(
         airnow_api_key: app_state.config.api_keys.airnow,
         gasbuddy_solver_url: app_state.config.api_keys.gasbuddy_solver_url,
         gasbuddy_csrf_readonly: app_state.config.api_keys.gasbuddy_csrf_readonly,
+        google_safe_browsing_key: app_state.config.api_keys.google_safe_browsing,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;
+
+    // Rebuild URL blocklist in background
+    {
+        let blocklist_arc = state.url_blocklist.clone();
+        let sources = app_state.config.url_blocklist_sources;
+        let whitelist = app_state.config.url_whitelist_file;
+        tokio::spawn(async move {
+            let set = crate::structure::mineflayer::url_blocklist::build_blocklist(&sources, &whitelist).await;
+            *blocklist_arc.write().expect("url_blocklist write") = Some(set);
+        });
+    }
+
     Ok(())
 }

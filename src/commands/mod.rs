@@ -44,6 +44,7 @@ pub mod duel;
 pub mod market;
 pub mod wordle;
 pub mod roast;
+pub mod url;
 
 use crate::structure::mineflayer::bot::{AzaleaState, RuntimeConfig};
 
@@ -294,6 +295,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         casino::bets::COMMAND,
         checkers::COMMAND,
         reversi::COMMAND,
+        url::COMMAND,
     ]
 }
 

@@ -118,6 +118,9 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~"we need !top slurcount"~~ // `!top slurcount`/`!top slurs`; sums `get_word_occurrence` across all slurs in `slurcount_list.json` per player; cached same as other top stats
 * ✅ ~~optimize db calls for efficiency~~ // `top messages`: was N Hub calls → new Hub `GET /top-messages` (single SQL GROUP BY); `top slurcount`: was N×M calls → new Hub `GET /top-slurcount` (single SQL SUM of REGEXP per word); kills/deaths/joins/playtime/trades/rejects already single-call; advancements already uses leaderboard endpoint
 
+## !trade
+* 🆕 !trade preview, let you see the proposed trade that's preventing you from making a new one, prompt people when they hit that snag
+
 ## casino
 * ✅ casino style games, create ethereal "chips" currency to go along side them 
 * ✅ ~~!duel, let's people bet ethereal points then they fight, winner gets the pot. People should be able to place side bets as well, maybe odds can be calculated using k/d stats?~~
@@ -146,6 +149,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 ### Casino Phase II
 * ⏸️ migrate to a betting api over the current approach (requires Hub changes, deslopify-2026-07-07.md line 111)
+* ⏸️ board building whisper delay should be data driven in config.json
 * ⏸️ eSports betting (OddsPapi — oddspapi.io (or panda api... wtv), free key, 250 req/month) — CS2, LoL, Dota 2, Valorant, CoD, Rocket League, Overwatch, R6, StarCraft; match winner moneyline; reuses existing odds-market UI // casino phase II
 * ⏸️ Hurricane betting (NHC — nhc.noaa.gov, no auth, flat file/GeoJSON) — "will storm X make landfall in region Y?"; seasonal; no REST API, flat file parse required // casino phase II
 * ⏸️ River/streamflow betting (NOAA NWPS — water.noaa.gov, no auth) — HEFS ensemble forecast, "will river X exceed flood stage?"; distinct from existing alert-based noaa_flooding.rs // casino phase II
@@ -190,7 +194,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🆕 !afk, let you set a response if people say your name at the beginning of a message or whisper to you, resets if you talk in chat or disconnect.
 * 🆕 !poll, popular enough in other bots to warrant inclusion, might end up disabled like `fadvs`. Needs high cooldown, 5 min minimum
 * 🆕 !tps, if azalea/minecraft or wtv lets you see server performance, report it via a command
-* 🆕 !url, don't webpages have some seo text built in by default? if so, leverage that for a text only preview of a url, so you can see what it is without having to leave the game.
+* ✅ ~~!url, don't webpages have some seo text built in by default? if so, leverage that for a text only preview of a url, so you can see what it is without having to leave the game.~~ // working, needs some fall back and further testing
 
 ---
 

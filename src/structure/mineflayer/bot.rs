@@ -83,6 +83,7 @@ pub struct RuntimeConfig {
     pub airnow_api_key: String,
     pub gasbuddy_solver_url: String,
     pub gasbuddy_csrf_readonly: bool,
+    pub google_safe_browsing_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +125,9 @@ pub struct Bot {
     pub coingecko_api_key: String,
     pub gasbuddy_solver_url: String,
     pub gasbuddy_csrf_readonly: bool,
+    pub google_safe_browsing_key: String,
+    pub url_blocklist_sources: Vec<String>,
+    pub url_whitelist_file: String,
     pub anti_spam_global_cooldown_ms: u64,
     pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub reconnect_time_ms: u64,
@@ -170,6 +174,9 @@ impl Bot {
             coingecko_api_key: state.config.api_keys.coingecko.clone(),
             gasbuddy_solver_url: state.config.api_keys.gasbuddy_solver_url.clone(),
             gasbuddy_csrf_readonly: state.config.api_keys.gasbuddy_csrf_readonly,
+            google_safe_browsing_key: state.config.api_keys.google_safe_browsing.clone(),
+            url_blocklist_sources: state.config.url_blocklist_sources.clone(),
+            url_whitelist_file: state.config.url_whitelist_file.clone(),
             anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown,
             command_cooldowns: state.config.command_cooldowns.clone(),
             reconnect_time_ms: state.config.reconnect_time,
@@ -235,6 +242,7 @@ impl Bot {
                 airnow_api_key: self.airnow_api_key.clone(),
                 gasbuddy_solver_url: self.gasbuddy_solver_url.clone(),
                 gasbuddy_csrf_readonly: self.gasbuddy_csrf_readonly,
+                google_safe_browsing_key: self.google_safe_browsing_key.clone(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -289,7 +297,19 @@ impl Bot {
             gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
             gasbuddy_csrf: Arc::new(Mutex::new(None)),
             http: reqwest::Client::new(),
+            url_blocklist: Arc::new(RwLock::new(None)),
         };
+
+        // Build URL blocklist in background
+        {
+            let blocklist_arc = state.url_blocklist.clone();
+            let sources = self.url_blocklist_sources.clone();
+            let whitelist = self.url_whitelist_file.clone();
+            tokio::spawn(async move {
+                let set = crate::structure::mineflayer::url_blocklist::build_blocklist(&sources, &whitelist).await;
+                *blocklist_arc.write().expect("url_blocklist write") = Some(set);
+            });
+        }
 
         // Load cached GasBuddy CSRF token
         if let Some(token) = crate::commands::casino::gas::load_cached_token().await {
@@ -703,6 +723,7 @@ pub struct AzaleaState {
     pub gas_price_cache: Arc<Mutex<std::collections::HashMap<String, (f64, String, u64)>>>,
     pub gasbuddy_csrf: Arc<Mutex<Option<String>>>,
     pub http: reqwest::Client,
+    pub url_blocklist: Arc<RwLock<Option<HashSet<String>>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -816,6 +837,7 @@ impl Default for AzaleaState {
                 airnow_api_key: String::new(),
                 gasbuddy_solver_url: String::new(),
                 gasbuddy_csrf_readonly: false,
+                google_safe_browsing_key: String::new(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -870,6 +892,7 @@ impl Default for AzaleaState {
             gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
             gasbuddy_csrf: Arc::new(Mutex::new(None)),
             http: reqwest::Client::new(),
+            url_blocklist: Arc::new(RwLock::new(None)),
         }
     }
 }

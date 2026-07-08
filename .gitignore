@@ -49,3 +49,5 @@ godtexts/commofchr.txt.zst
 FADVS.md
 godtexts/meherbaba.txt.zst
 gasbuddy_token.json
+/json/url_blocklist_cache/*
+/url_fetch_cache/*
