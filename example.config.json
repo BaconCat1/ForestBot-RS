@@ -348,12 +348,20 @@
         "bets":             true,
         "url":              true
     },
-    "url_whitelist_file": "./json/url_whitelist.hosts",
+    "url_whitelist_file": "./json/url_whitelist_domains.hosts",
     "url_blocklist_sources": [
-        "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts",
+        "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-porn/hosts",
         "https://blocklist.sefinek.net/generated/v1/0.0.0.0/fakenews/StevenBlack/hosts.fork.txt",
         "https://blocklist.sefinek.net/generated/v1/0.0.0.0/fakenews/marktron/hosts.fork.txt",
-        "./json/blocked_domains.hosts"
+        "https://raw.githubusercontent.com/TMAFE/anti-grabify/refs/heads/master/pihole-dns-list.txt",
+        "https://github.com/6unsatiable/HOSTS-File-List/blob/master/Ip-Grabber-blocklist",
+        "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/pro-onlydomains.txt",
+        "https://raw.githubusercontent.com/PeterDaveHello/url-shorteners/master/list",
+        "https://raw.githubusercontent.com/PeterDaveHello/url-shorteners/master/inactive",
+        "https://raw.githubusercontent.com/olbat/ut1-blacklists/refs/heads/master/blacklists/sect/domains",
+        "https://raw.githubusercontent.com/olbat/ut1-blacklists/refs/heads/master/blacklists/fakenews/domains",
+        "https://raw.githubusercontent.com/olbat/ut1-blacklists/refs/heads/master/blacklists/agressif/domains",
+        "./json/url_blacklist_domains.hosts"
     ],
     "usePViewer": true,
     "pViewerPort": 8080

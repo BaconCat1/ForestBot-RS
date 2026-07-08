@@ -198,9 +198,13 @@ async fn fetch_preview(url: &str, blocklist: &HashSet<String>) -> Option<(String
         if body.len() >= MAX_RESPONSE_BYTES {
             break;
         }
-        // Stop as soon as </head> is visible — no need to read the body
+        // Stop at </head> only if we already have a description meta tag —
+        // otherwise keep reading so we can fall back to <p> body content
         if body.windows(7).any(|w| w.eq_ignore_ascii_case(b"</head>")) {
-            break;
+            let partial = String::from_utf8_lossy(&body);
+            if extract_meta_description(&partial).is_some() {
+                break;
+            }
         }
     }
     let html = String::from_utf8_lossy(&body).into_owned();
@@ -220,12 +224,17 @@ async fn fetch_preview(url: &str, blocklist: &HashSet<String>) -> Option<(String
         }
     }
 
-    if extract_meta_description(&html).is_none() {
-        crate::structure::logger::warn(format!("url: no meta description found for {url} (body {} bytes)", body.len()));
+    let title = extract_title(&html).unwrap_or_else(|| extract_domain(url));
+
+    let description = extract_meta_description(&html)
+        .or_else(|| extract_first_paragraph(&html))
+        .or_else(|| extract_title_as_description(&html));
+
+    if description.is_none() {
+        crate::structure::logger::warn(format!("url: no description found for {url} (body {} bytes)", body.len()));
     }
 
-    let description = extract_meta_description(&html)?;
-    let title = extract_title(&html).unwrap_or_else(|| extract_domain(url));
+    let description = description?;
 
     Some((title, description))
 }
@@ -253,6 +262,10 @@ fn extract_meta_description(html: &str) -> Option<String> {
         r#"name="description""#,
         r#"name="twitter:description""#,
         r#"itemprop="description""#,
+        r#"name="DC.description""#,
+        r#"name="sailthru.description""#,
+        r#"name="abstract""#,
+        r#"name="summary""#,
         r#"property='og:description'"#,
         r#"name='description'"#,
         r#"itemprop='description'"#,
@@ -293,6 +306,60 @@ fn extract_attr(tag: &str, attr: &str) -> Option<String> {
     }
 
     None
+}
+
+fn extract_first_paragraph(html: &str) -> Option<String> {
+    let html_lower = html.to_lowercase();
+    let mut search: &str = html;
+    let mut search_lower: &str = &html_lower;
+    loop {
+        let p_start = search_lower.find("<p")?;
+        search = &search[p_start..];
+        search_lower = &search_lower[p_start..];
+        let tag_end = search_lower.find('>')?;
+        let after_tag = &search[tag_end + 1..];
+        let after_lower = &search_lower[tag_end + 1..];
+        let close = after_lower.find("</p>")?;
+        let raw = &after_tag[..close];
+        // Strip inner tags
+        let text = strip_tags(raw);
+        let trimmed = text.trim().to_owned();
+        if trimmed.len() >= 40 {
+            return Some(clean_text(&trimmed));
+        }
+        search = &search[tag_end + 1..];
+        search_lower = &search_lower[tag_end + 1..];
+    }
+}
+
+fn strip_tags(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut in_tag = false;
+    for c in s.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => out.push(c),
+            _ => {}
+        }
+    }
+    out
+}
+
+fn extract_title_as_description(html: &str) -> Option<String> {
+    let raw = extract_title(html)?;
+    // Strip common " - Site" / " | Site" / " — Site" suffixes
+    let stripped = raw
+        .rsplit_once(" - ")
+        .or_else(|| raw.rsplit_once(" | "))
+        .or_else(|| raw.rsplit_once(" — "))
+        .map(|(left, _)| left.trim())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(raw.as_str());
+    if stripped == raw.as_str() {
+        return None; // title has no suffix to strip, same as what's already shown
+    }
+    Some(stripped.to_owned())
 }
 
 fn extract_title(html: &str) -> Option<String> {
