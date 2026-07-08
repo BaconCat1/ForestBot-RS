@@ -28,7 +28,23 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             }).collect()).unwrap_or_default()
         };
 
-        let total = db_rows.len() + gas_bets.len();
+        let weather_bets: Vec<String> = {
+            let map = ctx.state.weather_bets.lock().expect("weather_bets lock");
+            map.get(&player_uuid).map(|v| v.iter().map(|b| {
+                let type_str = match b.bet_type.as_str() {
+                    "rain" => format!("rain {}", b.direction.to_uppercase()),
+                    _ => format!("{} {} {:.1}{}",
+                        b.bet_type.to_uppercase(), b.direction.to_uppercase(),
+                        b.threshold.unwrap_or(0.0),
+                        b.unit.as_deref().unwrap_or("")),
+                };
+                let payout = (b.stake as f64 * b.payout_mult).ceil() as i64;
+                format!("[WEATHER] {} {} {} → pays {} | T-{}",
+                    b.city, type_str, chips_str(b.stake), chips_str(payout), fmt_time(b.closes_unix))
+            }).collect()).unwrap_or_default()
+        };
+
+        let total = db_rows.len() + gas_bets.len() + weather_bets.len();
         if total == 0 {
             ctx.whisper("No open event bets.");
             return Ok(());
@@ -55,6 +71,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             ));
         }
         for line in gas_bets { ctx.whisper(line); }
+        for line in weather_bets { ctx.whisper(line); }
 
         Ok(())
     })

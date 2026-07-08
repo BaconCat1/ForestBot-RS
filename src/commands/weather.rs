@@ -49,6 +49,7 @@ pub struct WeatherBet {
 }
 
 const MIN_BET: i64 = 50;
+const RAKE: f64 = 0.97;
 
 // ── Command entry ─────────────────────────────────────────────────────────────
 
@@ -158,8 +159,8 @@ async fn fetch_weather(location: &str) -> Option<(String, Option<String>)> {
         .and_then(|v| v.as_f64())
         .map(|p| {
             let prob = (p.round() as u8).clamp(5, 95);
-            let yes  = (100.0 / prob as f64 * 100.0).round() / 100.0;
-            let no   = (100.0 / (100 - prob) as f64 * 100.0).round() / 100.0;
+            let yes  = (100.0 / prob as f64 * RAKE * 100.0).round() / 100.0;
+            let no   = (100.0 / (100 - prob) as f64 * RAKE * 100.0).round() / 100.0;
             format!("[{city} 1d rain odds] {prob}% chance | yes {yes:.2}× / no {no:.2}×")
         });
 
@@ -189,8 +190,8 @@ async fn show_odds(location: &str) -> Vec<String> {
                 for (label, idx) in [("1d", 1usize), ("3d", 3), ("7d", 7), ("14d", 14)] {
                     if let Some(p) = probs.get(idx).and_then(|v| v.as_f64()) {
                         let prob = (p as u8).clamp(5, 95);
-                        let yes = (100.0 / prob as f64 * 100.0).round() / 100.0;
-                        let no  = (100.0 / (100 - prob) as f64 * 100.0).round() / 100.0;
+                        let yes = (100.0 / prob as f64 * RAKE * 100.0).round() / 100.0;
+                        let no  = (100.0 / (100 - prob) as f64 * RAKE * 100.0).round() / 100.0;
                         parts.push(format!("{label} {prob}%→{yes:.2}×/{no:.2}×"));
                     }
                 }
@@ -226,7 +227,7 @@ async fn show_odds(location: &str) -> Vec<String> {
                         let p_under = (1.0 - ensemble_prob_over(&temp_members, median)).max(0.05).min(0.95);
                         msgs.push(format!(
                             "[Temp odds] {city} {tomorrow}: median {median:.1}°C | over {:.2}× / under {:.2}×",
-                            (1.0 / p_over).min(20.0), (1.0 / p_under).min(20.0)
+                            (1.0 / p_over * RAKE).min(20.0), (1.0 / p_under * RAKE).min(20.0)
                         ));
                     }
 
@@ -236,7 +237,7 @@ async fn show_odds(location: &str) -> Vec<String> {
                         let p_under = (1.0 - ensemble_prob_over(&wind_members, median)).max(0.05).min(0.95);
                         msgs.push(format!(
                             "[Wind odds] {city} {tomorrow}: median {median:.1} km/h | over {:.2}× / under {:.2}×",
-                            (1.0 / p_over).min(20.0), (1.0 / p_under).min(20.0)
+                            (1.0 / p_over * RAKE).min(20.0), (1.0 / p_under * RAKE).min(20.0)
                         ));
                     }
                 }
@@ -316,9 +317,9 @@ async fn place_rain_bet(ctx: &CommandContext<'_>, city_arg: &str, tail: &[&str])
     };
     let prob_clamped = forecast_prob.clamp(5, 95);
     let payout_mult = if rain_yes {
-        ((100.0 / prob_clamped as f64).min(20.0).max(1.05) * 100.0).round() / 100.0
+        (((100.0 / prob_clamped as f64) * RAKE).min(20.0).max(1.02) * 100.0).round() / 100.0
     } else {
-        ((100.0 / (100 - prob_clamped) as f64).min(20.0).max(1.05) * 100.0).round() / 100.0
+        (((100.0 / (100 - prob_clamped) as f64) * RAKE).min(20.0).max(1.02) * 100.0).round() / 100.0
     };
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
@@ -443,7 +444,7 @@ async fn place_ensemble_bet(
         1.0 - ensemble_prob_over(&members, threshold)
     };
     let p = p_raw.max(0.05).min(0.95);
-    let payout_mult = ((1.0 / p).min(20.0).max(1.05) * 100.0).round() / 100.0;
+    let payout_mult = (((1.0 / p) * RAKE).min(20.0).max(1.02) * 100.0).round() / 100.0;
     let forecast_prob = (p * 100.0).round() as u8;
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {

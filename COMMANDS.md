@@ -1,7 +1,8 @@
 
+
 # ForestBot Commands
 
-**106 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md).
+**106 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md). Gods and corpora in [GODS.md](GODS.md).
 
 ## General
 

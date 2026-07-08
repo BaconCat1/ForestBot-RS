@@ -12,7 +12,7 @@ All games feature a 3% house rake deposited into the jackpot. All losings are de
 | `!wallet <player?>` | Balance, jackpot tickets, lotto tickets, live portfolio value, and open event bet count |
 | `!faucet` / `!daily` | Daily chip claim — base 100 chips + 10 per streak day (streak resets if you miss a day) |
 | `!give <player> <chips>` | Send chips to another player |
-| `!bets` | List all open event bets (AQI, launch, gas, sports, Kalshi, seismic, floods) |
+| `!bets` | List all open event bets (AQI, gas, weather, launch, sports, Kalshi, seismic, train, FAA, flood, space weather) |
 
 ## Slots
 
@@ -324,14 +324,14 @@ Categories: sports, crypto, politics, economics, entertainment, tech, climate, f
 
 ## Space Weather
 
-Bet on NASA-tracked space weather events. Bets settle at midnight UTC + 1h buffer, then the bot polls the DONKI API. Min bet: 25 chips.
+Bet on NASA-tracked space weather events. Bets settle at midnight UTC + 1h buffer, then the bot polls the DONKI API. Odds are live (fetched from DONKI + SWPC) — run `!sw` to see current multipliers. Min bet: 25 chips.
 
 | Command | Description |
 |---|---|
 | `!spaceweather` / `!sw` | List bet types and odds |
-| `!sw cme <chips>` | Coronal Mass Ejection recorded today — 1.9× |
-| `!sw xflare <chips>` | X-class solar flare recorded today — 12× |
-| `!sw gstorm <chips>` | Geomagnetic storm recorded today — 5× |
+| `!sw cme <chips>` | Coronal Mass Ejection recorded today |
+| `!sw xflare <chips>` | X-class solar flare recorded today |
+| `!sw gstorm <chips>` | Geomagnetic storm recorded today |
 | `!sw bets` | Show your open space weather bets |
 
 Events sourced from NASA DONKI (api.nasa.gov). Occurred = payout credited. Not occurred = stake to jackpot. API unavailable = full refund.
@@ -365,7 +365,7 @@ Run `!flood list` first to see numbered locations, then `!flood bet <#>`. Raw la
 
 ## Seismic Events
 
-Bet on whether an earthquake or volcanic eruption occurs within 7 days. Data from USGS. Min bet: 25 chips. 5% house edge.
+Bet on whether an earthquake or volcanic eruption occurs within 7 days. Data from USGS. Min bet: 25 chips.
 
 | Command | Description |
 |---|---|
@@ -394,11 +394,11 @@ Supported countries: `us` (Amtrak), `de` (Germany), `fr`, `be`, `ch`, `fi`, `nl`
 | `!train <country> <code> ontime\|delayed <chips>` | Bet train is on time or delayed at 2h settlement |
 | `!train bets` | Show your open train bets |
 
-Payout = `stake / price`. Currently delayed → ontime is 3.03×, delayed is 1.49×. Currently on time → ontime is 1.49×, delayed is 3.03×. Correct = payout credited. Wrong = stake to jackpot.
+Payout = `stake / price`. Currently delayed → ontime is ~2.94×, delayed is ~1.45×. Currently on time → ontime is ~1.45×, delayed is ~2.94×. Correct = payout credited. Wrong = stake to jackpot.
 
 ## AQI (Air Quality)
 
-Bet on whether tomorrow's AQI will be Good or Unhealthy for any US zip code. Uses AirNow forecast data. 5% house edge. Min bet: 25 chips. Settles 24h after placement using live observation data.
+Bet on whether tomorrow's AQI will be Good or Unhealthy for any US zip code. Uses AirNow forecast data. Min bet: 25 chips. Settles 24h after placement using live observation data.
 
 | Command | Description |
 |---|---|
@@ -411,7 +411,7 @@ Odds derived from AirNow forecast category: Cat1(Good)→GOOD favored, Cat4+(Unh
 
 ## Rocket Launch
 
-Bet on upcoming rocket launches using real LL2 (Launch Library 2) data. Two bet types per launch: **success** (launch succeeds) and **ontime** (no scrub or delay >24h). 5% house edge. Min bet: 25 chips. Bets lock 2h before launch window. Settles when LL2 reports a final status; polls hourly up to 7 days after window end. Refunds if no final status after 7 days.
+Bet on upcoming rocket launches using real LL2 (Launch Library 2) data. Two bet types per launch: **success** (launch succeeds) and **ontime** (no scrub or delay >24h). Min bet: 25 chips. Bets lock 2h before launch window. Settles when LL2 reports a final status; polls hourly up to 7 days after window end. Refunds if no final status after 7 days.
 
 | Command | Description |
 |---|---|
@@ -425,7 +425,7 @@ Odds derived from the provider's recent launch history (last 50 launches). Succe
 
 ## Gas Price
 
-Bet on whether the average regular gas price in your area will be higher or lower tomorrow. Uses GasBuddy data. 5% house edge. Min bet: 25 chips. 24h window. Refunds if GasBuddy is unavailable at settlement.
+Bet on whether the average regular gas price in your area will be higher or lower tomorrow. Uses GasBuddy data. Min bet: 25 chips. 24h window. Refunds if GasBuddy is unavailable at settlement.
 
 | Command | Description |
 |---|---|

@@ -52,7 +52,7 @@ impl SwOdds {
     }
 }
 
-const FALLBACK_ODDS: SwOdds = SwOdds { cme: 1.9, xflare: 12.0, gstorm: 5.0 };
+const FALLBACK_ODDS: SwOdds = SwOdds { cme: 1.76, xflare: 12.13, gstorm: 4.85 };
 
 struct BetKind {
     slug: &'static str,
