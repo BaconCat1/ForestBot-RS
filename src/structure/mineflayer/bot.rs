@@ -2464,6 +2464,7 @@ fn is_server_presence_message(content: &str) -> bool {
 
 fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<String>, String) {
     let full_message = message.message().to_string();
+    if std::env::var("DEBUG").is_ok() { logger::info(format!("[CHAT_PARSE] full={full_message:?}")); }
 
     let formats = state
         .runtime
