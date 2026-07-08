@@ -2479,9 +2479,14 @@ fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<Stri
     // breaking command dispatch. Matching the full raw string against a configured
     // format first produces the correct username + message split.
     if !formats.is_empty() {
+        if std::env::var("DEBUG").is_ok() { logger::info(format!("[CHAT_PARSE] trying {} custom formats: {:?}", formats.len(), formats)); }
         if let Some(parsed) = chat_format_parser::parse(&full_message, &formats) {
+            if std::env::var("DEBUG").is_ok() { logger::info(format!("[CHAT_PARSE] custom match → sender={:?} content={:?}", parsed.username, parsed.message)); }
             return (Some(parsed.username), parsed.message);
         }
+        if std::env::var("DEBUG").is_ok() { logger::info("[CHAT_PARSE] no custom format matched → fallback to native".to_string()); }
+    } else if std::env::var("DEBUG").is_ok() {
+        logger::info("[CHAT_PARSE] formats empty → native parse".to_string());
     }
 
     let (sender, content) = message.split_sender_and_content();
