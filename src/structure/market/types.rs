@@ -27,6 +27,7 @@ pub struct Quote {
 
 #[derive(Clone, Debug)]
 pub struct Candle {
+    #[allow(dead_code)]
     pub timestamp: u64,
     pub open: f64,
     pub high: f64,
@@ -38,6 +39,7 @@ pub struct Candle {
 pub struct Asset {
     pub symbol: String,
     pub name: String,
+    #[allow(dead_code)]
     pub market: MarketKind,
 }
 

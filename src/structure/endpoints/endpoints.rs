@@ -492,6 +492,7 @@ impl ApiClient {
         .await
         .and_then(|value| self.parse_json("/edit-faq", value))
     }
+    #[allow(dead_code)]
     pub async fn tradebot_get_trade(&self, trade_id: i64) -> Option<TradebotTrade> {
         self.get_json(&format!("/tradebot/trade/{trade_id}"), &[])
             .await
@@ -2450,7 +2451,7 @@ pub enum CasinoFaucetResult {
 #[derive(Debug)]
 pub enum CasinoScratchResult {
     Ok,
-    OnCooldown { next_secs: u64 },
+    OnCooldown { #[allow(dead_code)] next_secs: u64 },
     Err,
 }
 

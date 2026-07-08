@@ -139,6 +139,7 @@ async fn submit_guess(ctx: &CommandContext<'_>, word: &str) -> anyhow::Result<()
         Lose { board: Vec<String>, solution: String, stake: i64 },
         NotInWordList,
         HardModeViolation(usize),
+        #[allow(dead_code)]
         NoGame,
     }
 

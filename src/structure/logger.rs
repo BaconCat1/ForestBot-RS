@@ -13,6 +13,7 @@ pub fn info(message: impl AsRef<str>) {
     log("info".blue(), message.as_ref());
 }
 
+#[allow(dead_code)]
 pub fn success(message: impl AsRef<str>) {
     log("success".bright_green(), message.as_ref());
 }
@@ -21,6 +22,7 @@ pub fn warn(message: impl AsRef<str>) {
     log("warn".yellow(), message.as_ref());
 }
 
+#[allow(dead_code)]
 pub fn error(message: impl AsRef<str>) {
     log("error".red(), message.as_ref());
 }

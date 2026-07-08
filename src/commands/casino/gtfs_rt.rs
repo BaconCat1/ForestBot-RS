@@ -145,6 +145,7 @@ pub fn is_rail_route(agency_slug: &str, route_id: &str) -> bool {
 #[derive(Clone)]
 pub struct TripSnapshot {
     pub trip_id: String,
+    #[allow(dead_code)]
     pub route_id: String,
     pub first_stop_time: u64,   // unix ts of first remaining stop departure/arrival
     pub last_stop_time: u64,    // unix ts of last stop arrival/departure

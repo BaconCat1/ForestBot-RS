@@ -15,8 +15,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 const MIN_BET: i64 = 25;
 const MAX_BET: i64 = 5_000;
-const RAKE_PCT: f64 = 0.02;
-
 fn draw_card() -> u8 {
     OsRng.gen_range(1u8..=13)
 }
@@ -136,8 +134,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
         return Ok(());
     }
     if dbj {
-        let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
-        ctx.state.api.casino_jackpot_rake(rake).await;
+        ctx.state.api.casino_jackpot_rake(bet).await;
         ctx.whisper(format!(
             "BJ | You: {} ({}) | Dealer: {} {} (21) | Dealer blackjack — Lost {} | Balance: {}",
             hand_str(&player), score(&player),
@@ -161,7 +158,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
         return Ok(());
     }
 
-    let ps = score(&player);
+    let _ps = score(&player);
     let can_double = balance >= bet; // still have enough after deduction
     let actions = if can_double { "Hit, Stand, or Double" } else { "Hit or Stand" };
 
@@ -205,8 +202,7 @@ async fn do_hit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()
     if ps > 21 {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
         let balance = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0);
-        let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
-        ctx.state.api.casino_jackpot_rake(rake).await;
+        ctx.state.api.casino_jackpot_rake(bet).await;
         ctx.whisper(format!(
             "BJ | You: {} ({ps}) | Dealer: {} ? | Bust — Lost {} | Balance: {}",
             hand_str(&player), card_str(dealer[0]), chips_str(bet), chips_str(balance)
@@ -299,8 +295,7 @@ async fn do_double(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result
     ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
 
     if ps > 21 {
-        let rake = ((doubled_bet as f64) * RAKE_PCT).max(1.0) as i64;
-        ctx.state.api.casino_jackpot_rake(rake).await;
+        ctx.state.api.casino_jackpot_rake(doubled_bet).await;
         ctx.whisper(format!(
             "BJ | You: {} ({ps}) | Dealer: {} ? | Bust on double — Lost {} | Balance: {}",
             hand_str(&new_player), card_str(dealer[0]), chips_str(doubled_bet), chips_str(balance)
@@ -317,8 +312,7 @@ async fn do_quit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<(
     let removed = ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
     match removed {
         Some(CasinoSession::Blackjack { bet, .. }) => {
-            let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
-            ctx.state.api.casino_jackpot_rake(rake).await;
+            ctx.state.api.casino_jackpot_rake(bet).await;
             let balance = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0);
             ctx.whisper(format!("BJ | Quit — forfeited {} | Balance: {}", chips_str(bet), chips_str(balance)));
         }
@@ -358,8 +352,7 @@ async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut 
             Err(_) => 0,
         }
     } else {
-        let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
-        ctx.state.api.casino_jackpot_rake(rake).await;
+        ctx.state.api.casino_jackpot_rake(bet).await;
         ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0)
     };
 

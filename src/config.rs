@@ -33,6 +33,8 @@ pub struct ApiKeys {
     #[serde(default)]
     pub airnow: String,
     #[serde(default)]
+    pub coingecko: String,
+    #[serde(default)]
     pub gasbuddy_solver_url: String,
     #[serde(default)]
     pub gasbuddy_csrf_readonly: bool,

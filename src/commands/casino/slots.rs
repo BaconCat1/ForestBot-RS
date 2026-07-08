@@ -5,8 +5,6 @@ use super::chips_str;
 
 const MIN_BET: i64 = 10;
 const MAX_BET: i64 = 5_000;
-const RAKE_PCT: f64 = 0.02;
-
 struct Symbol {
     label: &'static str,
     triple_mult: f64,
@@ -109,8 +107,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let (total_win, line_names) = evaluate_paylines(above, center, below, bet);
 
         if total_win == 0 {
-            let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
-            ctx.state.api.casino_jackpot_rake(rake).await;
+            ctx.state.api.casino_jackpot_rake(bet).await;
             ctx.whisper(format!("-{} | Balance: {}", chips_str(bet), chips_str(balance)));
         } else {
             let bal = ctx.state.api.casino_adjust(&player_uuid, total_win).await.unwrap_or(balance + total_win);

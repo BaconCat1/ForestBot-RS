@@ -1,5 +1,4 @@
 // © 2025 ashxudev — terminal-poker (MIT)
-use super::state::BIG_BLIND;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

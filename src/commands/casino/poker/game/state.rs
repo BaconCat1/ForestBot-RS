@@ -52,6 +52,7 @@ pub struct GameState {
     pub preflop_aggressor: Option<Player>,
     pub last_raise_size: u32,
     pub hand_number: u32,
+    #[allow(dead_code)]
     pub starting_stack: u32,
     pub hands_played: u32,
     pub hands_won: u32,

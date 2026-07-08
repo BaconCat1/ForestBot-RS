@@ -24,7 +24,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 const MIN_STAKE: i64 = 25;
 const MAX_STAKE: i64 = 5000;
-const RAKE_PCT: f64 = 0.02;
 
 const OPPONENTS: &[(&str, f64, f64)] = &[
     ("Glass Joe",     0.00, 0.19),
@@ -117,7 +116,7 @@ async fn execute_new_session(ctx: &CommandContext<'_>, stake_str: &str) -> anyho
 // ── Deal next hand ─────────────────────────────────────────────────────────────
 
 async fn execute_deal(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
-    let (stake, opponent_name, aggression, mut game) = match get_poker_session(ctx) {
+    let (stake, _, _, mut game) = match get_poker_session(ctx) {
         Some(v) => v,
         None => return Ok(()),
     };
@@ -273,7 +272,7 @@ async fn handle_hand_end(
     aggression: f64,
     stake: i64,
     events: &[String],
-    pot: u32,
+    _pot: u32,
 ) {
     let bot_won = if let Some(result) = &game.showdown_result {
         result.winner == Some(Player::Bot)
@@ -284,11 +283,8 @@ async fn handle_hand_end(
             .unwrap_or(false)
     };
 
-    // Always rake 2% of the pot
-    ctx.state.api.casino_jackpot_rake(((pot as f64) * RAKE_PCT).max(1.0) as i64).await;
-    // If bot won, additionally send the full pot to jackpot (bot has no real account to credit)
     if bot_won {
-        ctx.state.api.casino_jackpot_rake(pot as i64).await;
+        ctx.state.api.casino_jackpot_rake(stake).await;
     }
 
     let result_line = format_hand_result(game, opponent_name);

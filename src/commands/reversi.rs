@@ -16,6 +16,7 @@ const MIN_STAKE: i64 = 50;
 #[derive(Clone)]
 pub struct ReversiSession {
     pub cells: [u8; 64],
+    #[allow(dead_code)]
     pub current: u8, // 1=player, 2=cpu
     pub stake: i64,
     difficulty: Diff,
@@ -278,6 +279,7 @@ fn render_board(cells: &[u8; 64], legal: &[u8]) -> Vec<String> {
 
 struct TurnResult {
     skipped_cpu: bool,
+    #[allow(dead_code)]
     skipped_player: bool,
     over: GameResult,
 }

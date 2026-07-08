@@ -29,7 +29,7 @@ struct Piece { color: Color, kind: Kind }
 struct Pos { row: usize, col: usize }
 
 #[derive(Clone)]
-struct CheckersGame {
+pub(crate) struct CheckersGame {
     board: [Option<Piece>; 64],
     current: Color,
 }

@@ -7,16 +7,18 @@ use super::types::{Asset, Candle, MarketKind, Quote};
 pub struct MarketService {
     cache: Arc<Cache>,
     client: reqwest::Client,
+    coingecko_key: String,
 }
 
 impl MarketService {
-    pub fn new() -> Self {
+    pub fn new(coingecko_key: String) -> Self {
         Self {
             cache: Arc::new(Cache::new()),
             client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
                 .expect("reqwest client"),
+            coingecko_key,
         }
     }
 
@@ -27,7 +29,7 @@ impl MarketService {
         }
         let q = match infer_market(symbol) {
             MarketKind::Stock  => yahoo::quote(&self.client, &key).await?,
-            MarketKind::Crypto => coingecko::quote(&self.client, &key).await?,
+            MarketKind::Crypto => coingecko::quote(&self.client, &key, &self.coingecko_key).await?,
         };
         self.cache.put_quote(&key, q.clone());
         Ok(q)
@@ -40,7 +42,7 @@ impl MarketService {
         }
         let candles = match infer_market(symbol) {
             MarketKind::Stock  => yahoo::history(&self.client, &symbol.to_uppercase(), range_days).await?,
-            MarketKind::Crypto => coingecko::history(&self.client, symbol, range_days).await?,
+            MarketKind::Crypto => coingecko::history(&self.client, symbol, range_days, &self.coingecko_key).await?,
         };
         self.cache.put_history(&key, candles.clone());
         Ok(candles)
@@ -50,7 +52,7 @@ impl MarketService {
         let key = symbol.to_uppercase();
         match infer_market(symbol) {
             MarketKind::Stock  => yahoo::price_at(&self.client, &key, target_unix).await,
-            MarketKind::Crypto => coingecko::price_at(&self.client, &key, target_unix).await,
+            MarketKind::Crypto => coingecko::price_at(&self.client, &key, target_unix, &self.coingecko_key).await,
         }
     }
 
@@ -62,7 +64,7 @@ impl MarketService {
         // Search both providers and merge
         let mut results = Vec::new();
         if let Ok(mut r) = yahoo::search(&self.client, query).await { results.append(&mut r); }
-        if let Ok(mut r) = coingecko::search(&self.client, query).await { results.append(&mut r); }
+        if let Ok(mut r) = coingecko::search(&self.client, query, &self.coingecko_key).await { results.append(&mut r); }
         results.dedup_by(|a, b| a.symbol == b.symbol);
         results.truncate(6);
         self.cache.put_search(&key, results.clone());

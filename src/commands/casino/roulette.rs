@@ -14,8 +14,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 const MIN_BET: i64 = 10;
 const MAX_BET: i64 = 5_000;
-const RAKE_PCT: f64 = 0.02;
-
 const RED: &[u8] = &[1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
 fn is_red(n: u8) -> bool { RED.contains(&n) }
@@ -135,8 +133,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 spin, chips_str(total_return - bet), chips_str(new_balance),
             ));
         } else {
-            let rake = ((bet as f64) * RAKE_PCT).max(1.0) as i64;
-            ctx.state.api.casino_jackpot_rake(rake).await;
+            ctx.state.api.casino_jackpot_rake(bet).await;
             ctx.whisper(format!(
                 "Roulette: {} {color_str} | {label} — Lost {} | Balance: {}",
                 spin, chips_str(bet), chips_str(balance),

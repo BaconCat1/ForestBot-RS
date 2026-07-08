@@ -22,9 +22,6 @@ impl Suit {
         }
     }
 
-    pub fn is_red(&self) -> bool {
-        matches!(self, Suit::Hearts | Suit::Diamonds)
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

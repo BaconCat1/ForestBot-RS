@@ -41,7 +41,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 let days = period_to_days(period).unwrap_or(7);
                 match ctx.state.market_service.history(sym, days).await {
                     Ok(candles) => ctx.whisper(format_history(sym, period, &candles)),
-                    Err(_) => ctx.whisper(format!("No market data for {}.", sym)),
+                    Err(e) => ctx.whisper(format!("No market data for {}: {}", sym, e)),
                 }
             }
             "search" => {
@@ -98,7 +98,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                             q.symbol, fmt_price(q.price), sign, q.change_pct, q.name
                         ));
                     }
-                    Err(_) => ctx.whisper(format!("No market data for {}.", sym)),
+                    Err(e) => ctx.whisper(format!("No market data for {}: {}", sym, e)),
                 }
             }
         }

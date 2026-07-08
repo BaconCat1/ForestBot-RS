@@ -12,7 +12,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     execute,
 };
 
-const RAKE_PCT: f64 = 0.02;
 const FREE_SCRATCH_COOLDOWN_SECS: u64 = 600;
 
 // Prize rank → symbol, rarest first (mirrors slots rarity: ♦ rarest, 🍒 most common).
@@ -181,8 +180,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             ));
         } else {
             let rake_base = if is_free { 25 } else { tier.cost };
-            let rake = ((rake_base as f64) * RAKE_PCT).max(1.0) as i64;
-            ctx.state.api.casino_jackpot_rake(rake).await;
+            ctx.state.api.casino_jackpot_rake(rake_base).await;
             let balance = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
             ctx.whisper(format!("No match. | Balance: {}", chips_str(balance)));
         }
