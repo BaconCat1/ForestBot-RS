@@ -41,8 +41,6 @@ All games feature a 3% house rake deposited into the jackpot. All losings are de
 | `!lotto` | Buy a lotto ticket (pick 5 numbers 1–40, costs 50 chips). Weekly draw (Saturday by default). |
 | `!lotto pot` | Show current lotto pot |
 | `!lotto tickets <player?>` | Show your tickets for today's draw |
-| `!draw lotto` | (Whitelisted) Trigger lotto draw manually |
-| `!draw jackpot` | (Whitelisted) Trigger jackpot draw manually |
 
 ## Blackjack
 
@@ -435,3 +433,15 @@ Bet on whether the average regular gas price in your area will be higher or lowe
 | `!gas bets` | List your open gas bets |
 
 Odds: ~50/50 baseline.
+
+---
+
+## Admin (Whitelisted only)
+
+| Command | Description |
+|---|---|
+| `!addchips <player> <amount>` | Give chips to a player. Amount can be negative to deduct. Whispers new balance on success. |
+| `!draw lotto` | Trigger the lotto draw immediately (bypasses scheduled time) |
+| `!draw jackpot` | Trigger the jackpot draw immediately (bypasses scheduled time) |
+
+Note: `!draw lotto` and `!draw jackpot` are also listed in the Lotto section above.
