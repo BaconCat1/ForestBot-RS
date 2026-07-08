@@ -121,7 +121,11 @@ fn strip_prefix_with_skip<'a>(message: &'a str, literal: &str) -> Option<&'a str
 }
 
 fn literal_without_skip(literal: &str) -> String {
-    literal.replace("{skip}", "").trim().to_owned()
+    if literal.contains("{skip}") {
+        literal.replace("{skip}", "").trim().to_owned()
+    } else {
+        literal.to_owned()
+    }
 }
 
 fn normalize_message(message: &str) -> String {
