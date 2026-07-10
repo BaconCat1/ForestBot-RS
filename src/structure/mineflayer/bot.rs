@@ -299,6 +299,8 @@ impl Bot {
             http: reqwest::Client::new(),
             url_blocklist: Arc::new(RwLock::new(None)),
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
+            afk_messages: Arc::new(RwLock::new(HashMap::new())),
+            afk_cooldowns: Arc::new(Mutex::new(HashMap::new())),
         };
 
         // Build URL blocklist in background
@@ -727,6 +729,10 @@ pub struct AzaleaState {
     pub url_blocklist: Arc<RwLock<Option<HashSet<String>>>>,
     // (game_ticks, real_time_ms) samples from SetTime packets — used to compute server TPS
     pub tps_time_samples: Arc<Mutex<VecDeque<(u64, u64)>>>,
+    // key = lowercase username, value = AFK message; cleared on speak or leave
+    pub afk_messages: Arc<RwLock<HashMap<String, String>>>,
+    // key = triggering username (lowercase), value = when they last triggered an AFK reply
+    pub afk_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -897,6 +903,8 @@ impl Default for AzaleaState {
             http: reqwest::Client::new(),
             url_blocklist: Arc::new(RwLock::new(None)),
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
+            afk_messages: Arc::new(RwLock::new(HashMap::new())),
+            afk_cooldowns: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -975,6 +983,72 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                         send_minecraft_chat_message(&state, &sender, &content, &"").await;
                     }
                     return Ok(());
+                }
+
+                let sender_lower = sender.to_lowercase();
+
+                // AFK self-clear: if this sender was AFK, clear and notify them
+                {
+                    let cleared = state
+                        .afk_messages
+                        .write()
+                        .expect("afk_messages lock")
+                        .remove(&sender_lower)
+                        .is_some();
+                    if cleared {
+                        let wcmd = state.runtime.read().expect("runtime config lock poisoned").whisper_command.clone();
+                        crate::commands::enqueue_chat(&state, format!("/{wcmd} {sender} AFK cleared."));
+                    }
+                }
+
+                // AFK mention check: whisper sender about any AFK players they mentioned
+                {
+                    let content_lower = content.to_lowercase();
+                    let hits: Vec<(String, String)> = state
+                        .afk_messages
+                        .read()
+                        .expect("afk_messages lock")
+                        .iter()
+                        .filter(|(k, _)| content_lower.contains(k.as_str()))
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect();
+
+                    if !hits.is_empty() {
+                        let now = Instant::now();
+                        let on_cd = state
+                            .afk_cooldowns
+                            .lock()
+                            .expect("afk_cooldowns lock")
+                            .get(&sender_lower)
+                            .map_or(false, |&t| now.duration_since(t) < Duration::from_secs(60));
+
+                        if !on_cd {
+                            let wcmd = state.runtime.read().expect("runtime config lock poisoned").whisper_command.clone();
+                            let (fname, fmsg) = &hits[0];
+                            let rest: Vec<&str> = hits[1..].iter().map(|(k, _)| k.as_str()).collect();
+                            let main = format!("{fname} is afk: {fmsg}");
+                            let suffix = match rest.len() {
+                                0 => String::new(),
+                                1 => format!(" | {} is also afk.", rest[0]),
+                                _ => {
+                                    let (last, init) = rest.split_last().unwrap();
+                                    format!(" | {} and {} are also afk.", init.join(", "), last)
+                                }
+                            };
+                            let max = 200usize;
+                            let main_len = main.chars().count();
+                            let suffix_len = suffix.chars().count();
+                            let response = if main_len + suffix_len > max {
+                                let allowed = max.saturating_sub(suffix_len + 3);
+                                let truncated: String = main.chars().take(allowed).collect();
+                                format!("{truncated}...{suffix}")
+                            } else {
+                                format!("{main}{suffix}")
+                            };
+                            crate::commands::enqueue_chat(&state, format!("/{wcmd} {sender} {response}"));
+                            state.afk_cooldowns.lock().expect("afk_cooldowns lock").insert(sender_lower.clone(), now);
+                        }
+                    }
                 }
 
                 let prefix = state
@@ -1090,6 +1164,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 .remove(&username);
             stat_history::clear_delete_faq_pending(&username);
             crate::commands::duel::handle_disconnect(&state, &username).await;
+            state.afk_messages.write().expect("afk_messages lock").remove(&username.to_lowercase());
             send_player_leave(&state, &username, &uuid).await;
             send_player_list_update(&state).await;
         }

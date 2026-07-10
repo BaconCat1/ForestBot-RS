@@ -164,6 +164,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ⏸️ parlays across all betting types (needs mapping) // on hold for casino phase II
 * ⏸️ side betting on any game, not just dueling // on hold for casino phase II
 * ⏸️ add multiplayer where applicable to "casino games" // on hold for casino phase II
+* ⏸ !marry, as well as !divorce and !spouse, let's you marry a player, check their spouse. Append marital status to whois, alimony system based on winning casino games? // ON HOLD; written, untested. need to create the "betting" api so alimony raking doesn't need manual wiring in every game/market
 
 * ✅ ~~**bug**: `increment_ms` cooldown not working~~ // spam path (blocked attempt) now also increments cooldown; success path already had it
 * ✅ ~~**bug**: !ud upvotes/downvotes always 0~~ // improved type parsing (i64 fallback); votes hidden when both 0 rather than showing (+0/-0)
@@ -190,10 +191,9 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!trivia / !answer — server trivia round via Open Trivia DB (no key); boolean and MCQ; 15s answer window open to all players; whispers "Answer received!" on submit; public summary at close shows ✓/✗ lists + answer; latecomers whispered answer for 60s after close~~
 * ✅ ~~!roast, leverage together api to roast a player, takes user name as arg~~
 * 🆕 !ai, leverage free tier llm providers to respond to querys from chat. idea is to use highest quality to lowest quality, as usage gets consumed. known "truly free" providers: gemini, groq, cerebras, mistral, openrouter, cloudflare workers ai.
-* 🆕 !marry, as well as !divorce and !spouse, let's you marry a player, check their spouse. Append marital status to whois, alimony system based on winning casino games?
-* 🆕 !afk, let you set a response if people say your name at the beginning of a message or whisper to you, resets if you talk in chat or disconnect.
+* ✅ ~~!afk, let you set a response if people say your name at the beginning of a message or whisper to you, resets if you talk in chat or disconnect.~~
 * 🆕 !poll, popular enough in other bots to warrant inclusion, might end up disabled like `fadvs`. Needs high cooldown, 5 min minimum
-* 🆕 !tps, if azalea/minecraft or wtv lets you see server performance, report it via a command
+* ✅ ~~!tps, if azalea/minecraft or wtv lets you see server performance, report it via a command~~
 * ✅ ~~!url, don't webpages have some seo text built in by default? if so, leverage that for a text only preview of a url, so you can see what it is without having to leave the game.~~ // ~~working, needs some fall back and further testing~~
 
 ---

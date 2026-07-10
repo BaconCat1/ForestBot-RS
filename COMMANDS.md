@@ -2,7 +2,7 @@
 
 # ForestBot Commands
 
-**108 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md). Gods and corpora in [GODS.md](GODS.md).
+**110 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md). Gods and corpora in [GODS.md](GODS.md).
 
 ## General
 
@@ -18,6 +18,7 @@
 | `!bp` / `!bestping` | Player with best ping |
 | `!wp` / `!worstping` | Player with worst ping |
 | `!coords` | Bot's current coordinates |
+| `!tps` | Server TPS over the last 60s — derived from SetTime packet rate |
 | `!active` | Recently active players |
 | `!profile <player?>` | Link to forestbot.org profile |
 | `!standing` / `!status <player?>` | Player's standing/rank |
@@ -73,6 +74,7 @@
 | `!msgcount <server?> <player?>` | Total message count |
 | `!wordcount` / `!count <player> <word>` | How many times a player said a word |
 | `!offlinemsg <player> <message>` | Deliver a message when they next join |
+| `!afk <message>` | Set AFK message — whispers mentioners when you're mentioned; clears when you speak or log out |
 | `!remindme` / `!remind [1s2m3h4d] <message>` | Set a self-reminder. No duration = fires on next login. With duration (e.g. `1h30m`) = fires after that time if online, otherwise on next login after time expires. `!remindme stop` cancels all pending reminders. |
 
 ## Social / Lookup
