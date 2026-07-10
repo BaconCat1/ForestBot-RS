@@ -45,6 +45,7 @@ pub mod market;
 pub mod wordle;
 pub mod roast;
 pub mod url;
+pub mod tps;
 
 use crate::structure::mineflayer::bot::{AzaleaState, RuntimeConfig};
 
@@ -296,6 +297,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         checkers::COMMAND,
         reversi::COMMAND,
         url::COMMAND,
+        tps::COMMAND,
     ]
 }
 

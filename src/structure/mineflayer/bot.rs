@@ -298,6 +298,7 @@ impl Bot {
             gasbuddy_csrf: Arc::new(Mutex::new(None)),
             http: reqwest::Client::new(),
             url_blocklist: Arc::new(RwLock::new(None)),
+            tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
         };
 
         // Build URL blocklist in background
@@ -724,6 +725,8 @@ pub struct AzaleaState {
     pub gasbuddy_csrf: Arc<Mutex<Option<String>>>,
     pub http: reqwest::Client,
     pub url_blocklist: Arc<RwLock<Option<HashSet<String>>>>,
+    // (game_ticks, real_time_ms) samples from SetTime packets — used to compute server TPS
+    pub tps_time_samples: Arc<Mutex<VecDeque<(u64, u64)>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -893,6 +896,7 @@ impl Default for AzaleaState {
             gasbuddy_csrf: Arc::new(Mutex::new(None)),
             http: reqwest::Client::new(),
             url_blocklist: Arc::new(RwLock::new(None)),
+            tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
 }
@@ -1126,6 +1130,16 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             if let ClientboundGamePacket::SetTime(p) = packet.as_ref() {
                 let ticks = p.clock_updates.values().next().map(|c| c.total_ticks).unwrap_or(p.game_time);
                 *state.world_time_ticks.write().expect("world_time_ticks lock poisoned") = ticks;
+                let now_ms = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+                let mut samples = state.tps_time_samples.lock().expect("tps_time_samples lock poisoned");
+                samples.push_back((ticks, now_ms));
+                let cutoff = now_ms.saturating_sub(60_000);
+                while samples.front().map_or(false, |&(_, t)| t < cutoff) {
+                    samples.pop_front();
+                }
             }
         }
 
