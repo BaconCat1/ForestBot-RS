@@ -103,7 +103,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🆕 queue detection, data driven. upon detection, disconnect for 5 minutes. Needs to count "reconfiguring" screen as reconnecting to server
 * ✅ ~~extend `!help` to take commands as args~~ // `!help <command>` whispers description + aliases; unknown falls back to link
 * ✅ ~~**behavioural tweak**: if API limits are reached, users should be informed that is specifically why it failed, since a more generic error could waste time hunting a bug that doesn't exist~~ // `FetchErr::RateLimit` + `check_resp` in `casino/mod.rs`; all 9 external-API casino files surface 429 with specific message; settle paths treat rate limit as refund (`.ok()`)
-* 🆕 Universe: need watchdog and alerts, bypass/restart vpn 
+* ✅ ~~Universe: need watchdog and alerts, bypass/restart vpn~~ // used healthcheck.io, far simpler than anything else I was imagining lol
 
 
 ## !quote

@@ -138,6 +138,8 @@ pub struct Bot {
     pub api: ApiClient,
     pub antiafk: bool,
     pub announce: bool,
+    pub heartbeat_url: String,
+    pub heartbeat_interval_ms: u64,
 }
 
 impl Bot {
@@ -186,6 +188,8 @@ impl Bot {
             api,
             antiafk: state.config.antiafk,
             announce: state.config.announce,
+            heartbeat_url: state.config.heartbeat_url.clone(),
+            heartbeat_interval_ms: state.config.heartbeat_interval_ms,
         }
     }
 
@@ -303,6 +307,22 @@ impl Bot {
             afk_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             active_poll: Arc::new(Mutex::new(None)),
         };
+
+        // Heartbeat watchdog — pings external dead-man's switch (e.g. healthchecks.io) while alive
+        if !self.heartbeat_url.is_empty() {
+            let url = self.heartbeat_url.clone();
+            let interval = self.heartbeat_interval_ms;
+            let http = state.http.clone();
+            tokio::spawn(async move {
+                loop {
+                    match http.get(&url).send().await {
+                        Ok(_) => crate::structure::logger::debug("Heartbeat sent."),
+                        Err(e) => crate::structure::logger::debug(format!("Heartbeat failed: {e}")),
+                    }
+                    tokio::time::sleep(tokio::time::Duration::from_millis(interval)).await;
+                }
+            });
+        }
 
         // Build URL blocklist in background
         {

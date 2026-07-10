@@ -366,5 +366,7 @@
         "./json/url_blacklist_domains.hosts"
     ],
     "usePViewer": true,
-    "pViewerPort": 8080
+    "pViewerPort": 8080,
+    "heartbeat_url": "",
+    "heartbeat_interval_ms": 60000
 }

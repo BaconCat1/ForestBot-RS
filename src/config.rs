@@ -16,6 +16,10 @@ fn default_viaversion_target_version() -> String {
     "1.21.11".to_owned()
 }
 
+fn default_heartbeat_interval_ms() -> u64 {
+    60_000
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ApiKeys {
     #[serde(default)]
@@ -123,6 +127,10 @@ pub struct Config {
     #[serde(rename = "pViewerPort")]
     #[allow(dead_code)]
     pub p_viewer_port: u16,
+    #[serde(default)]
+    pub heartbeat_url: String,
+    #[serde(default = "default_heartbeat_interval_ms")]
+    pub heartbeat_interval_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
