@@ -27,7 +27,7 @@ Game logic adapted or referenced from the following sources:
 Extracted: game engine (`deck`, `hand`, `state`, `actions`) and rule-based bot (`rule_based`, `draws`, `preflop`). Used in `casino/poker/`.
 License: MIT — © 2025 ashxudev. Repo: https://github.com/ashxudev/terminal-poker
 
-**Let's Go Gambling!** — Fabric mod by BobR0ssiter providing game models for roulette, craps, and blackjack (`RouletteScreenHandler`, `CrapsScreenHandler`, `BlackjackScreenHandler`). Adapted for MC chat: GUI/inventory/split/side-bet logic dropped; instant-command and session-based ports written in Rust.
+**Let's Go Gambling!** — Fabric mod by BobR0ssiter providing game models for roulette, craps, blackjack, and baccarat (`RouletteScreenHandler`, `CrapsScreenHandler`, `BlackjackScreenHandler`, `BaccaratScreenHandler`). Adapted for MC chat: GUI/inventory/split/side-bet logic dropped; instant-command and session-based ports written in Rust.
 License: MIT — © BobR0ssiter. Modrinth: https://modrinth.com/mod/QCz7p8r1
 
 **connect-four-ai** — Rust Connect Four library by benjaminrall (2025). Board representation (`Position` bitboard), win detection, and AI player (`AIPlayer`) used via path dependency. Command flow and opponent roster written from scratch.
@@ -44,3 +44,17 @@ License: MIT — © 2021 Deepu K Sasidharan. Repo: https://github.com/deepu105/b
 
 **chess-tui** — Rust chess TUI by Thomas Mauran. Board orientation, perspective-flip rendering, and piece char conventions adapted as architecture reference. Move format, header row, and alpha-beta minimax AI on `shakmaty` are original. TUI code not ported.
 License: MIT — © 2023 Thomas Mauran. Repo: https://github.com/thomas-mauran/chess-tui
+
+**cl-wordle** — Rust Wordle library by Conrad Ludgate. `diff()` comparison logic, `Matches`/`Match` types, `WordSet` word validation, and solution word list used via git dependency (`default-features = false`, no TUI/CLI). Game state (`cl_wordle::game::Game`, `cl_wordle::state::State`) used directly. Command flow, chip integration, payout structure, and hard mode enforcement are original.
+License: MIT — © Conrad Ludgate. Repo: https://github.com/conradludgate/wordle
+
+**ReversiRust** — Rust Reversi game by Nick Chubb. Board representation (`[u8; 64]`), 8-direction flip logic, coordinate parsing (`a1`-style), and initial board position adapted from source. MCTS AI replaced with minimax + alpha-beta. Positional weight table, greedy difficulty tier, chip integration, and command flow are original.
+License: MIT OR Apache-2.0 — © Nick Chubb. Repo: https://github.com/NickChubb/ReversiRust
+
+**PySicBo** — Python Sic Bo implementation by Wing Yung Chan. Bet type criteria, payout multipliers, and small/large definitions used as authoritative odds reference. All Rust code original — no Python ported.
+License: MIT — © 2019 Wing Yung Chan.
+
+### Poll
+
+**FlapJack-Cogs / ReactPoll** — Red Discord Bot cog by flapjax. Poll tally structure (`option → [voter_id]`), one-vote-per-user enforcement (scan-and-replace across all options), and auto-close timer pattern referenced for `!poll`. No code ported; JS/Python source used as design reference only.
+License: Unknown — © flapjax. Repo: https://github.com/flapjax/FlapJack-Cogs

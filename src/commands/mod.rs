@@ -47,6 +47,7 @@ pub mod wordle;
 pub mod roast;
 pub mod url;
 pub mod tps;
+pub mod poll;
 
 use crate::structure::mineflayer::bot::{AzaleaState, RuntimeConfig};
 
@@ -300,6 +301,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         url::COMMAND,
         tps::COMMAND,
         afk::COMMAND,
+        poll::COMMAND,
     ]
 }
 

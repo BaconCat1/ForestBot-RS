@@ -301,6 +301,7 @@ impl Bot {
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
             afk_messages: Arc::new(RwLock::new(HashMap::new())),
             afk_cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            active_poll: Arc::new(Mutex::new(None)),
         };
 
         // Build URL blocklist in background
@@ -733,6 +734,7 @@ pub struct AzaleaState {
     pub afk_messages: Arc<RwLock<HashMap<String, String>>>,
     // key = triggering username (lowercase), value = when they last triggered an AFK reply
     pub afk_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
+    pub active_poll: Arc<Mutex<Option<crate::commands::poll::PollState>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -905,6 +907,7 @@ impl Default for AzaleaState {
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
             afk_messages: Arc::new(RwLock::new(HashMap::new())),
             afk_cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            active_poll: Arc::new(Mutex::new(None)),
         }
     }
 }

@@ -2,7 +2,7 @@
 
 # ForestBot Commands
 
-**110 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md). Gods and corpora in [GODS.md](GODS.md).
+**111 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md). Gods and corpora in [GODS.md](GODS.md).
 
 ## General
 
@@ -75,6 +75,7 @@
 | `!wordcount` / `!count <player> <word>` | How many times a player said a word |
 | `!offlinemsg <player> <message>` | Deliver a message when they next join |
 | `!afk <message>` | Set AFK message — whispers mentioners when you're mentioned; clears when you speak or log out |
+| `!poll <question?> opt1, opt2 [, opt3 ...]` | Start a server-wide poll (one at a time, 2 min). `!poll <N>` to vote; vote can be changed. Results posted on close, sorted by count. |
 | `!remindme` / `!remind [1s2m3h4d] <message>` | Set a self-reminder. No duration = fires on next login. With duration (e.g. `1h30m`) = fires after that time if online, otherwise on next login after time expires. `!remindme stop` cancels all pending reminders. |
 
 ## Social / Lookup
