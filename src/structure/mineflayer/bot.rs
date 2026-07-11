@@ -311,6 +311,7 @@ impl Bot {
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
             afk_messages: Arc::new(RwLock::new(HashMap::new())),
             afk_cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            recent_whispers: Arc::new(Mutex::new(HashMap::new())),
             active_poll: Arc::new(Mutex::new(None)),
             ai_providers: Arc::new(RwLock::new(ai_providers)),
             ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
@@ -763,6 +764,10 @@ pub struct AzaleaState {
     pub afk_messages: Arc<RwLock<HashMap<String, String>>>,
     // key = triggering username (lowercase), value = when they last triggered an AFK reply
     pub afk_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
+    // key = whisper target (lowercase), value = (message body, sent_at) — lets the chat
+    // handler recognize the server echoing our own outgoing whisper back as if the
+    // target had spoken it, and suppress that instead of treating it as real chat
+    pub recent_whispers: Arc<Mutex<HashMap<String, (String, Instant)>>>,
     pub active_poll: Arc<Mutex<Option<crate::commands::poll::PollState>>>,
     pub ai_providers: Arc<RwLock<Vec<crate::commands::ai::AiProviderEntry>>>,
     pub ai_model_cache: Arc<Mutex<HashMap<String, String>>>,
@@ -939,6 +944,7 @@ impl Default for AzaleaState {
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
             afk_messages: Arc::new(RwLock::new(HashMap::new())),
             afk_cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            recent_whispers: Arc::new(Mutex::new(HashMap::new())),
             active_poll: Arc::new(Mutex::new(None)),
             ai_providers: Arc::new(RwLock::new(Vec::new())),
             ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
@@ -1024,6 +1030,22 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 }
 
                 let sender_lower = sender.to_lowercase();
+
+                // Self-echo suppression: the server echoes our own outgoing whispers
+                // back into chat, and the generic "{username}: {message}" custom
+                // format matches that echo, misreading it as the whisper target
+                // speaking. If this (sender, content) matches a whisper we just sent
+                // that target, it's our own echo — drop it before AFK/mention/command
+                // handling ever sees it.
+                {
+                    let mut recent = state.recent_whispers.lock().expect("recent_whispers lock poisoned");
+                    if let Some((sent_content, sent_at)) = recent.get(&sender_lower) {
+                        if *sent_content == content && sent_at.elapsed() < Duration::from_secs(5) {
+                            recent.remove(&sender_lower);
+                            return Ok(());
+                        }
+                    }
+                }
 
                 // AFK self-clear: if this sender was AFK, clear and notify them
                 {

@@ -96,11 +96,31 @@ impl CommandContext<'_> {
 }
 
 pub fn enqueue_chat(state: &AzaleaState, message: impl AsRef<str>) {
+    let message = message.as_ref().trim_start().to_owned();
+
+    // Record outgoing whispers so the chat handler can recognize the server echoing
+    // one back and suppress it, instead of misreading it as the target speaking.
+    let whisper_command = state
+        .runtime
+        .read()
+        .expect("runtime config lock poisoned")
+        .whisper_command
+        .clone();
+    if let Some(rest) = message.strip_prefix(&format!("/{whisper_command} ")) {
+        if let Some((target, content)) = rest.split_once(' ') {
+            state
+                .recent_whispers
+                .lock()
+                .expect("recent_whispers lock poisoned")
+                .insert(target.to_lowercase(), (content.to_owned(), std::time::Instant::now()));
+        }
+    }
+
     state
         .outbound_chat
         .lock()
         .expect("outbound chat queue lock poisoned")
-        .push_back(message.as_ref().trim_start().to_owned());
+        .push_back(message);
 }
 
 fn is_whisper_command(message: &str, whisper_command: &str) -> bool {
