@@ -82,8 +82,9 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 portfolio_sell(&ctx).await?;
             }
             "portfolio" | "port" => {
-                let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-                    ctx.whisper("Could not resolve your UUID.");
+                let target = ctx.args.get(1).copied().unwrap_or(ctx.sender);
+                let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
+                    ctx.whisper(format!("Could not resolve UUID for {}.", target));
                     return Ok(());
                 };
                 show_portfolio(&ctx, &player_uuid).await?;
@@ -370,8 +371,9 @@ pub async fn settle_task(
 
 fn portfolio_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+        let target = ctx.args.first().copied().unwrap_or(ctx.sender);
+        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
+            ctx.whisper(format!("Could not resolve UUID for {}.", target));
             return Ok(());
         };
         show_portfolio(&ctx, &player_uuid).await

@@ -74,9 +74,23 @@ async fn handle_with_reply_mode(
         return;
     }
 
-    if let Some(remaining) =
+    // !poll <N> (vote) shares the "poll" alias with !poll <question?> opt1, opt2 (create),
+    // but only creation should be cooldown-gated — voting must stay unlimited. Peek the
+    // not-yet-consumed args the same way poll.rs itself distinguishes the two forms.
+    let mut poll_vote_peek = parts.clone();
+    let is_poll_vote = command.names.contains(&"poll")
+        && matches!(
+            (poll_vote_peek.next(), poll_vote_peek.next()),
+            (Some(arg), None) if arg.parse::<usize>().is_ok()
+        );
+
+    let cooldown_remaining = if is_poll_vote {
+        None
+    } else {
         command_cooldown_remaining(state, &runtime, command, command_name, sender)
-    {
+    };
+
+    if let Some(remaining) = cooldown_remaining {
         logger::command(format!(
             "Command blocked by cooldown: {command_name} from {sender}, {remaining}s remaining"
         ));

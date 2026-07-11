@@ -134,7 +134,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~sic bo~~
 * ✅ ~~mines~~
 * ✅ ~~stock market portfolios and future, mapped out but not written~~
-	* 🐛 **bug**: doesn't take users as an arg to show other people's portfolio (ie, notch runs `!portfolio jeb` to view jeb's portfolio. Currently shows notch's when run with that syntax)
+	* ✅ ~~**bug**: doesn't take users as an arg to show other people's portfolio~~ // `market.rs` `portfolio_execute` + `!market portfolio` branch now resolve `ctx.args` before falling back to sender
 * ✅ ~~add kalshi (prediction market) to extend stock market system~~ // compiles, pending testing
 * ❌ ~~add Betfair (horse race betting) to extend stock market system~~ // geo-locked and low priority, won't pursue horse betting api without demand
 * ✅ ~~add SharpAPI (sports betting) to extend stock market system~~
@@ -195,7 +195,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!afk, let you set a response if people say your name at the beginning of a message or whisper to you, resets if you talk in chat or disconnect.~~
 	* 🐛 **bug**: set and instantly cleared without any input on refinedvanilla, needs investigation
 * ✅ ~~!poll, popular enough in other bots to warrant inclusion, might end up disabled like `fadvs`. Needs high cooldown, 5 min minimum~~
-	* 🐛 **bug**: needs to treat answering polls as different from creating them, no limit to answering but the cooldown should apply to creating.
+	* ✅ ~~**bug**: needs to treat answering polls as different from creating them~~ // fix was in `command_handler.rs`, not `poll.rs` — cooldown gate runs pre-dispatch, now peeks args and skips the gate for single-numeric-arg (vote) invocations
 * ✅ ~~!tps, if azalea/minecraft or wtv lets you see server performance, report it via a command~~
 * ✅ ~~!url, don't webpages have some seo text built in by default? if so, leverage that for a text only preview of a url, so you can see what it is without having to leave the game.~~ // ~~working, needs some fall back and further testing~~
 
