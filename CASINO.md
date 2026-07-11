@@ -2,7 +2,7 @@
 
 # Casino Commands
 
-**18 games · 13 markets · 40 commands. ** All use the shared chip balance. Starting balance: 1000 chips.
+**18 games · 13 markets · 40 commands.** All use the shared chip balance. Starting balance: 1000 chips.
 All games feature a 3% house rake deposited into the jackpot. All losings are deposited into the jackpot.
 
 ## Wallet & Chips

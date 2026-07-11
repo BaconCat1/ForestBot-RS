@@ -3,6 +3,7 @@ use std::{future::Future, pin::Pin};
 use azalea::prelude::Client;
 
 pub mod afk;
+pub mod ai;
 pub mod alias;
 pub mod calc;
 pub mod daynight;
@@ -302,6 +303,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         tps::COMMAND,
         afk::COMMAND,
         poll::COMMAND,
+        ai::COMMAND,
     ]
 }
 

@@ -44,6 +44,97 @@ pub struct ApiKeys {
     pub gasbuddy_csrf_readonly: bool,
     #[serde(default)]
     pub google_safe_browsing: String,
+    #[serde(default)]
+    pub ai_gemini: String,
+    #[serde(default)]
+    pub ai_github_models: String,
+    #[serde(default)]
+    pub ai_groq: String,
+    #[serde(default)]
+    pub ai_cerebras: String,
+    #[serde(default)]
+    pub ai_ollama_cloud: String,
+    #[serde(default)]
+    pub ai_mistral: String,
+    #[serde(default)]
+    pub ai_nvidia_nim: String,
+    #[serde(default)]
+    pub ai_nscale: String,
+    #[serde(default)]
+    pub ai_sambanova: String,
+    #[serde(default)]
+    pub ai_modelscope: String,
+    #[serde(default)]
+    pub ai_chutes: String,
+    #[serde(default)]
+    pub ai_venice: String,
+    #[serde(default)]
+    pub ai_zhipu: String,
+    #[serde(default)]
+    pub ai_siliconflow: String,
+    #[serde(default)]
+    pub ai_openrouter: String,
+    #[serde(default)]
+    pub ai_cohere: String,
+    #[serde(default)]
+    pub ai_cloudflare_key: String,
+    #[serde(default)]
+    pub ai_cloudflare_account_id: String,
+    #[serde(default)]
+    pub ai_huggingface: String,
+    #[serde(default)]
+    pub ai_deepseek: String,
+    #[serde(default)]
+    pub ai_llm7: String,
+    #[serde(default)]
+    pub ai_nebius: String,
+    #[serde(default)]
+    pub ai_glhf: String,
+    #[serde(default)]
+    pub ai_ovhcloud: String,
+    #[serde(default)]
+    pub ai_kilo_code: String,
+    #[serde(default)]
+    pub ai_agnes_ai: String,
+    #[serde(default)]
+    pub ai_opencode_zen: String,
+    #[serde(default)]
+    pub ai_alibaba: String,
+}
+
+impl ApiKeys {
+    pub fn get_ai_key(&self, field: &str) -> &str {
+        match field {
+            "ai_gemini" => &self.ai_gemini,
+            "ai_github_models" => &self.ai_github_models,
+            "ai_groq" => &self.ai_groq,
+            "ai_cerebras" => &self.ai_cerebras,
+            "ai_ollama_cloud" => &self.ai_ollama_cloud,
+            "ai_mistral" => &self.ai_mistral,
+            "ai_nvidia_nim" => &self.ai_nvidia_nim,
+            "ai_nscale" => &self.ai_nscale,
+            "ai_sambanova" => &self.ai_sambanova,
+            "ai_modelscope" => &self.ai_modelscope,
+            "ai_chutes" => &self.ai_chutes,
+            "ai_venice" => &self.ai_venice,
+            "ai_zhipu" => &self.ai_zhipu,
+            "ai_siliconflow" => &self.ai_siliconflow,
+            "ai_openrouter" => &self.ai_openrouter,
+            "ai_cohere" => &self.ai_cohere,
+            "ai_cloudflare_key" => &self.ai_cloudflare_key,
+            "ai_huggingface" => &self.ai_huggingface,
+            "ai_deepseek" => &self.ai_deepseek,
+            "ai_llm7" => &self.ai_llm7,
+            "ai_nebius" => &self.ai_nebius,
+            "ai_glhf" => &self.ai_glhf,
+            "ai_ovhcloud" => &self.ai_ovhcloud,
+            "ai_kilo_code" => &self.ai_kilo_code,
+            "ai_agnes_ai" => &self.ai_agnes_ai,
+            "ai_opencode_zen" => &self.ai_opencode_zen,
+            "ai_alibaba" => &self.ai_alibaba,
+            _ => "",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

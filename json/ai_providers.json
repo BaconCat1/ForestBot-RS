@@ -1,0 +1,167 @@
+[
+  {
+    "name": "nscale",
+    "base_url": "https://inference.api.nscale.com/v1",
+    "key_field": "ai_nscale",
+    "preferred_models": ["deepseek-ai/DeepSeek-R1", "meta-llama/Llama-3.3-70B-Instruct"],
+    "notes": "paid only — no free tier"
+  },
+  {
+    "name": "sambanova",
+    "base_url": "https://api.sambanova.ai/v1",
+    "key_field": "ai_sambanova",
+    "preferred_models": ["deepseek-v3-1", "llama3-3-70b-instruct", "Meta-Llama-3.3-70B-Instruct"],
+    "notes": "paid only"
+  },
+  {
+    "name": "chutes",
+    "base_url": "https://llm.chutes.ai/v1",
+    "key_field": "ai_chutes",
+    "preferred_models": ["deepseek-ai/DeepSeek-R1", "deepseek-ai/DeepSeek-V3-0324"],
+    "notes": "paid only"
+  },
+  {
+    "name": "venice",
+    "base_url": "https://api.venice.ai/api/v1",
+    "key_field": "ai_venice",
+    "preferred_models": ["llama-3.3-70b", "mistral-31-24b"],
+    "notes": "paid only"
+  },
+  {
+    "name": "alibaba",
+    "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+    "key_field": "ai_alibaba",
+    "preferred_models": ["qwen-plus", "qwen-turbo", "qwen3-235b-a22b"],
+    "notes": "paid — requires Alibaba Cloud account with credits"
+  },
+  {
+    "name": "nebius",
+    "base_url": "https://api.studio.nebius.com/v1",
+    "key_field": "ai_nebius",
+    "preferred_models": ["Qwen/Qwen3-235B-A22B", "meta-llama/Meta-Llama-3.1-70B-Instruct"],
+    "notes": "paid — $1 one-time free credit, no ongoing free tier"
+  },
+  {
+    "name": "ovhcloud",
+    "base_url": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+    "key_field": "ai_ovhcloud",
+    "preferred_models": ["qwen3.5-397b-a17b", "meta-llama/Meta-Llama-3.3-70B-Instruct"]
+  },
+  {
+    "name": "deepseek",
+    "base_url": "https://api.deepseek.com/v1",
+    "key_field": "ai_deepseek",
+    "preferred_models": ["deepseek-chat", "deepseek-reasoner"],
+    "notes": "paid — trial credits run out"
+  },
+  {
+    "name": "modelscope",
+    "base_url": "https://api-inference.modelscope.cn/v1",
+    "key_field": "ai_modelscope",
+    "preferred_models": ["deepseek-ai/DeepSeek-V4-Pro", "deepseek-ai/DeepSeek-V3.2", "deepseek-ai/DeepSeek-V4-Flash"],
+    "notes": "requires Alibaba Cloud account binding + real-name verification"
+  },
+  {
+    "name": "siliconflow",
+    "base_url": "https://api.siliconflow.cn/v1",
+    "key_field": "ai_siliconflow",
+    "preferred_models": ["Qwen/Qwen2.5-72B-Instruct", "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", "meta-llama/Meta-Llama-3.1-70B-Instruct"]
+  },
+  {
+    "name": "zhipu",
+    "base_url": "https://open.bigmodel.cn/api/paas/v4",
+    "key_field": "ai_zhipu",
+    "preferred_models": ["glm-4.7", "glm-4-flash", "glm-4-flash-250414"],
+    "notes": "requires Zhipu account with credits"
+  },
+  {
+    "name": "glhf",
+    "base_url": "https://glhf.chat/api/openai/v1",
+    "key_field": "ai_glhf",
+    "preferred_models": ["hf:meta-llama/Meta-Llama-3.1-70B-Instruct", "hf:mistralai/Mistral-7B-Instruct-v0.3"]
+  },
+  {
+    "name": "huggingface",
+    "base_url": "https://router.huggingface.co/v1",
+    "key_field": "ai_huggingface",
+    "preferred_models": ["meta-llama/Llama-3.3-70B-Instruct", "mistralai/Mistral-7B-Instruct-v0.3"]
+  },
+  {
+    "name": "cerebras",
+    "base_url": "https://api.cerebras.ai/v1",
+    "key_field": "ai_cerebras",
+    "preferred_models": ["gpt-oss-120b"],
+    "notes": "rpm 5, context hard-capped 8192 — too small for most prompts"
+  },
+  {
+    "name": "cohere",
+    "base_url": "https://api.cohere.com/compatibility/v1",
+    "key_field": "ai_cohere",
+    "preferred_models": ["command-a-03-2025"],
+    "notes": "1000 calls/month hard cap — extremely scarce, spend last"
+  },
+  {
+    "name": "gemini",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "key_field": "ai_gemini",
+    "preferred_models": ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"],
+    "notes": "hits daily quota fast"
+  },
+  {
+    "name": "ollama_cloud",
+    "base_url": "https://ollama.com/v1",
+    "key_field": "ai_ollama_cloud",
+    "preferred_models": ["gpt-oss:120b", "gpt-oss:20b"]
+  },
+  {
+    "name": "agnes_ai",
+    "base_url": "https://apihub.agnes-ai.com/v1",
+    "key_field": "ai_agnes_ai",
+    "preferred_models": ["agnes-1.5-flash"]
+  },
+  {
+    "name": "kilo_code",
+    "base_url": "https://api.kilo.ai/api/gateway/v1",
+    "key_field": "ai_kilo_code",
+    "preferred_models": ["kilo-auto/free"],
+    "notes": "kilo-auto/free routes to stepfun/hy3 free models; balanced/frontier/mini are paid; may train on prompts"
+  },
+  {
+    "name": "openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "key_field": "ai_openrouter",
+    "preferred_models": ["tencent/hy3:free", "meta-llama/llama-3.3-70b-instruct:free", "mistralai/mistral-7b-instruct:free"]
+  },
+  {
+    "name": "mistral",
+    "base_url": "https://api.mistral.ai/v1",
+    "key_field": "ai_mistral",
+    "preferred_models": ["mistral-medium-3", "mistral-small-latest", "open-mistral-7b"]
+  },
+  {
+    "name": "cloudflare",
+    "base_url": "https://api.cloudflare.com/client/v4/accounts/{cloudflare_account_id}/ai/v1",
+    "key_field": "ai_cloudflare_key",
+    "preferred_models": ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/meta/llama-3.1-8b-instruct"]
+  },
+  {
+    "name": "groq",
+    "base_url": "https://api.groq.com/openai/v1",
+    "key_field": "ai_groq",
+    "preferred_models": ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama3-70b-8192"]
+  },
+  {
+    "name": "opencode_zen",
+    "base_url": "https://opencode.ai/zen/v1",
+    "key_field": "ai_opencode_zen",
+    "preferred_models": ["deepseek-v4-flash-free", "nemotron-3-ultra-free", "hy3-free", "mimo-v2.5-free", "claude-fable-5"],
+    "notes": "free models have -free suffix; paid models available too; confirmed returns empty output on real code-length prompts (2026-07-11 litellm test) — low quality, absolute last resort"
+  },
+  {
+    "name": "llm7",
+    "base_url": "https://api.llm7.io/v1",
+    "key_field": "ai_llm7",
+    "preferred_models": ["deepseek-v4-flash", "gpt-5.4-mini", "codestral-latest", "claude-sonnet-5"],
+    "notes": "token from token.llm7.io; all models returned 402 as of 2026-07-11 — not working, absolute last resort"
+  }
+]

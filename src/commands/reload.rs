@@ -36,6 +36,15 @@ async fn reload_runtime(
     state: &crate::structure::mineflayer::bot::AzaleaState,
 ) -> anyhow::Result<()> {
     let app_state = AppState::load().await?;
+
+    // Rebuild AI providers from the fresh api_keys so !reload actually picks up key changes.
+    // Must happen before RuntimeConfig below, which moves individual fields out of api_keys.
+    let ai_providers = crate::commands::ai::load_ai_providers(
+        "json/ai_providers.json",
+        &app_state.config.api_keys,
+    )
+    .await;
+
     let reloaded = RuntimeConfig {
         prefix: app_state.config.prefix,
         whisper_command: app_state.config.whisper_command,
@@ -74,6 +83,8 @@ async fn reload_runtime(
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;
+    *state.ai_providers.write().expect("ai_providers lock poisoned") = ai_providers;
+    state.ai_model_cache.lock().expect("ai_model_cache lock poisoned").clear();
 
     // Rebuild URL blocklist in background
     {

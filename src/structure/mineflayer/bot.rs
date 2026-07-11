@@ -140,6 +140,7 @@ pub struct Bot {
     pub announce: bool,
     pub heartbeat_url: String,
     pub heartbeat_interval_ms: u64,
+    pub api_keys: crate::config::ApiKeys,
 }
 
 impl Bot {
@@ -190,6 +191,7 @@ impl Bot {
             announce: state.config.announce,
             heartbeat_url: state.config.heartbeat_url.clone(),
             heartbeat_interval_ms: state.config.heartbeat_interval_ms,
+            api_keys: state.config.api_keys.clone(),
         }
     }
 
@@ -216,6 +218,10 @@ impl Bot {
             .await
             .context("Failed to authenticate Microsoft account with Azalea")?;
         let address = format!("{}:{}", self.options.host, self.options.port);
+        let ai_providers = crate::commands::ai::load_ai_providers(
+            "json/ai_providers.json",
+            &self.api_keys,
+        ).await;
         let state = AzaleaState {
             mc_server: self.mc_server.clone(),
             api: Arc::new(self.api.clone()),
@@ -306,6 +312,9 @@ impl Bot {
             afk_messages: Arc::new(RwLock::new(HashMap::new())),
             afk_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             active_poll: Arc::new(Mutex::new(None)),
+            ai_providers: Arc::new(RwLock::new(ai_providers)),
+            ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
+            last_ai_at: Arc::new(Mutex::new(None)),
         };
 
         // Heartbeat watchdog — pings external dead-man's switch (e.g. healthchecks.io) while alive
@@ -755,6 +764,9 @@ pub struct AzaleaState {
     // key = triggering username (lowercase), value = when they last triggered an AFK reply
     pub afk_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
     pub active_poll: Arc<Mutex<Option<crate::commands::poll::PollState>>>,
+    pub ai_providers: Arc<RwLock<Vec<crate::commands::ai::AiProviderEntry>>>,
+    pub ai_model_cache: Arc<Mutex<HashMap<String, String>>>,
+    pub last_ai_at: Arc<Mutex<Option<Instant>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -928,6 +940,9 @@ impl Default for AzaleaState {
             afk_messages: Arc::new(RwLock::new(HashMap::new())),
             afk_cooldowns: Arc::new(Mutex::new(HashMap::new())),
             active_poll: Arc::new(Mutex::new(None)),
+            ai_providers: Arc::new(RwLock::new(Vec::new())),
+            ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
+            last_ai_at: Arc::new(Mutex::new(None)),
         }
     }
 }

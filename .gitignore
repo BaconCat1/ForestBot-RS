@@ -51,3 +51,4 @@ godtexts/meherbaba.txt.zst
 gasbuddy_token.json
 /json/url_blocklist_cache/*
 /url_fetch_cache/*
+ai_providers_survey.csv
