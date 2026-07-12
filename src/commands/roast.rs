@@ -7,7 +7,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["roast"],
     description: "AI roast of a player or server based on stats. Requires together_api_key. !roast <username|server>",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

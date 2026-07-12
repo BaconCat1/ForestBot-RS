@@ -19,7 +19,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["poker", "pk"],
     description: "Texas Hold'em vs the bot. !poker <stake> | !poker deal | !poker call/check/fold/raise <n>/allin | !poker quit",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

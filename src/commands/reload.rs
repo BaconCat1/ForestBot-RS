@@ -12,7 +12,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
     description: "Reloads config and whitelist/blacklist files. Usage: {prefix}reload",
     whitelisted: true,
-    bridge_ok: true,
     execute,
 };
 
@@ -86,6 +85,20 @@ async fn reload_runtime(
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;
     *state.ai_providers.write().expect("ai_providers lock poisoned") = ai_providers;
     state.ai_model_cache.lock().expect("ai_model_cache lock poisoned").clear();
+
+    // Re-push bridge command classification to Hub so edits to
+    // json/bridge_unsafe_commands.json take effect without a restart.
+    {
+        let push_state = state.clone();
+        tokio::spawn(async move {
+            let unsafe_names = crate::commands::load_bridge_unsafe_commands(
+                "json/bridge_unsafe_commands.json",
+            )
+            .await;
+            let list = crate::commands::build_bridge_command_list(&unsafe_names);
+            push_state.api.push_bridge_commands(&list).await;
+        });
+    }
 
     // Rebuild URL blocklist in background
     {

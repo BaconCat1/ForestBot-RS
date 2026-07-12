@@ -11,7 +11,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
     description: "Retrieves the number of messages a user has sent. Usage: {prefix}msgcount <username> or {prefix}msgcount <server|all> <username>",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

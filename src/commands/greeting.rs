@@ -4,7 +4,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["greeting"],
     description: "Set a personal welcome message. Usage: {prefix}greeting <message> | preview | clear",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute,
 };
 

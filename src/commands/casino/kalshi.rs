@@ -9,7 +9,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["kalshi", "k"],
     description: "Kalshi prediction markets. !kalshi — categories | !kalshi <category> — markets | !kalshi <#> yes|no <chips> | !kalshi bets",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

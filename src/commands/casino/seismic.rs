@@ -11,7 +11,6 @@ pub const QUAKE_COMMAND: CommandDefinition = CommandDefinition {
     names: &["quake", "earthquake", "eq"],
     description: "Earthquake bets. !quake list | !quake <region> [m<mag>] yes|no [chips] | !quake bets",
     whitelisted: false,
-    bridge_ok: true,
     execute: quake_execute,
 };
 
@@ -19,7 +18,6 @@ pub const VOLCANO_COMMAND: CommandDefinition = CommandDefinition {
     names: &["volcano", "vol"],
     description: "Volcano bets. !volcano list | !volcano <name> yes|no [chips] | !volcano bets",
     whitelisted: false,
-    bridge_ok: true,
     execute: volcano_execute,
 };
 

@@ -9,7 +9,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["spaceweather", "sw"],
     description: "Space weather bets (settles midnight UTC). !spaceweather — list types | !spaceweather cme|xflare|gstorm <chips> | !spaceweather bets",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

@@ -4,7 +4,6 @@ pub const WIKI_COMMAND: CommandDefinition = CommandDefinition {
     names: &["wiki", "wikipedia"],
     description: "Search Wikipedia. Usage: {prefix}wiki <query> | {prefix}wiki random",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute_wiki,
 };
 
@@ -12,7 +11,6 @@ pub const MINEWIKI_COMMAND: CommandDefinition = CommandDefinition {
     names: &["minewiki", "mcwiki"],
     description: "Search the Minecraft wiki. Usage: {prefix}minewiki <query>",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute_minewiki,
 };
 

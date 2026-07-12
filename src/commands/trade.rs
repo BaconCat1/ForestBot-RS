@@ -15,7 +15,6 @@ pub const TRADE_COMMAND: CommandDefinition = CommandDefinition {
     names: &["trade", "t"],
     description: "Proposes a trade with another player. Usage: {prefix}trade <player> <description>",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute_trade,
 };
 
@@ -234,7 +233,6 @@ pub const TRADES_COMMAND: CommandDefinition = CommandDefinition {
     names: &["trades"],
     description: "Shows a player's trade history. Usage: {prefix}trades <player>",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute_trades,
 };
 
@@ -310,7 +308,6 @@ pub const TRADESTATS_COMMAND: CommandDefinition = CommandDefinition {
     names: &["tradestats"],
     description: "Shows a player's trade statistics. Usage: {prefix}tradestats <player>",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute_tradestats,
 };
 
@@ -439,7 +436,6 @@ pub const SCAMMERS_COMMAND: CommandDefinition = CommandDefinition {
     names: &["scammers"],
     description: "Shows a list of known scammers. Usage: {prefix}scammers",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute_scammers,
 };
 

@@ -10,7 +10,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["craps"],
     description: "Craps. Usage: {prefix}craps pass|dontpass <bet> | {prefix}craps roll | quit",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

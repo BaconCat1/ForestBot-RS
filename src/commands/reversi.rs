@@ -7,7 +7,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["reversi", "othello"],
     description: "Reversi vs NPC. !reversi <chips> | !reversi a1 | !reversi board | !reversi quit",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

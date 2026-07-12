@@ -8,7 +8,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
     description: "View Forest Advancements. Usage: {prefix}fadvs | {prefix}fadvs <category> | {prefix}fadvs <player>",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

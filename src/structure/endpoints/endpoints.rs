@@ -423,6 +423,17 @@ impl ApiClient {
             .map(|r| r.faqs)
     }
 
+    /// Pushes the full {name, bridge_ok}[] command list to Hub, replacing its map wholesale.
+    /// Discord bot reads this back via GET /craftbot/bridge-commands to gate chat-bridge relaying.
+    pub async fn push_bridge_commands(&self, commands: &[(String, bool)]) -> Option<Value> {
+        let payload: Vec<Value> = commands
+            .iter()
+            .map(|(name, bridge_ok)| json!({ "name": name, "bridge_ok": bridge_ok }))
+            .collect();
+        self.post_json("/craftbot/bridge-commands", json!({ "commands": payload }))
+            .await
+    }
+
     pub async fn post_who_is_description(
         &self,
         username: &str,

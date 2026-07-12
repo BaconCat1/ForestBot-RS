@@ -8,7 +8,6 @@ pub const UNLINK_COMMAND: CommandDefinition = CommandDefinition {
     names: &["unlink"],
     description: "Unlinks your Discord account from your Minecraft account. Usage: {prefix}unlink",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute_unlink,
 };
 
@@ -48,7 +47,6 @@ pub const LINK_COMMAND: CommandDefinition = CommandDefinition {
     names: &["link"],
     description: "Links your Discord account to your Minecraft account. Usage: {prefix}link",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute_link,
 };
 

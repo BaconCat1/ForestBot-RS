@@ -9,7 +9,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["aqi", "airquality"],
     description: "AQI bets. !aqi <zip> | !aqi <zip> good|unhealthy <chips> | !aqi bets. Requires airnow_api_key.",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

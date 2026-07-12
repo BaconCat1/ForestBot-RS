@@ -4,7 +4,6 @@ pub const REPORT_COMMAND: CommandDefinition = CommandDefinition {
     names: &["report"],
     description: "Reports a scammer. Usage: {prefix}report <player> <reason>",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute_report,
 };
 

@@ -7,7 +7,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["askgod", "agod"],
     description: "Consult the divine oracle. Usage: {prefix}askgod <god>",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 
@@ -15,7 +14,6 @@ pub const LISTGODS_COMMAND: CommandDefinition = CommandDefinition {
     names: &["listgods", "gods"],
     description: "Lists available gods for {prefix}askgod. Usage: {prefix}listgods",
     whitelisted: false,
-    bridge_ok: true,
     execute: listgods,
 };
 
@@ -23,7 +21,6 @@ pub const SEARCHGOD_COMMAND: CommandDefinition = CommandDefinition {
     names: &["searchgod", "godsearch", "sgod"],
     description: "Search sacred texts for a keyword or phrase. Usage: {prefix}searchgod <words>",
     whitelisted: false,
-    bridge_ok: true,
     execute: searchgod,
 };
 
@@ -31,7 +28,6 @@ pub const GODVERSE_COMMAND: CommandDefinition = CommandDefinition {
     names: &["godverse", "verse", "vgod"],
     description: "Look up a verse by reference. Usage: {prefix}godverse <reference>",
     whitelisted: false,
-    bridge_ok: true,
     execute: godverse,
 };
 
@@ -39,7 +35,6 @@ pub const GODSTATS_COMMAND: CommandDefinition = CommandDefinition {
     names: &["godstats"],
     description: "Shows stats for the {prefix}askgod corpora. Usage: {prefix}godstats",
     whitelisted: false,
-    bridge_ok: true,
     execute: godstats,
 };
 
@@ -47,7 +42,6 @@ pub const GODFIGHT_COMMAND: CommandDefinition = CommandDefinition {
     names: &["godfight"],
     description: "Two gods, one verse each. Usage: {prefix}godfight <god1> <god2> [keyword]",
     whitelisted: false,
-    bridge_ok: true,
     execute: godfight,
 };
 

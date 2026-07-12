@@ -11,7 +11,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["mines", "minesweeper"],
     description: "Minesweeper with stacking multiplier. !mines <chips> | !mines <coord> (e.g. a3) | !mines f<coord> | !mines cash | !mines board | !mines quit",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

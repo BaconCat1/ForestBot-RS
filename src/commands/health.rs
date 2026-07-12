@@ -4,7 +4,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["health"],
     description: "Shows bot health, hunger, armor, and active effects. Usage: {prefix}health",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

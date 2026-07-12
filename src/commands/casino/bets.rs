@@ -6,7 +6,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["bets", "mybets", "eventbets"],
     description: "List all your open event bets (AQI, launch, gas, sports, kalshi, seismic, floods, etc.)",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

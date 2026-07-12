@@ -114,7 +114,6 @@ pub const FAUCET_COMMAND: CommandDefinition = CommandDefinition {
     names: &["faucet", "daily"],
     description: "Claim your daily chips. Streak bonuses at day 7, 14, 30.",
     whitelisted: false,
-    bridge_ok: true,
     execute: faucet_execute,
 };
 
@@ -152,7 +151,6 @@ pub const GIVE_COMMAND: CommandDefinition = CommandDefinition {
     names: &["give", "tip"],
     description: "Give chips to another player. Usage: {prefix}give <player> <amount>",
     whitelisted: false,
-    bridge_ok: true,
     execute: give_execute,
 };
 
@@ -196,7 +194,6 @@ pub const JACKPOT_COMMAND: CommandDefinition = CommandDefinition {
     names: &["jackpot", "jp"],
     description: "View jackpot or buy a ticket. Usage: {prefix}jackpot [buy]",
     whitelisted: false,
-    bridge_ok: true,
     execute: jackpot_execute,
 };
 
@@ -245,7 +242,6 @@ pub const LOTTO_COMMAND: CommandDefinition = CommandDefinition {
     names: &["lotto"],
     description: "Buy a lotto ticket. Usage: {prefix}lotto buy <n1> <n2> <n3> <n4> <n5> (5 unique numbers 1-40, costs 50 chips)",
     whitelisted: false,
-    bridge_ok: true,
     execute: lotto_execute,
 };
 
@@ -385,7 +381,6 @@ pub const WALLET_COMMAND: CommandDefinition = CommandDefinition {
     names: &["wallet", "inv", "inventory", "chips", "balance", "bal"],
     description: "Show chips, streak, and ticket counts. Usage: {prefix}wallet [player]",
     whitelisted: false,
-    bridge_ok: true,
     execute: wallet_execute,
 };
 
@@ -481,7 +476,6 @@ pub const ADDCHIPS_COMMAND: CommandDefinition = CommandDefinition {
     names: &["addchips"],
     description: "Admin: give chips to a player. Usage: {prefix}addchips <player> <amount>",
     whitelisted: true,
-    bridge_ok: true,
     execute: addchips_execute,
 };
 
@@ -513,7 +507,6 @@ pub const DRAW_COMMAND: CommandDefinition = CommandDefinition {
     names: &["draw"],
     description: "Force a casino draw (admin). Usage: {prefix}draw lotto|jackpot",
     whitelisted: true,
-    bridge_ok: true,
     execute: draw_execute,
 };
 

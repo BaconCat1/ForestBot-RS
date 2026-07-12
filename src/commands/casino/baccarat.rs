@@ -9,7 +9,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["baccarat", "bac"],
     description: "Baccarat. {prefix}baccarat player|banker|tie <chips>. Player 2×, Banker 1.95×, Tie 8×.",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

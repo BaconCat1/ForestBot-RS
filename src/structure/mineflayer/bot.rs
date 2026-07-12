@@ -982,6 +982,15 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             if mark_background_tasks_started(&state) {
                 spawn_websocket_event_task(state.clone());
                 spawn_player_list_update_task(state.clone());
+                let push_state = state.clone();
+                tokio::spawn(async move {
+                    let unsafe_names = crate::commands::load_bridge_unsafe_commands(
+                        "json/bridge_unsafe_commands.json",
+                    )
+                    .await;
+                    let list = crate::commands::build_bridge_command_list(&unsafe_names);
+                    push_state.api.push_bridge_commands(&list).await;
+                });
             }
             send_player_list_update(&state).await;
             if state.antiafk {

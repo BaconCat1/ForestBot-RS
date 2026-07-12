@@ -7,7 +7,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
     description: "Shares the Discord server invite link. Usage: {prefix}discord",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

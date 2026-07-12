@@ -9,7 +9,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["weather", "w"],
     description: "Weather and weather bets. !weather <city> | !weather odds <city> | !weather bet <city> rain yes/no <chips> <1d/3d/7d/14d> | !weather bet <city> temp over/under <threshold> <chips> <dur> | !weather bet <city> wind over/under <threshold> <chips> <dur> | !weather bets",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

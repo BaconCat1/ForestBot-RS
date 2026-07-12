@@ -5,7 +5,6 @@ pub const SERVER_SUMMARY_COMMAND: CommandDefinition = CommandDefinition {
     names: &["serversummary", "ssummary"],
     description: "Server stats. Usage: {prefix}ssummary <server>",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute_server_summary,
 };
 
@@ -13,7 +12,6 @@ pub const COMPARE_COMMAND: CommandDefinition = CommandDefinition {
     names: &["compare"],
     description: "Compare two servers side by side. Usage: {prefix}compare <serverA> <serverB>",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute_compare,
 };
 

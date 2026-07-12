@@ -9,7 +9,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["scratch"],
     description: "Scratch a ticket. Usage: {prefix}scratch [copper|gold|diamond]",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

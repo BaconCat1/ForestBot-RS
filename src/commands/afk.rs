@@ -4,7 +4,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["afk"],
     description: "Set an AFK message. Fires as a whisper when others mention you. Clears when you speak or log out.",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

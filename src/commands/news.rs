@@ -6,7 +6,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["news"],
     description: "Browse BBC News. Usage: {prefix}news | {prefix}news <category> | {prefix}news [category] <N>",
     whitelisted: false,
-    bridge_ok: true,
     execute: execute,
 };
 

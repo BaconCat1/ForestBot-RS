@@ -1,4 +1,4 @@
-use std::{future::Future, pin::Pin};
+use std::{collections::HashSet, future::Future, pin::Pin};
 
 use azalea::prelude::Client;
 
@@ -60,7 +60,6 @@ pub struct CommandDefinition {
     pub names: &'static [&'static str],
     pub description: &'static str,
     pub whitelisted: bool,
-    pub bridge_ok: bool,
     pub execute: CommandExecutor,
 }
 
@@ -335,4 +334,41 @@ pub fn find(command_name: &str) -> Option<&'static CommandDefinition> {
             .iter()
             .any(|name| name.eq_ignore_ascii_case(command_name))
     })
+}
+
+/// Loads the flat list of command names that are unsafe to run via the Discord
+/// chat bridge (sender identity can't be trusted as a real MC player there).
+/// Everything not listed defaults to bridge-safe. See json/bridge_unsafe_commands.json.
+pub async fn load_bridge_unsafe_commands(path: &str) -> HashSet<String> {
+    let json = match tokio::fs::read_to_string(path).await {
+        Ok(s) => s,
+        Err(e) => {
+            crate::structure::logger::warn(format!(
+                "Could not load bridge command overrides from {path}: {e}"
+            ));
+            return HashSet::new();
+        }
+    };
+    match serde_json::from_str::<Vec<String>>(&json) {
+        Ok(names) => names.into_iter().map(|n| n.to_lowercase()).collect(),
+        Err(e) => {
+            crate::structure::logger::warn(format!("Bad bridge command overrides JSON: {e}"));
+            HashSet::new()
+        }
+    }
+}
+
+/// Builds the full {name, bridge_ok}[] list (every alias of every command) to push to Hub.
+pub fn build_bridge_command_list(unsafe_names: &HashSet<String>) -> Vec<(String, bool)> {
+    let mut list = Vec::new();
+    for command in registry() {
+        let is_unsafe = command
+            .names
+            .iter()
+            .any(|name| unsafe_names.contains(&name.to_lowercase()));
+        for name in command.names {
+            list.push((name.to_string(), !is_unsafe));
+        }
+    }
+    list
 }

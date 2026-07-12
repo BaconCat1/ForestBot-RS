@@ -15,7 +15,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
     description: "Retrieves a random quote from a user. Usage: {prefix}quote <username>, {prefix}quote <server> <username>, or {prefix}quote all <username>",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

@@ -9,7 +9,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["sicbo", "sic"],
     description: "Sic Bo (3 dice). Usage: {prefix}sicbo small|large|anytriple <stake> | total <4-17> <stake> | single|double|triple <1-6> <stake>",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

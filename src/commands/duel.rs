@@ -11,7 +11,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["duel"],
     description: "Duel a player. !duel <player> <chips> | confirm | reject | odds [player] | bet <player> <chips>",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

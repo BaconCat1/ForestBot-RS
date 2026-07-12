@@ -7,7 +7,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["poll"],
     description: "Create a poll or vote. !poll <question?> opt1, opt2 [, opt3]  |  !poll <N> to vote",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

@@ -11,7 +11,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["gas", "gasbuddy", "gasprice"],
     description: "Bet on tomorrow's gas price. !gas [zip] | !gas <zip> up|down <chips> | !gas bets",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

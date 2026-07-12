@@ -7,7 +7,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
     description: "See all commands, or {prefix}help <command> for details on one command.",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 

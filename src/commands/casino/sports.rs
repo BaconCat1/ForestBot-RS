@@ -9,7 +9,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["sports", "sb"],
     description: "Sports betting. !sports — categories | !sports <sport> — events | !sports bet <#> home|away|draw <chips> | !sports bets",
     whitelisted: false,
-    bridge_ok: true,
     execute,
 };
 
