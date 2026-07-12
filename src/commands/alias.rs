@@ -6,6 +6,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
     description: "Shows any aliases for a command. Usage: {prefix}alias <command>",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

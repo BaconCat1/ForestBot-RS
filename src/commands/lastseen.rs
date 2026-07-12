@@ -14,6 +14,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
     description: "Displays the last time a user was seen online. Usage: {prefix}lastseen <username> or {prefix}lastseen <server|all> <username>",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

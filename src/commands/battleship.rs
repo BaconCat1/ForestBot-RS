@@ -10,6 +10,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["battleship", "bs"],
     description: "Battleship vs bot. !bs <chips> | !bs <coord> (e.g. a5, j0) | !bs board | !bs own | !bs forfeit",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

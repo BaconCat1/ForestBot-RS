@@ -4,6 +4,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["urbandictionary", "ud"],
     description: "Search Urban Dictionary. Usage: {prefix}ud <query>",
     whitelisted: false,
+    bridge_ok: true,
     execute: execute,
 };
 

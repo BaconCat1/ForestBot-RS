@@ -34,6 +34,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["rocket", "launch"],
     description: "Bet on rocket launches. !rocket | !rocket <id> | !rocket <id> success|ontime <chips>",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

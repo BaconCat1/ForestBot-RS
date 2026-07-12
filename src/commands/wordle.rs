@@ -30,6 +30,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["wordle"],
     description: "Chip-staked Wordle. !wordle <chips> [hard] | !wordle <word> | !wordle board | !wordle quit",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

@@ -7,6 +7,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["slurcount"],
     description: "Shows how many slurs a player has used. Usage: {prefix}slurcount [server|all] <player>",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

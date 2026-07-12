@@ -4,6 +4,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["tps"],
     description: "Show server TPS derived from SetTime packet rate.",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

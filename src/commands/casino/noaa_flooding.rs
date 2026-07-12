@@ -9,6 +9,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["flood", "flooding", "noaa"],
     description: "NOAA flood-alert bets. !flood list | !flood <lat> <lon> yes|no <chips> | !flood bets",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

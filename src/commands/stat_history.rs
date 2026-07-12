@@ -75,6 +75,7 @@ macro_rules! command {
             names: $names,
             description: $description,
             whitelisted: false,
+            bridge_ok: true,
             execute: $execute,
         };
     };
@@ -86,6 +87,7 @@ macro_rules! admin_command {
             names: $names,
             description: $description,
             whitelisted: true,
+            bridge_ok: true,
             execute: $execute,
         };
     };

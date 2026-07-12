@@ -5,6 +5,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["calc", "wa", "wolframalpha"],
     description: "Query Wolfram|Alpha. Usage: {prefix}calc <query>",
     whitelisted: false,
+    bridge_ok: true,
     execute: execute,
 };
 

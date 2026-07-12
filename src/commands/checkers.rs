@@ -9,6 +9,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["checkers", "draughts"],
     description: "Checkers vs NPC. !checkers <chips> | !checkers a1 b2 | !checkers board | !checkers quit",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

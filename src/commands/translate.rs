@@ -7,6 +7,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["translate", "tr", "tl"],
     description: "Translate text or a player's last message. Defaults to English. Usage: {prefix}translate [lang] <text|player>",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

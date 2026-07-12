@@ -12,6 +12,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["market", "stock", "stocks", "crypto", "stonk", "stonks"],
     description: "Market data + bets. !market <sym> | history <sym> [1d/7d/30d/1y] | search <q> | long/short <sym> <chips> <dur> | bets | buy/sell <sym> [chips] | portfolio",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 
@@ -19,6 +20,7 @@ pub const PORTFOLIO_COMMAND: CommandDefinition = CommandDefinition {
     names: &["portfolio", "port"],
     description: "Show your open portfolio positions with live P&L.",
     whitelisted: false,
+    bridge_ok: true,
     execute: portfolio_execute,
 };
 

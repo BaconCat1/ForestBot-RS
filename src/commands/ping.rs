@@ -6,6 +6,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
     description: "Check your ping or another user's. Usage: {prefix}ping <username>",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

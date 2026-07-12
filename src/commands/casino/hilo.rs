@@ -10,6 +10,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["hilo", "hi-lo"],
     description: "HiLo card game. !hilo <bet> to start, then !hilo hi/lo/skip/cash",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

@@ -9,6 +9,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["roulette", "rl"],
     description: "European roulette. Usage: {prefix}roulette <type> <selection> <bet>",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

@@ -11,6 +11,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
     description: "Shows the number of times a user has joined. Usage: {prefix}joins <username> or {prefix}joins <server|all> <username>",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

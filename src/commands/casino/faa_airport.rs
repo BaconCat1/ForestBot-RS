@@ -9,6 +9,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["faa", "airport"],
     description: "Flight conditions bets (2h window). !faa <ICAO> — current conditions + odds | !faa <ICAO> yes|no <chips> — bet IFR/LIFR (yes) or VFR/MVFR (no) | !faa bets",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

@@ -12,6 +12,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
     description: "Reloads config and whitelist/blacklist files. Usage: {prefix}reload",
     whitelisted: true,
+    bridge_ok: true,
     execute,
 };
 

@@ -4,6 +4,7 @@ pub const DAY_COMMAND: CommandDefinition = CommandDefinition {
     names: &["day"],
     description: "Shows time until next dawn in-game. Usage: {prefix}day",
     whitelisted: false,
+    bridge_ok: true,
     execute: execute_day,
 };
 
@@ -11,6 +12,7 @@ pub const NIGHT_COMMAND: CommandDefinition = CommandDefinition {
     names: &["night"],
     description: "Shows time until next nightfall in-game. Usage: {prefix}night",
     whitelisted: false,
+    bridge_ok: true,
     execute: execute_night,
 };
 

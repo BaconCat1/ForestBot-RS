@@ -34,6 +34,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["slots", "slot"],
     description: "Spin the slots. !slots <bet>",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

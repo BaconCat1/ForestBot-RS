@@ -9,6 +9,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["train", "trains"],
     description: "Train delay bets. !train list <country|agency> | !train <country> <code> ontime|delayed [chips] | !train <agency> <route> ontime|delayed [chips] | !train bets",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

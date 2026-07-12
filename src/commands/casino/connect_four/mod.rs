@@ -20,6 +20,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["c4", "connect4"],
     description: "Connect Four vs NPC. !c4 <stake> | !c4 <1-7> | !c4 quit",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

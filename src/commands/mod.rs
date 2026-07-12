@@ -60,6 +60,7 @@ pub struct CommandDefinition {
     pub names: &'static [&'static str],
     pub description: &'static str,
     pub whitelisted: bool,
+    pub bridge_ok: bool,
     pub execute: CommandExecutor,
 }
 

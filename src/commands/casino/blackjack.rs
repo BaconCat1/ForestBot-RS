@@ -10,6 +10,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["bj", "blackjack"],
     description: "Blackjack vs dealer. Usage: {prefix}bj <bet> | hit | stand | double | quit",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

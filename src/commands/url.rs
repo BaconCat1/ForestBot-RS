@@ -10,6 +10,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["url", "preview", "www"],
     description: "Preview a URL's description. Usage: {prefix}url <link>",
     whitelisted: false,
+    bridge_ok: true,
     execute: execute,
 };
 

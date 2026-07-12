@@ -22,6 +22,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["chess"],
     description: "Chess vs NPC. !chess white|black <stake> | !chess <from> <to> [promo] | !chess quit",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

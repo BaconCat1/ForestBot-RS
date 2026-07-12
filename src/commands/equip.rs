@@ -6,6 +6,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["equip"],
     description: "Equip any armor pieces found in my inventory. Usage: {prefix}equip",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 
@@ -13,6 +14,7 @@ pub const UNEQUIP_COMMAND: CommandDefinition = CommandDefinition {
     names: &["unequip"],
     description: "Remove all equipped armor back to inventory. Usage: {prefix}unequip",
     whitelisted: false,
+    bridge_ok: true,
     execute: unequip,
 };
 

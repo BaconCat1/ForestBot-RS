@@ -11,6 +11,7 @@ pub const TRIVIA_COMMAND: CommandDefinition = CommandDefinition {
     names: &["trivia"],
     description: "Chip-staked trivia. !trivia <chips> [category] | !trivia join | !trivia categories",
     whitelisted: false,
+    bridge_ok: true,
     execute: execute_trivia,
 };
 
@@ -18,6 +19,7 @@ pub const ANSWER_COMMAND: CommandDefinition = CommandDefinition {
     names: &["answer"],
     description: "Answer the active trivia question. Usage: {prefix}answer <A/B/C/D or true/false>",
     whitelisted: false,
+    bridge_ok: true,
     execute: execute_answer,
 };
 

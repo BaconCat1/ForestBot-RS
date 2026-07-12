@@ -8,6 +8,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["ai"],
     description: "Ask an AI a question. Tries a chain of free providers in priority order.",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 

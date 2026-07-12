@@ -5,6 +5,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["pearl", "p"],
     description: "Activate your stasis pearl. Usage: {prefix}pearl <slot>",
     whitelisted: false,
+    bridge_ok: true,
     execute,
 };
 
