@@ -48,6 +48,13 @@
     "preferred_models": ["qwen3.5-397b-a17b", "meta-llama/Meta-Llama-3.3-70B-Instruct"]
   },
   {
+    "name": "xai",
+    "base_url": "https://api.x.ai/v1",
+    "key_field": "ai_xai",
+    "preferred_models": ["grok-4.1-fast", "grok-4.3", "grok-4"],
+    "notes": "paid only — card on file required, no permanent free tier. $25 signup promo credit; optional $150/mo needs data-sharing opt-in (irreversible, $5 spend first, unavail EU/UK/Nordic). Left unkeyed by default — self-skips."
+  },
+  {
     "name": "deepseek",
     "base_url": "https://api.deepseek.com/v1",
     "key_field": "ai_deepseek",

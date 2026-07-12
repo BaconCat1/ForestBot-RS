@@ -100,6 +100,8 @@ pub struct ApiKeys {
     pub ai_opencode_zen: String,
     #[serde(default)]
     pub ai_alibaba: String,
+    #[serde(default)]
+    pub ai_xai: String,
 }
 
 impl ApiKeys {
@@ -132,6 +134,7 @@ impl ApiKeys {
             "ai_agnes_ai" => &self.ai_agnes_ai,
             "ai_opencode_zen" => &self.ai_opencode_zen,
             "ai_alibaba" => &self.ai_alibaba,
+            "ai_xai" => &self.ai_xai,
             _ => "",
         }
     }

@@ -38,7 +38,8 @@
         "ai_llm7": "",
         "ai_agnes_ai": "",
         "ai_opencode_zen": "",
-        "ai_alibaba": ""
+        "ai_alibaba": "",
+        "ai_xai": ""
     },
     "mc_server": "newtest_new",
     "host": "localhost",
