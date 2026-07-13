@@ -70,6 +70,7 @@ pub struct RuntimeConfig {
     pub command_toggles: HashMap<String, bool>,
     pub disabled_events: HashSet<String>,
     pub allow_chatbridge_input: bool,
+    pub use_live_time_query: bool,
     pub welcome_messages: bool,
     pub use_custom_chat_prefix: bool,
     pub custom_chat_prefix: String,
@@ -114,6 +115,7 @@ pub struct Bot {
     pub use_custom_chat_prefix: bool,
     pub custom_chat_prefix: String,
     pub allow_chatbridge_input: bool,
+    pub use_live_time_query: bool,
     pub smart_censoring: bool,
     pub together_api_key: String,
     pub wolfram_app_id: String,
@@ -166,6 +168,7 @@ impl Bot {
             use_custom_chat_prefix: state.config.use_custom_chat_prefix,
             custom_chat_prefix: state.config.custom_chat_prefix.clone(),
             allow_chatbridge_input: state.config.allow_chatbridge_input,
+            use_live_time_query: state.config.use_live_time_query,
             smart_censoring: state.config.smart_censoring,
             together_api_key: state.config.api_keys.together.clone(),
             wolfram_app_id: state.config.api_keys.wolfram.clone(),
@@ -242,6 +245,7 @@ impl Bot {
                 disabled_events: self.disabled_events.clone(),
                 allow_chatbridge_input: self.api.options.use_websocket
                     && self.allow_chatbridge_input,
+                use_live_time_query: self.use_live_time_query,
                 welcome_messages: self.welcome_messages,
                 use_custom_chat_prefix: self.use_custom_chat_prefix,
                 custom_chat_prefix: self.custom_chat_prefix.clone(),
@@ -320,6 +324,7 @@ impl Bot {
             ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
             last_ai_at: Arc::new(Mutex::new(None)),
             bridge_unsafe_commands: Arc::new(RwLock::new(bridge_unsafe_commands)),
+            pending_time_query: Arc::new(Mutex::new(None)),
         };
 
         // Heartbeat watchdog — pings external dead-man's switch (e.g. healthchecks.io) while alive
@@ -780,6 +785,10 @@ pub struct AzaleaState {
     // time in handle_inbound_discord_chat — separate from the copy pushed to Hub for
     // discordbot's own client-side relay filter.
     pub bridge_unsafe_commands: Arc<RwLock<HashSet<String>>>,
+    // Set by daynight.rs right before sending "/time query day" when use_live_time_query
+    // is on; fulfilled by the Event::Chat handler when the server's command-feedback
+    // system message (no real sender) arrives. None when no query is in flight.
+    pub pending_time_query: Arc<Mutex<Option<tokio::sync::oneshot::Sender<u64>>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -880,6 +889,7 @@ impl Default for AzaleaState {
                 command_toggles: HashMap::new(),
                 disabled_events: HashSet::new(),
                 allow_chatbridge_input: false,
+                use_live_time_query: false,
                 welcome_messages: false,
                 use_custom_chat_prefix: false,
                 custom_chat_prefix: String::new(),
@@ -958,6 +968,7 @@ impl Default for AzaleaState {
             ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
             last_ai_at: Arc::new(Mutex::new(None)),
             bridge_unsafe_commands: Arc::new(RwLock::new(HashSet::new())),
+            pending_time_query: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -1030,6 +1041,37 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             });
 
             if sender.is_none() {
+                // If a live "/time query day" is in flight, this is very likely its
+                // command-feedback response (system message, no real player sender).
+                // Filter down to just the digits rather than matching exact wording --
+                // the tick count is the only number in the response either way.
+                // Locks are scoped to plain blocks (not just drop()) so the MutexGuard
+                // (not Send) provably can't still be alive across the .await below.
+                let matched_ticks: Option<u64> = {
+                    let pending = state
+                        .pending_time_query
+                        .lock()
+                        .expect("pending_time_query lock poisoned");
+                    if pending.is_some() {
+                        let digits: String =
+                            content.chars().filter(|c| c.is_ascii_digit()).collect();
+                        digits.parse::<u64>().ok()
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some(ticks) = matched_ticks {
+                    let mut pending = state
+                        .pending_time_query
+                        .lock()
+                        .expect("pending_time_query lock poisoned");
+                    if let Some(tx) = pending.take() {
+                        let _ = tx.send(ticks);
+                    }
+                    return Ok(());
+                }
+
                 handle_fallback_message(&bot, &state, &content).await;
                 return Ok(());
             }

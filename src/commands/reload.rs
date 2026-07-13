@@ -66,6 +66,7 @@ async fn reload_runtime(
             .into_iter()
             .collect::<HashSet<_>>(),
         allow_chatbridge_input: app_state.config.allow_chatbridge_input,
+        use_live_time_query: app_state.config.use_live_time_query,
         welcome_messages: app_state.config.welcome_messages,
         use_custom_chat_prefix: app_state.config.use_custom_chat_prefix,
         custom_chat_prefix: app_state.config.custom_chat_prefix,

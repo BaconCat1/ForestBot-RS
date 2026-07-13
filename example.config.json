@@ -222,6 +222,7 @@
         "greetings"
     ],
     "allow_chatbridge_input": true,
+    "use_live_time_query": false,
     "rotateHeadOnJoin": false,
     "smart_censoring": false,
     "useLegacyChat": false,

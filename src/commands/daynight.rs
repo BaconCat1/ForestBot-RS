@@ -1,4 +1,4 @@
-use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
+use crate::commands::{CommandContext, CommandDefinition, CommandFuture, enqueue_chat};
 
 pub const DAY_COMMAND: CommandDefinition = CommandDefinition {
     names: &["day"],
@@ -20,8 +20,7 @@ const DAY_TICKS: u64 = 24000;
 
 fn execute_day(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let ticks = *ctx.state.world_time_ticks.read().expect("world_time_ticks lock poisoned");
-        let tod = ticks % DAY_TICKS;
+        let tod = current_tick_of_day(&ctx).await;
 
         if !is_night(tod) {
             ctx.chat("It is currently daytime.".to_owned());
@@ -35,8 +34,7 @@ fn execute_day(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn execute_night(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let ticks = *ctx.state.world_time_ticks.read().expect("world_time_ticks lock poisoned");
-        let tod = ticks % DAY_TICKS;
+        let tod = current_tick_of_day(&ctx).await;
 
         if is_night(tod) {
             ctx.chat("It is currently nighttime.".to_owned());
@@ -46,6 +44,52 @@ fn execute_night(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         }
         Ok(())
     })
+}
+
+async fn current_tick_of_day(ctx: &CommandContext<'_>) -> u64 {
+    let ticks = match query_live_daytime(ctx).await {
+        Some(ticks) => ticks,
+        None => *ctx
+            .state
+            .world_time_ticks
+            .read()
+            .expect("world_time_ticks lock poisoned"),
+    };
+    ticks % DAY_TICKS
+}
+
+/// Sends "/time query day" and awaits the server's command-feedback response, filtering
+/// it down to just the digits (the tick count is the only number in the reply either
+/// way). Gated behind `use_live_time_query` in config.json -- most servers gate `/time`
+/// at operator level, so this stays off unless the operator explicitly opts in. Falls
+/// back to the passively-cached SetTime value (via None) if disabled, denied, or timed out.
+async fn query_live_daytime(ctx: &CommandContext<'_>) -> Option<u64> {
+    if !ctx.runtime.use_live_time_query {
+        return None;
+    }
+
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    *ctx.state
+        .pending_time_query
+        .lock()
+        .expect("pending_time_query lock poisoned") = Some(tx);
+
+    enqueue_chat(ctx.state, "/time query day");
+
+    let result = tokio::time::timeout(std::time::Duration::from_secs(3), rx).await;
+    match result {
+        Ok(Ok(ticks)) => Some(ticks),
+        _ => {
+            // Timed out or the sender was dropped without sending -- clear our slot in
+            // case it's still ours (a late response arriving after this would otherwise
+            // be misread as belonging to some future query).
+            *ctx.state
+                .pending_time_query
+                .lock()
+                .expect("pending_time_query lock poisoned") = None;
+            None
+        }
+    }
 }
 
 fn is_night(tod: u64) -> bool {

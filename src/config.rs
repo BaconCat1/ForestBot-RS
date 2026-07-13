@@ -197,6 +197,8 @@ pub struct Config {
     pub use_commands: bool,
     pub disabled_events: Vec<String>,
     pub allow_chatbridge_input: bool,
+    #[serde(default)]
+    pub use_live_time_query: bool,
     #[serde(rename = "rotateHeadOnJoin")]
     #[allow(dead_code)]
     pub rotate_head_on_join: bool,
