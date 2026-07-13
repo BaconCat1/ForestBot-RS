@@ -86,15 +86,21 @@ async fn reload_runtime(
     *state.ai_providers.write().expect("ai_providers lock poisoned") = ai_providers;
     state.ai_model_cache.lock().expect("ai_model_cache lock poisoned").clear();
 
-    // Re-push bridge command classification to Hub so edits to
-    // json/bridge_unsafe_commands.json take effect without a restart.
+    // Reload bridge command classification so edits to json/bridge_unsafe_commands.json
+    // take effect without a restart: refresh the local dispatch-time copy synchronously
+    // (so the very next bridged command sees it), then re-push to Hub in the background.
     {
+        let unsafe_names = crate::commands::load_bridge_unsafe_commands(
+            "json/bridge_unsafe_commands.json",
+        )
+        .await;
+        *state
+            .bridge_unsafe_commands
+            .write()
+            .expect("bridge_unsafe_commands lock poisoned") = unsafe_names.clone();
+
         let push_state = state.clone();
         tokio::spawn(async move {
-            let unsafe_names = crate::commands::load_bridge_unsafe_commands(
-                "json/bridge_unsafe_commands.json",
-            )
-            .await;
             let list = crate::commands::build_bridge_command_list(&unsafe_names);
             push_state.api.push_bridge_commands(&list).await;
         });

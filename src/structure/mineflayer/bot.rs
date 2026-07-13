@@ -222,6 +222,9 @@ impl Bot {
             "json/ai_providers.json",
             &self.api_keys,
         ).await;
+        let bridge_unsafe_commands = crate::commands::load_bridge_unsafe_commands(
+            "json/bridge_unsafe_commands.json",
+        ).await;
         let state = AzaleaState {
             mc_server: self.mc_server.clone(),
             api: Arc::new(self.api.clone()),
@@ -316,6 +319,7 @@ impl Bot {
             ai_providers: Arc::new(RwLock::new(ai_providers)),
             ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
             last_ai_at: Arc::new(Mutex::new(None)),
+            bridge_unsafe_commands: Arc::new(RwLock::new(bridge_unsafe_commands)),
         };
 
         // Heartbeat watchdog — pings external dead-man's switch (e.g. healthchecks.io) while alive
@@ -772,6 +776,10 @@ pub struct AzaleaState {
     pub ai_providers: Arc<RwLock<Vec<crate::commands::ai::AiProviderEntry>>>,
     pub ai_model_cache: Arc<Mutex<HashMap<String, String>>>,
     pub last_ai_at: Arc<Mutex<Option<Instant>>>,
+    // Defense-in-depth mirror of json/bridge_unsafe_commands.json, checked at dispatch
+    // time in handle_inbound_discord_chat — separate from the copy pushed to Hub for
+    // discordbot's own client-side relay filter.
+    pub bridge_unsafe_commands: Arc<RwLock<HashSet<String>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -949,6 +957,7 @@ impl Default for AzaleaState {
             ai_providers: Arc::new(RwLock::new(Vec::new())),
             ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
             last_ai_at: Arc::new(Mutex::new(None)),
+            bridge_unsafe_commands: Arc::new(RwLock::new(HashSet::new())),
         }
     }
 }
@@ -980,7 +989,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             state.consecutive_failures.store(0, Ordering::Relaxed);
             state.initial_spawn_done.store(true, Ordering::Relaxed);
             if mark_background_tasks_started(&state) {
-                spawn_websocket_event_task(state.clone());
+                spawn_websocket_event_task(bot.clone(), state.clone());
                 spawn_player_list_update_task(state.clone());
                 let push_state = state.clone();
                 tokio::spawn(async move {
@@ -1850,7 +1859,7 @@ fn handle_fadv_awards(state: &AzaleaState, data: FadvAwardsEvent) {
     }
 }
 
-fn spawn_websocket_event_task(state: AzaleaState) {
+fn spawn_websocket_event_task(bot: Client, state: AzaleaState) {
     let Some(websocket) = state.api.websocket.clone() else {
         return;
     };
@@ -1897,7 +1906,7 @@ fn spawn_websocket_event_task(state: AzaleaState) {
                     }
                 }
                 WebsocketEvent::InboundDiscordChat(data) => {
-                    handle_inbound_discord_chat(&state, data);
+                    handle_inbound_discord_chat(&bot, &state, data).await;
                 }
                 WebsocketEvent::InboundMinecraftChat(data) => {
                     handle_inbound_minecraft_chat(&state, data);
@@ -1999,19 +2008,68 @@ where
     });
 }
 
-fn handle_inbound_discord_chat(state: &AzaleaState, data: DiscordChatMessage) {
-    let allow_chatbridge_input = state
-        .runtime
-        .read()
-        .expect("runtime config lock poisoned")
-        .allow_chatbridge_input;
+async fn handle_inbound_discord_chat(bot: &Client, state: &AzaleaState, data: DiscordChatMessage) {
+    let (allow_chatbridge_input, prefix, use_commands) = {
+        let runtime = state.runtime.read().expect("runtime config lock poisoned");
+        (
+            runtime.allow_chatbridge_input,
+            runtime.prefix.clone(),
+            runtime.use_commands,
+        )
+    };
 
-    if allow_chatbridge_input && data.mc_server == state.mc_server {
-        enqueue_outbound_chat(
-            state,
-            format!("[Discord] {}: {}", data.username, data.message),
-        );
+    if !allow_chatbridge_input || data.mc_server != state.mc_server {
+        return;
     }
+
+    // If the message is a real, known command, dispatch it through the exact same
+    // path real MC chat commands use — sender is tagged "Discord:<username>" so it
+    // never collides with (or gets mistaken for) a real MC player identity. Unknown
+    // "!word" text and non-command chat both fall through to the plain relay below,
+    // matching how real players' unrecognized "!word" chat still just shows as chat.
+    if use_commands {
+        if let Some(command_line) = data.message.trim().strip_prefix(&prefix) {
+            if let Some(command_name) = command_line.split_whitespace().next() {
+                if let Some(command) = crate::commands::find(command_name) {
+                    // Check every alias of the matched command, not just the one typed —
+                    // classification (and the Hub push in mod.rs) treats a command as unsafe
+                    // if ANY of its aliases is listed, so a single alias like "!p" for "!pearl"
+                    // must inherit "pearl"'s unsafe status even if "p" itself isn't listed.
+                    let is_unsafe = {
+                        let unsafe_names = state
+                            .bridge_unsafe_commands
+                            .read()
+                            .expect("bridge_unsafe_commands lock poisoned");
+                        command
+                            .names
+                            .iter()
+                            .any(|name| unsafe_names.contains(&name.to_lowercase()))
+                    };
+
+                    if is_unsafe {
+                        // Backstop only — Discord's own gate (messageCreate.ts) should already
+                        // have caught this and DMed the user before it ever reached craftbot.
+                        // Never post to public MC chat here: craftbot has no Discord user ID to
+                        // reply to privately (DiscordChatMessage carries only a username string),
+                        // and a public leak is worse than staying silent on this rare fallback path.
+                        logger::command(format!(
+                            "Bridge-unsafe command blocked (backstop): {command_name} from Discord:{}",
+                            data.username
+                        ));
+                    } else {
+                        let sender = format!("Discord:{}", data.username);
+                        command_handler::handle(bot, state, &sender, &data.message).await;
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    enqueue_outbound_chat(
+        state,
+        format!("[Discord] {}: {}", data.username, data.message),
+    );
 }
 
 fn handle_inbound_minecraft_chat(state: &AzaleaState, data: MinecraftChatMessage) {

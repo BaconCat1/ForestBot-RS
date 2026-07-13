@@ -104,6 +104,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~extend `!help` to take commands as args~~ // `!help <command>` whispers description + aliases; unknown falls back to link
 * ✅ ~~**behavioural tweak**: if API limits are reached, users should be informed that is specifically why it failed, since a more generic error could waste time hunting a bug that doesn't exist~~ // `FetchErr::RateLimit` + `check_resp` in `casino/mod.rs`; all 9 external-API casino files surface 429 with specific message; settle paths treat rate limit as refund (`.ok()`)
 * ✅ ~~Universe: need watchdog and alerts, bypass/restart vpn~~ // used healthcheck.io, far simpler than anything else I was imagining lol
+* 🐛 **refactor**: `src/commands/stat_history.rs` could be split into files for each command it contains. should be refactored and sent as a pr
 
 
 ## !quote
