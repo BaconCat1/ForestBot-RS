@@ -184,7 +184,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!wiki let's you search wikipedia based on <arg>.~~ // MediaWiki search API → extract API (2-step); posts `[Title] first line...` truncated 200 chars to public chat; 1-min cooldown per player; aliases `!wiki`/`!wikipedia`
 * ✅ ~~!news, let's you find headlines from rss feeds.~~ // BBC RSS via `rss` crate; `!news` whispers categories + top stories; `!news <cat>` whispers 5 numbered headlines; `!news [cat] <N>` posts article description + link (tracking params stripped) to public chat
 * ✅ ~~!day/!night, reports irl time until it's either day or night in game~~ // listens for `ClientboundSetTime`, stores `total_ticks` in AzaleaState; day=23460–13188, night=13188–23460; converts ticks to m/s real time
-	* 🐛 **bug**: seems to drift out of sync over time. needs investigation
+	* ✅ ~~**bug**: seems to drift out of sync over time. needs investigation~~
 * ✅ ~~!urbandictionary, api seems to be at https://api.urbandictionary.com/v0/define?term={TERM}~~ // `list[0]` → strips `[bracket]` links, collapses newlines, truncates 180 chars, appends `(+N/-N)`; public chat; aliases `!urbandictionary`/`!ud`
 * ✅ ~~!greeting, users can give themselves a welcome back message that has a 12 hour cooldown~~ // `greeting` + `greeting_last_fired_at` columns on `users` table; fires on join as `"<message>, Username!"`; 12h cooldown via DB timestamp; preview/clear subcommands
 * ✅ ~~!minewiki, same behaviour as !wiki, only for the minecraft wiki~~ // same 2-step flow against minecraft.wiki (`/api.php`); public chat; 1-min cooldown per player; aliases `!minewiki`/`!mcwiki`
@@ -200,7 +200,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 	* ✅ ~~**bug**: needs to treat answering polls as different from creating them~~ // fix was in `command_handler.rs`, not `poll.rs` — cooldown gate runs pre-dispatch, now peeks args and skips the gate for single-numeric-arg (vote) invocations
 * ✅ ~~!tps, if azalea/minecraft or wtv lets you see server performance, report it via a command~~
 * ✅ ~~!url, don't webpages have some seo text built in by default? if so, leverage that for a text only preview of a url, so you can see what it is without having to leave the game.~~ // ~~working, needs some fall back and further testing~~
-* 🆕 !poke, add a "poke ai" personality users can talk to (requested by Bacon)
+* ⏸️ !poke, add a "poke ai" personality users can talk to (requested by Bacon) // ON HOLD, infra required to support feels like it overly complicates ForestBot, unfinished features stored in `poke-unfinished` branch
 
 ---
 

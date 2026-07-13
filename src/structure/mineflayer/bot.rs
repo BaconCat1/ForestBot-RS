@@ -1249,6 +1249,15 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     },
                 );
             send_player_list_update(&state).await;
+            // Fire-and-forget so /mosaic + /tablist stay populated without a manual
+            // backfill; Hub skips the fetch entirely if a fresh head is already cached.
+            {
+                let ensure_state = state.clone();
+                let ensure_uuid = uuid.clone();
+                tokio::spawn(async move {
+                    ensure_state.api.ensure_head_cached(&ensure_uuid).await;
+                });
+            }
             deliver_offline_messages(&state, &username).await;
             deliver_casino_notifications(&state, &uuid, &username).await;
             if state.initial_spawn_done.load(Ordering::Relaxed) {

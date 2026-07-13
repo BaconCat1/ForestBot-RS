@@ -23,7 +23,9 @@ struct AiProviderSpec {
     #[serde(default)]
     key_field: String,
     preferred_models: Vec<String>,
+    // Human-readable context for whoever's editing ai_providers.json -- never read in code.
     #[serde(default)]
+    #[allow(dead_code)]
     notes: String,
 }
 

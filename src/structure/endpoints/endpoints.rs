@@ -434,6 +434,13 @@ impl ApiClient {
             .await
     }
 
+    /// Fire-and-forget from craftbot on player join -- Hub skips the actual fetch if a
+    /// fresh (<24h) head is already cached, so this is cheap for returning players.
+    pub async fn ensure_head_cached(&self, uuid: &str) -> Option<Value> {
+        self.post_json("/craftbot/ensure-head", json!({ "uuid": uuid }))
+            .await
+    }
+
     pub async fn post_who_is_description(
         &self,
         username: &str,

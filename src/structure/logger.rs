@@ -77,12 +77,6 @@ pub fn websocket(message: impl AsRef<str>) {
     log("websocket".yellow(), message.as_ref());
 }
 
-pub fn debug(message: impl AsRef<str>) {
-    if std::env::var("DEBUG").is_ok() {
-        log("debug".bright_black(), message.as_ref());
-    }
-}
-
 static DEBUG_CATEGORIES: OnceLock<RwLock<HashMap<String, bool>>> = OnceLock::new();
 
 fn read_and_merge_debug_json() -> HashMap<String, bool> {
@@ -152,8 +146,8 @@ pub fn debug_cat_enabled(category: &str) -> bool {
 }
 
 /// Debug logging gated per-category via debug.json, in addition to the global DEBUG env
-/// var check `debug()` already does. A category not listed in debug.json defaults to
-/// enabled (so forgetting to add a new one to example.debug.json never silently hides it).
+/// var. A category not listed in debug.json defaults to enabled (so forgetting to add a
+/// new one to example.debug.json never silently hides it).
 pub fn debug_cat(category: &str, message: impl AsRef<str>) {
     if debug_cat_enabled(category) {
         log("debug".bright_black(), message.as_ref());
