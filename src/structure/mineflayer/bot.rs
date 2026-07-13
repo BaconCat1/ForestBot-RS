@@ -325,6 +325,8 @@ impl Bot {
             last_ai_at: Arc::new(Mutex::new(None)),
             bridge_unsafe_commands: Arc::new(RwLock::new(bridge_unsafe_commands)),
             pending_time_query: Arc::new(Mutex::new(None)),
+            day_ticks_accum: Arc::new(Mutex::new(0.0)),
+            day_clock_rate: Arc::new(Mutex::new(1.0)),
         };
 
         // Heartbeat watchdog — pings external dead-man's switch (e.g. healthchecks.io) while alive
@@ -335,8 +337,8 @@ impl Bot {
             tokio::spawn(async move {
                 loop {
                     match http.get(&url).send().await {
-                        Ok(_) => crate::structure::logger::debug("Heartbeat sent."),
-                        Err(e) => crate::structure::logger::debug(format!("Heartbeat failed: {e}")),
+                        Ok(_) => crate::structure::logger::debug_cat("heartbeat", "Heartbeat sent."),
+                        Err(e) => crate::structure::logger::debug_cat("heartbeat", format!("Heartbeat failed: {e}")),
                     }
                     tokio::time::sleep(tokio::time::Duration::from_millis(interval)).await;
                 }
@@ -789,6 +791,14 @@ pub struct AzaleaState {
     // is on; fulfilled by the Event::Chat handler when the server's command-feedback
     // system message (no real sender) arrives. None when no query is in flight.
     pub pending_time_query: Arc<Mutex<Option<tokio::sync::oneshot::Sender<u64>>>>,
+    // Free-running local estimate of the "overworld" WorldClock's raw tick count --
+    // fallback path for !day/!night when use_live_time_query is off/denied/timed out.
+    // Snapped to the authoritative value on every real SetTime packet, incremented by
+    // day_clock_rate on every local Event::Tick in between (mirrors how real Minecraft
+    // clients keep ClientWorld.timeOfDay live between server corrections). f64 so a
+    // fractional rate (e.g. 0.5x) accumulates correctly instead of truncating to 0 each tick.
+    pub day_ticks_accum: Arc<Mutex<f64>>,
+    pub day_clock_rate: Arc<Mutex<f32>>,
 }
 
 #[derive(Debug, Clone)]
@@ -969,6 +979,8 @@ impl Default for AzaleaState {
             last_ai_at: Arc::new(Mutex::new(None)),
             bridge_unsafe_commands: Arc::new(RwLock::new(HashSet::new())),
             pending_time_query: Arc::new(Mutex::new(None)),
+            day_ticks_accum: Arc::new(Mutex::new(0.0)),
+            day_clock_rate: Arc::new(Mutex::new(1.0)),
         }
     }
 }
@@ -1325,6 +1337,41 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             if let ClientboundGamePacket::SetTime(p) = packet.as_ref() {
                 let ticks = p.clock_updates.values().next().map(|c| c.total_ticks).unwrap_or(p.game_time);
                 *state.world_time_ticks.write().expect("world_time_ticks lock poisoned") = ticks;
+
+                // Correction step for the !day/!night fallback estimate -- snap to the
+                // authoritative clock value and remember its rate for local ticking in
+                // between corrections. Picking the first entry (matching world_time_ticks
+                // above): resolving the specific "overworld" WorldClock key would require
+                // the synced ClientboundRegistryData (ResolvableDataRegistry in azalea-core),
+                // real infrastructure this doesn't have access to yet. In practice craftbot
+                // never changes dimension, so clock_updates should only ever contain the one
+                // relevant entry anyway.
+                if let Some(clock) = p.clock_updates.values().next() {
+                    logger::debug_cat("daynight", format!(
+                        "day/night correction (clock_updates): total_ticks={} rate={}",
+                        clock.total_ticks, clock.rate
+                    ));
+                    *state.day_ticks_accum.lock().expect("day_ticks_accum lock poisoned") =
+                        clock.total_ticks as f64;
+                    *state.day_clock_rate.lock().expect("day_clock_rate lock poisoned") = clock.rate;
+                } else {
+                    // Common case on this server: clock_updates is never populated, only
+                    // game_time. game_time always increments +1/tick regardless of the
+                    // daylight cycle's rate/pause state (confirmed via the decompiled
+                    // ClientWorld.tickTime() -- only timeOfDay respects that, not the raw
+                    // world-age counter), so absent an explicit rate/pause signal the day
+                    // clock tracks it in lockstep. Don't touch day_clock_rate here: if a
+                    // genuine non-default rate was ever communicated via a real
+                    // clock_updates entry, a plain game_time-only packet shouldn't silently
+                    // reset it back to the 1.0 default.
+                    logger::debug_cat("daynight", format!(
+                        "day/night correction (game_time fallback): game_time={}",
+                        p.game_time
+                    ));
+                    *state.day_ticks_accum.lock().expect("day_ticks_accum lock poisoned") =
+                        p.game_time as f64;
+                }
+
                 let now_ms = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or_default()
@@ -1344,6 +1391,13 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             // This scan is separately gated by entitySpawn to preserve Node config behavior.
             handle_entity_spawn_first_sight(&bot, &state);
             handle_player_detection(&bot, &state);
+
+            // Free-run the !day/!night fallback estimate forward -- Event::Tick fires on
+            // craftbot's own local ~20Hz wall-clock timer (confirmed independent of server
+            // lag), so this keeps the estimate live between SetTime corrections instead of
+            // going stale until the next packet arrives.
+            let rate = *state.day_clock_rate.lock().expect("day_clock_rate lock poisoned") as f64;
+            *state.day_ticks_accum.lock().expect("day_ticks_accum lock poisoned") += rate;
         }
         _ => {}
     }
@@ -2722,7 +2776,7 @@ fn is_server_presence_message(content: &str) -> bool {
 
 fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<String>, String) {
     let full_message = message.message().to_string();
-    if std::env::var("DEBUG").is_ok() { logger::info(format!("[CHAT_PARSE] full={full_message:?}")); }
+    logger::debug_cat("chat_parse", format!("[CHAT_PARSE] full={full_message:?}"));
 
     let formats = state
         .runtime
@@ -2737,14 +2791,14 @@ fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<Stri
     // breaking command dispatch. Matching the full raw string against a configured
     // format first produces the correct username + message split.
     if !formats.is_empty() {
-        if std::env::var("DEBUG").is_ok() { logger::info(format!("[CHAT_PARSE] trying {} custom formats: {:?}", formats.len(), formats)); }
+        logger::debug_cat("chat_parse", format!("[CHAT_PARSE] trying {} custom formats: {:?}", formats.len(), formats));
         if let Some(parsed) = chat_format_parser::parse(&full_message, &formats) {
-            if std::env::var("DEBUG").is_ok() { logger::info(format!("[CHAT_PARSE] custom match → sender={:?} content={:?}", parsed.username, parsed.message)); }
+            logger::debug_cat("chat_parse", format!("[CHAT_PARSE] custom match → sender={:?} content={:?}", parsed.username, parsed.message));
             return (Some(parsed.username), parsed.message);
         }
-        if std::env::var("DEBUG").is_ok() { logger::info("[CHAT_PARSE] no custom format matched → fallback to native".to_string()); }
-    } else if std::env::var("DEBUG").is_ok() {
-        logger::info("[CHAT_PARSE] formats empty → native parse".to_string());
+        logger::debug_cat("chat_parse", "[CHAT_PARSE] no custom format matched → fallback to native".to_string());
+    } else {
+        logger::debug_cat("chat_parse", "[CHAT_PARSE] formats empty → native parse".to_string());
     }
 
     let (sender, content) = message.split_sender_and_content();

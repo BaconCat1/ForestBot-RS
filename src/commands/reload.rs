@@ -87,6 +87,10 @@ async fn reload_runtime(
     *state.ai_providers.write().expect("ai_providers lock poisoned") = ai_providers;
     state.ai_model_cache.lock().expect("ai_model_cache lock poisoned").clear();
 
+    // Unlike a plain OnceLock, this re-reads debug.json and overwrites the live
+    // categories -- so flipping a category off actually takes effect on !reload.
+    crate::structure::logger::load_debug_categories();
+
     // Reload bridge command classification so edits to json/bridge_unsafe_commands.json
     // take effect without a restart: refresh the local dispatch-time copy synchronously
     // (so the very next bridged command sees it), then re-push to Hub in the background.

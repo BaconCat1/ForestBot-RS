@@ -265,7 +265,7 @@ async fn call_provider(
     let resp = req.send().await.ok()?;
 
     if !resp.status().is_success() {
-        crate::structure::logger::debug(format!(
+        crate::structure::logger::debug_cat("ai", format!(
             "AI provider {} returned {} — skipping",
             provider.name,
             resp.status()
@@ -277,7 +277,7 @@ async fn call_provider(
     let content = chat.choices.into_iter().next()?.message.content;
     let content = content.trim();
     if content.is_empty() {
-        crate::structure::logger::debug(format!(
+        crate::structure::logger::debug_cat("ai", format!(
             "AI provider {} returned empty content — skipping",
             provider.name
         ));

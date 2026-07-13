@@ -53,3 +53,4 @@ gasbuddy_token.json
 /url_fetch_cache/*
 ai_providers_survey.csv
 .claudeignore
+debug.json

@@ -34,6 +34,8 @@ async fn run() -> Result<()> {
 
     println!("               Made by Febzey#1854. Ported to Rust by bacon_cat_");
 
+    crate::structure::logger::load_debug_categories();
+
     let state = AppState::load().await?;
     let options = state.options()?;
 

@@ -1504,9 +1504,9 @@ fn add_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 &ctx,
                 &format!(" Your FAQ has been added. Your entry ID is {}.", data.id),
             );
-            logger::debug("addfaq: about to call flag_content_if_needed");
+            logger::debug_cat("content_flag", "addfaq: about to call flag_content_if_needed");
             crate::commands::utils::flag_content_if_needed(&ctx.state, ctx.sender, "addfaq", &faq);
-            logger::debug("addfaq: flag_content_if_needed returned");
+            logger::debug_cat("content_flag", "addfaq: flag_content_if_needed returned");
         }
         Ok(())
     })

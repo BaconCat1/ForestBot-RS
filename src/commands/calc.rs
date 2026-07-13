@@ -49,7 +49,7 @@ async fn wolfram_query(app_id: &str, query: &str) -> Option<String> {
         return None;
     }
 
-    logger::debug(format!("[calc] WA raw response:\n{text}"));
+    logger::debug_cat("calc", format!("[calc] WA raw response:\n{text}"));
 
     // WA LLM API: "Label:\nvalue\nvalue2\n\nNextLabel:\n..." structure
     // Collect each section's values (all lines until the next label), join with " | "

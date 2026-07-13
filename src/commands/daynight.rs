@@ -49,11 +49,13 @@ fn execute_night(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 async fn current_tick_of_day(ctx: &CommandContext<'_>) -> u64 {
     let ticks = match query_live_daytime(ctx).await {
         Some(ticks) => ticks,
+        // Free-running local estimate (Event::Tick-incremented, SetTime-corrected) --
+        // see AzaleaState.day_ticks_accum. Replaces the old static last-packet snapshot.
         None => *ctx
             .state
-            .world_time_ticks
-            .read()
-            .expect("world_time_ticks lock poisoned"),
+            .day_ticks_accum
+            .lock()
+            .expect("day_ticks_accum lock poisoned") as u64,
     };
     ticks % DAY_TICKS
 }

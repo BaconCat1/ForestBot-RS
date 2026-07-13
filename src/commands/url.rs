@@ -209,7 +209,7 @@ async fn fetch_preview(url: &str, blocklist: &HashSet<String>) -> Option<(String
     }
     let html = String::from_utf8_lossy(&body).into_owned();
 
-    if std::env::var("DEBUG").is_ok() {
+    if crate::structure::logger::debug_cat_enabled("url") {
         let ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis())
