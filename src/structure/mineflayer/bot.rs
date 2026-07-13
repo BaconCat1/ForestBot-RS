@@ -1391,6 +1391,13 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 while samples.front().map_or(false, |&(_, t)| t < cutoff) {
                     samples.pop_front();
                 }
+            } else if matches!(packet.as_ref(), ClientboundGamePacket::StartConfiguration(_)) {
+                // Confirmed via reading Azalea's own source (pinned rev) that this does NOT
+                // fire a Disconnect event -- it silently flips the connection into the
+                // Configuration protocol state internally. This log is here purely to
+                // confirm empirically that RefinedVanilla's queue actually sends this
+                // packet before building real queue-detection logic around it.
+                logger::debug_cat("queue", "Received StartConfiguration packet (likely entering a queue/reconfigure)");
             }
         }
 
