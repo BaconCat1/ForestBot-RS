@@ -28,9 +28,6 @@ macro_rules! admin_command {
     };
 }
 
-pub(crate) use admin_command;
-pub(crate) use command;
-
 mod kd;
 mod joindate;
 mod jdpt;
