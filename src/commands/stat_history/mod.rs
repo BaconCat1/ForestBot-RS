@@ -5,6 +5,7 @@
 //! no caller outside this module needed to change.
 
 mod helpers;
+mod patterns;
 
 macro_rules! command {
     ($const_name:ident, $names:expr, $description:expr, $execute:ident) => {

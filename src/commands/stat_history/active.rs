@@ -1,4 +1,4 @@
-use super::helpers::{epoch_ms_from_string, now_millis, whisper};
+use super::helpers::{epoch_ms_from_string, now_millis, whisper, ONE_DAY_MS};
 use crate::commands::{CommandContext, CommandFuture};
 use futures_util::stream::{self, StreamExt};
 use std::collections::{HashMap, HashSet};
@@ -8,7 +8,6 @@ const ACTIVE_CACHE_TTL_MS: u64 = 5 * 60 * 1000;
 const ACTIVE_TOP_LIMIT: usize = 5;
 const ACTIVE_MSG_FETCH: usize = 100;
 const ACTIVE_CONCURRENCY: usize = 12;
-const ONE_DAY_MS: u64 = 24 * 60 * 60 * 1000;
 
 static ACTIVE_CACHE: OnceLock<Mutex<HashMap<String, ActiveCacheEntry>>> = OnceLock::new();
 

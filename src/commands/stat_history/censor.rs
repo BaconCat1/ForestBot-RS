@@ -1,4 +1,4 @@
-use super::helpers::word_list_command;
+use super::patterns::word_list_command;
 use crate::commands::{CommandContext, CommandFuture};
 
 const BAD_WORDS_PATH: &str = "./json/bad_words.json";

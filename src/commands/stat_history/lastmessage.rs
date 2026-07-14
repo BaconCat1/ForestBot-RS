@@ -1,4 +1,4 @@
-use super::helpers::message_lookup;
+use super::patterns::message_lookup;
 use crate::commands::{CommandContext, CommandFuture};
 
 command!(LAST_MESSAGE_COMMAND, &["lastmessage", "lm"], "Retrieves the last message of a user. Usage: {prefix}lastmessage <username>", last_message);

@@ -1,4 +1,4 @@
-use super::helpers::word_list_command;
+use super::patterns::word_list_command;
 use crate::commands::{CommandContext, CommandFuture};
 
 const WORD_WHITELIST_PATH: &str = "./json/word_whitelist.json";

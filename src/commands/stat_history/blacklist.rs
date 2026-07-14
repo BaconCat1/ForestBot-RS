@@ -1,4 +1,4 @@
-use super::helpers::list_command;
+use super::patterns::list_command;
 use crate::commands::{CommandContext, CommandFuture};
 
 const MC_BLACKLIST_PATH: &str = "./json/mc_blacklist.json";

@@ -1,4 +1,4 @@
-use super::helpers::{all_known_usernames_for_server, whisper, BACKFILL_CONCURRENCY};
+use super::helpers::{all_known_usernames_for_server, whisper, BACKFILL_CONCURRENCY, ONE_DAY_MS};
 use crate::commands::{CommandContext, CommandFuture};
 use crate::commands::utils::stats_target::format_server_label;
 use futures_util::stream::{self, StreamExt};
@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 const TOP_LIMIT: usize = 5;
-const ONE_DAY_MS: u64 = 24 * 60 * 60 * 1000;
 const HISTORICAL_TOP_CACHE_TTL_MS: u64 = 15 * 60 * 1000;
 
 static HISTORICAL_TOP_CACHE: OnceLock<Mutex<HashMap<String, HistoricalTopCacheEntry>>> =
