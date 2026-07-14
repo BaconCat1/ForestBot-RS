@@ -20,6 +20,10 @@ fn default_heartbeat_interval_ms() -> u64 {
     60_000
 }
 
+fn default_queue_retry_delay_ms() -> u64 {
+    300_000
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ApiKeys {
     #[serde(default)]
@@ -227,6 +231,13 @@ pub struct Config {
     pub heartbeat_url: String,
     #[serde(default = "default_heartbeat_interval_ms")]
     pub heartbeat_interval_ms: u64,
+    // Command only the real server recognizes (e.g. "/lag") -- used to detect when the
+    // bot has landed on a queue proxy instead of the real server. Empty disables the
+    // whole queue-detection feature.
+    #[serde(default)]
+    pub queue_probe_command: String,
+    #[serde(default = "default_queue_retry_delay_ms")]
+    pub queue_retry_delay_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

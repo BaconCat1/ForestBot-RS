@@ -85,6 +85,8 @@ pub struct RuntimeConfig {
     pub gasbuddy_solver_url: String,
     pub gasbuddy_csrf_readonly: bool,
     pub google_safe_browsing_key: String,
+    pub queue_probe_command: String,
+    pub queue_retry_delay_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -143,6 +145,8 @@ pub struct Bot {
     pub heartbeat_url: String,
     pub heartbeat_interval_ms: u64,
     pub api_keys: crate::config::ApiKeys,
+    pub queue_probe_command: String,
+    pub queue_retry_delay_ms: u64,
 }
 
 impl Bot {
@@ -195,6 +199,8 @@ impl Bot {
             heartbeat_url: state.config.heartbeat_url.clone(),
             heartbeat_interval_ms: state.config.heartbeat_interval_ms,
             api_keys: state.config.api_keys.clone(),
+            queue_probe_command: state.config.queue_probe_command.clone(),
+            queue_retry_delay_ms: state.config.queue_retry_delay_ms,
         }
     }
 
@@ -260,6 +266,8 @@ impl Bot {
                 gasbuddy_solver_url: self.gasbuddy_solver_url.clone(),
                 gasbuddy_csrf_readonly: self.gasbuddy_csrf_readonly,
                 google_safe_browsing_key: self.google_safe_browsing_key.clone(),
+                queue_probe_command: self.queue_probe_command.clone(),
+                queue_retry_delay_ms: self.queue_retry_delay_ms,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -327,6 +335,8 @@ impl Bot {
             pending_time_query: Arc::new(Mutex::new(None)),
             day_ticks_accum: Arc::new(Mutex::new(0.0)),
             day_clock_rate: Arc::new(Mutex::new(1.0)),
+            pending_queue_probe: Arc::new(Mutex::new(None)),
+            queue_disconnect_pending: Arc::new(AtomicBool::new(false)),
         };
 
         // Heartbeat watchdog — pings external dead-man's switch (e.g. healthchecks.io) while alive
@@ -799,6 +809,14 @@ pub struct AzaleaState {
     // fractional rate (e.g. 0.5x) accumulates correctly instead of truncating to 0 each tick.
     pub day_ticks_accum: Arc<Mutex<f64>>,
     pub day_clock_rate: Arc<Mutex<f32>>,
+    // Set right before sending `queue_probe_command`; fulfilled with `true` from the
+    // Event::Chat no-sender branch if the response is vanilla's "Unknown or incomplete
+    // command" error, meaning we're actually on the queue proxy, not the real server.
+    pub pending_queue_probe: Arc<Mutex<Option<tokio::sync::oneshot::Sender<bool>>>>,
+    // Set to true right before calling bot.disconnect() when queue detection fires, so
+    // the Event::Disconnect handler knows to sleep queue_retry_delay_ms (instead of the
+    // normal short reconnect_time_ms) before letting Azalea's own reconnect proceed.
+    pub queue_disconnect_pending: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Clone)]
@@ -914,6 +932,8 @@ impl Default for AzaleaState {
                 gasbuddy_solver_url: String::new(),
                 gasbuddy_csrf_readonly: false,
                 google_safe_browsing_key: String::new(),
+                queue_probe_command: String::new(),
+                queue_retry_delay_ms: 300_000,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -981,6 +1001,8 @@ impl Default for AzaleaState {
             pending_time_query: Arc::new(Mutex::new(None)),
             day_ticks_accum: Arc::new(Mutex::new(0.0)),
             day_clock_rate: Arc::new(Mutex::new(1.0)),
+            pending_queue_probe: Arc::new(Mutex::new(None)),
+            queue_disconnect_pending: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -1037,6 +1059,30 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             }
             state.reminder_active.store(true, Ordering::Relaxed);
             spawn_reminder_tick_task(state.clone(), Arc::clone(&state.reminder_active));
+
+            // Queue detection: fires on every spawn (including after reconnects), so
+            // it keeps re-checking until the probe command actually works, meaning
+            // we've made it past the queue onto the real server. Empty command
+            // disables the whole feature.
+            let probe_command = state
+                .runtime
+                .read()
+                .expect("runtime config lock poisoned")
+                .queue_probe_command
+                .clone();
+            if !probe_command.is_empty() {
+                let probe_bot = bot.clone();
+                let probe_state = state.clone();
+                tokio::spawn(async move {
+                    if run_queue_probe(&probe_state, &probe_command).await {
+                        logger::debug_cat(
+                            "queue",
+                            "Probe command came back unknown -- we're on the queue proxy, disconnecting to retry later",
+                        );
+                        disconnect_for_queue_retry(&probe_bot, &probe_state);
+                    }
+                });
+            }
         }
         Event::Chat(message) => {
             if event_disabled(&state, &["message", "messagestr", "chat"]) {
@@ -1080,6 +1126,28 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                         .expect("pending_time_query lock poisoned");
                     if let Some(tx) = pending.take() {
                         let _ = tx.send(ticks);
+                    }
+                    return Ok(());
+                }
+
+                // If a queue probe command is in flight, vanilla's generic "unknown
+                // command" error is the tell that we're actually on the queue proxy
+                // rather than the real server -- any other response (or none at all,
+                // handled by the timeout on the receiving end) means we're through.
+                let queue_probe_matched: bool = {
+                    let pending = state
+                        .pending_queue_probe
+                        .lock()
+                        .expect("pending_queue_probe lock poisoned");
+                    pending.is_some() && content.to_lowercase().contains("unknown or incomplete command")
+                };
+                if queue_probe_matched {
+                    let mut pending = state
+                        .pending_queue_probe
+                        .lock()
+                        .expect("pending_queue_probe lock poisoned");
+                    if let Some(tx) = pending.take() {
+                        let _ = tx.send(true);
                     }
                     return Ok(());
                 }
@@ -1323,6 +1391,24 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             state.announce_active.store(false, Ordering::Relaxed);
             state.reminder_active.store(false, Ordering::Relaxed);
             send_session_flush_leave(&state).await;
+
+            // Queue detection triggered this disconnect -- wait the configured (long)
+            // delay before letting Azalea's own reconnect_after proceed, instead of the
+            // normal short reconnect_time_ms. swap() atomically reads-and-clears so this
+            // only fires once per queue detection, not on every subsequent disconnect.
+            if state
+                .queue_disconnect_pending
+                .swap(false, Ordering::Relaxed)
+            {
+                let delay_ms = state
+                    .runtime
+                    .read()
+                    .expect("runtime config lock poisoned")
+                    .queue_retry_delay_ms;
+                logger::debug_cat("queue", format!("Queue-triggered disconnect -- waiting {delay_ms}ms before retrying"));
+                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            }
+
             let failures = state.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
             if failures >= 10 {
                 state.consecutive_failures.store(0, Ordering::Relaxed);
@@ -1393,11 +1479,13 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 }
             } else if matches!(packet.as_ref(), ClientboundGamePacket::StartConfiguration(_)) {
                 // Confirmed via reading Azalea's own source (pinned rev) that this does NOT
-                // fire a Disconnect event -- it silently flips the connection into the
-                // Configuration protocol state internally. This log is here purely to
-                // confirm empirically that RefinedVanilla's queue actually sends this
-                // packet before building real queue-detection logic around it.
-                logger::debug_cat("queue", "Received StartConfiguration packet (likely entering a queue/reconfigure)");
+                // fire a Disconnect event on its own -- it silently flips the connection
+                // into the Configuration protocol state internally, with no path back to
+                // Play that we can observe. Confirmed live on RefinedVanilla that this is
+                // exactly what its queue sends, so treat it the same as a failed probe:
+                // give up on this connection and retry later rather than sit in limbo.
+                logger::debug_cat("queue", "Received StartConfiguration packet -- likely bounced into the queue, disconnecting to retry later");
+                disconnect_for_queue_retry(&bot, &state);
             }
         }
 
@@ -1791,6 +1879,41 @@ fn warn_smart_censor_failure(message: String) {
     if !WARNED_SMART_CENSOR_FAILURE.swap(true, Ordering::Relaxed) {
         logger::warn(format!("{message} Falling back to regular censor."));
     }
+}
+
+/// Sends `probe_command` and waits up to 5s for vanilla's "unknown command" response.
+/// Returns true if that response arrived (we're on the queue proxy), false on timeout
+/// or any other response (assume we're on the real server).
+async fn run_queue_probe(state: &AzaleaState, probe_command: &str) -> bool {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    *state
+        .pending_queue_probe
+        .lock()
+        .expect("pending_queue_probe lock poisoned") = Some(tx);
+
+    crate::commands::enqueue_chat(state, probe_command);
+
+    match tokio::time::timeout(Duration::from_secs(5), rx).await {
+        Ok(Ok(true)) => true,
+        _ => {
+            // Timed out (or the sender was dropped without sending) -- clear the
+            // pending slot so a late, unrelated no-sender message can't be misread
+            // as a queue-probe response by a future check.
+            *state
+                .pending_queue_probe
+                .lock()
+                .expect("pending_queue_probe lock poisoned") = None;
+            false
+        }
+    }
+}
+
+/// Flags the next Event::Disconnect to sleep queue_retry_delay_ms (instead of the
+/// normal short reconnect_time_ms) before Azalea's own reconnect proceeds, then
+/// actually disconnects the bot.
+fn disconnect_for_queue_retry(bot: &Client, state: &AzaleaState) {
+    state.queue_disconnect_pending.store(true, Ordering::Relaxed);
+    bot.disconnect();
 }
 
 async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &str) {

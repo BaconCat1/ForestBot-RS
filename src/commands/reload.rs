@@ -81,6 +81,8 @@ async fn reload_runtime(
         gasbuddy_solver_url: app_state.config.api_keys.gasbuddy_solver_url,
         gasbuddy_csrf_readonly: app_state.config.api_keys.gasbuddy_csrf_readonly,
         google_safe_browsing_key: app_state.config.api_keys.google_safe_browsing,
+        queue_probe_command: app_state.config.queue_probe_command,
+        queue_retry_delay_ms: app_state.config.queue_retry_delay_ms,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;
