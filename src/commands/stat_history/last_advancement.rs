@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::whisper;
 use crate::commands::{CommandContext, CommandFuture};
 use crate::commands::utils::stats_target::{format_server_label, parse_stats_target_or_reply};

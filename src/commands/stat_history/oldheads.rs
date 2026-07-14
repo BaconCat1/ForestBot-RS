@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::sorted_unique_users;
 use crate::commands::{CommandContext, CommandFuture};
 

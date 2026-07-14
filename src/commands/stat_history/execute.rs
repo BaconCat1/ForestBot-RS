@@ -1,4 +1,3 @@
-use super::admin_command;
 use super::helpers::whisper;
 use crate::commands::{CommandContext, CommandFuture};
 

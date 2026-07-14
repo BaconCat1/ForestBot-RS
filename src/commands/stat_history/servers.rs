@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::{whisper, BACKFILL_CONCURRENCY};
 use crate::commands::{CommandContext, CommandFuture};
 use crate::constants::quote_servers::QUOTE_SERVERS;

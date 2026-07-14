@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::message_lookup;
 use crate::commands::{CommandContext, CommandFuture};
 

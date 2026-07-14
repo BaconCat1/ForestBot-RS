@@ -1,4 +1,3 @@
-use super::command;
 use crate::commands::{CommandContext, CommandFuture};
 
 command!(MOUNT_COMMAND, &["mount", "ride", "mush"], "Mount the nearest rideable entity. Usage: {prefix}mount <entity>(optional)", mount);

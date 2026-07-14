@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::whisper;
 use crate::commands::{CommandContext, CommandFuture};
 use crate::structure::endpoints::endpoints::OwnedFaqEntry;

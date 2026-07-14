@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::{now_millis, BOT_SLEEPING};
 use crate::commands::{CommandContext, CommandFuture};
 use crate::functions::utils::time;

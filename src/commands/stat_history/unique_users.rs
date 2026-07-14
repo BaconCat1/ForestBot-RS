@@ -1,4 +1,3 @@
-use super::command;
 use crate::commands::{CommandContext, CommandFuture};
 
 command!(

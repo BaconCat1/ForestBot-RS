@@ -1,4 +1,3 @@
-use super::admin_command;
 use super::helpers::word_list_command;
 use crate::commands::{CommandContext, CommandFuture};
 

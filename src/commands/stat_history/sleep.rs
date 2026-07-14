@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::BOT_SLEEPING;
 use crate::commands::{CommandContext, CommandFuture};
 use std::sync::atomic::Ordering;

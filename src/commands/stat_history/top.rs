@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::{all_known_usernames_for_server, whisper, BACKFILL_CONCURRENCY};
 use crate::commands::{CommandContext, CommandFuture};
 use crate::commands::utils::stats_target::format_server_label;

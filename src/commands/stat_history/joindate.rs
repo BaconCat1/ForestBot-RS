@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::{format_date_value, parse_target_with_uuid, whisper_no_record};
 use crate::commands::{CommandContext, CommandFuture};
 use crate::commands::utils::stats_target::{format_server_label, format_server_scope_hint};

@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::{now_millis, whisper};
 use crate::commands::{CommandContext, CommandFuture};
 use serde_json::json;

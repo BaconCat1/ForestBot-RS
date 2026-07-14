@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::{player_uuid, whisper};
 use crate::commands::{CommandContext, CommandFuture};
 

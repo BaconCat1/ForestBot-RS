@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::{extract_victim_name, whisper};
 use crate::commands::{CommandContext, CommandFuture};
 

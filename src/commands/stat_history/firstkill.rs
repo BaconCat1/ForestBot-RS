@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::death_or_kill;
 use crate::commands::{CommandContext, CommandFuture};
 

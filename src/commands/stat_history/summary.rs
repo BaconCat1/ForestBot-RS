@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::{epoch_ms_from_string, whisper};
 use crate::commands::{CommandContext, CommandFuture};
 

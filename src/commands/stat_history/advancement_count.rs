@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::{all_known_usernames, whisper, BACKFILL_CONCURRENCY};
 use crate::commands::{CommandContext, CommandFuture};
 use futures_util::stream::{self, StreamExt};

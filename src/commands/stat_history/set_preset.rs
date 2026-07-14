@@ -1,4 +1,3 @@
-use super::command;
 use crate::commands::{CommandContext, CommandFuture, enqueue_chat};
 
 command!(SET_PRESET_COMMAND, &["setpreset"], "Sets the namechalk preset, only on refinedvanilla. Usage: {prefix}setpreset <preset>", set_preset);

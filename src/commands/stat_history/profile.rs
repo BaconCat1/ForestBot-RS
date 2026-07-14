@@ -1,4 +1,3 @@
-use super::command;
 use crate::commands::{CommandContext, CommandFuture};
 
 command!(PROFILE_COMMAND, &["profile"], "Shares a link to your ForestBot Profile. Usage: {prefix}profile <user>", profile);

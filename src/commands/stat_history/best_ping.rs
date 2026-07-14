@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::{players_snapshot, whisper};
 use crate::commands::{CommandContext, CommandFuture};
 

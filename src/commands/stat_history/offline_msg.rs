@@ -1,4 +1,3 @@
-use super::command;
 use super::helpers::{now_millis, player_uuid, whisper};
 use crate::commands::{CommandContext, CommandFuture};
 use crate::config::{OfflineMessage, load_offline_messages, save_offline_messages};
