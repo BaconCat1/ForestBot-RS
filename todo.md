@@ -100,11 +100,14 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
  * ✅ ~~Change all relevant functionality to be toggleable via config.json~~ // all automatic chat-sending behaviors now gated via `disabled_events` keys; all commands toggleable via `commands` map
  * ✅ ~~extend offlinemsg to do "remindme"~~ // `!remindme`/`!remind` aliases; optional duration `1s2m3h4d`; no duration = next login; timed = background 30s tick fires when online; `!remindme stop` cancels all; `deliver_at: Option<u64>` added to `OfflineMessage`
 * ✅ ~~add pearl bot infrastructure~~ // pearlbot binary; Hub WS routing; ForestBot-RS `!pearl`/`!p <slot>` command; UUID whitelist + per-slot chamber config; multi-pearl tracking (HashSet); deployed to prod RefinedVanilla
-* 🆕 queue detection, data driven. upon detection, disconnect for 5 minutes. Needs to count "reconfiguring" screen as reconnecting to server
+* ✅ ~~queue detection, data driven. upon detection, disconnect for 5 minutes. Needs to count "reconfiguring" screen as reconnecting to server~~ //  working, can't test it against the actual refinedvanilla queue without a genuine server outage. should work
 * ✅ ~~extend `!help` to take commands as args~~ // `!help <command>` whispers description + aliases; unknown falls back to link
 * ✅ ~~**behavioural tweak**: if API limits are reached, users should be informed that is specifically why it failed, since a more generic error could waste time hunting a bug that doesn't exist~~ // `FetchErr::RateLimit` + `check_resp` in `casino/mod.rs`; all 9 external-API casino files surface 429 with specific message; settle paths treat rate limit as refund (`.ok()`)
 * ✅ ~~Universe: need watchdog and alerts, bypass/restart vpn~~ // used healthcheck.io, far simpler than anything else I was imagining lol
 * 🐛 **refactor**: `src/commands/stat_history.rs` could be split into files for each command it contains. should be refactored and sent as a pr
+	* 🆕 can only be tested on refinedvanilla: `!shout`, `!setpreset`
+* 🆕 survey all commands with cross server data to confirm they can all pull cross server data, verify syntax is unified
+* 🐛 **bug**: [blacklisted people can dodge the blacklist if they have access to a discord bridge](https://discord.com/channels/1427088370676400241/1428539816764506294/1527024487223263374). Idea: when a command is run from a user without a uuid, assume it's a discord user. Parse out their username, and pass it to Discord via Hub to resolve the snowflake id, then check that against the blacklist. If found, command silently doesn't run, in line with existing blacklist behaviour. If Discord is offline, give an error to all non uuid commands.
 
 
 ## !quote

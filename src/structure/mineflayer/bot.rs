@@ -337,6 +337,7 @@ impl Bot {
             day_clock_rate: Arc::new(Mutex::new(1.0)),
             pending_queue_probe: Arc::new(Mutex::new(None)),
             queue_disconnect_pending: Arc::new(AtomicBool::new(false)),
+            pending_discord_resolutions: Arc::new(Mutex::new(HashMap::new())),
         };
 
         // Heartbeat watchdog — pings external dead-man's switch (e.g. healthchecks.io) while alive
@@ -817,6 +818,21 @@ pub struct AzaleaState {
     // the Event::Disconnect handler knows to sleep queue_retry_delay_ms (instead of the
     // normal short reconnect_time_ms) before letting Azalea's own reconnect proceed.
     pub queue_disconnect_pending: Arc<AtomicBool>,
+    // Keyed by a per-request UUID so concurrent chat-bridge commands from different
+    // Discord users don't clobber each other -- unlike pending_time_query/pending_queue_probe
+    // (only ever one in flight at a time), multiple resolve_discord_username round trips
+    // can be outstanding simultaneously. Fulfilled from the WebsocketEvent handlers for
+    // resolve_discord_username_result / resolve_discord_username_unavailable.
+    pub pending_discord_resolutions: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<DiscordResolution>>>>,
+}
+
+// Result of asking discordbot (via Hub) to resolve a chat-bridge "server username" to a
+// real Discord snowflake ID -- see pending_discord_resolutions above.
+#[derive(Debug, Clone)]
+pub enum DiscordResolution {
+    Found(String),
+    NotFound,
+    Unavailable,
 }
 
 #[derive(Debug, Clone)]
@@ -1003,6 +1019,7 @@ impl Default for AzaleaState {
             day_clock_rate: Arc::new(Mutex::new(1.0)),
             pending_queue_probe: Arc::new(Mutex::new(None)),
             queue_disconnect_pending: Arc::new(AtomicBool::new(false)),
+            pending_discord_resolutions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -1259,8 +1276,42 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     .clone();
 
                 if content.starts_with(&prefix) {
-                    if sender_allowed_for_command(&state, &sender, &content) {
-                        command_handler::handle(&bot, &state, &sender, &content).await;
+                    if resolve_sender_uuid(&state, &sender).is_some() {
+                        if sender_allowed_for_command(&state, &sender, &content) {
+                            command_handler::handle(&bot, &state, &sender, &content).await;
+                        }
+                        return Ok(());
+                    }
+
+                    // No resolvable UUID -- can only mean this "sender" isn't a real,
+                    // currently-connected MC player, i.e. this arrived through an official
+                    // (non-craftbot) Discord chat bridge. Live-resolve to a Discord snowflake
+                    // and check that directly against the blacklist before ever dispatching.
+                    match resolve_and_check_bridge_sender(&state, &sender).await {
+                        BridgeSenderStatus::Allowed => {
+                            command_handler::handle(&bot, &state, &sender, &content).await;
+                        }
+                        BridgeSenderStatus::Blacklisted => {
+                            // Silent drop -- same backstop posture as the bridge_unsafe_commands
+                            // block: never post to public chat, log only.
+                            logger::command(format!(
+                                "Bridge command blocked (blacklisted via resolved Discord ID): {sender}"
+                            ));
+                        }
+                        BridgeSenderStatus::NotFound => {
+                            enqueue_outbound_chat(
+                                &state,
+                                format!("{sender}, your Discord username was not found."),
+                            );
+                        }
+                        BridgeSenderStatus::Unavailable => {
+                            enqueue_outbound_chat(
+                                &state,
+                                format!(
+                                    "{sender}, Discord username resolution unavailable, please try again later."
+                                ),
+                            );
+                        }
                     }
                     return Ok(());
                 }
@@ -2190,6 +2241,16 @@ fn spawn_websocket_event_task(bot: Client, state: AzaleaState) {
                     };
                     enqueue_outbound_chat(&state, format!("/{whisper_cmd} {} {msg}", data.requester));
                 }
+                WebsocketEvent::ResolveDiscordUsernameResult(data) => {
+                    let result = match data.snowflake {
+                        Some(snowflake) => DiscordResolution::Found(snowflake),
+                        None => DiscordResolution::NotFound,
+                    };
+                    fulfill_discord_resolution(&state, &data.request_id, result);
+                }
+                WebsocketEvent::ResolveDiscordUsernameUnavailable(data) => {
+                    fulfill_discord_resolution(&state, &data.request_id, DiscordResolution::Unavailable);
+                }
                 WebsocketEvent::CasinoDrawResult(data) => {
                     enqueue_outbound_chat(&state, &data.message);
                 }
@@ -2733,20 +2794,105 @@ fn enqueue_outbound_chat(state: &AzaleaState, message: impl AsRef<str>) {
         .push_back(message.as_ref().trim_start().to_owned());
 }
 
-fn sender_allowed_for_command(state: &AzaleaState, sender: &str, message: &str) -> bool {
-    let runtime = state.runtime.read().expect("runtime config lock poisoned");
-    let uuid = state
+fn resolve_sender_uuid(state: &AzaleaState, sender: &str) -> Option<String> {
+    state
         .players
         .read()
         .expect("player cache lock poisoned")
         .iter()
         .find(|(k, _)| k.eq_ignore_ascii_case(sender))
-        .map(|(_, player)| player.uuid.clone());
-    let Some(uuid) = uuid else {
+        .map(|(_, player)| player.uuid.clone())
+}
+
+fn sender_allowed_for_command(state: &AzaleaState, sender: &str, message: &str) -> bool {
+    let runtime = state.runtime.read().expect("runtime config lock poisoned");
+    let Some(uuid) = resolve_sender_uuid(state, sender) else {
         return true;
     };
     !runtime.user_blacklist.contains(&uuid)
         || whisper_parser::is_self_standing_command(message, &runtime.prefix)
+}
+
+// Result of gating a command from a sender that couldn't be resolved to a real, currently
+// online MC player -- i.e. a message relayed through an official (non-craftbot) Discord chat
+// bridge. There's no other way for craftbot to see a "sender" without a matching UUID.
+enum BridgeSenderStatus {
+    Allowed,
+    Blacklisted,
+    NotFound,
+    Unavailable,
+}
+
+// Asks discordbot (via Hub) to resolve a chat-bridge "server username" to a real Discord
+// snowflake, then checks that snowflake directly against mc_blacklist.json (deliberately NOT
+// going through the trade-account-linking system -- a separate, unrelated concern). Live
+// round trip every time, not cached: usernames can change, and a stale cache would let a
+// renamed blacklisted account evade this.
+async fn resolve_and_check_bridge_sender(state: &AzaleaState, sender: &str) -> BridgeSenderStatus {
+    let Some(ws) = state.api.websocket.as_ref() else {
+        return BridgeSenderStatus::Unavailable;
+    };
+
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    state
+        .pending_discord_resolutions
+        .lock()
+        .expect("pending_discord_resolutions lock poisoned")
+        .insert(request_id.clone(), tx);
+
+    if ws
+        .send_message(
+            "resolve_discord_username",
+            json!({ "request_id": request_id, "username": sender }),
+        )
+        .await
+        .is_err()
+    {
+        state
+            .pending_discord_resolutions
+            .lock()
+            .expect("pending_discord_resolutions lock poisoned")
+            .remove(&request_id);
+        return BridgeSenderStatus::Unavailable;
+    }
+
+    match tokio::time::timeout(Duration::from_secs(5), rx).await {
+        Ok(Ok(DiscordResolution::Found(snowflake))) => {
+            let blacklisted = state
+                .runtime
+                .read()
+                .expect("runtime config lock poisoned")
+                .user_blacklist
+                .contains(&snowflake);
+            if blacklisted {
+                BridgeSenderStatus::Blacklisted
+            } else {
+                BridgeSenderStatus::Allowed
+            }
+        }
+        Ok(Ok(DiscordResolution::NotFound)) => BridgeSenderStatus::NotFound,
+        Ok(Ok(DiscordResolution::Unavailable)) | Ok(Err(_)) | Err(_) => {
+            // Timed out or the sender was dropped -- clean up a stale pending entry if the
+            // reply arrives late after we've already given up on it.
+            state
+                .pending_discord_resolutions
+                .lock()
+                .expect("pending_discord_resolutions lock poisoned")
+                .remove(&request_id);
+            BridgeSenderStatus::Unavailable
+        }
+    }
+}
+
+fn fulfill_discord_resolution(state: &AzaleaState, request_id: &str, result: DiscordResolution) {
+    let mut pending = state
+        .pending_discord_resolutions
+        .lock()
+        .expect("pending_discord_resolutions lock poisoned");
+    if let Some(tx) = pending.remove(request_id) {
+        let _ = tx.send(result);
+    }
 }
 
 fn now_millis_string() -> String {

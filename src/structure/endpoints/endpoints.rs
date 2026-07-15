@@ -2315,6 +2315,8 @@ pub enum WebsocketEvent {
     TradesUnreset(TradesResetData),
     FadvAwards(FadvAwardsEvent),
     PearlResult(PearlResultData),
+    ResolveDiscordUsernameResult(ResolveDiscordUsernameResultData),
+    ResolveDiscordUsernameUnavailable(ResolveDiscordUsernameUnavailableData),
     CasinoDrawResult(CasinoDrawData),
     CasinoWinnerNotify(CasinoWinnerNotifyData),
     Ignored,
@@ -2349,6 +2351,17 @@ pub struct PearlResultData {
     pub success: bool,
     pub message: String,
     pub requester: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolveDiscordUsernameResultData {
+    pub request_id: String,
+    pub snowflake: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolveDiscordUsernameUnavailableData {
+    pub request_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2588,6 +2601,12 @@ fn parse_inbound_message(text: &str) -> Option<WebsocketEvent> {
         "pearl_result" => serde_json::from_value(value.data)
             .ok()
             .map(WebsocketEvent::PearlResult),
+        "resolve_discord_username_result" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::ResolveDiscordUsernameResult),
+        "resolve_discord_username_unavailable" => serde_json::from_value(value.data)
+            .ok()
+            .map(WebsocketEvent::ResolveDiscordUsernameUnavailable),
         "casino_draw_result" => serde_json::from_value(value.data)
             .ok()
             .map(WebsocketEvent::CasinoDrawResult),
