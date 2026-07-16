@@ -71,6 +71,7 @@ async fn reload_runtime(
         use_custom_chat_prefix: app_state.config.use_custom_chat_prefix,
         custom_chat_prefix: app_state.config.custom_chat_prefix,
         smart_censoring: app_state.config.smart_censoring,
+        censor_threshold: app_state.config.censor_threshold,
         together_api_key: app_state.config.api_keys.together,
         wolfram_app_id: app_state.config.api_keys.wolfram,
         azure_translator_key: app_state.config.api_keys.azure_key,

@@ -63,8 +63,9 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             None => ctx.whisper("No preview available."),
             Some((title, description)) => {
                 let trie = *ctx.state.profanity_trie.read().expect("profanity_trie read");
+                let threshold = crate::structure::mineflayer::utils::profanity_filter::censor_threshold_from_config(&ctx.runtime.censor_threshold);
                 let censored = match trie {
-                    Some(trie) => censor_message(trie, &description),
+                    Some(trie) => censor_message(trie, &description, threshold),
                     None => description.clone(),
                 };
                 if censored != description {

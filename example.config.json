@@ -225,6 +225,7 @@
     "use_live_time_query": false,
     "rotateHeadOnJoin": false,
     "smart_censoring": false,
+    "censor_threshold": "moderate",
     "useLegacyChat": false,
     "useCustomChatFormatParser": false,
     "customChatFormats": [

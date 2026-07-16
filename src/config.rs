@@ -24,6 +24,10 @@ fn default_queue_retry_delay_ms() -> u64 {
     300_000
 }
 
+fn default_censor_threshold() -> String {
+    "moderate".to_owned()
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ApiKeys {
     #[serde(default)]
@@ -207,6 +211,11 @@ pub struct Config {
     #[allow(dead_code)]
     pub rotate_head_on_join: bool,
     pub smart_censoring: bool,
+    // Minimum rustrict severity that gets censored in outbound chat: "mild", "moderate", or
+    // "severe". Data-driven so it can be tuned without a recompile -- see profanity_filter.rs's
+    // censor_threshold_from_config().
+    #[serde(default = "default_censor_threshold")]
+    pub censor_threshold: String,
     #[serde(default)]
     pub api_keys: ApiKeys,
     #[serde(rename = "useLegacyChat")]

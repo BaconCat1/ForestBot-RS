@@ -74,6 +74,7 @@ pub struct RuntimeConfig {
     pub use_custom_chat_prefix: bool,
     pub custom_chat_prefix: String,
     pub smart_censoring: bool,
+    pub censor_threshold: String,
     pub together_api_key: String,
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
@@ -118,6 +119,7 @@ pub struct Bot {
     pub allow_chatbridge_input: bool,
     pub use_live_time_query: bool,
     pub smart_censoring: bool,
+    pub censor_threshold: String,
     pub together_api_key: String,
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
@@ -173,6 +175,7 @@ impl Bot {
             allow_chatbridge_input: state.config.allow_chatbridge_input,
             use_live_time_query: state.config.use_live_time_query,
             smart_censoring: state.config.smart_censoring,
+            censor_threshold: state.config.censor_threshold.clone(),
             together_api_key: state.config.api_keys.together.clone(),
             wolfram_app_id: state.config.api_keys.wolfram.clone(),
             azure_translator_key: state.config.api_keys.azure_key.clone(),
@@ -255,6 +258,7 @@ impl Bot {
                 use_custom_chat_prefix: self.use_custom_chat_prefix,
                 custom_chat_prefix: self.custom_chat_prefix.clone(),
                 smart_censoring: self.smart_censoring,
+                censor_threshold: self.censor_threshold.clone(),
                 together_api_key: self.together_api_key.clone(),
                 wolfram_app_id: self.wolfram_app_id.clone(),
                 azure_translator_key: self.azure_translator_key.clone(),
@@ -952,6 +956,7 @@ impl Default for AzaleaState {
                 use_custom_chat_prefix: false,
                 custom_chat_prefix: String::new(),
                 smart_censoring: false,
+                censor_threshold: "moderate".to_owned(),
                 together_api_key: String::new(),
                 wolfram_app_id: String::new(),
                 azure_translator_key: String::new(),
@@ -1799,8 +1804,9 @@ async fn filter_outgoing_message(state: &AzaleaState, message: &str) -> String {
     let is_slash_command = message.trim_start().starts_with('/');
 
     let trie = *state.profanity_trie.read().expect("profanity_trie read");
+    let threshold = profanity_filter::censor_threshold_from_config(&runtime.censor_threshold);
     let regular_censored = match trie {
-        Some(trie) => profanity_filter::censor_message(trie, message),
+        Some(trie) => profanity_filter::censor_message(trie, message, threshold),
         None => message.to_owned(),
     };
 
@@ -1810,7 +1816,7 @@ async fn filter_outgoing_message(state: &AzaleaState, message: &str) -> String {
         maybe_smart_censor_message(message, &runtime)
             .await
             .map(|smart_censored| match trie {
-                Some(trie) => profanity_filter::censor_message(trie, &smart_censored),
+                Some(trie) => profanity_filter::censor_message(trie, &smart_censored, threshold),
                 None => smart_censored,
             })
             .unwrap_or(regular_censored)
