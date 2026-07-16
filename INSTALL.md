@@ -29,6 +29,8 @@ Copy `example.config.json` to `config.json` and configure:
 | `prefix` | In-game command prefix |
 | `use_mc_whitelist` | If true, only whitelisted players can use commands — edit `json/mc_whitelist.json` |
 | `reconnect_time` | Milliseconds to wait before reconnect on disconnect |
+| `smart_censoring` | If true, flagged outbound messages are rephrased via Together AI instead of star-masked (needs `together_api_key` set — falls back to regular censoring if blank) |
+| `censor_threshold` | Minimum rustrict severity that gets censored in outbound chat: `"mild"`, `"moderate"` (default), or `"severe"`. Live-editable via `!reload`, no recompile needed |
 
 ## Build & Run
 
