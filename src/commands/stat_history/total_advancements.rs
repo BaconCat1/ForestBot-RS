@@ -15,10 +15,6 @@ fn total_advancements(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = match parse_stats_target_args(&ctx.args, ctx.sender, &ctx.state.mc_server) {
             Ok(target) => target,
-            Err(StatsTargetError::MissingUsernameForAll) => {
-                whisper(&ctx, &format!(" Usage: {}advs all <username>", ctx.runtime.prefix));
-                return Ok(());
-            }
             Err(StatsTargetError::UnknownServer(server)) => {
                 whisper(
                     &ctx,

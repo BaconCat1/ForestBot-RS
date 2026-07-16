@@ -9,7 +9,6 @@ pub struct StatsTarget {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StatsTargetError {
-    MissingUsernameForAll,
     MissingUsername,
     UnknownServer(String),
 }
@@ -29,8 +28,17 @@ pub fn parse_stats_target_args(
 
     if args.len() == 1 {
         let single_arg = args[0].trim();
-        if single_arg.eq_ignore_ascii_case("all") {
-            return Err(StatsTargetError::MissingUsernameForAll);
+        let lower = single_arg.to_lowercase();
+
+        // A lone server/all with no username defaults to the sender's own stats on
+        // that scope, rather than erroring -- matches the convenience !slurcount
+        // already had, extended to every command sharing this parser.
+        if lower == "all" || quote_servers::is_quote_server(&lower) {
+            return Ok(StatsTarget {
+                server: lower,
+                search: user.to_owned(),
+                has_server_arg: true,
+            });
         }
 
         return Ok(StatsTarget {
@@ -73,9 +81,6 @@ pub fn parse_stats_target_or_reply(
 
 pub fn stats_target_usage(prefix: &str, command_name: &str, error: StatsTargetError) -> String {
     match error {
-        StatsTargetError::MissingUsernameForAll => {
-            format!(" Usage: {prefix}{command_name} all <username>")
-        }
         StatsTargetError::UnknownServer(server) => {
             format!(" Unknown server \"{server}\". Use {prefix}lq for the list.")
         }
