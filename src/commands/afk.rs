@@ -2,7 +2,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["afk"],
-    description: "Set an AFK message. Fires as a whisper when others mention you. Clears when you speak or log out.",
+    description: "Set an AFK message. Fires as a whisper when others mention you. Clears when you speak or log out. Usage: {prefix}afk <message>",
     whitelisted: false,
     execute,
 };

@@ -3,7 +3,7 @@ use crate::commands::{CommandContext, CommandFuture};
 use crate::commands::utils::stats_target::{format_server_label, parse_stats_target_or_reply};
 use std::collections::HashSet;
 
-command!(VICTIMS_COMMAND, &["victims", "murders", "bested"], "Shows how many unique players a user has killed. Usage: {prefix}victims <username>", victims);
+command!(VICTIMS_COMMAND, &["victims", "murders", "bested"], "Shows how many unique players a user has killed. Usage: {prefix}victims <username> or {prefix}victims <server|all> <username>", victims);
 
 fn victims(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {

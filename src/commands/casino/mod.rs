@@ -112,7 +112,7 @@ pub async fn deliver(state: &AzaleaState, whisper_cmd: &str, player: &str, msg: 
 
 pub const FAUCET_COMMAND: CommandDefinition = CommandDefinition {
     names: &["faucet", "daily"],
-    description: "Claim your daily chips. Streak bonuses at day 7, 14, 30.",
+    description: "Claim your daily chips. Streak bonuses at day 7, 14, 30. Usage: {prefix}faucet",
     whitelisted: false,
     execute: faucet_execute,
 };

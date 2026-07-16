@@ -6,7 +6,7 @@ use crate::functions::utils::time;
 command!(
     LAST_ADVANCEMENT_COMMAND,
     &["lastadvancement", "ladv"],
-    "Retrieves the most recent advancement of a user. Usage: {prefix}lastadvancement <username>",
+    "Retrieves the most recent advancement of a user. Usage: {prefix}lastadvancement <username> or {prefix}lastadvancement <server|all> <username>",
     last_advancement
 );
 

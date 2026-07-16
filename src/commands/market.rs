@@ -17,7 +17,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 pub const PORTFOLIO_COMMAND: CommandDefinition = CommandDefinition {
     names: &["portfolio", "port"],
-    description: "Show your open portfolio positions with live P&L.",
+    description: "Show your open portfolio positions with live P&L. Usage: {prefix}portfolio [player]",
     whitelisted: false,
     execute: portfolio_execute,
 };
