@@ -2,8 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     commands::{utils::flag_content_if_needed, CommandContext, CommandDefinition, CommandFuture},
-    config::load_word_list,
-    structure::mineflayer::{url_blocklist::is_blocked, utils::profanity_filter::censor_bad_words},
+    structure::mineflayer::{url_blocklist::is_blocked, utils::profanity_filter::censor_message},
 };
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
@@ -12,9 +11,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     whitelisted: false,
     execute: execute,
 };
-
-const BAD_WORDS_PATH: &str = "./json/bad_words.json";
-const WORD_WHITELIST_PATH: &str = "./json/word_whitelist.json";
 
 fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
@@ -66,9 +62,11 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         match fetch_preview(url, &blocklist).await {
             None => ctx.whisper("No preview available."),
             Some((title, description)) => {
-                let bad_words = load_word_list(BAD_WORDS_PATH).await.unwrap_or_default();
-                let word_whitelist = load_word_list(WORD_WHITELIST_PATH).await.unwrap_or_default();
-                let censored = censor_bad_words(&description, &bad_words, &word_whitelist);
+                let trie = *ctx.state.profanity_trie.read().expect("profanity_trie read");
+                let censored = match trie {
+                    Some(trie) => censor_message(trie, &description),
+                    None => description.clone(),
+                };
                 if censored != description {
                     flag_content_if_needed(ctx.state, ctx.sender, "url", &format!("{url}\n{description}"));
                 }

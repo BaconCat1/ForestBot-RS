@@ -107,7 +107,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🐛 **refactor**: `src/commands/stat_history.rs` could be split into files for each command it contains. should be refactored and sent as a pr
 	* 🆕 can only be tested on refinedvanilla: `!shout`, `!setpreset`
 * 🆕 survey all commands with cross server data to confirm they can all pull cross server data, verify syntax is unified
-* 🐛 **bug**: [blacklisted people can dodge the blacklist if they have access to a discord bridge](https://discord.com/channels/1427088370676400241/1428539816764506294/1527024487223263374). Idea: when a command is run from a user without a uuid, assume it's a discord user. Parse out their username, and pass it to Discord via Hub to resolve the snowflake id, then check that against the blacklist. If found, command silently doesn't run, in line with existing blacklist behaviour. If Discord is offline, give an error to all non uuid commands.
+* ✅ ~~**bug**: [blacklisted people can dodge the blacklist if they have access to a discord bridge](https://discord.com/channels/1427088370676400241/1428539816764506294/1527024487223263374). Idea: when a command is run from a user without a uuid, assume it's a discord user. Parse out their username, and pass it to Discord via Hub to resolve the snowflake id, then check that against the blacklist. If found, command silently doesn't run, in line with existing blacklist behaviour. If Discord is offline, give an error to all non uuid commands.~~
 
 
 ## !quote

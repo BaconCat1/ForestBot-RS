@@ -13,12 +13,13 @@ use azalea::chat_signing::ChatSigningPlugin;
 use azalea::client_chat::ChatPacket;
 use azalea::prelude::*;
 use azalea_viaversion::ViaVersionPlugin;
+use rustrict::Trie;
 use serde_json::json;
 use uuid::Uuid;
 
 use crate::commands::stat_history;
 use crate::config::{
-    AppState, BotConfig, CommandCooldownConfig, load_offline_messages, load_word_list,
+    AppState, BotConfig, CommandCooldownConfig, load_offline_messages,
     save_offline_messages,
 };
 use crate::structure::{
@@ -31,8 +32,6 @@ use crate::structure::{
     mineflayer::utils::{announce, anti_afk, chat_format_parser, command_handler, profanity_filter, whisper_parser},
 };
 
-const BAD_WORDS_PATH: &str = "./json/bad_words.json";
-const WORD_WHITELIST_PATH: &str = "./json/word_whitelist.json";
 const TOGETHER_MODEL: &str = "ServiceNow-AI/Apriel-1.6-15b-Thinker";
 const SMART_CENSOR_TIMEOUT_MS: u64 = 5_000;
 const SMART_CENSOR_MAX_INPUT_LENGTH: usize = 280;
@@ -338,6 +337,7 @@ impl Bot {
             pending_queue_probe: Arc::new(Mutex::new(None)),
             queue_disconnect_pending: Arc::new(AtomicBool::new(false)),
             pending_discord_resolutions: Arc::new(Mutex::new(HashMap::new())),
+            profanity_trie: Arc::new(RwLock::new(None)),
         };
 
         // Heartbeat watchdog — pings external dead-man's switch (e.g. healthchecks.io) while alive
@@ -364,6 +364,15 @@ impl Bot {
             tokio::spawn(async move {
                 let set = crate::structure::mineflayer::url_blocklist::build_blocklist(&sources, &whitelist).await;
                 *blocklist_arc.write().expect("url_blocklist write") = Some(set);
+            });
+        }
+
+        // Build profanity filter trie in background (rustrict built-in dictionary + custom lists)
+        {
+            let trie_arc = state.profanity_trie.clone();
+            tokio::spawn(async move {
+                let trie = profanity_filter::build_trie().await;
+                *trie_arc.write().expect("profanity_trie write") = Some(trie);
             });
         }
 
@@ -824,6 +833,11 @@ pub struct AzaleaState {
     // can be outstanding simultaneously. Fulfilled from the WebsocketEvent handlers for
     // resolve_discord_username_result / resolve_discord_username_unavailable.
     pub pending_discord_resolutions: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<DiscordResolution>>>>,
+    // rustrict trie merging its built-in dictionary with json/bad_words.json (PROFANE|SEVERE)
+    // and json/word_whitelist.json (SAFE overrides). None until the background build in
+    // Bot::start() finishes; rebuilt in place by profanity_filter::rebuild() on !censor,
+    // !wordwhitelist, and !reload.
+    pub profanity_trie: Arc<RwLock<Option<&'static Trie>>>,
 }
 
 // Result of asking discordbot (via Hub) to resolve a chat-bridge "server username" to a
@@ -1020,6 +1034,7 @@ impl Default for AzaleaState {
             pending_queue_probe: Arc::new(Mutex::new(None)),
             queue_disconnect_pending: Arc::new(AtomicBool::new(false)),
             pending_discord_resolutions: Arc::new(Mutex::new(HashMap::new())),
+            profanity_trie: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -1783,19 +1798,20 @@ async fn filter_outgoing_message(state: &AzaleaState, message: &str) -> String {
         .clone();
     let is_slash_command = message.trim_start().starts_with('/');
 
-    let bad_words = load_word_list(BAD_WORDS_PATH).await.unwrap_or_default();
-    let word_whitelist = load_word_list(WORD_WHITELIST_PATH)
-        .await
-        .unwrap_or_default();
-    let regular_censored = profanity_filter::censor_bad_words(message, &bad_words, &word_whitelist);
+    let trie = *state.profanity_trie.read().expect("profanity_trie read");
+    let regular_censored = match trie {
+        Some(trie) => profanity_filter::censor_message(trie, message),
+        None => message.to_owned(),
+    };
 
     let censored = if is_slash_command || !runtime.smart_censoring {
         regular_censored
     } else {
         maybe_smart_censor_message(message, &runtime)
             .await
-            .map(|smart_censored| {
-                profanity_filter::censor_bad_words(&smart_censored, &bad_words, &word_whitelist)
+            .map(|smart_censored| match trie {
+                Some(trie) => profanity_filter::censor_message(trie, &smart_censored),
+                None => smart_censored,
             })
             .unwrap_or(regular_censored)
     };

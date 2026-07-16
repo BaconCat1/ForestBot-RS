@@ -4,7 +4,7 @@ use super::{chips_str, fmt_time};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["bets", "mybets", "eventbets"],
-    description: "List all your open event bets (AQI, launch, gas, sports, kalshi, seismic, floods, etc.)",
+    description: "List all your open event bets (AQI, launch, gas, sports, kalshi, seismic, floods, etc.) Usage: {prefix}!bets",
     whitelisted: false,
     execute,
 };

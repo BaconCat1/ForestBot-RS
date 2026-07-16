@@ -2,7 +2,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["tps"],
-    description: "Show server TPS derived from SetTime packet rate.",
+    description: "Show server TPS derived from SetTime packet rate. Usage: {prefix}tps",
     whitelisted: false,
     execute,
 };

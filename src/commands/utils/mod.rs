@@ -1,15 +1,10 @@
 pub mod stats_target;
 
-use crate::{
-    config::load_word_list,
-    structure::{
-        endpoints::endpoints::ContentFlaggedData,
-        logger,
-        mineflayer::{bot::AzaleaState, utils::profanity_filter::contains_flagged_word},
-    },
+use crate::structure::{
+    endpoints::endpoints::ContentFlaggedData,
+    logger,
+    mineflayer::{bot::AzaleaState, utils::profanity_filter::is_severely_flagged},
 };
-
-const BAD_WORDS_PATH: &str = "./json/bad_words.json";
 
 // Spawns off the handler's call stack to avoid stack overflow in Azalea's event loop.
 pub fn flag_content_if_needed(state: &AzaleaState, username: &str, command: &str, content: &str) {
@@ -21,16 +16,19 @@ pub fn flag_content_if_needed(state: &AzaleaState, username: &str, command: &str
     let mc_server = state.mc_server.clone();
     logger::debug_cat("content_flag","flag_content_if_needed: cloned mc_server");
     let ws = state.api.websocket.clone();
+    let trie = state.profanity_trie.clone();
     logger::debug_cat("content_flag","flag_content_if_needed: cloned ws, about to spawn");
     tokio::spawn(async move {
-        logger::debug_cat("content_flag","flag_content_if_needed: inside spawn, loading word list");
-        let bad_words = load_word_list(BAD_WORDS_PATH).await.unwrap_or_default();
-        logger::debug_cat("content_flag",format!("flag_content_if_needed: loaded {} words, checking content", bad_words.len()));
-        if !contains_flagged_word(&content, &bad_words) {
-            logger::debug_cat("content_flag","flag_content_if_needed: no flagged words, returning");
+        logger::debug_cat("content_flag","flag_content_if_needed: inside spawn, checking trie");
+        let Some(trie) = *trie.read().expect("profanity_trie read") else {
+            logger::debug_cat("content_flag","flag_content_if_needed: trie not loaded yet, skipping");
+            return;
+        };
+        if !is_severely_flagged(trie, &content) {
+            logger::debug_cat("content_flag","flag_content_if_needed: not severely flagged, returning");
             return;
         }
-        logger::debug_cat("content_flag","flag_content_if_needed: flagged word found, sending WS event");
+        logger::debug_cat("content_flag","flag_content_if_needed: severe content found, sending WS event");
         let Some(ws) = ws else {
             logger::debug_cat("content_flag","flag_content_if_needed: no WS client, aborting");
             return;

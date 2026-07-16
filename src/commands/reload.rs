@@ -124,5 +124,9 @@ async fn reload_runtime(
         });
     }
 
+    // Rebuild profanity trie so hand-edits to bad_words.json/word_whitelist.json (made
+    // outside of !censor/!wordwhitelist) take effect without a restart.
+    crate::structure::mineflayer::utils::profanity_filter::rebuild(state).await;
+
     Ok(())
 }

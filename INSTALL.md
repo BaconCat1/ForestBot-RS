@@ -53,8 +53,8 @@ The `json/` directory holds runtime data files:
 |------|---------|
 | `mc_blacklist.json` | Blacklisted player UUIDs |
 | `mc_whitelist.json` | Whitelisted player UUIDs (if `use_mc_whitelist` is true) |
-| `bad_words.json` | Profanity filter word list |
-| `word_whitelist.json` | Profanity filter exceptions |
+| `bad_words.json` | Profanity filter custom additions (layered on rustrict's built-in dictionary) |
+| `word_whitelist.json` | Profanity filter false-positive exceptions (layered as safe overrides) |
 | `colors.json` | Color config |
 | `offline_messages.json` | Pending offline messages — **instance-specific, do not share** |
 

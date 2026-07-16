@@ -3078,6 +3078,7 @@ fn word_list_command<'a>(
             if !exists {
                 words.push(word.to_owned());
                 save_word_list(path, &words).await?;
+                crate::structure::mineflayer::utils::profanity_filter::rebuild(ctx.state).await;
                 whisper(&ctx, &format!(" Added \"{word}\" to {list_name}."));
             } else {
                 whisper(
@@ -3088,6 +3089,7 @@ fn word_list_command<'a>(
         } else if exists {
             words.retain(|entry| !entry.eq_ignore_ascii_case(word));
             save_word_list(path, &words).await?;
+            crate::structure::mineflayer::utils::profanity_filter::rebuild(ctx.state).await;
             whisper(&ctx, &format!(" Removed \"{word}\" from {list_name}."));
         } else {
             whisper(&ctx, &format!(" \"{word}\" was not found in {list_name}."));

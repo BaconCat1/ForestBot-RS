@@ -1,90 +1,52 @@
-use std::collections::HashSet;
+use rustrict::{Censor, Trie, Type};
 
-/// Normalize common leet-speak substitutions to plain letters before matching.
-fn normalize_leet(ch: char) -> char {
-    match ch {
-        '0' => 'o',
-        '1' | '!' | '|' => 'i',
-        '2' => 'z',
-        '3' => 'e',
-        '4' => 'a',
-        '5' | '$' => 's',
-        '6' => 'g',
-        '7' | '+' => 't',
-        '8' => 'b',
-        '9' => 'g',
-        '@' => 'a',
-        c => c,
+use crate::{config::load_word_list, structure::mineflayer::bot::AzaleaState};
+
+const BAD_WORDS_PATH: &str = "./json/bad_words.json";
+const WORD_WHITELIST_PATH: &str = "./json/word_whitelist.json";
+
+// Outbound chat censoring threshold: broad, so mild profanity still gets starred out.
+const CENSOR_THRESHOLD: Type = Type::INAPPROPRIATE;
+// content_flagged mod-alert threshold: severe only, so mods aren't paged for mild stuff --
+// just the kind of thing the !ai slur-spam incident should have caught.
+const FLAG_THRESHOLD: Type = Type::SEVERE;
+
+/// Builds the merged profanity trie: rustrict's built-in dictionary (substring/leetspeak-aware,
+/// fixes the whole-token-match bypass from the !ai incident), with json/bad_words.json entries
+/// layered in as PROFANE|SEVERE and json/word_whitelist.json entries layered in as SAFE
+/// overrides (false-positive exceptions admins add as they come up).
+/// Leaks the built trie -- rebuilds only happen on !censor/!wordwhitelist edits or !reload,
+/// not per-message, so the leaked memory from prior versions is negligible.
+pub async fn build_trie() -> &'static Trie {
+    let mut trie = Trie::default();
+    for word in load_word_list(BAD_WORDS_PATH).await.unwrap_or_default() {
+        trie.set(&word.to_lowercase(), Type::PROFANE | Type::SEVERE);
     }
+    for word in load_word_list(WORD_WHITELIST_PATH).await.unwrap_or_default() {
+        trie.set(&word.to_lowercase(), Type::SAFE);
+    }
+    Box::leak(Box::new(trie))
 }
 
-/// Returns true if `text` contains any word from `bad_words` after leet-speak normalization.
-pub fn contains_flagged_word(text: &str, bad_words: &[String]) -> bool {
-    if bad_words.is_empty() {
-        return false;
-    }
-    let bad_set: HashSet<String> = bad_words.iter().map(|w| w.to_lowercase()).collect();
-    let normalized: String = text
-        .chars()
-        .map(|c| normalize_leet(c.to_lowercase().next().unwrap_or(c)))
-        .collect();
-    normalized
-        .split(|c: char| !c.is_ascii_alphabetic())
-        .filter(|w| !w.is_empty())
-        .any(|w| bad_set.contains(w))
+/// Reloads bad_words.json/word_whitelist.json and swaps in a freshly built trie.
+pub async fn rebuild(state: &AzaleaState) {
+    let trie = build_trie().await;
+    *state
+        .profanity_trie
+        .write()
+        .expect("profanity_trie lock poisoned") = Some(trie);
 }
 
-pub fn censor_bad_words(message: &str, bad_words: &[String], word_whitelist: &[String]) -> String {
-    if bad_words.is_empty() {
-        return message.to_owned();
-    }
-
-    let bad_words = bad_words
-        .iter()
-        .map(|word| word.to_lowercase())
-        .collect::<HashSet<_>>();
-    let word_whitelist = word_whitelist
-        .iter()
-        .map(|word| word.to_lowercase())
-        .collect::<HashSet<_>>();
-
-    let mut output = String::with_capacity(message.len());
-    let mut token = String::new();
-
-    for ch in message.chars() {
-        if ch.is_alphanumeric() || ch == '_' {
-            token.push(ch);
-            continue;
-        }
-
-        push_censored_token(&mut output, &token, &bad_words, &word_whitelist);
-        token.clear();
-        output.push(ch);
-    }
-
-    push_censored_token(&mut output, &token, &bad_words, &word_whitelist);
-    output
+pub fn censor_message(trie: &'static Trie, message: &str) -> String {
+    Censor::from_str(message)
+        .with_trie(trie)
+        .with_censor_threshold(CENSOR_THRESHOLD)
+        .censor()
 }
 
-fn push_censored_token(
-    output: &mut String,
-    token: &str,
-    bad_words: &HashSet<String>,
-    word_whitelist: &HashSet<String>,
-) {
-    if token.is_empty() {
-        return;
-    }
-
-    let normalized = token.to_lowercase();
-    if word_whitelist.contains(&normalized) || !bad_words.contains(&normalized) {
-        output.push_str(token);
-        return;
-    }
-
-    let mut chars = token.chars();
-    if let Some(first) = chars.next() {
-        output.push(first);
-        output.extend(chars.map(|_| '*'));
-    }
+pub fn is_severely_flagged(trie: &'static Trie, text: &str) -> bool {
+    Censor::from_str(text)
+        .with_trie(trie)
+        .analyze()
+        .is(FLAG_THRESHOLD)
 }
