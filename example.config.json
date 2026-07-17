@@ -68,6 +68,7 @@
         "active":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "addfaq":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "advancement":      { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
+        "ai":               { "cooldown_ms": 10000, "increment_ms": 1000, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "alias":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "askgod":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
         "averageping":      { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },

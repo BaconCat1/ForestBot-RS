@@ -337,7 +337,6 @@ impl Bot {
             active_poll: Arc::new(Mutex::new(None)),
             ai_providers: Arc::new(RwLock::new(ai_providers)),
             ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
-            last_ai_at: Arc::new(Mutex::new(None)),
             bridge_unsafe_commands: Arc::new(RwLock::new(bridge_unsafe_commands)),
             pending_time_query: Arc::new(Mutex::new(None)),
             day_ticks_accum: Arc::new(Mutex::new(0.0)),
@@ -870,7 +869,6 @@ pub struct AzaleaState {
     pub active_poll: Arc<Mutex<Option<crate::commands::poll::PollState>>>,
     pub ai_providers: Arc<RwLock<Vec<crate::commands::ai::AiProviderEntry>>>,
     pub ai_model_cache: Arc<Mutex<HashMap<String, String>>>,
-    pub last_ai_at: Arc<Mutex<Option<Instant>>>,
 }
 
 // Result of asking discordbot (via Hub) to resolve a chat-bridge "server username" to a
@@ -1061,7 +1059,6 @@ impl Default for AzaleaState {
             active_poll: Arc::new(Mutex::new(None)),
             ai_providers: Arc::new(RwLock::new(Vec::new())),
             ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
-            last_ai_at: Arc::new(Mutex::new(None)),
             bridge_unsafe_commands: Arc::new(RwLock::new(HashSet::new())),
             pending_time_query: Arc::new(Mutex::new(None)),
             day_ticks_accum: Arc::new(Mutex::new(0.0)),

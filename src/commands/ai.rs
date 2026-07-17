@@ -2,7 +2,6 @@ use crate::commands::{enqueue_chat, utils::flag_content_if_needed, CommandContex
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["ai"],
@@ -13,7 +12,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 const SYSTEM_PROMPT: &str =
     "You are a helpful assistant in a Minecraft server chat. Reply in under 200 characters. Your scope is not limited to Minecraft, that is merely the context in which you are answering questions. Answer as helpfully as possible at all times.";
-const SERVER_WIDE_COOLDOWN_SECS: u64 = 10;
 const MAX_RESPONSE_CHARS: usize = 250;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -88,17 +86,6 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         if prompt.is_empty() {
             ctx.whisper("Usage: !ai <question>");
             return Ok(());
-        }
-
-        {
-            let mut last = ctx.state.last_ai_at.lock().expect("last_ai_at lock");
-            if let Some(t) = *last {
-                if t.elapsed() < Duration::from_secs(SERVER_WIDE_COOLDOWN_SECS) {
-                    ctx.whisper("AI busy. Try again shortly.");
-                    return Ok(());
-                }
-            }
-            *last = Some(Instant::now());
         }
 
         let providers = ctx
