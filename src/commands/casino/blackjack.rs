@@ -162,14 +162,16 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
     let can_double = balance >= bet; // still have enough after deduction
     let actions = if can_double { "Hit, Stand, or Double" } else { "Hit or Stand" };
 
-    ctx.state.casino_sessions.lock().expect("lock").insert(
-        ctx.sender.to_owned(),
-        CasinoSession::Blackjack {
-            bet,
-            player_hand: player.clone(),
-            dealer_hand: dealer.clone(),
-        },
-    );
+    let started = super::try_start_session(ctx.state, ctx.sender, CasinoSession::Blackjack {
+        bet,
+        player_hand: player.clone(),
+        dealer_hand: dealer.clone(),
+    });
+    if !started {
+        let new_balance = ctx.state.api.casino_adjust(player_uuid, bet).await.unwrap_or(balance + bet);
+        ctx.whisper_success(format!("Already in another game — this bet refunded. Balance: {}", chips_str(new_balance)));
+        return Ok(());
+    }
 
     ctx.whisper_success(state_msg(&player, dealer[0], &format!("{actions}? | Balance: {}", chips_str(balance))));
     Ok(())

@@ -136,10 +136,14 @@ async fn do_come_out(ctx: CommandContext<'_>, pass_line: bool) -> anyhow::Result
             }
         }
         ComeOutRoll::Point(point) => {
-            ctx.state.casino_sessions.lock().expect("lock").insert(
-                ctx.sender.to_owned(),
-                CasinoSession::Craps { bet, pass_line, point: point as u32 },
-            );
+            if !super::try_start_session(ctx.state, ctx.sender, CasinoSession::Craps { bet, pass_line, point: point as u32 }) {
+                let new_balance = ctx.state.api.casino_adjust(&player_uuid, bet).await.unwrap_or(balance + bet);
+                ctx.whisper_success(format!(
+                    "Craps [{d1}+{d2}={total}] already in another game — this bet refunded ({}) | Balance: {}",
+                    chips_str(bet), chips_str(new_balance)
+                ));
+                return Ok(());
+            }
             ctx.whisper_success(format!(
                 "Craps [{d1}+{d2}={total}] Point is {point}! {bet_label} {}: roll {point} to win, 7 to lose. Use !craps roll.",
                 chips_str(bet),

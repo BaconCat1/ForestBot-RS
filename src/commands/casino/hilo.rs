@@ -89,15 +89,17 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             }
             let mut deck = build_deck();
             let current_card = deck.pop().unwrap(); // 51 remain
-            {
-                let mut sessions = ctx.state.casino_sessions.lock().expect("casino sessions lock");
-                sessions.insert(ctx.sender.to_owned(), CasinoSession::Hilo {
-                    stake: bet,
-                    deck: deck.clone(),
-                    current_card,
-                    multiplier: 1.0,
-                    guesses: 0,
-                });
+            let started = super::try_start_session(ctx.state, ctx.sender, CasinoSession::Hilo {
+                stake: bet,
+                deck: deck.clone(),
+                current_card,
+                multiplier: 1.0,
+                guesses: 0,
+            });
+            if !started {
+                let new_balance = ctx.state.api.casino_adjust(&player_uuid, bet).await.unwrap_or(0);
+                ctx.whisper_success(format!("Already in another game — this bet refunded. Balance: {}", chips_str(new_balance)));
+                return Ok(());
             }
             show_state(&ctx, current_card, &deck, bet, 1.0, false);
             return Ok(());

@@ -96,14 +96,18 @@ async fn execute_new_game(ctx: &CommandContext<'_>, color_str: &str) -> anyhow::
     let &(opponent_name, ai_depth) = OPPONENTS.choose(&mut rand::thread_rng()).unwrap();
     let position = ChessPos::default();
 
-    ctx.state.casino_sessions.lock().expect("lock")
-        .insert(ctx.sender.to_owned(), CasinoSession::Chess {
-            bet: stake,
-            player_color,
-            position: Box::new(position.clone()),
-            opponent_name,
-            ai_depth,
-        });
+    let started = super::try_start_session(ctx.state, ctx.sender, CasinoSession::Chess {
+        bet: stake,
+        player_color,
+        position: Box::new(position.clone()),
+        opponent_name,
+        ai_depth,
+    });
+    if !started {
+        let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
+        ctx.whisper_success(format!("Already in another game — this stake refunded. Balance: {}", chips_str(bal)));
+        return Ok(());
+    }
 
     ctx.whisper_success(format!(
         "Chess: You ({}) vs {} | Stake: {} | !chess <from> <to>",

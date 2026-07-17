@@ -78,6 +78,29 @@ pub fn calc_payout(stake: i64, price: f64) -> i64 {
     (stake as f64 / price).floor() as i64
 }
 
+/// Atomically inserts a new session for `player`, but only if one doesn't already exist.
+/// Every stateful game (craps/hilo/blackjack/chess/poker/connect_four) previously did an
+/// early "already in a game?" check, then released the lock, deducted chips, and only
+/// inserted the session afterward -- leaving a real race window where two concurrent
+/// commands from the same player could both pass the early check before either inserted,
+/// each deducting its own stake but only one session surviving in the map (the other
+/// stake silently orphaned, no session left to resolve or refund it through). This closes
+/// that window at the one place it actually matters: the atomic transition from "no
+/// session" to "session exists". Returns `true` if inserted, `false` if a session already
+/// existed (caller must refund whatever was staked for this attempt instead of proceeding).
+pub fn try_start_session(
+    state: &crate::structure::mineflayer::bot::AzaleaState,
+    player: &str,
+    session: crate::structure::mineflayer::bot::CasinoSession,
+) -> bool {
+    let mut sessions = state.casino_sessions.lock().expect("casino_sessions lock poisoned");
+    if sessions.contains_key(player) {
+        return false;
+    }
+    sessions.insert(player.to_owned(), session);
+    true
+}
+
 /// Shared shape for the 11 event-bet types backed by Hub's consolidated
 /// `/casino/bet/{type}` routes. `to_insert_json`/`from_json` carry the same
 /// field-name mapping each type's insert/list method already hand-built --

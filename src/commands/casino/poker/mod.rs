@@ -109,7 +109,13 @@ async fn execute_new_session(ctx: &CommandContext<'_>, stake_str: &str) -> anyho
     }
 
     show_hand_state(ctx, &game, opponent_name, &bot_events);
-    save_session(ctx, stake, opponent_name, aggression, game);
+    let started = super::try_start_session(ctx.state, ctx.sender, crate::structure::mineflayer::bot::CasinoSession::Poker {
+        stake, opponent_name, aggression, game: Box::new(game),
+    });
+    if !started {
+        let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
+        ctx.whisper_success(format!("Already in another game — this stake refunded. Balance: {}", chips_str(bal)));
+    }
     Ok(())
 }
 

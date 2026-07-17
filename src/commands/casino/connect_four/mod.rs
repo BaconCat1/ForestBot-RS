@@ -113,13 +113,17 @@ async fn execute_new_game(ctx: &CommandContext<'_>, stake_str: &str) -> anyhow::
     let (opponent_name, difficulty) = OPPONENTS[idx];
     let position = Position::new();
 
-    ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned")
-        .insert(ctx.sender.to_owned(), CasinoSession::ConnectFour {
-            stake,
-            opponent_name,
-            difficulty,
-            position,
-        });
+    let started = super::try_start_session(ctx.state, ctx.sender, CasinoSession::ConnectFour {
+        stake,
+        opponent_name,
+        difficulty,
+        position,
+    });
+    if !started {
+        let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
+        ctx.whisper_success(format!("Already in another game — this stake refunded. Balance: {}", chips_str(bal)));
+        return Ok(());
+    }
 
     ctx.whisper_success(format!(
         "C4: You (\u{25D5}) vs {} | Stake: {} | You go first!",

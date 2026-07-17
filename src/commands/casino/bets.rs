@@ -77,15 +77,22 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     })
 }
 
+// `row`'s columns are the polymorphic `casino_event_bets` table's real columns -- most
+// types just reuse `train_name`/`location` for their own display name/location fields
+// (documented in Hub's betTypeConfig.ts), which is why the same column name means a
+// different thing per branch below. `gas` is deliberately never seen here -- excluded
+// at the SQL level in getEventBets.ts since it has its own dedicated display path.
 fn describe_bet(bet_type: &str, row: &serde_json::Value) -> String {
     let side = row["side"].as_str().unwrap_or("?");
     match bet_type {
         "aqi" => {
+            // location = zip, train_name = reporting area
             let zip  = row["location"].as_str().unwrap_or("?");
             let area = row["train_name"].as_str().unwrap_or("");
             format!("{zip}/{area} {}", side.to_uppercase())
         }
         "launch" => {
+            // location = launch id (truncated for display), train_name = launch name
             let name = row["train_name"].as_str().unwrap_or("?");
             let short = row["location"].as_str().map(|s| &s[..s.len().min(8)]).unwrap_or("?");
             format!("[{}] {} {}", short, &name[..name.len().min(20)], side.to_uppercase())
@@ -94,12 +101,9 @@ fn describe_bet(bet_type: &str, row: &serde_json::Value) -> String {
             let subtype = row["nasa_subtype"].as_str().unwrap_or("?");
             subtype.to_uppercase()
         }
-        "gas" => {
-            let region = row["train_name"].as_str().unwrap_or("?");
-            let baseline = row["latitude"].as_f64().unwrap_or(0.0);
-            format!("{region} {} (base ${:.3})", side.to_uppercase(), baseline)
-        }
         _ => {
+            // train_name = display name for every other type (train, faa, noaa, kalshi,
+            // quake, volcano, sports) -- see betTypeConfig.ts's getFieldMapping per type.
             let name = row["train_name"].as_str().unwrap_or(bet_type);
             format!("{} {}", &name[..name.len().min(25)], side.to_uppercase())
         }

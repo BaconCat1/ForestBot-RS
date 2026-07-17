@@ -742,31 +742,105 @@ impl Bot {
 #[derive(Clone, Component)]
 pub struct AzaleaState {
     pub mc_server: String,
+    // ── Core / networking ─────────────────────────────────────────────────────
     pub api: Arc<ApiClient>,
     pub runtime: Arc<RwLock<RuntimeConfig>>,
     pub players: Arc<RwLock<HashMap<String, PlayerSnapshot>>>,
     pub outbound_chat: Arc<Mutex<VecDeque<String>>>,
     pub background_tasks_started: Arc<Mutex<bool>>,
+    pub http: reqwest::Client,
+    pub url_blocklist: Arc<RwLock<Option<HashSet<String>>>>,
+
+    // ── Command dispatch / cooldowns ──────────────────────────────────────────
     pub last_command_at: Arc<Mutex<Option<Instant>>>,
     pub player_command_cooldowns: Arc<Mutex<HashMap<String, PlayerCommandCooldown>>>,
+    pub trade_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
+    pub free_scratch_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
+
+    // ── Spawn / presence tracking ──────────────────────────────────────────────
     pub seen_entity_spawns: Arc<RwLock<HashSet<String>>>,
     pub next_entity_spawn_scan_at: Arc<RwLock<i64>>,
     pub seen_player_detections: Arc<RwLock<HashSet<String>>>,
     pub next_player_detection_scan_at: Arc<RwLock<i64>>,
-    pub trade_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
-    pub free_scratch_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
     pub initial_spawn_done: Arc<AtomicBool>,
+
+    // ── Bot behavior toggles / connection state ───────────────────────────────
     pub antiafk: bool,
     pub antiafk_active: Arc<AtomicBool>,
     pub announce: bool,
     pub announce_active: Arc<AtomicBool>,
     pub reminder_active: Arc<AtomicBool>,
     pub consecutive_failures: Arc<AtomicU32>,
-    pub seen_advancements: Arc<Mutex<HashMap<String, HashSet<String>>>>,
+
+    // ── Chat / AFK / whisper / nicknames ───────────────────────────────────────
+    // key = lowercase username, value = AFK message; cleared on speak or leave
+    pub afk_messages: Arc<RwLock<HashMap<String, String>>>,
+    // key = triggering username (lowercase), value = when they last triggered an AFK reply
+    pub afk_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
+    // key = whisper target (lowercase), value = (message body, sent_at) — lets the chat
+    // handler recognize the server echoing our own outgoing whisper back as if the
+    // target had spoken it, and suppress that instead of treating it as real chat
+    pub recent_whispers: Arc<Mutex<HashMap<String, (String, Instant)>>>,
     pub nick_cache: Arc<RwLock<HashMap<String, String>>>,
+
+    // ── Time tracking (!day/!night, server TPS) ───────────────────────────────
     pub world_time_ticks: Arc<RwLock<u64>>,
-    pub active_trivia: Arc<Mutex<Option<TriviaRound>>>,
+    // (game_ticks, real_time_ms) samples from SetTime packets — used to compute server TPS
+    pub tps_time_samples: Arc<Mutex<VecDeque<(u64, u64)>>>,
+    // Set by daynight.rs right before sending "/time query day" when use_live_time_query
+    // is on; fulfilled by the Event::Chat handler when the server's command-feedback
+    // system message (no real sender) arrives. None when no query is in flight.
+    pub pending_time_query: Arc<Mutex<Option<tokio::sync::oneshot::Sender<u64>>>>,
+    // Free-running local estimate of the "overworld" WorldClock's raw tick count --
+    // fallback path for !day/!night when use_live_time_query is off/denied/timed out.
+    // Snapped to the authoritative value on every real SetTime packet, incremented by
+    // day_clock_rate on every local Event::Tick in between (mirrors how real Minecraft
+    // clients keep ClientWorld.timeOfDay live between server corrections). f64 so a
+    // fractional rate (e.g. 0.5x) accumulates correctly instead of truncating to 0 each tick.
+    pub day_ticks_accum: Arc<Mutex<f64>>,
+    pub day_clock_rate: Arc<Mutex<f32>>,
+
+    // ── Queue detection ────────────────────────────────────────────────────────
+    // Set right before sending `queue_probe_command`; fulfilled with `true` from the
+    // Event::Chat no-sender branch if the response is vanilla's "Unknown or incomplete
+    // command" error, meaning we're actually on the queue proxy, not the real server.
+    pub pending_queue_probe: Arc<Mutex<Option<tokio::sync::oneshot::Sender<bool>>>>,
+    // Set to true right before calling bot.disconnect() when queue detection fires, so
+    // the Event::Disconnect handler knows to sleep queue_retry_delay_ms (instead of the
+    // normal short reconnect_time_ms) before letting Azalea's own reconnect proceed.
+    pub queue_disconnect_pending: Arc<AtomicBool>,
+
+    // ── Discord bridge ─────────────────────────────────────────────────────────
+    // Defense-in-depth mirror of json/bridge_unsafe_commands.json, checked at dispatch
+    // time in handle_inbound_discord_chat — separate from the copy pushed to Hub for
+    // discordbot's own client-side relay filter.
+    pub bridge_unsafe_commands: Arc<RwLock<HashSet<String>>>,
+    // Keyed by a per-request UUID so concurrent chat-bridge commands from different
+    // Discord users don't clobber each other -- unlike pending_time_query/pending_queue_probe
+    // (only ever one in flight at a time), multiple resolve_discord_username round trips
+    // can be outstanding simultaneously. Fulfilled from the WebsocketEvent handlers for
+    // resolve_discord_username_result / resolve_discord_username_unavailable.
+    pub pending_discord_resolutions: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<DiscordResolution>>>>,
+
+    // ── Moderation / content ───────────────────────────────────────────────────
+    pub seen_advancements: Arc<Mutex<HashMap<String, HashSet<String>>>>,
+    // rustrict trie merging its built-in dictionary with json/bad_words.json (PROFANE|SEVERE)
+    // and json/word_whitelist.json (SAFE overrides). None until the background build in
+    // Bot::start() finishes; rebuilt in place by profanity_filter::rebuild() on !censor,
+    // !wordwhitelist, and !reload.
+    pub profanity_trie: Arc<RwLock<Option<&'static Trie>>>,
+
+    // ── Casino: sessions + immediate games ─────────────────────────────────────
     pub casino_sessions: Arc<Mutex<HashMap<String, CasinoSession>>>,
+    pub active_trivia: Arc<Mutex<Option<TriviaRound>>>,
+    pub duels: Arc<Mutex<Vec<crate::commands::duel::Duel>>>,
+    pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
+    pub checkers_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::checkers::CheckersSession>>>,
+    pub reversi_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::reversi::ReversiSession>>>,
+    pub battleship_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::battleship::BattleshipSession>>>,
+    pub mines_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::casino::mines::MinesGame>>>,
+
+    // ── Casino: betting markets (bet lists + external-data caches, one pair per type) ──
     pub market_service: Arc<crate::structure::market::service::MarketService>,
     pub market_bets: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::MarketBet>>>>,
     pub portfolio_positions: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::PortfolioPosition>>>>,
@@ -784,12 +858,6 @@ pub struct AzaleaState {
     pub train_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::train::TrainBet>>>>,
     pub quake_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::seismic::QuakeBet>>>>,
     pub volcano_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::seismic::VolcanoBet>>>>,
-    pub duels: Arc<Mutex<Vec<crate::commands::duel::Duel>>>,
-    pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
-    pub checkers_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::checkers::CheckersSession>>>,
-    pub reversi_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::reversi::ReversiSession>>>,
-    pub battleship_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::battleship::BattleshipSession>>>,
-    pub mines_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::casino::mines::MinesGame>>>,
     pub aqi_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::aqi::AqiBet>>>>,
     pub launch_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::launch::LaunchBet>>>>,
     pub launch_cache: Arc<Mutex<std::collections::HashMap<u32, (f64, f64, u64)>>>,
@@ -797,57 +865,12 @@ pub struct AzaleaState {
     // (price, display_name, fetched_at)
     pub gas_price_cache: Arc<Mutex<std::collections::HashMap<String, (f64, String, u64)>>>,
     pub gasbuddy_csrf: Arc<Mutex<Option<String>>>,
-    pub http: reqwest::Client,
-    pub url_blocklist: Arc<RwLock<Option<HashSet<String>>>>,
-    // (game_ticks, real_time_ms) samples from SetTime packets — used to compute server TPS
-    pub tps_time_samples: Arc<Mutex<VecDeque<(u64, u64)>>>,
-    // key = lowercase username, value = AFK message; cleared on speak or leave
-    pub afk_messages: Arc<RwLock<HashMap<String, String>>>,
-    // key = triggering username (lowercase), value = when they last triggered an AFK reply
-    pub afk_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
-    // key = whisper target (lowercase), value = (message body, sent_at) — lets the chat
-    // handler recognize the server echoing our own outgoing whisper back as if the
-    // target had spoken it, and suppress that instead of treating it as real chat
-    pub recent_whispers: Arc<Mutex<HashMap<String, (String, Instant)>>>,
+
+    // ── AI / poll ───────────────────────────────────────────────────────────────
     pub active_poll: Arc<Mutex<Option<crate::commands::poll::PollState>>>,
     pub ai_providers: Arc<RwLock<Vec<crate::commands::ai::AiProviderEntry>>>,
     pub ai_model_cache: Arc<Mutex<HashMap<String, String>>>,
     pub last_ai_at: Arc<Mutex<Option<Instant>>>,
-    // Defense-in-depth mirror of json/bridge_unsafe_commands.json, checked at dispatch
-    // time in handle_inbound_discord_chat — separate from the copy pushed to Hub for
-    // discordbot's own client-side relay filter.
-    pub bridge_unsafe_commands: Arc<RwLock<HashSet<String>>>,
-    // Set by daynight.rs right before sending "/time query day" when use_live_time_query
-    // is on; fulfilled by the Event::Chat handler when the server's command-feedback
-    // system message (no real sender) arrives. None when no query is in flight.
-    pub pending_time_query: Arc<Mutex<Option<tokio::sync::oneshot::Sender<u64>>>>,
-    // Free-running local estimate of the "overworld" WorldClock's raw tick count --
-    // fallback path for !day/!night when use_live_time_query is off/denied/timed out.
-    // Snapped to the authoritative value on every real SetTime packet, incremented by
-    // day_clock_rate on every local Event::Tick in between (mirrors how real Minecraft
-    // clients keep ClientWorld.timeOfDay live between server corrections). f64 so a
-    // fractional rate (e.g. 0.5x) accumulates correctly instead of truncating to 0 each tick.
-    pub day_ticks_accum: Arc<Mutex<f64>>,
-    pub day_clock_rate: Arc<Mutex<f32>>,
-    // Set right before sending `queue_probe_command`; fulfilled with `true` from the
-    // Event::Chat no-sender branch if the response is vanilla's "Unknown or incomplete
-    // command" error, meaning we're actually on the queue proxy, not the real server.
-    pub pending_queue_probe: Arc<Mutex<Option<tokio::sync::oneshot::Sender<bool>>>>,
-    // Set to true right before calling bot.disconnect() when queue detection fires, so
-    // the Event::Disconnect handler knows to sleep queue_retry_delay_ms (instead of the
-    // normal short reconnect_time_ms) before letting Azalea's own reconnect proceed.
-    pub queue_disconnect_pending: Arc<AtomicBool>,
-    // Keyed by a per-request UUID so concurrent chat-bridge commands from different
-    // Discord users don't clobber each other -- unlike pending_time_query/pending_queue_probe
-    // (only ever one in flight at a time), multiple resolve_discord_username round trips
-    // can be outstanding simultaneously. Fulfilled from the WebsocketEvent handlers for
-    // resolve_discord_username_result / resolve_discord_username_unavailable.
-    pub pending_discord_resolutions: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<DiscordResolution>>>>,
-    // rustrict trie merging its built-in dictionary with json/bad_words.json (PROFANE|SEVERE)
-    // and json/word_whitelist.json (SAFE overrides). None until the background build in
-    // Bot::start() finishes; rebuilt in place by profanity_filter::rebuild() on !censor,
-    // !wordwhitelist, and !reload.
-    pub profanity_trie: Arc<RwLock<Option<&'static Trie>>>,
 }
 
 // Result of asking discordbot (via Hub) to resolve a chat-bridge "server username" to a
