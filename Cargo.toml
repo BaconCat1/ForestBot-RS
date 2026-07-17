@@ -28,4 +28,4 @@ rss = "2"
 urlencoding = "2"
 whatlang = "0.16"
 prost = "0.13"
-rustrict = "0.7.38"
+rustrict = { version = "0.7.38", features = ["customize"] }

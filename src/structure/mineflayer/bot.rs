@@ -348,6 +348,10 @@ impl Bot {
             profanity_trie: Arc::new(RwLock::new(None)),
         };
 
+        // Must run synchronously, before any spawned task can touch censoring --
+        // see doc comment on strip_false_positive_leetspeak for why.
+        profanity_filter::strip_false_positive_leetspeak();
+
         // Heartbeat watchdog — pings external dead-man's switch (e.g. healthchecks.io) while alive
         if !self.heartbeat_url.is_empty() {
             let url = self.heartbeat_url.clone();

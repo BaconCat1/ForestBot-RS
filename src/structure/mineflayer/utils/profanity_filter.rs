@@ -1,4 +1,4 @@
-use rustrict::{Censor, Trie, Type};
+use rustrict::{Censor, Replacements, Trie, Type};
 
 use crate::{config::load_word_list, structure::mineflayer::bot::AzaleaState};
 
@@ -35,6 +35,46 @@ pub async fn build_trie() -> &'static Trie {
         trie.set(&word.to_lowercase(), Type::SAFE);
     }
     Box::leak(Box::new(trie))
+}
+
+/// Strips rustrict leetspeak substitutions that were confirmed live to turn harmless bot output
+/// into false-positive censoring, via the `trace` diagnostic binary:
+/// - digit->letter (e.g. `9->g`, `0->o`): digit-heavy output (zip codes, prices) decoded into
+///   real dictionary words (`90210` -> "gooch"). Digits still match themselves; only the letter
+///   interpretations are removed.
+/// - `#`->letter (`#->a`/`#->h`): `!faq`'s `#id/total` output has `#` decode to "h", then any
+///   later `8` (digits in between are always skippable, substitution-independent) spells the
+///   dictionary hit "h8". Confirmed the digit fix alone did NOT stop this -- `8` matches "h8"
+///   literally, no digit substitution needed -- only stripping `#` itself closes it.
+///
+/// Neither strip affects literal profanity detection (real letters, unchanged).
+///
+/// Must run once at startup before any censoring happens and before any concurrent access to
+/// `Replacements` -- call synchronously, not from a spawned task.
+pub fn strip_false_positive_leetspeak() {
+    // (source char, [letters it can stand in for]), read off rustrict's replacements.csv
+    const SUBSTITUTIONS: &[(char, &[char])] = &[
+        ('0', &['o']),
+        ('1', &['i', 'l']),
+        ('2', &['z']),
+        ('3', &['b', 'e', 'g']),
+        ('4', &['a']),
+        ('5', &['s']),
+        ('6', &['b', 's']),
+        ('7', &['t']),
+        ('8', &['b', 'h']),
+        ('9', &['g', 'p', 'q']),
+        ('#', &['a', 'h']),
+    ];
+    // Safe: called once, synchronously, at startup before any tokio::spawn'd task touches
+    // censoring -- no concurrent access is possible yet.
+    let replacements = unsafe { Replacements::customize_default() };
+    for &(source, letters) in SUBSTITUTIONS {
+        for &letter in letters {
+            replacements.remove(source, letter);
+            replacements.remove(source, letter.to_ascii_uppercase());
+        }
+    }
 }
 
 /// Reloads bad_words.json/word_whitelist.json and swaps in a freshly built trie.
