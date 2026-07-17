@@ -69,6 +69,49 @@ pub struct QuakeBet {
     pub lat: f64,
     pub lon: f64,
     pub radius_km: f64,
+    pub placed_at: u64,
+}
+
+impl super::CasinoBet for QuakeBet {
+    const TYPE: &'static str = "quake";
+
+    fn to_insert_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "player_uuid": self.player,
+            "region_slug": self.region_slug,
+            "display":     self.display,
+            "side":        self.side,
+            "price":       self.price,
+            "stake":       self.stake,
+            "close_time":  self.close_time,
+            "mag":         self.mag,
+            "lat":         self.lat,
+            "lon":         self.lon,
+            "radius_km":   self.radius_km,
+            "placed_at":   self.placed_at,
+        })
+    }
+
+    fn from_json(item: &serde_json::Value) -> Option<Self> {
+        let region_slug = item.get("region_slug")?.as_str()?.to_owned();
+        // lat/lon/radius reconstructed from region config (not stored in DB)
+        let region = resolve_region(&region_slug);
+        Some(Self {
+            id:         item.get("id")?.as_i64()?,
+            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            region_slug,
+            display:    item.get("display")?.as_str()?.to_owned(),
+            side:       item.get("side")?.as_str()?.to_owned(),
+            price:      item.get("price")?.as_f64()?,
+            stake:      item.get("stake")?.as_i64()?,
+            close_time: item.get("close_time")?.as_u64()?,
+            mag:        item.get("mag")?.as_f64()?,
+            lat:        region.map(|r| r.lat).unwrap_or(0.0),
+            lon:        region.map(|r| r.lon).unwrap_or(0.0),
+            radius_km:  region.map(|r| r.radius_km).unwrap_or(500.0),
+            placed_at:  item.get("placed_at").and_then(|v| v.as_u64()).unwrap_or_else(now_unix),
+        })
+    }
 }
 
 // ── Volcano bet struct ────────────────────────────────────────────────────────
@@ -83,6 +126,35 @@ pub struct VolcanoBet {
     pub price: f64,
     pub stake: i64,
     pub close_time: u64,
+}
+
+impl super::CasinoBet for VolcanoBet {
+    const TYPE: &'static str = "volcano";
+
+    fn to_insert_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "player_uuid": self.player,
+            "vnum":        self.vnum,
+            "vname":       self.vname,
+            "side":        self.side,
+            "price":       self.price,
+            "stake":       self.stake,
+            "close_time":  self.close_time,
+        })
+    }
+
+    fn from_json(item: &serde_json::Value) -> Option<Self> {
+        Some(Self {
+            id:         item.get("id")?.as_i64()?,
+            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            vnum:       item.get("vnum")?.as_str()?.to_owned(),
+            vname:      item.get("vname")?.as_str()?.to_owned(),
+            side:       item.get("side")?.as_str()?.to_owned(),
+            price:      item.get("price")?.as_f64()?,
+            stake:      item.get("stake")?.as_i64()?,
+            close_time: item.get("close_time")?.as_u64()?,
+        })
+    }
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -339,7 +411,7 @@ async fn quake_show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
-    let all_bets = ctx.state.api.casino_quake_bet_list().await;
+    let all_bets = ctx.state.api.casino_bet_list::<QuakeBet>().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
         ctx.whisper_success("No open earthquake bets.");
@@ -481,8 +553,9 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         lat: region.lat,
         lon: region.lon,
         radius_km: region.radius_km,
+        placed_at,
     };
-    match ctx.state.api.casino_quake_bet_insert(&bet, placed_at).await {
+    match ctx.state.api.casino_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
@@ -510,13 +583,13 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     ));
 
     let wcmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(quake_settle_task(ctx.state.clone(), wcmd, bet, placed_at));
+    tokio::spawn(quake_settle_task(ctx.state.clone(), wcmd, bet));
     Ok(())
 }
 
 // ── Quake settlement ──────────────────────────────────────────────────────────
 
-pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: QuakeBet, placed_at: u64) {
+pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: QuakeBet) {
     sleep_until(bet.close_time).await;
 
     let claimed = {
@@ -528,9 +601,9 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
     if !claimed { return; }
 
     let client = reqwest::Client::new();
-    let result = quake_occurred(&client, bet.lat, bet.lon, bet.radius_km, bet.mag, placed_at, bet.close_time).await;
+    let result = quake_occurred(&client, bet.lat, bet.lon, bet.radius_km, bet.mag, bet.placed_at, bet.close_time).await;
 
-    state.api.casino_quake_bet_delete(bet.id).await;
+    state.api.casino_bet_delete::<QuakeBet>(bet.id).await;
 
     let msg = match result {
         Some(occurred) => {
@@ -647,7 +720,7 @@ async fn volcano_show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
-    let all_bets = ctx.state.api.casino_volcano_bet_list().await;
+    let all_bets = ctx.state.api.casino_bet_list::<VolcanoBet>().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
         ctx.whisper_success("No open volcano bets.");
@@ -800,7 +873,7 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         stake,
         close_time,
     };
-    match ctx.state.api.casino_volcano_bet_insert(&bet).await {
+    match ctx.state.api.casino_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
@@ -854,7 +927,7 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
         None => None,
     };
 
-    state.api.casino_volcano_bet_delete(bet.id).await;
+    state.api.casino_bet_delete::<VolcanoBet>(bet.id).await;
 
     let msg = match result {
         Some(at_warning) => {

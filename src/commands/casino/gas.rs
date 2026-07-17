@@ -37,6 +37,37 @@ pub struct GasBet {
     pub close_time:    u64,
 }
 
+impl super::CasinoBet for GasBet {
+    const TYPE: &'static str = "gas";
+
+    fn to_insert_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "player_uuid": self.player,
+            "region":      self.region,
+            "zip":         self.zip,
+            "side":        self.side,
+            "baseline":    self.baseline as f64 / 1000.0,
+            "price":       self.price as f64 / 10000.0,
+            "stake":       self.stake,
+            "close_time":  self.close_time,
+        })
+    }
+
+    fn from_json(item: &serde_json::Value) -> Option<Self> {
+        Some(Self {
+            id:         Some(item.get("id")?.as_i64()?),
+            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            region:     item.get("region")?.as_str()?.to_owned(),
+            zip:        item.get("zip")?.as_str()?.to_owned(),
+            side:       item.get("side")?.as_str()?.to_owned(),
+            baseline:   (item.get("baseline")?.as_f64()? * 1000.0).round() as i64,
+            price:      (item.get("price")?.as_f64()? * 10000.0).round() as i64,
+            stake:      item.get("stake")?.as_i64()?,
+            close_time: item.get("close_time")?.as_u64()?,
+        })
+    }
+}
+
 // ── Token cache ───────────────────────────────────────────────────────────────
 
 pub async fn load_cached_token() -> Option<String> {
@@ -309,7 +340,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
         close_time,
     };
 
-    match ctx.state.api.casino_gas_bet_insert(&bet).await {
+    match ctx.state.api.casino_bet_insert(&bet).await {
         Some(i) => bet.id = Some(i),
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, chips).await {
@@ -359,7 +390,7 @@ pub async fn gas_settle_task(state: AzaleaState, whisper_cmd: String, bet: GasBe
 
     let current = fetch_gas_price(&state, &bet.zip, &solver_url, readonly).await.ok();
 
-    state.api.casino_gas_bet_delete(bet.id.unwrap()).await;
+    state.api.casino_bet_delete::<GasBet>(bet.id.unwrap()).await;
 
     let msg = match current {
         Some((new_price, _)) => {

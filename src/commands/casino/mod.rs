@@ -78,6 +78,17 @@ pub fn calc_payout(stake: i64, price: f64) -> i64 {
     (stake as f64 / price).floor() as i64
 }
 
+/// Shared shape for the 11 event-bet types backed by Hub's consolidated
+/// `/casino/bet/{type}` routes. `to_insert_json`/`from_json` carry the same
+/// field-name mapping each type's insert/list method already hand-built --
+/// relocated behind this trait so `ApiClient` needs only 3 generic methods
+/// instead of one insert/list/delete trio per type.
+pub trait CasinoBet: Sized {
+    const TYPE: &'static str;
+    fn to_insert_json(&self) -> serde_json::Value;
+    fn from_json(item: &serde_json::Value) -> Option<Self>;
+}
+
 pub async fn sleep_until(t: u64) {
     let now = now_unix();
     if t > now {

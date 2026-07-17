@@ -41,6 +41,35 @@ pub struct KalshiBet {
     pub close_time: u64,
 }
 
+impl super::CasinoBet for KalshiBet {
+    const TYPE: &'static str = "kalshi";
+
+    fn to_insert_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "player_uuid": self.player,
+            "ticker":      self.ticker,
+            "title":       self.title,
+            "side":        self.side,
+            "price":       self.price,
+            "stake":       self.stake,
+            "close_time":  self.close_time,
+        })
+    }
+
+    fn from_json(item: &serde_json::Value) -> Option<Self> {
+        Some(Self {
+            id:         item.get("id")?.as_i64()?,
+            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            ticker:     item.get("ticker")?.as_str()?.to_owned(),
+            title:      item.get("title")?.as_str()?.to_owned(),
+            side:       item.get("side")?.as_str()?.to_owned(),
+            price:      item.get("price")?.as_f64()?,
+            stake:      item.get("stake")?.as_i64()?,
+            close_time: item.get("close_time")?.as_u64()?,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct KalshiCache {
     pub fetched_at: u64,
@@ -313,7 +342,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         close_time: market.close_time,
     };
 
-    match ctx.state.api.casino_kalshi_bet_insert(&bet).await {
+    match ctx.state.api.casino_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
@@ -353,7 +382,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
-    let all_bets = ctx.state.api.casino_kalshi_bet_list().await;
+    let all_bets = ctx.state.api.casino_bet_list::<KalshiBet>().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
         ctx.whisper_success("No open Kalshi bets.");
@@ -407,7 +436,7 @@ pub async fn settle_task(
         }
     };
 
-    state.api.casino_kalshi_bet_delete(bet.id).await;
+    state.api.casino_bet_delete::<KalshiBet>(bet.id).await;
 
     let msg = match result {
         Some(ref winner) if *winner == bet.side => {

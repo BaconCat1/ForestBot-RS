@@ -32,6 +32,35 @@ pub struct FaaAirportBet {
     pub close_time: u64,
 }
 
+impl super::CasinoBet for FaaAirportBet {
+    const TYPE: &'static str = "faa";
+
+    fn to_insert_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "player_uuid":  self.player,
+            "airport_code": self.airport_code,
+            "name":         self.name,
+            "side":         self.side,
+            "price":        self.price,
+            "stake":        self.stake,
+            "close_time":   self.close_time,
+        })
+    }
+
+    fn from_json(item: &serde_json::Value) -> Option<Self> {
+        Some(Self {
+            id:           item.get("id")?.as_i64()?,
+            player:       item.get("player_uuid")?.as_str()?.to_owned(),
+            airport_code: item.get("airport_code")?.as_str()?.to_owned(),
+            name:         item.get("name")?.as_str()?.to_owned(),
+            side:         item.get("side")?.as_str()?.to_owned(),
+            price:        item.get("price")?.as_f64()?,
+            stake:        item.get("stake")?.as_i64()?,
+            close_time:   item.get("close_time")?.as_u64()?,
+        })
+    }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // Convert IATA (3-char, e.g. "JFK") to ICAO by prepending K.
@@ -126,7 +155,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
-    let all_bets = ctx.state.api.casino_faa_airport_bet_list().await;
+    let all_bets = ctx.state.api.casino_bet_list::<FaaAirportBet>().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
         ctx.whisper_success("No open airport condition bets.");
@@ -217,7 +246,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         stake,
         close_time,
     };
-    match ctx.state.api.casino_faa_airport_bet_insert(&bet).await {
+    match ctx.state.api.casino_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
@@ -281,7 +310,7 @@ pub async fn settle_task(
         }
     };
 
-    state.api.casino_faa_airport_bet_delete(bet.id).await;
+    state.api.casino_bet_delete::<FaaAirportBet>(bet.id).await;
 
     let (flt_cat, outcome_is_ifr) = match result {
         Some(ref cat) => (cat.as_str(), is_ifr(cat)),

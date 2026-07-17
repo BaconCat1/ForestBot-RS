@@ -34,6 +34,39 @@ pub struct SportsBet {
     pub start_unix: u64,
 }
 
+impl super::CasinoBet for SportsBet {
+    const TYPE: &'static str = "sports";
+
+    fn to_insert_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "player_uuid": self.player,
+            "event_id":    self.event_id,
+            "sport":       self.sport,
+            "home_team":   self.home_team,
+            "away_team":   self.away_team,
+            "selection":   self.selection,
+            "payout_mult": self.payout_mult,
+            "stake":       self.stake,
+            "start_unix":  self.start_unix,
+        })
+    }
+
+    fn from_json(item: &serde_json::Value) -> Option<Self> {
+        Some(Self {
+            id:          item.get("id")?.as_i64()?,
+            player:      item.get("player_uuid")?.as_str()?.to_owned(),
+            event_id:    item.get("event_id")?.as_str()?.to_owned(),
+            sport:       item.get("sport")?.as_str()?.to_owned(),
+            home_team:   item.get("home_team")?.as_str()?.to_owned(),
+            away_team:   item.get("away_team")?.as_str()?.to_owned(),
+            selection:   item.get("selection")?.as_str()?.to_owned(),
+            payout_mult: item.get("payout_mult")?.as_f64()?,
+            stake:       item.get("stake")?.as_i64()?,
+            start_unix:  item.get("start_unix")?.as_u64()?,
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct EventDisplay {
     pub event_id: String,
@@ -401,7 +434,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         start_unix: ev.start_unix,
     };
 
-    match ctx.state.api.casino_sports_bet_insert(&bet).await {
+    match ctx.state.api.casino_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
@@ -437,7 +470,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
-    let all_bets = ctx.state.api.casino_sports_bet_list().await;
+    let all_bets = ctx.state.api.casino_bet_list::<SportsBet>().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
         ctx.whisper_success("No open sports bets.");
@@ -489,7 +522,7 @@ pub async fn settle_task(
         }
     };
 
-    state.api.casino_sports_bet_delete(bet.id).await;
+    state.api.casino_bet_delete::<SportsBet>(bet.id).await;
 
     let msg = match outcome {
         Some(ref winner) => {

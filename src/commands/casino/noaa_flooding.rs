@@ -44,6 +44,37 @@ pub struct NOAAFloodingBet {
     pub close_time: u64,
 }
 
+impl super::CasinoBet for NOAAFloodingBet {
+    const TYPE: &'static str = "noaa";
+
+    fn to_insert_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "player_uuid": self.player,
+            "location":    self.location,
+            "latitude":    self.latitude,
+            "longitude":   self.longitude,
+            "side":        self.side,
+            "price":       self.price,
+            "stake":       self.stake,
+            "close_time":  self.close_time,
+        })
+    }
+
+    fn from_json(item: &serde_json::Value) -> Option<Self> {
+        Some(Self {
+            id:         item.get("id")?.as_i64()?,
+            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            location:   item.get("location")?.as_str()?.to_owned(),
+            latitude:   item.get("latitude")?.as_f64()?,
+            longitude:  item.get("longitude")?.as_f64()?,
+            side:       item.get("side")?.as_str()?.to_owned(),
+            price:      item.get("price")?.as_f64()?,
+            stake:      item.get("stake")?.as_i64()?,
+            close_time: item.get("close_time")?.as_u64()?,
+        })
+    }
+}
+
 
 fn fmt_location(lat: f64, lon: f64) -> String {
     format!("{lat:.3},{lon:.3}")
@@ -191,7 +222,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
-    let all_bets = ctx.state.api.casino_noaa_flooding_bet_list().await;
+    let all_bets = ctx.state.api.casino_bet_list::<NOAAFloodingBet>().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
         ctx.whisper_success("No open NOAA flood bets.");
@@ -339,7 +370,7 @@ async fn place_bet_inner(
         stake,
         close_time,
     };
-    match ctx.state.api.casino_noaa_flooding_bet_insert(&bet).await {
+    match ctx.state.api.casino_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
@@ -402,7 +433,7 @@ pub async fn settle_task(
         }
     };
 
-    state.api.casino_noaa_flooding_bet_delete(bet.id).await;
+    state.api.casino_bet_delete::<NOAAFloodingBet>(bet.id).await;
 
     let msg = match result {
         Some(was_flooding) => {

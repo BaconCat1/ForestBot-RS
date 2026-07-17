@@ -35,6 +35,37 @@ pub struct TrainBet {
     pub close_time: u64,
 }
 
+impl super::CasinoBet for TrainBet {
+    const TYPE: &'static str = "train";
+
+    fn to_insert_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "player_uuid": self.player,
+            "country":     self.country,
+            "train_code":  self.train_code,
+            "train_name":  self.train_name,
+            "side":        self.side,
+            "price":       self.price,
+            "stake":       self.stake,
+            "close_time":  self.close_time,
+        })
+    }
+
+    fn from_json(item: &serde_json::Value) -> Option<Self> {
+        Some(Self {
+            id:         item.get("id")?.as_i64()?,
+            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            country:    item.get("country")?.as_str()?.to_owned(),
+            train_code: item.get("train_code")?.as_str()?.to_owned(),
+            train_name: item.get("train_name")?.as_str()?.to_owned(),
+            side:       item.get("side")?.as_str()?.to_owned(),
+            price:      item.get("price")?.as_f64()?,
+            stake:      item.get("stake")?.as_i64()?,
+            close_time: item.get("close_time")?.as_u64()?,
+        })
+    }
+}
+
 enum PollOutcome {
     Found(bool),  // bool = is_delayed
     Gone,         // not in feed — train arrived/cancelled → refund
@@ -391,7 +422,7 @@ async fn gtfs_place_bet(
         stake,
         close_time,
     };
-    match ctx.state.api.casino_train_bet_insert(&bet).await {
+    match ctx.state.api.casino_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
@@ -434,7 +465,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
-    let all_bets = ctx.state.api.casino_train_bet_list().await;
+    let all_bets = ctx.state.api.casino_bet_list::<TrainBet>().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
         ctx.whisper_success("No open train bets.");
@@ -566,7 +597,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         stake,
         close_time,
     };
-    match ctx.state.api.casino_train_bet_insert(&bet).await {
+    match ctx.state.api.casino_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
@@ -634,7 +665,7 @@ async fn legacy_settle(state: AzaleaState, whisper_cmd: String, bet: TrainBet, s
     };
 
     let _ = started_at; // suppress unused warning
-    state.api.casino_train_bet_delete(bet.id).await;
+    state.api.casino_bet_delete::<TrainBet>(bet.id).await;
     let msg = apply_outcome(&state, &bet, outcome).await;
     deliver(&state, &whisper_cmd, &bet.player, msg).await;
 }
@@ -652,7 +683,7 @@ async fn gtfs_settle(state: AzaleaState, whisper_cmd: String, bet: TrainBet) {
 
     // If the bet is already >1h past close_time the trip is gone from the feed — refund immediately.
     if now_unix() > bet.close_time + 3600 {
-        state.api.casino_train_bet_delete(bet.id).await;
+        state.api.casino_bet_delete::<TrainBet>(bet.id).await;
         let msg = apply_outcome(&state, &bet, None).await;
         deliver(&state, &whisper_cmd, &bet.player, msg).await;
         return;
@@ -675,7 +706,7 @@ async fn gtfs_settle(state: AzaleaState, whisper_cmd: String, bet: TrainBet) {
         }
     };
 
-    state.api.casino_train_bet_delete(bet.id).await;
+    state.api.casino_bet_delete::<TrainBet>(bet.id).await;
     let msg = apply_outcome(&state, &bet, outcome).await;
     deliver(&state, &whisper_cmd, &bet.player, msg).await;
 }

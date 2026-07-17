@@ -34,6 +34,31 @@ pub struct NasaSpaceWeatherBet {
     pub settle_at: u64,
 }
 
+impl super::CasinoBet for NasaSpaceWeatherBet {
+    const TYPE: &'static str = "nasa";
+
+    fn to_insert_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "player_uuid": self.player,
+            "bet_type":    self.bet_type,
+            "stake":       self.stake,
+            "multiplier":  self.multiplier,
+            "settle_at":   self.settle_at,
+        })
+    }
+
+    fn from_json(item: &serde_json::Value) -> Option<Self> {
+        Some(Self {
+            id:         item.get("id")?.as_i64()?,
+            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            bet_type:   item.get("bet_type")?.as_str()?.to_owned(),
+            stake:      item.get("stake")?.as_i64()?,
+            multiplier: item.get("multiplier")?.as_f64()?,
+            settle_at:  item.get("settle_at")?.as_u64()?,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct SwOdds {
     pub cme: f64,
@@ -274,7 +299,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
-    let all_bets = ctx.state.api.casino_nasa_space_weather_bet_list().await;
+    let all_bets = ctx.state.api.casino_bet_list::<NasaSpaceWeatherBet>().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
         ctx.whisper_success("No open space weather bets.");
@@ -349,7 +374,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         multiplier,
         settle_at,
     };
-    match ctx.state.api.casino_nasa_space_weather_bet_insert(&bet).await {
+    match ctx.state.api.casino_bet_insert(&bet).await {
         Some(id) => { bet.id = id; }
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
@@ -423,7 +448,7 @@ pub async fn settle_task(
         }
     };
 
-    state.api.casino_nasa_space_weather_bet_delete(bet.id).await;
+    state.api.casino_bet_delete::<NasaSpaceWeatherBet>(bet.id).await;
 
     let label = find_kind(&bet.bet_type).map_or(bet.bet_type.as_str(), |k| k.label);
 

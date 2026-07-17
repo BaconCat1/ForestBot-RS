@@ -65,6 +65,41 @@ pub struct LaunchBet {
     pub close_time:    u64,      // window_end
 }
 
+impl super::CasinoBet for LaunchBet {
+    const TYPE: &'static str = "launch";
+
+    fn to_insert_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "player_uuid":  self.player,
+            "launch_id":    self.launch_id,
+            "launch_name":  self.launch_name,
+            "lsp_id":       self.lsp_id,
+            "lsp_name":     self.lsp_name,
+            "side":         self.side.as_str(),
+            "price":        self.price,
+            "stake":        self.stake,
+            "window_start": self.window_start,
+            "close_time":   self.close_time,
+        })
+    }
+
+    fn from_json(item: &serde_json::Value) -> Option<Self> {
+        Some(Self {
+            id:            Some(item.get("id")?.as_i64()?),
+            player:        item.get("player_uuid")?.as_str()?.to_owned(),
+            launch_id:     item.get("launch_id")?.as_str()?.to_owned(),
+            launch_name:   item.get("launch_name")?.as_str()?.to_owned(),
+            lsp_id:        item.get("lsp_id")?.as_u64()? as u32,
+            lsp_name:      item.get("lsp_name")?.as_str()?.to_owned(),
+            side:          LaunchBetSide::from_str(item.get("side")?.as_str()?)?,
+            price:         item.get("price")?.as_f64()?,
+            stake:         item.get("stake")?.as_i64()?,
+            window_start:  item.get("window_start")?.as_u64()?,
+            close_time:    item.get("close_time")?.as_u64()?,
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 struct LaunchInfo {
     id:           String,
@@ -359,7 +394,7 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
         close_time:   l.window_end,
     };
 
-    match ctx.state.api.casino_launch_bet_insert(&bet).await {
+    match ctx.state.api.casino_bet_insert(&bet).await {
         Some(i) => bet.id = Some(i),
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, chips).await {
@@ -427,7 +462,7 @@ pub async fn launch_settle_task(state: AzaleaState, whisper_cmd: String, bet: La
 
     // Give-up path: refund
     remove_bet(&state, &bet);
-    state.api.casino_launch_bet_delete(bet.id.unwrap()).await;
+    state.api.casino_bet_delete::<LaunchBet>(bet.id.unwrap()).await;
     let msg = if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
         eprintln!("[Launch settle] refund failed for {}: {e:?}", bet.player);
         format!(
@@ -445,7 +480,7 @@ pub async fn launch_settle_task(state: AzaleaState, whisper_cmd: String, bet: La
 
 async fn settle(state: &AzaleaState, whisper_cmd: &str, bet: &LaunchBet, l: &LaunchInfo) {
     remove_bet(state, bet);
-    state.api.casino_launch_bet_delete(bet.id.unwrap()).await;
+    state.api.casino_bet_delete::<LaunchBet>(bet.id.unwrap()).await;
 
     let won = determine_launch_win(bet.side, l.status_id, l.net, bet.window_start);
 

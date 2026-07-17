@@ -32,6 +32,35 @@ pub struct AqiBet {
     pub close_time: u64,
 }
 
+impl super::CasinoBet for AqiBet {
+    const TYPE: &'static str = "aqi";
+
+    fn to_insert_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "player_uuid": self.player,
+            "zip":         self.zip,
+            "area":        self.area,
+            "side":        self.side,
+            "price":       self.price,
+            "stake":       self.stake,
+            "close_time":  self.close_time,
+        })
+    }
+
+    fn from_json(item: &serde_json::Value) -> Option<Self> {
+        Some(Self {
+            id:         item.get("id")?.as_i64()?,
+            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            zip:        item.get("zip")?.as_str()?.to_owned(),
+            area:       item.get("area")?.as_str()?.to_owned(),
+            side:       item.get("side")?.as_str()?.to_owned(),
+            price:      item.get("price")?.as_f64()?,
+            stake:      item.get("stake")?.as_i64()?,
+            close_time: item.get("close_time")?.as_u64()?,
+        })
+    }
+}
+
 // ── AirNow API helpers ────────────────────────────────────────────────────────
 
 #[derive(Debug)]
@@ -312,7 +341,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
         close_time,
     };
 
-    let id = ctx.state.api.casino_aqi_bet_insert(&bet).await;
+    let id = ctx.state.api.casino_bet_insert(&bet).await;
     match id {
         Some(i) => bet.id = i,
         None => {
@@ -364,7 +393,7 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
     let key = state.runtime.read().expect("runtime lock").airnow_api_key.clone();
     let readings = fetch_current(&state.http, &bet.zip, &key).await.ok();
 
-    state.api.casino_aqi_bet_delete(bet.id).await;
+    state.api.casino_bet_delete::<AqiBet>(bet.id).await;
 
     let msg = match readings.and_then(|r| worst(&r).map(|w| w.aqi)) {
         Some(actual_aqi) => {

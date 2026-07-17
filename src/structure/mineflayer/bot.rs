@@ -444,7 +444,7 @@ impl Bot {
 
         // Recover sports bets that were open when the bot last shut down
         {
-            let open_bets = state.api.casino_sports_bet_list().await;
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::sports::SportsBet>().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
                 let api_key = state.runtime.read().expect("runtime lock").sharpapi_key.clone();
@@ -467,7 +467,7 @@ impl Bot {
 
         // Recover Kalshi bets that were open when the bot last shut down
         {
-            let open_bets = state.api.casino_kalshi_bet_list().await;
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::kalshi::KalshiBet>().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
                 {
@@ -488,7 +488,7 @@ impl Bot {
 
         // Recover NASA space weather bets open when bot last shut down
         {
-            let open_bets = state.api.casino_nasa_space_weather_bet_list().await;
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet>().await;
             if !open_bets.is_empty() {
                 let (whisper_cmd, nasa_api_key) = {
                     let rt = state.runtime.read().expect("runtime lock");
@@ -513,7 +513,7 @@ impl Bot {
 
         // Recover FAA airport bets open when bot last shut down
         {
-            let open_bets = state.api.casino_faa_airport_bet_list().await;
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::faa_airport::FaaAirportBet>().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
                 let now = crate::structure::market::types::now_unix();
@@ -537,7 +537,7 @@ impl Bot {
 
         // Recover NOAA flooding bets open when bot last shut down
         {
-            let open_bets = state.api.casino_noaa_flooding_bet_list().await;
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::noaa_flooding::NOAAFloodingBet>().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
                 let now = crate::structure::market::types::now_unix();
@@ -560,7 +560,7 @@ impl Bot {
 
         // Recover train bets open when bot last shut down
         {
-            let open_bets = state.api.casino_train_bet_list().await;
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::train::TrainBet>().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
                 let now = crate::structure::market::types::now_unix();
@@ -583,7 +583,7 @@ impl Bot {
 
         // Recover quake bets open when bot last shut down
         {
-            let open_bets = state.api.casino_quake_bet_list().await;
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::seismic::QuakeBet>().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
                 {
@@ -593,12 +593,10 @@ impl Bot {
                     }
                 }
                 for bet in open_bets {
-                    let placed_at = bet.close_time.saturating_sub(crate::commands::casino::seismic::BET_WINDOW_SECS);
                     tokio::spawn(crate::commands::casino::seismic::quake_settle_task(
                         state.clone(),
                         whisper_cmd.clone(),
                         bet,
-                        placed_at,
                     ));
                 }
             }
@@ -606,7 +604,7 @@ impl Bot {
 
         // Recover volcano bets open when bot last shut down
         {
-            let open_bets = state.api.casino_volcano_bet_list().await;
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::seismic::VolcanoBet>().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
                 {
@@ -627,7 +625,7 @@ impl Bot {
 
         // Recover AQI bets open when bot last shut down
         {
-            let open_bets = state.api.casino_aqi_bet_list().await;
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::aqi::AqiBet>().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
                 {
@@ -648,7 +646,7 @@ impl Bot {
 
         // Recover launch bets open when bot last shut down
         {
-            let open_bets = state.api.casino_launch_bet_list().await;
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::launch::LaunchBet>().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
                 {
@@ -669,7 +667,7 @@ impl Bot {
 
         // Recover gas bets open when bot last shut down
         {
-            let open_bets = state.api.casino_gas_bet_list().await;
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::gas::GasBet>().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
                 {
