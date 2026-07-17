@@ -330,7 +330,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         bets.entry(player_uuid.clone()).or_default().push(bet.clone());
     }
 
-    let payout = (stake as f64 / price).floor() as i64;
+    let payout = calc_payout(stake, price);
     let profit = payout - stake;
     ctx.whisper_success(format!(
         "[Kalshi] {} | {} {:.2}x | {} | profit if win: +{}",
@@ -360,7 +360,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
     for bet in &player_bets {
-        let payout = (bet.stake as f64 / bet.price).floor() as i64;
+        let payout = calc_payout(bet.stake, bet.price);
         ctx.whisper_success(format!(
             "[Kalshi] {} | {} {:.2}x | {} -> {} | {}",
             bet.title,
@@ -412,17 +412,20 @@ pub async fn settle_task(
     let msg = match result {
         Some(ref winner) if *winner == bet.side => {
             let payout = calc_payout(bet.stake, bet.price);
-            if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
-                eprintln!("[Kalshi settle] casino_adjust failed for {}: {e:?}", bet.player);
+            match state.api.casino_adjust(&bet.player, payout).await {
+                Ok(_) => format!(
+                    "[Kalshi] {} — {} wins. WIN +{} ({} @ {:.2}x).",
+                    bet.title,
+                    winner.to_uppercase(),
+                    chips_str(payout - bet.stake),
+                    chips_str(bet.stake),
+                    1.0 / bet.price,
+                ),
+                Err(e) => {
+                    eprintln!("[Kalshi settle] casino_adjust failed for {}: {e:?}", bet.player);
+                    format!("[Kalshi] {} — {} wins but payout failed. Contact an admin.", bet.title, winner.to_uppercase())
+                }
             }
-            format!(
-                "[Kalshi] {} — {} wins. WIN +{} ({} @ {:.2}x).",
-                bet.title,
-                winner.to_uppercase(),
-                chips_str(payout - bet.stake),
-                chips_str(bet.stake),
-                1.0 / bet.price,
-            )
         }
         Some(ref winner) => {
             state.api.casino_jackpot_rake(bet.stake).await;
@@ -434,14 +437,17 @@ pub async fn settle_task(
             )
         }
         None => {
-            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
-                eprintln!("[Kalshi settle] refund failed for {}: {e:?}", bet.player);
+            match state.api.casino_adjust(&bet.player, bet.stake).await {
+                Ok(_) => format!(
+                    "[Kalshi] {} — result unavailable. {} refunded.",
+                    bet.title,
+                    chips_str(bet.stake),
+                ),
+                Err(e) => {
+                    eprintln!("[Kalshi settle] refund failed for {}: {e:?}", bet.player);
+                    format!("[Kalshi] {} — result unavailable. Refund failed — contact an admin.", bet.title)
+                }
             }
-            format!(
-                "[Kalshi] {} — result unavailable. {} refunded.",
-                bet.title,
-                chips_str(bet.stake),
-            )
         }
     };
 

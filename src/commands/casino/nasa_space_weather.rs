@@ -430,16 +430,19 @@ pub async fn settle_task(
     let msg = match result {
         Some(true) => {
             let payout = (bet.stake as f64 * bet.multiplier) as i64;
-            if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
-                eprintln!("[SpaceWX settle] casino_adjust failed for {}: {e:?}", bet.player);
+            match state.api.casino_adjust(&bet.player, payout).await {
+                Ok(_) => format!(
+                    "[SpaceWX] {} — YES. WIN +{} ({} @ {:.2}x).",
+                    label,
+                    chips_str(payout - bet.stake),
+                    chips_str(bet.stake),
+                    bet.multiplier,
+                ),
+                Err(e) => {
+                    eprintln!("[SpaceWX settle] casino_adjust failed for {}: {e:?}", bet.player);
+                    format!("[SpaceWX] {} — YES, but payout failed. Contact an admin.", label)
+                }
             }
-            format!(
-                "[SpaceWX] {} — YES. WIN +{} ({} @ {:.2}x).",
-                label,
-                chips_str(payout - bet.stake),
-                chips_str(bet.stake),
-                bet.multiplier,
-            )
         }
         Some(false) => {
             state.api.casino_jackpot_rake(bet.stake).await;
@@ -450,14 +453,17 @@ pub async fn settle_task(
             )
         }
         None => {
-            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
-                eprintln!("[SpaceWX settle] refund failed for {}: {e:?}", bet.player);
+            match state.api.casino_adjust(&bet.player, bet.stake).await {
+                Ok(_) => format!(
+                    "[SpaceWX] {} — NASA API unavailable. {} refunded.",
+                    label,
+                    chips_str(bet.stake),
+                ),
+                Err(e) => {
+                    eprintln!("[SpaceWX settle] refund failed for {}: {e:?}", bet.player);
+                    format!("[SpaceWX] {} — NASA API unavailable. Refund failed — contact an admin.", label)
+                }
             }
-            format!(
-                "[SpaceWX] {} — NASA API unavailable. {} refunded.",
-                label,
-                chips_str(bet.stake),
-            )
         }
     };
 

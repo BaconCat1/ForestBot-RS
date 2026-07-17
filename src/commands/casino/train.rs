@@ -408,7 +408,7 @@ async fn gtfs_place_bet(
         bets.entry(player_uuid.clone()).or_default().push(bet.clone());
     }
 
-    let payout = (stake as f64 / price).floor() as i64;
+    let payout = calc_payout(stake, price);
     let settles_in = if close_time > now { (close_time - now + 59) / 60 } else { 0 };
     ctx.whisper_success(format!(
         "[Train] {} | {} | departs {}m | {} {:.2}x | {} | profit if win: +{} | settles in ~{}m",
@@ -441,7 +441,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
     for bet in &player_bets {
-        let payout = (bet.stake as f64 / bet.price).floor() as i64;
+        let payout = calc_payout(bet.stake, bet.price);
         ctx.whisper_success(format!(
             "[Train] {} ({}) {} {:.2}x | {} -> {} | {}",
             bet.train_name,
@@ -583,7 +583,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         bets.entry(player_uuid.clone()).or_default().push(bet.clone());
     }
 
-    let payout = (stake as f64 / price).floor() as i64;
+    let payout = calc_payout(stake, price);
     ctx.whisper_success(format!(
         "[Train] {train_name} ({train_code}) | {delay_str} | {} {:.2}x | {} | profit if win: +{} | settles in 2h",
         side.to_uppercase(),
@@ -704,19 +704,22 @@ async fn apply_outcome(state: &AzaleaState, bet: &TrainBet, outcome: Option<bool
             };
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
-                    eprintln!("[Train settle] casino_adjust failed for {}: {e:?}", bet.player);
+                match state.api.casino_adjust(&bet.player, payout).await {
+                    Ok(_) => format!(
+                        "[Train] {} ({}) — {}. {} wins. WIN +{} ({} @ {:.2}x).",
+                        bet.train_name,
+                        bet.train_code,
+                        outcome_str,
+                        bet.side.to_uppercase(),
+                        chips_str(payout - bet.stake),
+                        chips_str(bet.stake),
+                        1.0 / bet.price,
+                    ),
+                    Err(e) => {
+                        eprintln!("[Train settle] casino_adjust failed for {}: {e:?}", bet.player);
+                        format!("[Train] {} ({}) — {} wins but payout failed. Contact an admin.", bet.train_name, bet.train_code, bet.side.to_uppercase())
+                    }
                 }
-                format!(
-                    "[Train] {} ({}) — {}. {} wins. WIN +{} ({} @ {:.2}x).",
-                    bet.train_name,
-                    bet.train_code,
-                    outcome_str,
-                    bet.side.to_uppercase(),
-                    chips_str(payout - bet.stake),
-                    chips_str(bet.stake),
-                    1.0 / bet.price,
-                )
             } else {
                 state.api.casino_jackpot_rake(bet.stake).await;
                 format!(
@@ -730,15 +733,18 @@ async fn apply_outcome(state: &AzaleaState, bet: &TrainBet, outcome: Option<bool
             }
         }
         None => {
-            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
-                eprintln!("[Train settle] refund failed for {}: {e:?}", bet.player);
+            match state.api.casino_adjust(&bet.player, bet.stake).await {
+                Ok(_) => format!(
+                    "[Train] {} ({}) — train not found or API error. {} refunded.",
+                    bet.train_name,
+                    bet.train_code,
+                    chips_str(bet.stake),
+                ),
+                Err(e) => {
+                    eprintln!("[Train settle] refund failed for {}: {e:?}", bet.player);
+                    format!("[Train] {} ({}) — train not found or API error. Refund failed — contact an admin.", bet.train_name, bet.train_code)
+                }
             }
-            format!(
-                "[Train] {} ({}) — train not found or API error. {} refunded.",
-                bet.train_name,
-                bet.train_code,
-                chips_str(bet.stake),
-            )
         }
     }
 }

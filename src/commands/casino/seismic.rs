@@ -346,7 +346,7 @@ async fn quake_show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
     for bet in &player_bets {
-        let payout = (bet.stake as f64 / bet.price).floor() as i64;
+        let payout = calc_payout(bet.stake, bet.price);
         ctx.whisper_success(format!(
             "[Quake] {} | {} {:.2}x | {} → {} | {}",
             bet.display,
@@ -499,7 +499,7 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         bets.entry(player_uuid.clone()).or_default().push(bet.clone());
     }
 
-    let payout = (stake as f64 / price).floor() as i64;
+    let payout = calc_payout(stake, price);
     ctx.whisper_success(format!(
         "[Quake] {} | {} {:.2}x | {} | profit if win: +{} | settles in 7d",
         display,
@@ -537,18 +537,21 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
             let won = (bet.side == "yes") == occurred;
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
-                    eprintln!("[Quake settle] casino_adjust failed for {}: {e:?}", bet.player);
+                match state.api.casino_adjust(&bet.player, payout).await {
+                    Ok(_) => format!(
+                        "[Quake] {} — {}. {} wins. WIN +{} ({} @ {:.2}x).",
+                        bet.display,
+                        if occurred { "event occurred" } else { "no event" },
+                        bet.side.to_uppercase(),
+                        chips_str(payout - bet.stake),
+                        chips_str(bet.stake),
+                        (1.0 / (bet.price)),
+                    ),
+                    Err(e) => {
+                        eprintln!("[Quake settle] casino_adjust failed for {}: {e:?}", bet.player);
+                        format!("[Quake] {} — {} wins but payout failed. Contact an admin.", bet.display, bet.side.to_uppercase())
+                    }
                 }
-                format!(
-                    "[Quake] {} — {}. {} wins. WIN +{} ({} @ {:.2}x).",
-                    bet.display,
-                    if occurred { "event occurred" } else { "no event" },
-                    bet.side.to_uppercase(),
-                    chips_str(payout - bet.stake),
-                    chips_str(bet.stake),
-                    (1.0 / (bet.price)),
-                )
             } else {
                 state.api.casino_jackpot_rake(bet.stake).await;
                 format!(
@@ -561,14 +564,17 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
             }
         }
         None => {
-            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
-                eprintln!("[Quake settle] refund failed for {}: {e:?}", bet.player);
+            match state.api.casino_adjust(&bet.player, bet.stake).await {
+                Ok(_) => format!(
+                    "[Quake] {} — FDSN API unavailable. {} refunded.",
+                    bet.display,
+                    chips_str(bet.stake),
+                ),
+                Err(e) => {
+                    eprintln!("[Quake settle] refund failed for {}: {e:?}", bet.player);
+                    format!("[Quake] {} — FDSN API unavailable. Refund failed — contact an admin.", bet.display)
+                }
             }
-            format!(
-                "[Quake] {} — FDSN API unavailable. {} refunded.",
-                bet.display,
-                chips_str(bet.stake),
-            )
         }
     };
 
@@ -648,7 +654,7 @@ async fn volcano_show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
     for bet in &player_bets {
-        let payout = (bet.stake as f64 / bet.price).floor() as i64;
+        let payout = calc_payout(bet.stake, bet.price);
         ctx.whisper_success(format!(
             "[Volcano] {} | {} {:.2}x | {} → {} | {}",
             bet.vname,
@@ -811,7 +817,7 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         bets.entry(player_uuid.clone()).or_default().push(bet.clone());
     }
 
-    let payout = (bet.stake as f64 / price).floor() as i64;
+    let payout = calc_payout(bet.stake, price);
     ctx.whisper_success(format!(
         "[Volcano] {} {} | {} {:.2}x | {} | profit if win: +{} | settles in 7d",
         vs.vname,
@@ -855,18 +861,21 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
             let won = (bet.side == "yes") == at_warning;
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
-                    eprintln!("[Volcano settle] casino_adjust failed for {}: {e:?}", bet.player);
+                match state.api.casino_adjust(&bet.player, payout).await {
+                    Ok(_) => format!(
+                        "[Volcano] {} — {}. {} wins. WIN +{} ({} @ {:.2}x).",
+                        bet.vname,
+                        if at_warning { "Warning/Red" } else { "below Warning" },
+                        bet.side.to_uppercase(),
+                        chips_str(payout - bet.stake),
+                        chips_str(bet.stake),
+                        (1.0 / (bet.price)),
+                    ),
+                    Err(e) => {
+                        eprintln!("[Volcano settle] casino_adjust failed for {}: {e:?}", bet.player);
+                        format!("[Volcano] {} — {} wins but payout failed. Contact an admin.", bet.vname, bet.side.to_uppercase())
+                    }
                 }
-                format!(
-                    "[Volcano] {} — {}. {} wins. WIN +{} ({} @ {:.2}x).",
-                    bet.vname,
-                    if at_warning { "Warning/Red" } else { "below Warning" },
-                    bet.side.to_uppercase(),
-                    chips_str(payout - bet.stake),
-                    chips_str(bet.stake),
-                    (1.0 / (bet.price)),
-                )
             } else {
                 state.api.casino_jackpot_rake(bet.stake).await;
                 format!(
@@ -879,14 +888,17 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
             }
         }
         None => {
-            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
-                eprintln!("[Volcano settle] refund failed for {}: {e:?}", bet.player);
+            match state.api.casino_adjust(&bet.player, bet.stake).await {
+                Ok(_) => format!(
+                    "[Volcano] {} — VHP API unavailable. {} refunded.",
+                    bet.vname,
+                    chips_str(bet.stake),
+                ),
+                Err(e) => {
+                    eprintln!("[Volcano settle] refund failed for {}: {e:?}", bet.player);
+                    format!("[Volcano] {} — VHP API unavailable. Refund failed — contact an admin.", bet.vname)
+                }
             }
-            format!(
-                "[Volcano] {} — VHP API unavailable. {} refunded.",
-                bet.vname,
-                chips_str(bet.stake),
-            )
         }
     };
 

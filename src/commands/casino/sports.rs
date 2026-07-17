@@ -495,12 +495,15 @@ pub async fn settle_task(
         Some(ref winner) => {
             if *winner == bet.selection {
                 let payout = (bet.stake as f64 * bet.payout_mult).ceil() as i64;
-                if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
-                    eprintln!("[Sports settle] casino_adjust failed for {}: {e:?}", bet.player);
+                match state.api.casino_adjust(&bet.player, payout).await {
+                    Ok(_) => format!("[Sports] {} vs {} — {winner} wins. WIN +{} ({} @ {:.2}x).",
+                        bet.home_team, bet.away_team,
+                        chips_str(payout - bet.stake), chips_str(bet.stake), bet.payout_mult),
+                    Err(e) => {
+                        eprintln!("[Sports settle] casino_adjust failed for {}: {e:?}", bet.player);
+                        format!("[Sports] {} vs {} — {winner} wins but payout failed. Contact an admin.", bet.home_team, bet.away_team)
+                    }
                 }
-                format!("[Sports] {} vs {} — {winner} wins. WIN +{} ({} @ {:.2}x).",
-                    bet.home_team, bet.away_team,
-                    chips_str(payout - bet.stake), chips_str(bet.stake), bet.payout_mult)
             } else {
                 state.api.casino_jackpot_rake(bet.stake).await;
                 format!("[Sports] {} vs {} — {winner} wins. LOSS -{} (to jackpot).",
@@ -508,11 +511,14 @@ pub async fn settle_task(
             }
         }
         None => {
-            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
-                eprintln!("[Sports settle] refund failed for {}: {e:?}", bet.player);
+            match state.api.casino_adjust(&bet.player, bet.stake).await {
+                Ok(_) => format!("[Sports] {} vs {} — result unavailable. {} refunded.",
+                    bet.home_team, bet.away_team, chips_str(bet.stake)),
+                Err(e) => {
+                    eprintln!("[Sports settle] refund failed for {}: {e:?}", bet.player);
+                    format!("[Sports] {} vs {} — result unavailable. Refund failed — contact an admin.", bet.home_team, bet.away_team)
+                }
             }
-            format!("[Sports] {} vs {} — result unavailable. {} refunded.",
-                bet.home_team, bet.away_team, chips_str(bet.stake))
         }
     };
     deliver(&state, &whisper_cmd, &bet.player, msg).await;

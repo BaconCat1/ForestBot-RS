@@ -198,7 +198,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
     for bet in &player_bets {
-        let payout = (bet.stake as f64 / bet.price).floor() as i64;
+        let payout = calc_payout(bet.stake, bet.price);
         ctx.whisper_success(format!(
             "[NOAA Flood] {} | {} {:.2}x | {} -> {} | {}",
             bet.location,
@@ -356,7 +356,7 @@ async fn place_bet_inner(
         bets.entry(player_uuid.clone()).or_default().push(bet.clone());
     }
 
-    let payout = (stake as f64 / price).floor() as i64;
+    let payout = calc_payout(stake, price);
     ctx.whisper_success(format!(
         "[NOAA Flood] {location} | {} {} | {:.2}x | {} | profit if win: +{} | settles in 2h",
         side.to_uppercase(),
@@ -409,18 +409,21 @@ pub async fn settle_task(
             let won = (bet.side == "yes") == was_flooding;
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
-                    eprintln!("[NOAA Flood settle] casino_adjust failed for {}: {e:?}", bet.player);
+                match state.api.casino_adjust(&bet.player, payout).await {
+                    Ok(_) => format!(
+                        "[NOAA Flood] {} — {}. {} wins. WIN +{} ({} @ {:.2}x).",
+                        bet.location,
+                        if was_flooding { "flood alert" } else { "no alert" },
+                        bet.side.to_uppercase(),
+                        chips_str(payout - bet.stake),
+                        chips_str(bet.stake),
+                        1.0 / bet.price,
+                    ),
+                    Err(e) => {
+                        eprintln!("[NOAA Flood settle] casino_adjust failed for {}: {e:?}", bet.player);
+                        format!("[NOAA Flood] {} — {} wins but payout failed. Contact an admin.", bet.location, bet.side.to_uppercase())
+                    }
                 }
-                format!(
-                    "[NOAA Flood] {} — {}. {} wins. WIN +{} ({} @ {:.2}x).",
-                    bet.location,
-                    if was_flooding { "flood alert" } else { "no alert" },
-                    bet.side.to_uppercase(),
-                    chips_str(payout - bet.stake),
-                    chips_str(bet.stake),
-                    1.0 / bet.price,
-                )
             } else {
                 state.api.casino_jackpot_rake(bet.stake).await;
                 format!(
@@ -433,14 +436,17 @@ pub async fn settle_task(
             }
         }
         None => {
-            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
-                eprintln!("[NOAA Flood settle] refund failed for {}: {e:?}", bet.player);
+            match state.api.casino_adjust(&bet.player, bet.stake).await {
+                Ok(_) => format!(
+                    "[NOAA Flood] {} — NOAA API unavailable. {} refunded.",
+                    bet.location,
+                    chips_str(bet.stake),
+                ),
+                Err(e) => {
+                    eprintln!("[NOAA Flood settle] refund failed for {}: {e:?}", bet.player);
+                    format!("[NOAA Flood] {} — NOAA API unavailable. Refund failed — contact an admin.", bet.location)
+                }
             }
-            format!(
-                "[NOAA Flood] {} — NOAA API unavailable. {} refunded.",
-                bet.location,
-                chips_str(bet.stake),
-            )
         }
     };
 

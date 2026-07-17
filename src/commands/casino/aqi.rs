@@ -326,7 +326,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
         }
     }
 
-    let payout = (chips as f64 / price).floor() as i64;
+    let payout = calc_payout(chips, price);
     ctx.whisper_success(format!(
         "[AQI] Bet placed: {} {} {} — pays {} if {} AQI ≤50 tomorrow | closes in 24h",
         zip,
@@ -375,17 +375,20 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
             };
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
-                    eprintln!("[AQI settle] casino_adjust failed for {}: {e:?}", bet.player);
+                match state.api.casino_adjust(&bet.player, payout).await {
+                    Ok(_) => format!(
+                        "[AQI] {} {} — actual AQI {}. {} wins. WIN +{} ({} @ {:.2}×).",
+                        bet.zip, bet.side.to_uppercase(), actual_aqi,
+                        bet.side.to_uppercase(),
+                        chips_str(payout - bet.stake),
+                        chips_str(bet.stake),
+                        1.0 / bet.price,
+                    ),
+                    Err(e) => {
+                        eprintln!("[AQI settle] casino_adjust failed for {}: {e:?}", bet.player);
+                        format!("[AQI] {} {} wins but payout failed. Contact an admin.", bet.zip, bet.side.to_uppercase())
+                    }
                 }
-                format!(
-                    "[AQI] {} {} — actual AQI {}. {} wins. WIN +{} ({} @ {:.2}×).",
-                    bet.zip, bet.side.to_uppercase(), actual_aqi,
-                    bet.side.to_uppercase(),
-                    chips_str(payout - bet.stake),
-                    chips_str(bet.stake),
-                    1.0 / bet.price,
-                )
             } else {
                 state.api.casino_jackpot_rake(bet.stake).await;
                 format!(
@@ -397,14 +400,17 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
             }
         }
         None => {
-            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
-                eprintln!("[AQI settle] refund failed for {}: {e:?}", bet.player);
+            match state.api.casino_adjust(&bet.player, bet.stake).await {
+                Ok(_) => format!(
+                    "[AQI] {} {} — AirNow API unavailable at settlement. {} refunded.",
+                    bet.zip, bet.side.to_uppercase(),
+                    chips_str(bet.stake),
+                ),
+                Err(e) => {
+                    eprintln!("[AQI settle] refund failed for {}: {e:?}", bet.player);
+                    format!("[AQI] {} {} — AirNow API unavailable. Refund failed — contact an admin.", bet.zip, bet.side.to_uppercase())
+                }
             }
-            format!(
-                "[AQI] {} {} — AirNow API unavailable at settlement. {} refunded.",
-                bet.zip, bet.side.to_uppercase(),
-                chips_str(bet.stake),
-            )
         }
     };
 

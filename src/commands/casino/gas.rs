@@ -367,18 +367,21 @@ pub async fn gas_settle_task(state: AzaleaState, whisper_cmd: String, bet: GasBe
             let mult_display = 10000.0 / bet.price as f64;
             if gas_outcome(&bet.side, new_price, bet.baseline) {
                 let payout = (bet.stake as f64 * 10000.0 / bet.price as f64).floor() as i64;
-                if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
-                    eprintln!("[GAS settle] casino_adjust failed for {}: {e:?}", bet.player);
+                match state.api.casino_adjust(&bet.player, payout).await {
+                    Ok(_) => format!(
+                        "[GAS] {} {} — ${:.3}→${:.3}. {} WIN +{} ({} @ {:.2}×).",
+                        bet.region, bet.side.to_uppercase(),
+                        base_display, new_price,
+                        bet.side.to_uppercase(),
+                        chips_str(payout - bet.stake),
+                        chips_str(bet.stake),
+                        mult_display,
+                    ),
+                    Err(e) => {
+                        eprintln!("[GAS settle] casino_adjust failed for {}: {e:?}", bet.player);
+                        format!("[GAS] {} {} wins but payout failed. Contact an admin.", bet.region, bet.side.to_uppercase())
+                    }
                 }
-                format!(
-                    "[GAS] {} {} — ${:.3}→${:.3}. {} WIN +{} ({} @ {:.2}×).",
-                    bet.region, bet.side.to_uppercase(),
-                    base_display, new_price,
-                    bet.side.to_uppercase(),
-                    chips_str(payout - bet.stake),
-                    chips_str(bet.stake),
-                    mult_display,
-                )
             } else {
                 state.api.casino_jackpot_rake(bet.stake).await;
                 format!(
@@ -391,13 +394,16 @@ pub async fn gas_settle_task(state: AzaleaState, whisper_cmd: String, bet: GasBe
             }
         }
         None => {
-            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
-                eprintln!("[GAS settle] refund failed for {}: {e:?}", bet.player);
+            match state.api.casino_adjust(&bet.player, bet.stake).await {
+                Ok(_) => format!(
+                    "[GAS] {} {} — GasBuddy unavailable at settlement. {} refunded.",
+                    bet.region, bet.side.to_uppercase(), chips_str(bet.stake),
+                ),
+                Err(e) => {
+                    eprintln!("[GAS settle] refund failed for {}: {e:?}", bet.player);
+                    format!("[GAS] {} {} — GasBuddy unavailable. Refund failed — contact an admin.", bet.region, bet.side.to_uppercase())
+                }
             }
-            format!(
-                "[GAS] {} {} — GasBuddy unavailable at settlement. {} refunded.",
-                bet.region, bet.side.to_uppercase(), chips_str(bet.stake),
-            )
         }
     };
 

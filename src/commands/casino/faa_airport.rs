@@ -133,7 +133,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
     for bet in &player_bets {
-        let payout = (bet.stake as f64 / bet.price).floor() as i64;
+        let payout = calc_payout(bet.stake, bet.price);
         ctx.whisper_success(format!(
             "[FAA] {} ({}) {} {:.2}x | {} -> {} | {}",
             bet.name, bet.airport_code,
@@ -234,7 +234,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         bets.entry(player_uuid.clone()).or_default().push(bet.clone());
     }
 
-    let payout = (stake as f64 / price).floor() as i64;
+    let payout = calc_payout(stake, price);
     ctx.whisper_success(format!(
         "[FAA] {name} ({icao}) | {flt_cat} now | {} {:.2}x | {} | profit if win: +{} | settles in 2h",
         side.to_uppercase(),
@@ -286,13 +286,16 @@ pub async fn settle_task(
     let (flt_cat, outcome_is_ifr) = match result {
         Some(ref cat) => (cat.as_str(), is_ifr(cat)),
         None => {
-            if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
-                eprintln!("[FAA settle] refund failed for {}: {e:?}", bet.player);
-            }
-            let msg = format!(
-                "[FAA] {} ({}) — METAR unavailable. {} refunded.",
-                bet.name, bet.airport_code, chips_str(bet.stake)
-            );
+            let msg = match state.api.casino_adjust(&bet.player, bet.stake).await {
+                Ok(_) => format!(
+                    "[FAA] {} ({}) — METAR unavailable. {} refunded.",
+                    bet.name, bet.airport_code, chips_str(bet.stake)
+                ),
+                Err(e) => {
+                    eprintln!("[FAA settle] refund failed for {}: {e:?}", bet.player);
+                    format!("[FAA] {} ({}) — METAR unavailable. Refund failed — contact an admin.", bet.name, bet.airport_code)
+                }
+            };
             deliver(&state, &whisper_cmd, &bet.player, msg).await;
             return;
         }
@@ -302,17 +305,20 @@ pub async fn settle_task(
 
     let msg = if won {
         let payout = calc_payout(bet.stake, bet.price);
-        if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
-            eprintln!("[FAA settle] casino_adjust failed for {}: {e:?}", bet.player);
+        match state.api.casino_adjust(&bet.player, payout).await {
+            Ok(_) => format!(
+                "[FAA] {} ({}) — {}. {} wins. WIN +{} ({} @ {:.2}x).",
+                bet.name, bet.airport_code, flt_cat,
+                bet.side.to_uppercase(),
+                chips_str(payout - bet.stake),
+                chips_str(bet.stake),
+                1.0 / bet.price,
+            ),
+            Err(e) => {
+                eprintln!("[FAA settle] casino_adjust failed for {}: {e:?}", bet.player);
+                format!("[FAA] {} ({}) — {} wins but payout failed. Contact an admin.", bet.name, bet.airport_code, bet.side.to_uppercase())
+            }
         }
-        format!(
-            "[FAA] {} ({}) — {}. {} wins. WIN +{} ({} @ {:.2}x).",
-            bet.name, bet.airport_code, flt_cat,
-            bet.side.to_uppercase(),
-            chips_str(payout - bet.stake),
-            chips_str(bet.stake),
-            1.0 / bet.price,
-        )
     } else {
         state.api.casino_jackpot_rake(bet.stake).await;
         format!(

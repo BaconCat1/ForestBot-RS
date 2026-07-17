@@ -6,7 +6,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{MIN_BET, chips_str, to_price, fmt_odds, fmt_time, sleep_until, deliver, FetchErr, check_resp};
+use super::{MIN_BET, chips_str, to_price, fmt_odds, fmt_time, calc_payout, sleep_until, deliver, FetchErr, check_resp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LaunchBetSide {
@@ -372,7 +372,7 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
         }
     }
 
-    let payout = (chips as f64 / price).floor() as i64;
+    let payout = calc_payout(chips, price);
     ctx.whisper_success(format!(
         "[ROCKET] {} {} {} — pays {} if {} | T-{} | bets lock T-2h",
         &l.name[..l.name.len().min(25)],
@@ -450,7 +450,7 @@ async fn settle(state: &AzaleaState, whisper_cmd: &str, bet: &LaunchBet, l: &Lau
     let won = determine_launch_win(bet.side, l.status_id, l.net, bet.window_start);
 
     let msg = if won {
-        let payout = (bet.stake as f64 / bet.price).floor() as i64;
+        let payout = calc_payout(bet.stake, bet.price);
         if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
             eprintln!("[Launch settle] payout failed for {}: {e:?}", bet.player);
             format!(

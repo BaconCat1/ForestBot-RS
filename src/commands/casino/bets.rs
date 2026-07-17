@@ -1,6 +1,6 @@
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 
-use super::{chips_str, fmt_time};
+use super::{chips_str, fmt_time, calc_payout};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["bets", "mybets", "eventbets"],
@@ -57,7 +57,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             let stake      = row["stake"].as_i64().unwrap_or(0);
             let price      = row["price"].as_f64().unwrap_or(1.0);
             let close_time = row["close_time"].as_u64().unwrap_or(0);
-            let payout     = (stake as f64 / price).floor() as i64;
+            let payout     = calc_payout(stake, price);
             let label      = describe_bet(bet_type, row);
             let bracket = match bet_type {
                 "launch" => "ROCKET".to_owned(),
