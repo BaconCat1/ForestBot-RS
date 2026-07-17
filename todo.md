@@ -154,7 +154,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 	* ⏸️ extend gasbuddy feature to support diesel // casino phase II
 
 ### Casino Phase II
-* ⏸️ migrate to a betting api over the current approach (requires Hub changes, deslopify-2026-07-07.md line 111)
+* ✅️ ~~migrate to a betting api over the current approach (requires Hub changes, deslopify-2026-07-07.md line 111)~~
 * ⏸️ board building whisper delay should be data driven in config.json
 * ⏸️ eSports betting (OddsPapi — oddspapi.io (or panda api... wtv), free key, 250 req/month) — CS2, LoL, Dota 2, Valorant, CoD, Rocket League, Overwatch, R6, StarCraft; match winner moneyline; reuses existing odds-market UI // casino phase II
 * ⏸️ Hurricane betting (NHC — nhc.noaa.gov, no auth, flat file/GeoJSON) — "will storm X make landfall in region Y?"; seasonal; no REST API, flat file parse required // casino phase II

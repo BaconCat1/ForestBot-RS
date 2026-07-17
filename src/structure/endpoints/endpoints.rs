@@ -1031,7 +1031,7 @@ impl ApiClient {
 
     pub async fn casino_sports_bet_insert(&self, bet: &crate::commands::casino::sports::SportsBet) -> Option<i64> {
         let v = self.post_json(
-            "/casino/sports-bet",
+            "/casino/bet/sports",
             json!({
                 "player_uuid": bet.player,
                 "event_id": bet.event_id,
@@ -1050,7 +1050,7 @@ impl ApiClient {
 
     pub async fn casino_sports_bet_list(&self) -> Vec<crate::commands::casino::sports::SportsBet> {
         use crate::commands::casino::sports::SportsBet;
-        let Some(v) = self.get_json("/casino/sports-bets", &[]).await else { return vec![]; };
+        let Some(v) = self.get_json("/casino/bets/sports", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| arr.iter().filter_map(|item| {
@@ -1070,12 +1070,12 @@ impl ApiClient {
     }
 
     pub async fn casino_sports_bet_delete(&self, id: i64) {
-        let _ = self.delete_json(&format!("/casino/sports-bet/{id}")).await;
+        let _ = self.delete_json(&format!("/casino/bet/sports/{id}")).await;
     }
 
     pub async fn casino_kalshi_bet_insert(&self, bet: &crate::commands::casino::kalshi::KalshiBet) -> Option<i64> {
         let v = self.post_json(
-            "/casino/kalshi-bet",
+            "/casino/bet/kalshi",
             json!({
                 "player_uuid": bet.player,
                 "ticker":      bet.ticker,
@@ -1092,7 +1092,7 @@ impl ApiClient {
 
     pub async fn casino_kalshi_bet_list(&self) -> Vec<crate::commands::casino::kalshi::KalshiBet> {
         use crate::commands::casino::kalshi::KalshiBet;
-        let Some(v) = self.get_json("/casino/kalshi-bets", &[]).await else { return vec![]; };
+        let Some(v) = self.get_json("/casino/bets/kalshi", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| {
@@ -1112,12 +1112,12 @@ impl ApiClient {
     }
 
     pub async fn casino_kalshi_bet_delete(&self, id: i64) {
-        let _ = self.delete_json(&format!("/casino/kalshi-bet/{id}")).await;
+        let _ = self.delete_json(&format!("/casino/bet/kalshi/{id}")).await;
     }
 
     pub async fn casino_nasa_space_weather_bet_insert(&self, bet: &crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet) -> Option<i64> {
         let v = self.post_json(
-            "/casino/nasa-space-weather-bet",
+            "/casino/bet/nasa",
             json!({
                 "player_uuid": bet.player,
                 "bet_type":    bet.bet_type,
@@ -1132,7 +1132,7 @@ impl ApiClient {
 
     pub async fn casino_nasa_space_weather_bet_list(&self) -> Vec<crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet> {
         use crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet;
-        let Some(v) = self.get_json("/casino/nasa-space-weather-bets", &[]).await else { return vec![]; };
+        let Some(v) = self.get_json("/casino/bets/nasa", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| {
@@ -1150,12 +1150,12 @@ impl ApiClient {
     }
 
     pub async fn casino_nasa_space_weather_bet_delete(&self, id: i64) {
-        let _ = self.delete_json(&format!("/casino/nasa-space-weather-bet/{id}")).await;
+        let _ = self.delete_json(&format!("/casino/bet/nasa/{id}")).await;
     }
 
     pub async fn casino_faa_airport_bet_insert(&self, bet: &crate::commands::casino::faa_airport::FaaAirportBet) -> Option<i64> {
         let v = self.post_json(
-            "/casino/faa-airport-bet",
+            "/casino/bet/faa",
             json!({
                 "player_uuid":   bet.player,
                 "airport_code":  bet.airport_code,
@@ -1172,7 +1172,7 @@ impl ApiClient {
 
     pub async fn casino_faa_airport_bet_list(&self) -> Vec<crate::commands::casino::faa_airport::FaaAirportBet> {
         use crate::commands::casino::faa_airport::FaaAirportBet;
-        let Some(v) = self.get_json("/casino/faa-airport-bets", &[]).await else { return vec![]; };
+        let Some(v) = self.get_json("/casino/bets/faa", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| {
@@ -1192,12 +1192,12 @@ impl ApiClient {
     }
 
     pub async fn casino_faa_airport_bet_delete(&self, id: i64) {
-        let _ = self.delete_json(&format!("/casino/faa-airport-bet/{id}")).await;
+        let _ = self.delete_json(&format!("/casino/bet/faa/{id}")).await;
     }
 
     pub async fn casino_noaa_flooding_bet_insert(&self, bet: &crate::commands::casino::noaa_flooding::NOAAFloodingBet) -> Option<i64> {
         let v = self.post_json(
-            "/casino/noaa-flooding-bet",
+            "/casino/bet/noaa",
             json!({
                 "player_uuid": bet.player,
                 "location":    bet.location,
@@ -1215,7 +1215,7 @@ impl ApiClient {
 
     pub async fn casino_noaa_flooding_bet_list(&self) -> Vec<crate::commands::casino::noaa_flooding::NOAAFloodingBet> {
         use crate::commands::casino::noaa_flooding::NOAAFloodingBet;
-        let Some(v) = self.get_json("/casino/noaa-flooding-bets", &[]).await else { return vec![]; };
+        let Some(v) = self.get_json("/casino/bets/noaa", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| {
@@ -1236,12 +1236,12 @@ impl ApiClient {
     }
 
     pub async fn casino_noaa_flooding_bet_delete(&self, id: i64) {
-        let _ = self.delete_json(&format!("/casino/noaa-flooding-bet/{id}")).await;
+        let _ = self.delete_json(&format!("/casino/bet/noaa/{id}")).await;
     }
 
     pub async fn casino_aqi_bet_insert(&self, bet: &crate::commands::casino::aqi::AqiBet) -> Option<i64> {
         let v = self.post_json(
-            "/casino/aqi-bet",
+            "/casino/bet/aqi",
             json!({
                 "player_uuid": bet.player,
                 "zip":         bet.zip,
@@ -1258,7 +1258,7 @@ impl ApiClient {
 
     pub async fn casino_aqi_bet_list(&self) -> Vec<crate::commands::casino::aqi::AqiBet> {
         use crate::commands::casino::aqi::AqiBet;
-        let Some(v) = self.get_json("/casino/aqi-bets", &[]).await else { return vec![]; };
+        let Some(v) = self.get_json("/casino/bets/aqi", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| {
@@ -1278,12 +1278,12 @@ impl ApiClient {
     }
 
     pub async fn casino_aqi_bet_delete(&self, id: i64) {
-        let _ = self.delete_json(&format!("/casino/aqi-bet/{id}")).await;
+        let _ = self.delete_json(&format!("/casino/bet/aqi/{id}")).await;
     }
 
     pub async fn casino_launch_bet_insert(&self, bet: &crate::commands::casino::launch::LaunchBet) -> Option<i64> {
         let v = self.post_json(
-            "/casino/launch-bet",
+            "/casino/bet/launch",
             json!({
                 "player_uuid":   bet.player,
                 "launch_id":     bet.launch_id,
@@ -1303,7 +1303,7 @@ impl ApiClient {
 
     pub async fn casino_launch_bet_list(&self) -> Vec<crate::commands::casino::launch::LaunchBet> {
         use crate::commands::casino::launch::{LaunchBet, LaunchBetSide};
-        let Some(v) = self.get_json("/casino/launch-bets", &[]).await else { return vec![]; };
+        let Some(v) = self.get_json("/casino/bets/launch", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| {
@@ -1326,12 +1326,12 @@ impl ApiClient {
     }
 
     pub async fn casino_launch_bet_delete(&self, id: i64) {
-        let _ = self.delete_json(&format!("/casino/launch-bet/{id}")).await;
+        let _ = self.delete_json(&format!("/casino/bet/launch/{id}")).await;
     }
 
     pub async fn casino_gas_bet_insert(&self, bet: &crate::commands::casino::gas::GasBet) -> Option<i64> {
         let v = self.post_json(
-            "/casino/gas-bet",
+            "/casino/bet/gas",
             json!({
                 "player_uuid": bet.player,
                 "region":      bet.region,
@@ -1349,7 +1349,7 @@ impl ApiClient {
 
     pub async fn casino_gas_bet_list(&self) -> Vec<crate::commands::casino::gas::GasBet> {
         use crate::commands::casino::gas::GasBet;
-        let Some(v) = self.get_json("/casino/gas-bets", &[]).await else { return vec![]; };
+        let Some(v) = self.get_json("/casino/bets/gas", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| {
@@ -1370,7 +1370,7 @@ impl ApiClient {
     }
 
     pub async fn casino_gas_bet_delete(&self, id: i64) {
-        let _ = self.delete_json(&format!("/casino/gas-bet/{id}")).await;
+        let _ = self.delete_json(&format!("/casino/bet/gas/{id}")).await;
     }
 
     pub async fn casino_event_bets_list(&self, player_uuid: &str) -> Vec<serde_json::Value> {
@@ -1383,7 +1383,7 @@ impl ApiClient {
 
     pub async fn casino_train_bet_insert(&self, bet: &crate::commands::casino::train::TrainBet) -> Option<i64> {
         let v = self.post_json(
-            "/casino/train-bet",
+            "/casino/bet/train",
             json!({
                 "player_uuid": bet.player,
                 "country":     bet.country,
@@ -1401,7 +1401,7 @@ impl ApiClient {
 
     pub async fn casino_train_bet_list(&self) -> Vec<crate::commands::casino::train::TrainBet> {
         use crate::commands::casino::train::TrainBet;
-        let Some(v) = self.get_json("/casino/train-bets", &[]).await else { return vec![]; };
+        let Some(v) = self.get_json("/casino/bets/train", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| {
@@ -1422,12 +1422,12 @@ impl ApiClient {
     }
 
     pub async fn casino_train_bet_delete(&self, id: i64) {
-        let _ = self.delete_json(&format!("/casino/train-bet/{id}")).await;
+        let _ = self.delete_json(&format!("/casino/bet/train/{id}")).await;
     }
 
     pub async fn casino_quake_bet_insert(&self, bet: &crate::commands::casino::seismic::QuakeBet, placed_at: u64) -> Option<i64> {
         let v = self.post_json(
-            "/casino/quake-bet",
+            "/casino/bet/quake",
             json!({
                 "player_uuid": bet.player,
                 "region_slug": bet.region_slug,
@@ -1449,7 +1449,7 @@ impl ApiClient {
 
     pub async fn casino_quake_bet_list(&self) -> Vec<crate::commands::casino::seismic::QuakeBet> {
         use crate::commands::casino::seismic::{QuakeBet, resolve_region};
-        let Some(v) = self.get_json("/casino/quake-bets", &[]).await else { return vec![]; };
+        let Some(v) = self.get_json("/casino/bets/quake", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| {
@@ -1475,12 +1475,12 @@ impl ApiClient {
     }
 
     pub async fn casino_quake_bet_delete(&self, id: i64) {
-        let _ = self.delete_json(&format!("/casino/quake-bet/{id}")).await;
+        let _ = self.delete_json(&format!("/casino/bet/quake/{id}")).await;
     }
 
     pub async fn casino_volcano_bet_insert(&self, bet: &crate::commands::casino::seismic::VolcanoBet) -> Option<i64> {
         let v = self.post_json(
-            "/casino/volcano-bet",
+            "/casino/bet/volcano",
             json!({
                 "player_uuid": bet.player,
                 "vnum":        bet.vnum,
@@ -1497,7 +1497,7 @@ impl ApiClient {
 
     pub async fn casino_volcano_bet_list(&self) -> Vec<crate::commands::casino::seismic::VolcanoBet> {
         use crate::commands::casino::seismic::VolcanoBet;
-        let Some(v) = self.get_json("/casino/volcano-bets", &[]).await else { return vec![]; };
+        let Some(v) = self.get_json("/casino/bets/volcano", &[]).await else { return vec![]; };
         v.get("bets")
             .and_then(|b| b.as_array())
             .map(|arr| {
@@ -1517,7 +1517,7 @@ impl ApiClient {
     }
 
     pub async fn casino_volcano_bet_delete(&self, id: i64) {
-        let _ = self.delete_json(&format!("/casino/volcano-bet/{id}")).await;
+        let _ = self.delete_json(&format!("/casino/bet/volcano/{id}")).await;
     }
 
     pub async fn casino_portfolio_insert(&self, pos: &crate::structure::market::types::PortfolioPosition) -> Option<i64> {
