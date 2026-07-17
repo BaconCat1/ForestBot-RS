@@ -125,7 +125,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 ## !trade
 * ✅ ~~!trade preview, let you see the proposed trade that's preventing you from making a new one, prompt people when they hit that snag~~ // `!trade preview` whispers pending trade details + next steps; propose error now hints about preview
-* 🐛 **bug**: users can propose trades to themselves, should throw an error instead.
+* ✅ ~~**bug**: users can propose trades to themselves, should throw an error instead.~~
 
 ## casino
 * ✅ casino style games, create ethereal "chips" currency to go along side them 

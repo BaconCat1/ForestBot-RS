@@ -75,6 +75,11 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         }
     };
 
+    if recipient_uuid == sender_uuid {
+        ctx.whisper("You cannot trade with yourself!");
+        return Ok(());
+    }
+
     if let Some(_s) = ctx.state.api.tradebot_get_scammer(&sender_uuid).await {
         ctx.chat(format!("🚨 {} is a known scammer, proceed with caution 🚨", ctx.sender));
     }
