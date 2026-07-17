@@ -40,7 +40,7 @@ fn jdpt(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             parts.push(format!("total playtime: {}", time::dhms(pt.playtime)));
         }
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " {}{}, {}",
             target.search,
             label,

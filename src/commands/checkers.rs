@@ -434,12 +434,12 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "" | "board" => show_board(&ctx),
             "quit" | "forfeit" => quit_game(&ctx).await?,
             "help" => {
-                ctx.whisper("!checkers <chips> — start | !checkers a1 b2 — move (or a1 c3 e5 for jumps) | !checkers board | !checkers quit");
+                ctx.whisper_success("!checkers <chips> — start | !checkers a1 b2 — move (or a1 c3 e5 for jumps) | !checkers board | !checkers quit");
             }
             _ if first.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) => {
                 let chips: i64 = match first.parse() {
                     Ok(n) => n,
-                    Err(_) => { ctx.whisper("Usage: !checkers <chips>"); return Ok(()); }
+                    Err(_) => { ctx.whisper_success("Usage: !checkers <chips>"); return Ok(()); }
                 };
                 start_game(&ctx, chips).await?;
             }
@@ -447,8 +447,8 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 let path: Result<Vec<Pos>, String> = ctx.args.iter().map(|s| parse_pos(s)).collect();
                 match path {
                     Ok(p) if p.len() >= 2 => make_move(&ctx, p).await?,
-                    Ok(_)  => ctx.whisper("Specify at least two positions, e.g. !checkers c3 d4"),
-                    Err(e) => ctx.whisper(format!("{} — usage: !checkers <from> <to> (e.g. c3 d4)", e)),
+                    Ok(_)  => ctx.whisper_success("Specify at least two positions, e.g. !checkers c3 d4"),
+                    Err(e) => ctx.whisper_error(format!("{} — usage: !checkers <from> <to> (e.g. c3 d4)", e)),
                 }
             }
         }
@@ -459,41 +459,41 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 fn show_board(ctx: &CommandContext) {
     let games = ctx.state.checkers_games.lock().expect("checkers lock");
     match games.get(ctx.sender) {
-        None => ctx.whisper("No active game. Start: !checkers <chips>"),
+        None => ctx.whisper_success("No active game. Start: !checkers <chips>"),
         Some(s) => {
             let turn_label = match s.game.current {
                 Color::Red   => "your turn (r/R)",
                 Color::Black => "bot's turn",
             };
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "Checkers vs {} — {} | Stake: {}",
                 s.opponent, turn_label, chips_str(s.stake)
             ));
-            for line in render_board(&s.game) { ctx.whisper(line); }
+            for line in render_board(&s.game) { ctx.whisper_success(line); }
         }
     }
 }
 
 async fn start_game(ctx: &CommandContext<'_>, stake: i64) -> anyhow::Result<()> {
     if stake < MIN_STAKE {
-        ctx.whisper(format!("Min stake is {}.", chips_str(MIN_STAKE)));
+        ctx.whisper_success(format!("Min stake is {}.", chips_str(MIN_STAKE)));
         return Ok(());
     }
     {
         let games = ctx.state.checkers_games.lock().expect("checkers lock");
         if games.contains_key(ctx.sender) {
-            ctx.whisper("Already in a checkers game. !checkers board / !checkers quit");
+            ctx.whisper_success("Already in a checkers game. !checkers board / !checkers quit");
             return Ok(());
         }
     }
     match ctx.state.api.casino_adjust(ctx.sender, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -510,12 +510,12 @@ async fn start_game(ctx: &CommandContext<'_>, stake: i64) -> anyhow::Result<()> 
             position_history: Vec::new(),
         });
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Checkers vs {}! You are r/R (red, bottom). Stake: {}",
         opponent, chips_str(stake)
     ));
-    for line in &board { ctx.whisper(line); }
-    ctx.whisper("Move: !checkers a1 b2 | Jump: !checkers a1 c3 | Multi-jump: !checkers a1 c3 e5 | !checkers quit");
+    for line in &board { ctx.whisper_success(line); }
+    ctx.whisper_success("Move: !checkers a1 b2 | Jump: !checkers a1 c3 | Multi-jump: !checkers a1 c3 e5 | !checkers quit");
     Ok(())
 }
 
@@ -539,7 +539,7 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
         let mut games = ctx.state.checkers_games.lock().expect("checkers lock");
         let session = match games.get_mut(ctx.sender) {
             Some(s) => s,
-            None => return { ctx.whisper("No active game. Start: !checkers <chips>"); Ok(()) },
+            None => return { ctx.whisper_success("No active game. Start: !checkers <chips>"); Ok(()) },
         };
         if session.game.current != Color::Red {
             Phase1::BadMove("Not your turn.".into())
@@ -576,20 +576,20 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
     };
 
     match p1 {
-        Phase1::BadMove(e) => ctx.whisper(e),
+        Phase1::BadMove(e) => ctx.whisper_success(e),
         Phase1::PlayerWins { stake, opponent } => {
             let bal = ctx.state.api.casino_adjust(ctx.sender, stake * 2).await.unwrap_or(0);
-            ctx.whisper(format!("{} has no moves — you WIN! +{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
+            ctx.whisper_success(format!("{} has no moves — you WIN! +{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
         }
         Phase1::Draw { stake, reason } => {
             let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
-            ctx.whisper(format!("Draw by {}. Stake returned. | Balance: {}", reason, chips_str(bal)));
+            ctx.whisper_success(format!("Draw by {}. Stake returned. | Balance: {}", reason, chips_str(bal)));
         }
         Phase1::NpcTurn { mut game, stake, difficulty, opponent, mut no_progress_ply, mut position_history } => {
             // NPC computes move without holding lock (potentially slow at Hard depth)
             let Some(npc_path) = npc_pick_move(&game, difficulty) else {
                 let bal = ctx.state.api.casino_adjust(ctx.sender, stake * 2).await.unwrap_or(0);
-                ctx.whisper(format!("{} has no moves — you WIN! +{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
+                ctx.whisper_success(format!("{} has no moves — you WIN! +{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
                 return Ok(());
             };
 
@@ -608,21 +608,21 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
                 }
             }
 
-            ctx.whisper(format!("{}: {}", opponent, fmt_path(&npc_path)));
+            ctx.whisper_success(format!("{}: {}", opponent, fmt_path(&npc_path)));
 
             if let Some(reason) = draw_reason {
                 ctx.state.checkers_games.lock().expect("checkers lock").remove(ctx.sender);
                 let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
-                ctx.whisper(format!("Draw by {}. Stake returned. | Balance: {}", reason, chips_str(bal)));
+                ctx.whisper_success(format!("Draw by {}. Stake returned. | Balance: {}", reason, chips_str(bal)));
             } else if is_game_over(&game) {
                 ctx.state.checkers_games.lock().expect("checkers lock").remove(ctx.sender);
                 ctx.state.api.casino_jackpot_rake(stake).await;
                 let bal = ctx.state.api.casino_get_balance(ctx.sender).await
                     .map(|b| b.chips).unwrap_or(0);
-                ctx.whisper(format!("You have no moves — {} wins. -{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
+                ctx.whisper_success(format!("You have no moves — {} wins. -{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
             } else {
-                for line in render_board(&game) { ctx.whisper(line); }
-                if let Some(hint) = move_hint(&game) { ctx.whisper(hint); }
+                for line in render_board(&game) { ctx.whisper_success(line); }
+                if let Some(hint) = move_hint(&game) { ctx.whisper_success(hint); }
             }
         }
     }
@@ -632,12 +632,12 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
 async fn quit_game(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let removed = ctx.state.checkers_games.lock().expect("checkers lock").remove(ctx.sender);
     match removed {
-        None => ctx.whisper("No active game."),
+        None => ctx.whisper_success("No active game."),
         Some(s) => {
             ctx.state.api.casino_jackpot_rake(s.stake).await;
             let bal = ctx.state.api.casino_get_balance(ctx.sender).await
                 .map(|b| b.chips).unwrap_or(0);
-            ctx.whisper(format!("Forfeited vs {}. -{} | Balance: {}", s.opponent, chips_str(s.stake), chips_str(bal)));
+            ctx.whisper_success(format!("Forfeited vs {}. -{} | Balance: {}", s.opponent, chips_str(s.stake), chips_str(bal)));
         }
     }
     Ok(())

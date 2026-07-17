@@ -75,6 +75,7 @@ pub struct RuntimeConfig {
     pub custom_chat_prefix: String,
     pub smart_censoring: bool,
     pub censor_threshold: String,
+    pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
     pub together_api_key: String,
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
@@ -120,6 +121,7 @@ pub struct Bot {
     pub use_live_time_query: bool,
     pub smart_censoring: bool,
     pub censor_threshold: String,
+    pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
     pub together_api_key: String,
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
@@ -176,6 +178,7 @@ impl Bot {
             use_live_time_query: state.config.use_live_time_query,
             smart_censoring: state.config.smart_censoring,
             censor_threshold: state.config.censor_threshold.clone(),
+            command_censorship: state.command_censorship.clone(),
             together_api_key: state.config.api_keys.together.clone(),
             wolfram_app_id: state.config.api_keys.wolfram.clone(),
             azure_translator_key: state.config.api_keys.azure_key.clone(),
@@ -259,6 +262,7 @@ impl Bot {
                 custom_chat_prefix: self.custom_chat_prefix.clone(),
                 smart_censoring: self.smart_censoring,
                 censor_threshold: self.censor_threshold.clone(),
+                command_censorship: self.command_censorship.clone(),
                 together_api_key: self.together_api_key.clone(),
                 wolfram_app_id: self.wolfram_app_id.clone(),
                 azure_translator_key: self.azure_translator_key.clone(),
@@ -957,6 +961,7 @@ impl Default for AzaleaState {
                 custom_chat_prefix: String::new(),
                 smart_censoring: false,
                 censor_threshold: "moderate".to_owned(),
+                command_censorship: HashMap::new(),
                 together_api_key: String::new(),
                 wolfram_app_id: String::new(),
                 azure_translator_key: String::new(),
@@ -1588,7 +1593,10 @@ async fn flush_outbound_chat(bot: &Client, state: &AzaleaState) {
         .pop_front();
 
     if let Some(message) = message {
-        let message = filter_outgoing_message(state, &message).await;
+        let message = match message.strip_prefix(crate::commands::SKIP_CENSOR_MARKER) {
+            Some(rest) => rest.to_owned(),
+            None => filter_outgoing_message(state, &message).await,
+        };
         logger::chat(format!("Sending chat reply: {message}"));
         bot.chat(message);
         tokio::time::sleep(Duration::from_millis(25)).await;

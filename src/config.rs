@@ -287,6 +287,25 @@ struct WordList {
     words: Vec<String>,
 }
 
+fn default_censor_flag() -> bool {
+    true
+}
+
+// Per-command opt-out of profanity censoring, keyed by the command's canonical (first)
+// name. `success` covers a command's normal/computed output; `error` covers messages that
+// echo back raw/unresolved player input (e.g. "no user found matching X"). Kept as two
+// separate flags rather than one, since a command's success output can be pure computed
+// data (safe to bypass) while its error path still echoes untrusted input (must stay
+// censored) -- see json/commands_censorship.json. Missing command or missing key defaults
+// to censored (true), so anything not explicitly reviewed fails safe.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandCensorship {
+    #[serde(default = "default_censor_flag")]
+    pub success: bool,
+    #[serde(default = "default_censor_flag")]
+    pub error: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OfflineMessage {
     pub sender: String,
@@ -337,6 +356,7 @@ pub struct AppState {
     pub config: Config,
     pub mc_whitelist: Vec<String>,
     pub mc_blacklist: Vec<String>,
+    pub command_censorship: HashMap<String, CommandCensorship>,
 }
 
 async fn merge_config_from_example() -> Result<()> {
@@ -443,6 +463,8 @@ impl AppState {
         let config: Config = read_json("./config.json").await?;
         let whitelist: UserList = read_json("./json/mc_whitelist.json").await?;
         let blacklist: UserList = read_json("./json/mc_blacklist.json").await?;
+        let command_censorship: HashMap<String, CommandCensorship> =
+            read_json("./json/commands_censorship.json").await?;
 
         require_env("MC_USER")?;
         require_env("MC_PASS")?;
@@ -453,6 +475,7 @@ impl AppState {
             config,
             mc_whitelist: whitelist.users,
             mc_blacklist: blacklist.users,
+            command_censorship,
         })
     }
 
@@ -465,6 +488,7 @@ impl AppState {
         self.mc_blacklist = read_json::<UserList>("./json/mc_blacklist.json")
             .await?
             .users;
+        self.command_censorship = read_json("./json/commands_censorship.json").await?;
 
         println!("Config reloaded successfully.");
         Ok(())

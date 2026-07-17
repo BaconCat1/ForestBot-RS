@@ -60,7 +60,7 @@ fn servers(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 server.clone()
             };
             if !first && current.len() + part.len() > CHAT_LIMIT {
-                ctx.chat(&current);
+                ctx.chat_success(&current);
                 current = format!(" (cont.): {part}");
             } else {
                 current.push_str(&part);
@@ -68,7 +68,7 @@ fn servers(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             first = false;
         }
         if !current.is_empty() {
-            ctx.chat(&current);
+            ctx.chat_success(&current);
         }
         Ok(())
     })

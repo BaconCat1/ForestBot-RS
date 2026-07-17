@@ -108,21 +108,21 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         };
         if stake < MIN_BET || stake > MAX_BET {
-            ctx.whisper(format!("Bet must be {MIN_BET}–{MAX_BET} chips."));
+            ctx.whisper_success(format!("Bet must be {MIN_BET}–{MAX_BET} chips."));
             return Ok(());
         }
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+            ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
         let balance = match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
             Ok(b) => b,
             Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-                ctx.whisper(format!("Not enough chips (have {}, need {}).", chips_str(have), chips_str(stake)));
+                ctx.whisper_success(format!("Not enough chips (have {}, need {}).", chips_str(have), chips_str(stake)));
                 return Ok(());
             }
             Err(CasinoAdjustErr::NetworkErr) => {
-                ctx.whisper("Casino unavailable right now.");
+                ctx.whisper_success("Casino unavailable right now.");
                 return Ok(());
             }
         };
@@ -136,14 +136,14 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Ok(b) => b,
                 Err(_) => balance + payout,
             };
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "Sic Bo [{}-{}-{}={}] {} | WIN +{} | Balance: {}",
                 dice[0], dice[1], dice[2], total,
                 label, chips_str(payout - stake), chips_str(new_balance)
             ));
         } else {
             let _ = ctx.state.api.casino_jackpot_rake(stake).await;
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "Sic Bo [{}-{}-{}={}] {} | LOSS -{} | Balance: {}",
                 dice[0], dice[1], dice[2], total,
                 label, chips_str(stake), chips_str(balance)
@@ -155,7 +155,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn show_help(ctx: &CommandContext<'_>) {
     let p = &ctx.runtime.prefix;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Sic Bo: {p}sicbo small|large|anytriple <stake> | total <4-17> <stake> | single|double|triple <1-6> <stake> | Payouts: small/large 1:1, total 4/17 60:1, triple 180:1"
     ));
 }

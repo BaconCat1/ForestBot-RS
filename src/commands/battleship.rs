@@ -343,20 +343,20 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             let chips = match arg.parse::<i64>() {
                 Ok(n) if n >= MIN_STAKE => n,
                 Ok(_) => {
-                    ctx.whisper(format!("Minimum stake: {} chips.", MIN_STAKE));
+                    ctx.whisper_success(format!("Minimum stake: {} chips.", MIN_STAKE));
                     return Ok(());
                 }
                 _ => {
-                    ctx.whisper("Usage: !bs <chips>. No active game.");
+                    ctx.whisper_success("Usage: !bs <chips>. No active game.");
                     return Ok(());
                 }
             };
             match ctx.state.api.casino_adjust(&sender, -chips).await {
                 Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-                    ctx.whisper(format!("Not enough chips (have {}).", chips_str(have)));
+                    ctx.whisper_success(format!("Not enough chips (have {}).", chips_str(have)));
                     return Ok(());
                 }
-                Err(e) => { ctx.whisper(format!("Error: {e:?}")); return Ok(()); }
+                Err(e) => { ctx.whisper_success(format!("Error: {e:?}")); return Ok(()); }
                 Ok(_) => {}
             }
             let mut rng = rand::thread_rng();
@@ -364,9 +364,9 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             let session = BattleshipSession::new(chips, choice.0, choice.1.clone());
             let board_lines = render_enemy_board(&session);
             ctx.state.battleship_games.lock().unwrap().insert(sender.clone(), session);
-            ctx.whisper(format!("Battleship vs {} | Stake: {}", choice.0, chips_str(chips)));
-            ctx.whisper("Ships placed randomly. Fire: !bs <coord> (e.g. a5, j0) | !bs own | !bs forfeit");
-            for line in board_lines { ctx.whisper(&line); }
+            ctx.whisper_success(format!("Battleship vs {} | Stake: {}", choice.0, chips_str(chips)));
+            ctx.whisper_success("Ships placed randomly. Fire: !bs <coord> (e.g. a5, j0) | !bs own | !bs forfeit");
+            for line in board_lines { ctx.whisper_success(&line); }
             return Ok(());
         }
 
@@ -376,7 +376,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     let games = ctx.state.battleship_games.lock().unwrap();
                     render_enemy_board(games.get(&sender).unwrap())
                 };
-                for line in lines { ctx.whisper(&line); }
+                for line in lines { ctx.whisper_success(&line); }
                 return Ok(());
             }
             "own" => {
@@ -384,13 +384,13 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     let games = ctx.state.battleship_games.lock().unwrap();
                     render_own_board(games.get(&sender).unwrap())
                 };
-                for line in lines { ctx.whisper(&line); }
+                for line in lines { ctx.whisper_success(&line); }
                 return Ok(());
             }
             "forfeit" | "quit" => {
                 let stake = ctx.state.battleship_games.lock().unwrap().remove(&sender).unwrap().stake;
                 ctx.state.api.casino_jackpot_rake(stake).await;
-                ctx.whisper(format!("Forfeited. {} chips to jackpot.", chips_str(stake)));
+                ctx.whisper_success(format!("Forfeited. {} chips to jackpot.", chips_str(stake)));
                 return Ok(());
             }
             _ => {}
@@ -399,7 +399,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let pos = match parse_coord(arg) {
             Some(p) => p,
             None => {
-                ctx.whisper("Invalid coord. Use e.g. !bs a5 or !bs j0.");
+                ctx.whisper_success("Invalid coord. Use e.g. !bs a5 or !bs j0.");
                 return Ok(());
             }
         };
@@ -447,25 +447,25 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         match outcome {
             Outcome::AlreadyShot => {
-                ctx.whisper("Already fired there.");
+                ctx.whisper_success("Already fired there.");
             }
             Outcome::Win { stake, opponent, player_msg, board_lines } => {
                 ctx.state.api.casino_adjust(&sender, stake * 2).await.unwrap_or(0);
-                ctx.whisper(&player_msg);
-                ctx.whisper(format!("All of {opponent}'s ships sunk! Win: {}!", chips_str(stake * 2)));
-                for line in board_lines { ctx.whisper(&line); }
+                ctx.whisper_success(&player_msg);
+                ctx.whisper_success(format!("All of {opponent}'s ships sunk! Win: {}!", chips_str(stake * 2)));
+                for line in board_lines { ctx.whisper_success(&line); }
             }
             Outcome::Lose { stake, opponent, player_msg, bot_msg, board_lines } => {
-                ctx.whisper(&player_msg);
-                ctx.whisper(&bot_msg);
+                ctx.whisper_success(&player_msg);
+                ctx.whisper_success(&bot_msg);
                 ctx.state.api.casino_jackpot_rake(stake).await;
-                ctx.whisper(format!("{opponent} sank all your ships. {} chips to jackpot.", chips_str(stake)));
-                for line in board_lines { ctx.whisper(&line); }
+                ctx.whisper_success(format!("{opponent} sank all your ships. {} chips to jackpot.", chips_str(stake)));
+                for line in board_lines { ctx.whisper_success(&line); }
             }
             Outcome::Continue { player_msg, bot_msg, board_lines } => {
-                ctx.whisper(&player_msg);
-                ctx.whisper(&bot_msg);
-                for line in board_lines { ctx.whisper(&line); }
+                ctx.whisper_success(&player_msg);
+                ctx.whisper_success(&bot_msg);
+                for line in board_lines { ctx.whisper_success(&line); }
             }
         }
 

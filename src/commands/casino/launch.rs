@@ -213,27 +213,27 @@ async fn show_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let launches = match fetch_upcoming(&ctx.state.http).await {
         Ok(l) if !l.is_empty() => l,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("Launch Library API rate limit reached. Try again later.");
+            ctx.whisper_success("Launch Library API rate limit reached. Try again later.");
             return Ok(());
         }
         _ => {
-            ctx.whisper("No upcoming Go/TBC launches found.");
+            ctx.whisper_success("No upcoming Go/TBC launches found.");
             return Ok(());
         }
     };
     let p = &ctx.runtime.prefix;
-    ctx.whisper(format!("Upcoming launches (use {p}rocket <id> for odds):"));
+    ctx.whisper_success(format!("Upcoming launches (use {p}rocket <id> for odds):"));
     for l in launches.iter().take(5) {
         let short = &l.id[..8];
         let in_ = fmt_time(l.window_start);
-        ctx.whisper(format!("[{}] {} — {} | T-{}", short, &l.name[..l.name.len().min(35)], l.lsp_name, in_));
+        ctx.whisper_success(format!("[{}] {} — {} | T-{}", short, &l.name[..l.name.len().min(35)], l.lsp_name, in_));
     }
     Ok(())
 }
 
 async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     let bets = {
@@ -241,11 +241,11 @@ async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         map.get(&player_uuid).cloned().unwrap_or_default()
     };
     if bets.is_empty() {
-        ctx.whisper("No open launch bets.");
+        ctx.whisper_success("No open launch bets.");
         return Ok(());
     }
     for b in &bets {
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[ROCKET] {} {} {} — {:.2}× | closes in {}",
             &b.launch_name[..b.launch_name.len().min(25)],
             b.side.display(),
@@ -261,11 +261,11 @@ async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<
     let l = match fetch_single(&ctx.state.http, short_id).await {
         Ok(l) => l,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("Launch Library API rate limit reached. Try again later.");
+            ctx.whisper_success("Launch Library API rate limit reached. Try again later.");
             return Ok(());
         }
         Err(_) => {
-            ctx.whisper(format!("Launch '{short_id}' not found. Use !rocket to list upcoming."));
+            ctx.whisper_error(format!("Launch '{short_id}' not found. Use !rocket to list upcoming."));
             return Ok(());
         }
     };
@@ -273,7 +273,7 @@ async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<
     let now = now_unix();
     let lock_at = l.window_start.saturating_sub(LOCK_BEFORE_SECS);
     if now >= lock_at {
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[{}] {} — bets locked (T-2h window passed).",
             &l.id[..8], l.name
         ));
@@ -285,7 +285,7 @@ async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<
     let price_ontime  = to_price(p_o);
     let p = &ctx.runtime.prefix;
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[{}] {} | {} | T-{} | Success: {} | On-time: {} | {p}rocket {} success|ontime <chips> | Min: {}",
         &l.id[..8],
         &l.name[..l.name.len().min(30)],
@@ -302,23 +302,23 @@ async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<
 async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide, chips_str_arg: &str) -> anyhow::Result<()> {
     let chips = match chips_str_arg.parse::<i64>() {
         Ok(n) if n >= MIN_BET => n,
-        Ok(_) => { ctx.whisper(format!("Min bet: {} chips.", MIN_BET)); return Ok(()); }
-        Err(_) => { ctx.whisper(format!("Usage: !rocket <id> success|ontime <chips>")); return Ok(()); }
+        Ok(_) => { ctx.whisper_success(format!("Min bet: {} chips.", MIN_BET)); return Ok(()); }
+        Err(_) => { ctx.whisper_success(format!("Usage: !rocket <id> success|ontime <chips>")); return Ok(()); }
     };
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
 
     let l = match fetch_single(&ctx.state.http, short_id).await {
         Ok(l) => l,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("Launch Library API rate limit reached. Try again later.");
+            ctx.whisper_success("Launch Library API rate limit reached. Try again later.");
             return Ok(());
         }
         Err(_) => {
-            ctx.whisper(format!("Launch '{short_id}' not found."));
+            ctx.whisper_error(format!("Launch '{short_id}' not found."));
             return Ok(());
         }
     };
@@ -326,7 +326,7 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
     let now = now_unix();
     let lock_at = l.window_start.saturating_sub(LOCK_BEFORE_SECS);
     if now >= lock_at {
-        ctx.whisper("Bets locked (within 2h of launch window).");
+        ctx.whisper_success("Bets locked (within 2h of launch window).");
         return Ok(());
     }
 
@@ -338,10 +338,10 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
 
     match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Not enough chips (have {}).", chips_str(have)));
+            ctx.whisper_success(format!("Not enough chips (have {}).", chips_str(have)));
             return Ok(());
         }
-        Err(e) => { ctx.whisper(format!("Error: {e:?}")); return Ok(()); }
+        Err(e) => { ctx.whisper_success(format!("Error: {e:?}")); return Ok(()); }
         Ok(_) => {}
     }
 
@@ -364,16 +364,16 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, chips).await {
                 eprintln!("[Launch] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to record bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to record bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to record bet. Chips refunded.");
+                ctx.whisper_success("Failed to record bet. Chips refunded.");
             }
             return Ok(());
         }
     }
 
     let payout = (chips as f64 / price).floor() as i64;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[ROCKET] {} {} {} — pays {} if {} | T-{} | bets lock T-2h",
         &l.name[..l.name.len().min(25)],
         side.display(),

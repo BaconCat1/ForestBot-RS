@@ -53,7 +53,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             })
             .unwrap_or_default();
 
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             "Health: {health:.1}/20 | Hunger: {food}/20 (sat: {sat:.1}) | Armor: {armor:.0}{effects_str}",
             food = hunger.food,
             sat = hunger.saturation,

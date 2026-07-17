@@ -165,7 +165,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let key = ctx.runtime.airnow_api_key.trim().to_owned();
         if key.is_empty() {
-            ctx.whisper("AQI betting is not configured (missing airnow_api_key).");
+            ctx.whisper_success("AQI betting is not configured (missing airnow_api_key).");
             return Ok(());
         }
 
@@ -173,7 +173,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         match subcmd.as_str() {
             "" => {
                 let p = &ctx.runtime.prefix;
-                ctx.whisper(format!(
+                ctx.whisper_success(format!(
                     "AQI bets (24h): {p}aqi <zip> | {p}aqi <zip> good|unhealthy <chips> | {p}aqi bets"
                 ));
             }
@@ -186,7 +186,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     let bets = {
@@ -194,11 +194,11 @@ async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         map.get(&player_uuid).cloned().unwrap_or_default()
     };
     if bets.is_empty() {
-        ctx.whisper("No open AQI bets.");
+        ctx.whisper_success("No open AQI bets.");
         return Ok(());
     }
     for b in &bets {
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[AQI] {} {} {} — {:.2}× payout on {} | closes in {}",
             b.zip, b.side.to_uppercase(),
             chips_str(b.stake),
@@ -216,7 +216,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     let chips_str_arg = ctx.args.get(2).copied().unwrap_or("");
 
     if zip.is_empty() {
-        ctx.whisper(format!("Usage: {}aqi <zip> [good|unhealthy] [chips]", ctx.runtime.prefix));
+        ctx.whisper_success(format!("Usage: {}aqi <zip> [good|unhealthy] [chips]", ctx.runtime.prefix));
         return Ok(());
     }
 
@@ -230,16 +230,16 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     let forecast_readings = match forecast_result {
         Ok(r) => r,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("AirNow API rate limit reached. Try again later.");
+            ctx.whisper_success("AirNow API rate limit reached. Try again later.");
             return Ok(());
         }
         Err(_) => {
-            ctx.whisper(format!("AirNow returned no forecast for zip {zip}. Check the zip code."));
+            ctx.whisper_error(format!("AirNow returned no forecast for zip {zip}. Check the zip code."));
             return Ok(());
         }
     };
     let Some(forecast_worst) = worst(&forecast_readings) else {
-        ctx.whisper("No forecast data available.");
+        ctx.whisper_success("No forecast data available.");
         return Ok(());
     };
 
@@ -258,7 +258,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
 
     let forecast_str = format!("{} {} ({})", forecast_worst.parameter, forecast_worst.aqi, forecast_worst.cat_name);
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[AQI: {zip} / {area}] Now: {current_str} | Tomorrow forecast: {forecast_str} | \
          Good(≤50): {} | Unhealthy(>100): {}",
         fmt_odds(price_good),
@@ -271,7 +271,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
         "good"      => price_good,
         "unhealthy" => price_unhealthy,
         _ => {
-            ctx.whisper("Side must be 'good' or 'unhealthy'.");
+            ctx.whisper_success("Side must be 'good' or 'unhealthy'.");
             return Ok(());
         }
     };
@@ -279,24 +279,24 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     let chips = match chips_str_arg.parse::<i64>() {
         Ok(n) if n >= MIN_BET => n,
         Ok(_) => {
-            ctx.whisper(format!("Minimum bet: {} chips.", MIN_BET));
+            ctx.whisper_success(format!("Minimum bet: {} chips.", MIN_BET));
             return Ok(());
         }
         Err(_) => return Ok(()), // no chips = preview only
     };
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
 
     // Deduct chips
     match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Not enough chips (have {}).", chips_str(have)));
+            ctx.whisper_success(format!("Not enough chips (have {}).", chips_str(have)));
             return Ok(());
         }
-        Err(e) => { ctx.whisper(format!("Error: {e:?}")); return Ok(()); }
+        Err(e) => { ctx.whisper_success(format!("Error: {e:?}")); return Ok(()); }
         Ok(_) => {}
     }
 
@@ -318,16 +318,16 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, chips).await {
                 eprintln!("[AQI] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to record bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to record bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to record bet. Chips refunded.");
+                ctx.whisper_success("Failed to record bet. Chips refunded.");
             }
             return Ok(());
         }
     }
 
     let payout = (chips as f64 / price).floor() as i64;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[AQI] Bet placed: {} {} {} — pays {} if {} AQI ≤50 tomorrow | closes in 24h",
         zip,
         side.to_uppercase(),

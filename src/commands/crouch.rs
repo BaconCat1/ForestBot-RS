@@ -39,7 +39,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         if is_hold {
             HOLD_ACTIVE.store(true, Ordering::Relaxed);
             ctx.bot.set_crouching(true);
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "Crouching for up to 10 minutes. Run {}crouch to release.",
                 ctx.runtime.prefix
             ));

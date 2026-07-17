@@ -42,12 +42,12 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 match session {
                     Some((stake, player_color, position, opponent_name, _)) => {
                         show_board(&ctx, &position, player_color);
-                        ctx.whisper(format!(
+                        ctx.whisper_success(format!(
                             "Chess: You ({}) vs {} | Stake: {} | !chess <from> <to> or !chess quit",
                             color_name(player_color), opponent_name, chips_str(stake)
                         ));
                     }
-                    None => ctx.whisper("No active chess game. Start: !chess white|black <stake>"),
+                    None => ctx.whisper_success("No active chess game. Start: !chess white|black <stake>"),
                 }
                 Ok(())
             }
@@ -62,7 +62,7 @@ async fn execute_new_game(ctx: &CommandContext<'_>, color_str: &str) -> anyhow::
     {
         let sessions = ctx.state.casino_sessions.lock().expect("lock");
         if let Some(s) = sessions.get(ctx.sender) {
-            ctx.whisper(format!("Already in a {} game. Finish it first.", session_label(s)));
+            ctx.whisper_success(format!("Already in a {} game. Finish it first.", session_label(s)));
             return Ok(());
         }
     }
@@ -72,23 +72,23 @@ async fn execute_new_game(ctx: &CommandContext<'_>, color_str: &str) -> anyhow::
     let stake: i64 = match stake_str.parse() {
         Ok(n) => n,
         Err(_) => {
-            ctx.whisper("Usage: !chess white|black <stake>");
+            ctx.whisper_success("Usage: !chess white|black <stake>");
             return Ok(());
         }
     };
     if stake < MIN_STAKE || stake > MAX_STAKE {
-        ctx.whisper(format!("Stake must be {}-{}.", chips_str(MIN_STAKE), chips_str(MAX_STAKE)));
+        ctx.whisper_success(format!("Stake must be {}-{}.", chips_str(MIN_STAKE), chips_str(MAX_STAKE)));
         return Ok(());
     }
 
     match ctx.state.api.casino_adjust(ctx.sender, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -105,7 +105,7 @@ async fn execute_new_game(ctx: &CommandContext<'_>, color_str: &str) -> anyhow::
             ai_depth,
         });
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Chess: You ({}) vs {} | Stake: {} | !chess <from> <to>",
         color_name(player_color), opponent_name, chips_str(stake)
     ));
@@ -114,7 +114,7 @@ async fn execute_new_game(ctx: &CommandContext<'_>, color_str: &str) -> anyhow::
     if player_color == Color::Black {
         execute_bot_turn(ctx, position, stake, player_color, opponent_name, ai_depth).await?;
     } else {
-        ctx.whisper("Your move! e.g. !chess e2 e4");
+        ctx.whisper_success("Your move! e.g. !chess e2 e4");
     }
 
     Ok(())
@@ -128,25 +128,25 @@ async fn execute_move(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
                 (*bet, *player_color, (**position).clone(), *opponent_name, *ai_depth)
             }
             Some(s) => {
-                ctx.whisper(format!("In a {} game, not chess.", session_label(s)));
+                ctx.whisper_success(format!("In a {} game, not chess.", session_label(s)));
                 return Ok(());
             }
             None => {
-                ctx.whisper("No active chess game. Start: !chess white|black <stake>");
+                ctx.whisper_success("No active chess game. Start: !chess white|black <stake>");
                 return Ok(());
             }
         }
     };
 
     if position.turn() != player_color {
-        ctx.whisper("Not your turn.");
+        ctx.whisper_success("Not your turn.");
         return Ok(());
     }
 
     let from  = ctx.args.first().copied().unwrap_or("").to_ascii_lowercase();
     let to    = ctx.args.get(1).copied().unwrap_or("").to_ascii_lowercase();
     if from.is_empty() || to.is_empty() {
-        ctx.whisper("Usage: !chess <from> <to> [promo]. E.g. !chess e2 e4 or !chess e7 e8 q");
+        ctx.whisper_success("Usage: !chess <from> <to> [promo]. E.g. !chess e2 e4 or !chess e7 e8 q");
         return Ok(());
     }
     let promo   = ctx.args.get(2).copied().unwrap_or("").to_ascii_lowercase();
@@ -155,14 +155,14 @@ async fn execute_move(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let uci: UciMove = match uci_str.parse() {
         Ok(u) => u,
         Err(_) => {
-            ctx.whisper(format!("Invalid move: {}. Example: !chess e2 e4", uci_str));
+            ctx.whisper_error(format!("Invalid move: {}. Example: !chess e2 e4", uci_str));
             return Ok(());
         }
     };
     let player_move = match uci.to_move(&position) {
         Ok(m) => m,
         Err(_) => {
-            ctx.whisper(format!("Illegal move: {}. Type !chess for board.", uci_str));
+            ctx.whisper_error(format!("Illegal move: {}. Type !chess for board.", uci_str));
             return Ok(());
         }
     };
@@ -181,12 +181,12 @@ async fn execute_move(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
         show_board(ctx, &pos_after, player_color);
         let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
-        ctx.whisper(format!("You played {}. Draw by 50-move rule. Stake returned. Balance: {}", move_str, chips_str(bal)));
+        ctx.whisper_success(format!("You played {}. Draw by 50-move rule. Stake returned. Balance: {}", move_str, chips_str(bal)));
         return Ok(());
     }
 
     let check = if !pos_after.checkers().is_empty() { " (check!)" } else { "" };
-    ctx.whisper(format!("You played {}{} | {} thinking...", move_str, check, opponent_name));
+    ctx.whisper_success(format!("You played {}{} | {} thinking...", move_str, check, opponent_name));
     execute_bot_turn(ctx, pos_after, stake, player_color, opponent_name, ai_depth).await
 }
 
@@ -208,7 +208,7 @@ async fn execute_bot_turn(
     let Some(bot_move) = bot_move else {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
         let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
-        ctx.whisper(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
+        ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
         return Ok(());
     };
 
@@ -226,7 +226,7 @@ async fn execute_bot_turn(
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
         show_board(ctx, &pos_after, player_color);
         let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
-        ctx.whisper(format!("{} played {}. Draw by 50-move rule. Stake returned. Balance: {}", opponent_name, bot_move_str, chips_str(bal)));
+        ctx.whisper_success(format!("{} played {}. Draw by 50-move rule. Stake returned. Balance: {}", opponent_name, bot_move_str, chips_str(bal)));
         return Ok(());
     }
 
@@ -241,7 +241,7 @@ async fn execute_bot_turn(
 
     let check = if !pos_after.checkers().is_empty() { " — CHECK!" } else { "" };
     show_board(ctx, &pos_after, player_color);
-    ctx.whisper(format!("{} played {}{} | !chess <from> <to>", opponent_name, bot_move_str, check));
+    ctx.whisper_success(format!("{} played {}{} | !chess <from> <to>", opponent_name, bot_move_str, check));
     Ok(())
 }
 
@@ -256,16 +256,16 @@ async fn finish_game(
     match outcome {
         Outcome::Decisive { winner } if winner == player_color => {
             let bal = ctx.state.api.casino_adjust(ctx.sender, stake * 2).await.unwrap_or(0);
-            ctx.whisper(format!("{}Checkmate! You WIN! +{} | Balance: {}", prefix, chips_str(stake), chips_str(bal)));
+            ctx.whisper_success(format!("{}Checkmate! You WIN! +{} | Balance: {}", prefix, chips_str(stake), chips_str(bal)));
         }
         Outcome::Decisive { .. } => {
             ctx.state.api.casino_jackpot_rake(stake).await;
             let bal = ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0);
-            ctx.whisper(format!("{}Checkmate! {} wins. -{} | Balance: {}", prefix, opponent_name, chips_str(stake), chips_str(bal)));
+            ctx.whisper_success(format!("{}Checkmate! {} wins. -{} | Balance: {}", prefix, opponent_name, chips_str(stake), chips_str(bal)));
         }
         Outcome::Draw => {
             let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
-            ctx.whisper(format!("{}Draw! Stake returned. Balance: {}", prefix, chips_str(bal)));
+            ctx.whisper_success(format!("{}Draw! Stake returned. Balance: {}", prefix, chips_str(bal)));
         }
     }
     Ok(())
@@ -277,11 +277,11 @@ async fn execute_quit(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         match sessions.get(ctx.sender) {
             Some(CasinoSession::Chess { bet, opponent_name, .. }) => (*bet, *opponent_name),
             Some(s) => {
-                ctx.whisper(format!("In a {} game, not chess.", session_label(s)));
+                ctx.whisper_success(format!("In a {} game, not chess.", session_label(s)));
                 return Ok(());
             }
             None => {
-                ctx.whisper("No active chess game.");
+                ctx.whisper_success("No active chess game.");
                 return Ok(());
             }
         }
@@ -289,14 +289,14 @@ async fn execute_quit(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
     ctx.state.api.casino_jackpot_rake(stake).await;
     let bal = ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0);
-    ctx.whisper(format!("Forfeited vs {}. -{} | Balance: {}", opponent_name, chips_str(stake), chips_str(bal)));
+    ctx.whisper_success(format!("Forfeited vs {}. -{} | Balance: {}", opponent_name, chips_str(stake), chips_str(bal)));
     Ok(())
 }
 
 fn show_board(ctx: &CommandContext<'_>, pos: &ChessPos, player_color: Color) {
     let board = pos.board();
     // Math Bold Small a-h (U+1D41A-1D421) = 4px, matches chess piece width
-    ctx.whisper(if player_color == Color::White {
+    ctx.whisper_success(if player_color == Color::White {
         "# \u{1D41A} \u{1D41B} \u{1D41C} \u{1D41D} \u{1D41E} \u{1D41F} \u{1D420} \u{1D421}"
     } else {
         "# \u{1D421} \u{1D420} \u{1D41F} \u{1D41E} \u{1D41D} \u{1D41C} \u{1D41B} \u{1D41A}"
@@ -314,7 +314,7 @@ fn show_board(ctx: &CommandContext<'_>, pos: &ChessPos, player_color: Color) {
                 None => line.push('\u{25A2}'), // ▢ unifont 3.5px, matches King/Queen/Rook/Bishop
             }
         }
-        ctx.whisper(line);
+        ctx.whisper_success(line);
     }
 }
 

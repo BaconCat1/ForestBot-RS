@@ -31,7 +31,7 @@ fn winrate(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         }
         let winrate = (kd.kills as f64 / total as f64) * 100.0;
         let deathrate = (kd.deaths as f64 / total as f64) * 100.0;
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " {search}: Win Rate: {winrate:.1}% | Death Rate: {deathrate:.1}% ({}K / {}D)",
             kd.kills, kd.deaths
         ));

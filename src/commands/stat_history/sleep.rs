@@ -23,7 +23,7 @@ fn sleep(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 data: 0,
             });
             BOT_SLEEPING.store(false, Ordering::Relaxed);
-            ctx.whisper(" Good morning!");
+            ctx.whisper_success(" Good morning!");
             return Ok(());
         }
 
@@ -31,7 +31,7 @@ fn sleep(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let bed_pos = ctx.bot.world().read().find_block(ctx.bot.position(), &bed_states);
 
         let Some(bed_pos) = bed_pos else {
-            ctx.whisper(" I couldn't find a bed :(");
+            ctx.whisper_success(" I couldn't find a bed :(");
             return Ok(());
         };
 
@@ -52,7 +52,7 @@ fn sleep(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         });
         BOT_SLEEPING.store(true, Ordering::Relaxed);
 
-        ctx.whisper(" goodnight zzz");
+        ctx.whisper_success(" goodnight zzz");
         Ok(())
     })
 }

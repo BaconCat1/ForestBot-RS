@@ -80,17 +80,17 @@ fn eval_spin(bet_type: &str, selection: &str, spin: u8) -> Result<(bool, i64, &'
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         if ctx.args.len() < 3 {
-            ctx.whisper(USAGE);
+            ctx.whisper_success(USAGE);
             return Ok(());
         }
 
         let bet_str = ctx.args[ctx.args.len() - 1];
         let Ok(bet) = bet_str.parse::<i64>() else {
-            ctx.whisper("Bet must be a number.");
+            ctx.whisper_success("Bet must be a number.");
             return Ok(());
         };
         if bet < MIN_BET || bet > MAX_BET {
-            ctx.whisper(format!("Bet must be {MIN_BET}–{MAX_BET} chips."));
+            ctx.whisper_success(format!("Bet must be {MIN_BET}–{MAX_BET} chips."));
             return Ok(());
         }
 
@@ -102,22 +102,22 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         let (wins, multiplier, label) = match eval_spin(&bet_type, &selection, spin) {
             Ok(outcome) => outcome,
-            Err(msg) => { ctx.whisper(msg); return Ok(()); }
+            Err(msg) => { ctx.whisper_success(msg); return Ok(()); }
         };
 
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+            ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
 
         let balance = match ctx.state.api.casino_adjust(&player_uuid, -bet).await {
             Ok(b) => b,
             Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-                ctx.whisper(format!("Not enough chips (have {}, need {}).", chips_str(have), chips_str(bet)));
+                ctx.whisper_success(format!("Not enough chips (have {}, need {}).", chips_str(have), chips_str(bet)));
                 return Ok(());
             }
             Err(CasinoAdjustErr::NetworkErr) => {
-                ctx.whisper("Casino unavailable right now.");
+                ctx.whisper_success("Casino unavailable right now.");
                 return Ok(());
             }
         };
@@ -128,13 +128,13 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Ok(b) => b,
                 Err(_) => balance + total_return,
             };
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "Roulette: {} {color_str} | {label} — Win! +{} | Balance: {}",
                 spin, chips_str(total_return - bet), chips_str(new_balance),
             ));
         } else {
             ctx.state.api.casino_jackpot_rake(bet).await;
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "Roulette: {} {color_str} | {label} — Lost {} | Balance: {}",
                 spin, chips_str(bet), chips_str(balance),
             ));

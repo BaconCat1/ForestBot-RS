@@ -52,7 +52,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         };
 
         let server_label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " {}{} has joined the server {} times",
             target.search, server_label, data.join_count
         ));

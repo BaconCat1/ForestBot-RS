@@ -172,7 +172,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 // ── show_categories ───────────────────────────────────────────────────────────
 
 async fn show_categories(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Kalshi: sports, crypto, politics, economics, entertainment, tech, climate, finance, elections, health | {}kalshi <category>",
         ctx.runtime.prefix
     ));
@@ -207,23 +207,23 @@ async fn load_markets(ctx: &CommandContext<'_>, category: &str) -> Result<Vec<Ka
 async fn show_markets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let kw = ctx.args.first().copied().unwrap_or("").to_lowercase();
     let Some(category) = map_category(&kw) else {
-        ctx.whisper("Unknown category. Try: sports, crypto, politics, economics, entertainment, tech, climate, finance, elections, health");
+        ctx.whisper_success("Unknown category. Try: sports, crypto, politics, economics, entertainment, tech, climate, finance, elections, health");
         return Ok(());
     };
 
     let markets = match load_markets(ctx, category).await {
         Ok(m) => m,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("Kalshi API rate limit reached. Try again later.");
+            ctx.whisper_success("Kalshi API rate limit reached. Try again later.");
             return Ok(());
         }
         Err(_) => {
-            ctx.whisper(format!("No open markets for {kw} right now."));
+            ctx.whisper_success(format!("No open markets for {kw} right now."));
             return Ok(());
         }
     };
     if markets.is_empty() {
-        ctx.whisper(format!("No open markets for {kw} right now."));
+        ctx.whisper_success(format!("No open markets for {kw} right now."));
         return Ok(());
     }
 
@@ -232,8 +232,8 @@ async fn show_markets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         format!("#{} {} YES {:.2}x NO {:.2}x {}", i + 1, title, 1.0 / m.yes_ask, 1.0 / m.no_ask, fmt_close(m.close_time))
     }).collect();
 
-    ctx.whisper(lines.join(" | "));
-    ctx.whisper(format!("Bet: {}kalshi <#> yes|no <chips>", ctx.runtime.prefix));
+    ctx.whisper_success(lines.join(" | "));
+    ctx.whisper_success(format!("Bet: {}kalshi <#> yes|no <chips>", ctx.runtime.prefix));
     Ok(())
 }
 
@@ -243,25 +243,25 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let (Some(&idx_s), Some(&side_s), Some(&amt_s)) =
         (ctx.args.first(), ctx.args.get(1), ctx.args.get(2))
     else {
-        ctx.whisper(format!("Usage: {}kalshi <#> yes|no <chips>", ctx.runtime.prefix));
+        ctx.whisper_success(format!("Usage: {}kalshi <#> yes|no <chips>", ctx.runtime.prefix));
         return Ok(());
     };
 
     let Ok(idx) = idx_s.parse::<usize>().map(|n| n.saturating_sub(1)) else {
-        ctx.whisper("Market number must be a positive integer.");
+        ctx.whisper_success("Market number must be a positive integer.");
         return Ok(());
     };
     let side = side_s.to_lowercase();
     if side != "yes" && side != "no" {
-        ctx.whisper("Side must be yes or no.");
+        ctx.whisper_success("Side must be yes or no.");
         return Ok(());
     }
     let Ok(stake) = amt_s.parse::<i64>() else {
-        ctx.whisper("Chip amount must be a number.");
+        ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
     if stake < MIN_BET {
-        ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
 
@@ -270,34 +270,34 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         cache.markets.get(idx).cloned()
     };
     let Some(market) = market else {
-        ctx.whisper("Market not found. Run !kalshi <category> first.");
+        ctx.whisper_success("Market not found. Run !kalshi <category> first.");
         return Ok(());
     };
 
     let now = now_unix();
     if market.close_time > 0 && now >= market.close_time {
-        ctx.whisper("That market is already closed.");
+        ctx.whisper_success("That market is already closed.");
         return Ok(());
     }
 
     let price = if side == "yes" { market.yes_ask } else { market.no_ask };
     if price < 0.01 {
-        ctx.whisper("No liquidity on that side right now.");
+        ctx.whisper_success("No liquidity on that side right now.");
         return Ok(());
     }
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -318,9 +318,9 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
                 eprintln!("[Kalshi] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to save bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to save bet. Chips refunded.");
+                ctx.whisper_success("Failed to save bet. Chips refunded.");
             }
             return Ok(());
         }
@@ -332,7 +332,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let payout = (stake as f64 / price).floor() as i64;
     let profit = payout - stake;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[Kalshi] {} | {} {:.2}x | {} | profit if win: +{}",
         market.title,
         side.to_uppercase(),
@@ -350,18 +350,18 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     let all_bets = ctx.state.api.casino_kalshi_bet_list().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
-        ctx.whisper("No open Kalshi bets.");
+        ctx.whisper_success("No open Kalshi bets.");
         return Ok(());
     }
     for bet in &player_bets {
         let payout = (bet.stake as f64 / bet.price).floor() as i64;
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Kalshi] {} | {} {:.2}x | {} -> {} | {}",
             bet.title,
             bet.side.to_uppercase(),

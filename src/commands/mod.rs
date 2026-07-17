@@ -70,7 +70,18 @@ pub struct CommandContext<'a> {
     pub sender: &'a str,
     pub args: Vec<&'a str>,
     pub reply_as_whisper: bool,
+    // Canonical (first-alias) command name, e.g. "lastseen" even if invoked as "!ls".
+    // Used to look up json/commands_censorship.json for whisper_success/whisper_error.
+    pub command_name: &'a str,
 }
+
+// Leading sentinel on a queued message meaning "skip the profanity censor for this
+// one" -- stripped in flush_outbound_chat before the message is sent. Reserved for
+// bot-generated deterministic numeric output (portfolio/bet reports) where rustrict's
+// leetspeak/number normalization produces false-positive severe matches on ticker
+// symbols + dollar amounts. Never use this for anything that echoes player-submitted
+// text (e.g. !quote) -- that still needs real censoring.
+pub const SKIP_CENSOR_MARKER: char = '\u{1}';
 
 impl CommandContext<'_> {
     pub fn chat(&self, message: impl AsRef<str>) {
@@ -93,6 +104,88 @@ impl CommandContext<'_> {
             message.as_ref()
         ));
     }
+
+    /// Same as `whisper`, but skips profanity censoring unconditionally. Prefer
+    /// `whisper_success`/`whisper_error` below, which decide this per-command via
+    /// json/commands_censorship.json instead of hardcoding the bypass at the call site.
+    /// Builds the whisper text directly rather than going through `chat`/
+    /// `route_chat_message`, since the marker prefix would break that path's `/`-prefix
+    /// check.
+    pub fn whisper_uncensored(&self, message: impl AsRef<str>) {
+        enqueue_chat(
+            self.state,
+            format!(
+                "{SKIP_CENSOR_MARKER}/{} {} {}",
+                self.runtime.whisper_command,
+                self.sender,
+                message.as_ref()
+            ),
+        );
+    }
+
+    /// Same as `chat`, but skips profanity censoring unconditionally. See
+    /// `whisper_uncensored`'s note -- prefer `chat_success`/`chat_error`.
+    pub fn chat_uncensored(&self, message: impl AsRef<str>) {
+        let routed = route_chat_message(
+            message.as_ref(),
+            self.reply_as_whisper,
+            &self.runtime.whisper_command,
+            self.sender,
+        );
+        enqueue_chat(self.state, format!("{SKIP_CENSOR_MARKER}{routed}"));
+    }
+
+    // Looks up json/commands_censorship.json for this command's canonical name.
+    // Missing command or missing key defaults to censored (true) -- anything not
+    // explicitly reviewed fails safe.
+    fn censored(&self, success_path: bool) -> bool {
+        self.runtime
+            .command_censorship
+            .get(self.command_name)
+            .map(|c| if success_path { c.success } else { c.error })
+            .unwrap_or(true)
+    }
+
+    /// For a command's normal/computed output (stats, prices, game results). Censored
+    /// unless json/commands_censorship.json explicitly marks this command's `success`
+    /// path as bypassed.
+    pub fn whisper_success(&self, message: impl AsRef<str>) {
+        if self.censored(true) {
+            self.whisper(message);
+        } else {
+            self.whisper_uncensored(message);
+        }
+    }
+
+    /// For messages that echo back raw/unresolved player input (e.g. "no user found
+    /// matching X"). Censored unless json/commands_censorship.json explicitly marks
+    /// this command's `error` path as bypassed -- almost never should be, since this is
+    /// exactly the content class the censor exists for.
+    pub fn whisper_error(&self, message: impl AsRef<str>) {
+        if self.censored(false) {
+            self.whisper(message);
+        } else {
+            self.whisper_uncensored(message);
+        }
+    }
+
+    /// `chat` counterpart to `whisper_success`.
+    pub fn chat_success(&self, message: impl AsRef<str>) {
+        if self.censored(true) {
+            self.chat(message);
+        } else {
+            self.chat_uncensored(message);
+        }
+    }
+
+    /// `chat` counterpart to `whisper_error`.
+    pub fn chat_error(&self, message: impl AsRef<str>) {
+        if self.censored(false) {
+            self.chat(message);
+        } else {
+            self.chat_uncensored(message);
+        }
+    }
 }
 
 pub fn enqueue_chat(state: &AzaleaState, message: impl AsRef<str>) {
@@ -100,13 +193,16 @@ pub fn enqueue_chat(state: &AzaleaState, message: impl AsRef<str>) {
 
     // Record outgoing whispers so the chat handler can recognize the server echoing
     // one back and suppress it, instead of misreading it as the target speaking.
+    // Strip the censor-skip marker first, if present, so this detection still works
+    // for whisper_uncensored's output.
     let whisper_command = state
         .runtime
         .read()
         .expect("runtime config lock poisoned")
         .whisper_command
         .clone();
-    if let Some(rest) = message.strip_prefix(&format!("/{whisper_command} ")) {
+    let for_whisper_check = message.strip_prefix(SKIP_CENSOR_MARKER).unwrap_or(&message);
+    if let Some(rest) = for_whisper_check.strip_prefix(&format!("/{whisper_command} ")) {
         if let Some((target, content)) = rest.split_once(' ') {
             state
                 .recent_whispers

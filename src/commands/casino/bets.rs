@@ -12,7 +12,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+            ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
 
@@ -46,11 +46,11 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         let total = db_rows.len() + gas_bets.len() + weather_bets.len();
         if total == 0 {
-            ctx.whisper("No open event bets.");
+            ctx.whisper_success("No open event bets.");
             return Ok(());
         }
 
-        ctx.whisper(format!("{} open event bet{}:", total, if total == 1 { "" } else { "s" }));
+        ctx.whisper_success(format!("{} open event bet{}:", total, if total == 1 { "" } else { "s" }));
 
         for row in &db_rows {
             let bet_type   = row["bet_type"].as_str().unwrap_or("?");
@@ -64,14 +64,14 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 "nasa"   => "SPACEWX".to_owned(),
                 other    => other.to_uppercase(),
             };
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "[{}] {} {} → pays {} | T-{}",
                 bracket, label, chips_str(stake), chips_str(payout),
                 fmt_time(close_time),
             ));
         }
-        for line in gas_bets { ctx.whisper(line); }
-        for line in weather_bets { ctx.whisper(line); }
+        for line in gas_bets { ctx.whisper_success(line); }
+        for line in weather_bets { ctx.whisper_success(line); }
 
         Ok(())
     })

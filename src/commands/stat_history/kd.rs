@@ -22,7 +22,7 @@ fn kd(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         };
         let ratio = data.kills as f64 / data.deaths as f64;
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " {}{}: Kills: {} Deaths: {} KD: {:.2}",
             target.search, label, data.kills, data.deaths, ratio
         ));

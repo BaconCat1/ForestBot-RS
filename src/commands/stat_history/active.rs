@@ -1,4 +1,4 @@
-use super::helpers::{epoch_ms_from_string, now_millis, whisper, ONE_DAY_MS};
+use super::helpers::{epoch_ms_from_string, now_millis, ONE_DAY_MS};
 use crate::commands::{CommandContext, CommandFuture};
 use futures_util::stream::{self, StreamExt};
 use std::collections::{HashMap, HashSet};
@@ -34,7 +34,7 @@ fn active(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         }
 
-        whisper(&ctx, " Computing active players, this may take a moment...");
+        ctx.whisper_success(" Computing active players, this may take a moment...");
         let users = ctx
             .state
             .api
@@ -109,7 +109,7 @@ fn active_cached(server: &str, now: u64) -> Option<Vec<ActiveRow>> {
 
 fn send_active_rows(ctx: &CommandContext<'_>, rows: &[ActiveRow]) {
     if rows.is_empty() {
-        whisper(ctx, " No players found active in the last 24 hours.");
+        ctx.whisper_success(" No players found active in the last 24 hours.");
         return;
     }
     let formatted = rows
@@ -117,5 +117,5 @@ fn send_active_rows(ctx: &CommandContext<'_>, rows: &[ActiveRow]) {
         .map(|row| format!("{}: {}", row.username, row.count))
         .collect::<Vec<_>>()
         .join(", ");
-    ctx.chat(format!(" [ACTIVE 24h]: {formatted}"));
+    ctx.chat_success(format!(" [ACTIVE 24h]: {formatted}"));
 }

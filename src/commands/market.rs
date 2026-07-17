@@ -40,8 +40,8 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 let period = ctx.args.get(2).copied().unwrap_or("7d");
                 let days = period_to_days(period).unwrap_or(7);
                 match ctx.state.market_service.history(sym, days).await {
-                    Ok(candles) => ctx.whisper(format_history(sym, period, &candles)),
-                    Err(e) => ctx.whisper(format!("No market data for {}: {}", sym, e)),
+                    Ok(candles) => ctx.whisper_success(format_history(sym, period, &candles)),
+                    Err(e) => ctx.whisper_error(format!("No market data for {}: {}", sym, e)),
                 }
             }
             "search" => {
@@ -57,7 +57,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                             .map(|a| format!("{} ({})", a.symbol, a.name))
                             .collect::<Vec<_>>()
                             .join(" | ");
-                        ctx.whisper(line);
+                        ctx.whisper_success(line);
                     }
                     Err(_) => ctx.whisper("Search unavailable."),
                 }
@@ -84,7 +84,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "portfolio" | "port" => {
                 let target = ctx.args.get(1).copied().unwrap_or(ctx.sender);
                 let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
-                    ctx.whisper(format!("Could not resolve UUID for {}.", target));
+                    ctx.whisper_error(format!("Could not resolve UUID for {}.", target));
                     return Ok(());
                 };
                 show_portfolio(&ctx, &player_uuid).await?;
@@ -94,12 +94,12 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 match ctx.state.market_service.quote(sym).await {
                     Ok(q) => {
                         let sign = if q.change_pct >= 0.0 { "+" } else { "" };
-                        ctx.whisper(format!(
+                        ctx.whisper_success(format!(
                             "{}: {} ({}{:.2}%) | {}",
                             q.symbol, fmt_price(q.price), sign, q.change_pct, q.name
                         ));
                     }
-                    Err(e) => ctx.whisper(format!("No market data for {}: {}", sym, e)),
+                    Err(e) => ctx.whisper_error(format!("No market data for {}: {}", sym, e)),
                 }
             }
         }
@@ -147,7 +147,7 @@ async fn place_bet(ctx: &CommandContext<'_>, long: bool) -> anyhow::Result<()> {
     let quote = match ctx.state.market_service.quote(&sym).await {
         Ok(q) => q,
         Err(_) => {
-            ctx.whisper(format!("No market data for {} — bet not placed.", sym));
+            ctx.whisper_error(format!("No market data for {} — bet not placed.", sym));
             return Ok(());
         }
     };
@@ -196,7 +196,7 @@ async fn place_bet(ctx: &CommandContext<'_>, long: bool) -> anyhow::Result<()> {
         bets.entry(player_uuid.clone()).or_default().push(bet.clone());
     }
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "{} {} @{} | {} chips | settles in {} | !market bets to check",
         direction.label(), sym, fmt_price(quote.price), chips_str(stake), dur_str
     ));
@@ -243,7 +243,7 @@ async fn cashout(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let exit_price = match ctx.state.market_service.quote(&bet.symbol).await {
         Ok(q) => q.price,
         Err(_) => {
-            ctx.whisper(format!("Market data unavailable for {} — try again.", bet.symbol));
+            ctx.whisper_error(format!("Market data unavailable for {} — try again.", bet.symbol));
             return Ok(());
         }
     };
@@ -274,7 +274,7 @@ async fn cashout(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ("LOSS", format!("-{}", chips_str(net.abs())))
     };
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Cashed out {} {} | {} | {}→{} ({}{:.2}%) | {}",
         bet.direction.label(), bet.symbol, result_str,
         fmt_price(bet.entry_price), fmt_price(exit_price), sign, pct, net_str
@@ -373,7 +373,7 @@ fn portfolio_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
-            ctx.whisper(format!("Could not resolve UUID for {}.", target));
+            ctx.whisper_error(format!("Could not resolve UUID for {}.", target));
             return Ok(());
         };
         show_portfolio(&ctx, &player_uuid).await
@@ -405,7 +405,7 @@ async fn portfolio_buy(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         let positions = ctx.state.portfolio_positions.lock().expect("portfolio lock");
         if let Some(v) = positions.get(&player_uuid) {
             if v.iter().any(|p| p.symbol == sym) {
-                ctx.whisper(format!("Already have a {} position. Use !market sell {} to close it first.", sym, sym));
+                ctx.whisper_error(format!("Already have a {} position. Use !market sell {} to close it first.", sym, sym));
                 return Ok(());
             }
         }
@@ -413,7 +413,7 @@ async fn portfolio_buy(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let quote = match ctx.state.market_service.quote(&sym).await {
         Ok(q) => q,
-        Err(_) => { ctx.whisper(format!("No market data for {} — position not opened.", sym)); return Ok(()); }
+        Err(_) => { ctx.whisper_error(format!("No market data for {} — position not opened.", sym)); return Ok(()); }
     };
 
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
@@ -448,7 +448,7 @@ async fn portfolio_buy(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         positions.entry(player_uuid.clone()).or_default().push(pos.clone());
     }
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Opened {} position @{} | {} chips invested | use !market sell {} to close",
         sym, fmt_price(quote.price), chips_str(stake), sym
     ));
@@ -481,12 +481,12 @@ async fn portfolio_sell(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let pos = match pos {
         Some(p) => p,
-        None => { ctx.whisper(format!("No {} position in portfolio.", sym)); return Ok(()); }
+        None => { ctx.whisper_error(format!("No {} position in portfolio.", sym)); return Ok(()); }
     };
 
     let exit_price = match ctx.state.market_service.quote(&sym).await {
         Ok(q) => q.price,
-        Err(_) => { ctx.whisper(format!("Market data unavailable for {} — try again.", sym)); return Ok(()); }
+        Err(_) => { ctx.whisper_error(format!("Market data unavailable for {} — try again.", sym)); return Ok(()); }
     };
 
     let payout = (pos.stake as f64 * exit_price / pos.entry_price).ceil() as i64;
@@ -515,7 +515,7 @@ async fn portfolio_sell(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ("LOSS", format!("-{}", chips_str(net.abs())))
     };
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Closed {} | {} | {}→{} ({}{:.2}%) | {}",
         sym, result_str,
         fmt_price(pos.entry_price), fmt_price(exit_price), sign, pct, net_str
@@ -579,7 +579,7 @@ async fn portfolio_sell_all(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         String::new()
     };
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Closed {} positions | Returned: {} | Net: {}{}",
         positions.len(), chips_str(total_payout), net_str, caveat
     ));
@@ -614,7 +614,7 @@ async fn show_portfolio(ctx: &CommandContext<'_>, player_uuid: &str) -> anyhow::
                 let sign = if pct >= 0.0 { "+" } else { "" };
                 let net = value - pos.stake;
                 let net_str = if net >= 0 { format!("+{}", chips_str(net)) } else { format!("-{}", chips_str(net.abs())) };
-                ctx.whisper(format!(
+                ctx.whisper_success(format!(
                     "{}. {} @{} → {} ({}{:.2}%) | {} → {} chips | {}",
                     i + 1, pos.symbol,
                     fmt_price(pos.entry_price), fmt_price(q.price), sign, pct,
@@ -623,7 +623,7 @@ async fn show_portfolio(ctx: &CommandContext<'_>, player_uuid: &str) -> anyhow::
             }
             Err(_) => {
                 total_value += pos.stake;
-                ctx.whisper(format!(
+                ctx.whisper_success(format!(
                     "{}. {} @{} | {} chips | (price unavailable)",
                     i + 1, pos.symbol, fmt_price(pos.entry_price), chips_str(pos.stake)
                 ));
@@ -643,7 +643,7 @@ async fn show_portfolio(ctx: &CommandContext<'_>, player_uuid: &str) -> anyhow::
     } else {
         String::new()
     };
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Total: {} positions | Invested: {} | Value: {} | Net: {}{}",
         positions.len(), chips_str(total_invested), chips_str(total_value), net_str, bets_suffix
     ));
@@ -667,7 +667,7 @@ fn show_bets(ctx: &CommandContext, player_uuid: &str) {
     let now = now_unix();
     for (i, b) in player_bets.iter().enumerate() {
         let remaining = b.closes_unix.saturating_sub(now);
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "{}. {} {} @{} | {} | closes in {}",
             i + 1, b.direction.label(), b.symbol,
             fmt_price(b.entry_price), chips_str(b.stake),

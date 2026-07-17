@@ -20,7 +20,7 @@ fn joindate(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         };
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " {}{}, joined on: {}",
             target.search,
             label,

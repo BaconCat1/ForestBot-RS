@@ -323,7 +323,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let args = ctx.args.clone();
 
         if args.is_empty() {
-            ctx.whisper("Usage: !reversi <chips> | !reversi <a1> | !reversi board | !reversi quit");
+            ctx.whisper_success("Usage: !reversi <chips> | !reversi <a1> | !reversi board | !reversi quit");
             return Ok(());
         }
 
@@ -333,13 +333,13 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "board" => {
                 let games = ctx.state.reversi_games.lock().unwrap();
                 match games.get(&sender) {
-                    None => { ctx.whisper("No active reversi game."); }
+                    None => { ctx.whisper_success("No active reversi game."); }
                     Some(sess) => {
                         let legal = gen_moves(&sess.cells, 1);
                         let lines = render_board(&sess.cells, &legal);
                         let (ps, cs) = score(&sess.cells);
-                        ctx.whisper(format!("Reversi vs {} | you \u{25D5} / bot \u{25A3} / \u{25CC} legal | You: {} Bot: {}", sess.opponent, ps, cs));
-                        for line in lines { ctx.whisper(line); }
+                        ctx.whisper_success(format!("Reversi vs {} | you \u{25D5} / bot \u{25A3} / \u{25CC} legal | You: {} Bot: {}", sess.opponent, ps, cs));
+                        for line in lines { ctx.whisper_success(line); }
                     }
                 }
             }
@@ -353,7 +353,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 // Try parse as chip amount → start game
                 match first.parse::<i64>() {
                     Ok(stake) => { start_game(&ctx, &sender, stake).await?; }
-                    Err(_) => { ctx.whisper("Usage: !reversi <chips> | !reversi <a1> | !reversi board | !reversi quit"); }
+                    Err(_) => { ctx.whisper_success("Usage: !reversi <chips> | !reversi <a1> | !reversi board | !reversi quit"); }
                 }
             }
         }
@@ -366,23 +366,23 @@ async fn start_game(ctx: &CommandContext<'_>, sender: &str, stake: i64) -> anyho
     {
         let games = ctx.state.reversi_games.lock().unwrap();
         if games.contains_key(sender) {
-            ctx.whisper("Already have active reversi game. !reversi quit to forfeit.");
+            ctx.whisper_success("Already have active reversi game. !reversi quit to forfeit.");
             return Ok(());
         }
     }
 
     if stake < MIN_STAKE {
-        ctx.whisper(format!("Min stake: {}", chips_str(MIN_STAKE)));
+        ctx.whisper_success(format!("Min stake: {}", chips_str(MIN_STAKE)));
         return Ok(());
     }
 
     match ctx.state.api.casino_adjust(sender, -stake).await {
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(e) => {
-            ctx.whisper(format!("Error: {:?}", e));
+            ctx.whisper_success(format!("Error: {:?}", e));
             return Ok(());
         }
         Ok(_) => {}
@@ -408,16 +408,16 @@ async fn start_game(ctx: &CommandContext<'_>, sender: &str, stake: i64) -> anyho
     }
 
     let board_lines = render_board(&cells, &legal);
-    ctx.whisper(format!("Reversi vs {} | stake {} | you=\u{25D5} bot=\u{25A3} \u{25CC}=legal", opp_name, chips_str(stake)));
-    for line in board_lines { ctx.whisper(line); }
-    ctx.whisper("Your move. Format: !reversi a1");
+    ctx.whisper_success(format!("Reversi vs {} | stake {} | you=\u{25D5} bot=\u{25A3} \u{25CC}=legal", opp_name, chips_str(stake)));
+    for line in board_lines { ctx.whisper_success(line); }
+    ctx.whisper_success("Your move. Format: !reversi a1");
 
     Ok(())
 }
 
 async fn make_move(ctx: &CommandContext<'_>, sender: &str, pos_str: &str) -> anyhow::Result<()> {
     let pos = match parse_pos(pos_str) {
-        None => { ctx.whisper("Invalid position. Use a1-h8."); return Ok(()); }
+        None => { ctx.whisper_success("Invalid position. Use a1-h8."); return Ok(()); }
         Some(p) => p,
     };
 
@@ -425,17 +425,17 @@ async fn make_move(ctx: &CommandContext<'_>, sender: &str, pos_str: &str) -> any
     let (mut cells, stake, diff, opponent) = {
         let mut games = ctx.state.reversi_games.lock().unwrap();
         let sess = match games.get_mut(sender) {
-            None => { ctx.whisper("No active reversi game. Start with !reversi <chips>."); return Ok(()); }
+            None => { ctx.whisper_success("No active reversi game. Start with !reversi <chips>."); return Ok(()); }
             Some(s) => s,
         };
 
         let legal = gen_moves(&sess.cells, 1);
         if !legal.contains(&pos) {
-            ctx.whisper(format!("{} is not a legal move.", pos_str));
+            ctx.whisper_success(format!("{} is not a legal move.", pos_str));
             let (ps, cs) = score(&sess.cells);
             let lines = render_board(&sess.cells, &legal);
-            ctx.whisper(format!("You: {} Bot: {}", ps, cs));
-            for line in lines { ctx.whisper(line); }
+            ctx.whisper_success(format!("You: {} Bot: {}", ps, cs));
+            for line in lines { ctx.whisper_success(line); }
             return Ok(());
         }
 
@@ -465,20 +465,20 @@ async fn make_move(ctx: &CommandContext<'_>, sender: &str, pos_str: &str) -> any
     }
 
     // Show board
-    for msg in &cpu_msgs { ctx.whisper(msg); }
+    for msg in &cpu_msgs { ctx.whisper_success(msg); }
     if turn_result.skipped_cpu {
-        ctx.whisper("Bot has no legal moves. Your turn again.");
+        ctx.whisper_success("Bot has no legal moves. Your turn again.");
     }
 
     let legal = gen_moves(&cells, 1);
     let (ps, cs) = score(&cells);
     let lines = render_board(&cells, &legal);
-    ctx.whisper(format!("You: {} Bot: {}", ps, cs));
-    for line in lines { ctx.whisper(line); }
+    ctx.whisper_success(format!("You: {} Bot: {}", ps, cs));
+    for line in lines { ctx.whisper_success(line); }
 
     if legal.is_empty() {
         // Shouldn't reach here (handled in run_cpu_turns) but guard anyway
-        ctx.whisper("No legal moves. Game ending.");
+        ctx.whisper_success("No legal moves. Game ending.");
     }
 
     Ok(())
@@ -495,28 +495,28 @@ async fn finish_game(
 ) -> anyhow::Result<()> {
     ctx.state.reversi_games.lock().unwrap().remove(sender);
 
-    for msg in cpu_msgs { ctx.whisper(msg); }
+    for msg in cpu_msgs { ctx.whisper_success(msg); }
 
     let legal_empty: Vec<u8> = Vec::new();
     let lines = render_board(cells, &legal_empty);
     let (ps, cs) = score(cells);
-    for line in lines { ctx.whisper(line); }
-    ctx.whisper(format!("Final score — You: {} Bot: {}", ps, cs));
+    for line in lines { ctx.whisper_success(line); }
+    ctx.whisper_success(format!("Final score — You: {} Bot: {}", ps, cs));
 
     match result {
         GameResult::PlayerWins => {
             let payout = stake * 2;
             let bal = ctx.state.api.casino_adjust(sender, payout).await.unwrap_or(0);
-            ctx.whisper(format!("You beat {}! +{} | Balance: {}", opponent, chips_str(payout), chips_str(bal)));
+            ctx.whisper_success(format!("You beat {}! +{} | Balance: {}", opponent, chips_str(payout), chips_str(bal)));
         }
         GameResult::CpuWins => {
             ctx.state.api.casino_jackpot_rake(stake).await;
             let bal = ctx.state.api.casino_get_balance(sender).await.map(|b| b.chips).unwrap_or(0);
-            ctx.whisper(format!("{} wins. -{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
+            ctx.whisper_success(format!("{} wins. -{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
         }
         GameResult::Draw => {
             let bal = ctx.state.api.casino_adjust(sender, stake).await.unwrap_or(0);
-            ctx.whisper(format!("Draw! Stake returned. | Balance: {}", chips_str(bal)));
+            ctx.whisper_success(format!("Draw! Stake returned. | Balance: {}", chips_str(bal)));
         }
         GameResult::InProgress => {}
     }
@@ -531,11 +531,11 @@ async fn quit_game(ctx: &CommandContext<'_>, sender: &str, reason: &str) -> anyh
     };
 
     match sess {
-        None => { ctx.whisper("No active reversi game."); }
+        None => { ctx.whisper_success("No active reversi game."); }
         Some(s) => {
             ctx.state.api.casino_jackpot_rake(s.stake).await;
             let bal = ctx.state.api.casino_get_balance(sender).await.map(|b| b.chips).unwrap_or(0);
-            ctx.whisper(format!("{} — lost {}. Stake to jackpot. | Balance: {}", reason, chips_str(s.stake), chips_str(bal)));
+            ctx.whisper_success(format!("{} — lost {}. Stake to jackpot. | Balance: {}", reason, chips_str(s.stake), chips_str(bal)));
         }
     }
 

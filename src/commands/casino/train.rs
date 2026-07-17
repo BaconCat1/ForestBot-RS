@@ -119,7 +119,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "debug" => {
                 let allowed = !ctx.runtime.use_whitelist
                     || ctx.runtime.user_whitelist.iter().any(|u| u.eq_ignore_ascii_case(ctx.sender));
-                if !allowed { ctx.whisper("Whitelist only."); return Ok(()); }
+                if !allowed { ctx.whisper_success("Whitelist only."); return Ok(()); }
                 gtfs_debug(&ctx, ctx.args.get(1).copied().unwrap_or("")).await?;
             }
             "list" => {
@@ -145,7 +145,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 async fn gtfs_debug(ctx: &CommandContext<'_>, slug: &str) -> anyhow::Result<()> {
     use prost::Message as _;
     let Some(agency) = gtfs_rt::resolve_agency(slug) else {
-        ctx.whisper(format!("Unknown agency '{slug}'."));
+        ctx.whisper_error(format!("Unknown agency '{slug}'."));
         return Ok(());
     };
     let client = reqwest::Client::new();
@@ -155,19 +155,19 @@ async fn gtfs_debug(ctx: &CommandContext<'_>, slug: &str) -> anyhow::Result<()> 
         .send()
         .await;
     let Ok(resp) = resp else {
-        ctx.whisper(format!("HTTP request failed: {:?}", resp.unwrap_err()));
+        ctx.whisper_success(format!("HTTP request failed: {:?}", resp.unwrap_err()));
         return Ok(());
     };
     let status = resp.status().as_u16();
     let bytes = resp.bytes().await;
     let Ok(bytes) = bytes else {
-        ctx.whisper(format!("HTTP {status}, body read failed."));
+        ctx.whisper_success(format!("HTTP {status}, body read failed."));
         return Ok(());
     };
     let byte_len = bytes.len();
     let feed = gtfs_rt::FeedMessage::decode(bytes);
     let Ok(feed) = feed else {
-        ctx.whisper(format!("HTTP {status}, {byte_len}B, prost decode FAILED: {:?}", feed.unwrap_err()));
+        ctx.whisper_success(format!("HTTP {status}, {byte_len}B, prost decode FAILED: {:?}", feed.unwrap_err()));
         return Ok(());
     };
     let entity_count = feed.entity.len();
@@ -183,7 +183,7 @@ async fn gtfs_debug(ctx: &CommandContext<'_>, slug: &str) -> anyhow::Result<()> 
             .and_then(|e| e.time);
         format!("route={route} stus={stus} first_t={first_t:?}")
     }).unwrap_or_else(|| "no trip_updates".to_owned());
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[debug] {status} {byte_len}B | entities={entity_count} with_tu={with_tu} | first_entity: {first_entity} | first_tu: {first_tu}",
     ));
     Ok(())
@@ -191,7 +191,7 @@ async fn gtfs_debug(ctx: &CommandContext<'_>, slug: &str) -> anyhow::Result<()> 
 
 fn show_usage(ctx: &CommandContext<'_>) {
     let p = &ctx.runtime.prefix;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Train delay bets: {p}train list <country|agency> | {p}train <country> <code> ontime|delayed [chips] | {p}train <agency> <route> ontime|delayed [chips] | {p}train bets | Omit chips for odds preview | Countries: us de fr be ch fi nl no at se it es pl cz my | Agencies: mbta mta mta-ace mta-bdfm mta-nqrw mta-l mta-g mta-jz lirr metro-north"
     ));
 }
@@ -200,7 +200,7 @@ fn show_usage(ctx: &CommandContext<'_>) {
 
 async fn show_trains(ctx: &CommandContext<'_>, country_raw: &str) -> anyhow::Result<()> {
     let Some(country) = normalize_country(country_raw) else {
-        ctx.whisper(format!(
+        ctx.whisper_error(format!(
             "Unknown '{country_raw}'. Countries: us de fr be ch fi nl no at se it es pl cz my | Agencies: mbta mta mta-ace mta-bdfm mta-nqrw mta-l mta-g mta-jz lirr metro-north"
         ));
         return Ok(());
@@ -209,16 +209,16 @@ async fn show_trains(ctx: &CommandContext<'_>, country_raw: &str) -> anyhow::Res
     let trains = match fetch_trains(&client, country).await {
         Ok(t) => t,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("Trains API rate limit reached. Try again later.");
+            ctx.whisper_success("Trains API rate limit reached. Try again later.");
             return Ok(());
         }
         Err(_) => {
-            ctx.whisper(format!("Could not fetch trains for {country}."));
+            ctx.whisper_success(format!("Could not fetch trains for {country}."));
             return Ok(());
         }
     };
     if trains.is_empty() {
-        ctx.whisper(format!("No running trains in {country} feed right now."));
+        ctx.whisper_success(format!("No running trains in {country} feed right now."));
         return Ok(());
     }
     let items: Vec<String> = trains.iter().take(8).filter_map(|t| {
@@ -227,7 +227,7 @@ async fn show_trains(ctx: &CommandContext<'_>, country_raw: &str) -> anyhow::Res
         let d_str = if delay > 0 { format!("+{}m", delay) } else { "ontime".to_owned() };
         Some(format!("{code} {d_str}"))
     }).collect();
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[{country}] {} | {}train <country> <code> ontime|delayed <chips>",
         items.join(" | "),
         ctx.runtime.prefix,
@@ -243,13 +243,13 @@ async fn gtfs_show_trains(
 ) -> anyhow::Result<()> {
     let client = reqwest::Client::new();
     let Some(trips) = gtfs_rt::fetch_trip_updates(&client, agency.tu_url).await else {
-        ctx.whisper(format!("Could not fetch {} feed.", agency.display));
+        ctx.whisper_success(format!("Could not fetch {} feed.", agency.display));
         return Ok(());
     };
     let now = now_unix();
     let by_route = gtfs_rt::rail_trips_by_route(&trips, agency.slug, now);
     if by_route.is_empty() {
-        ctx.whisper(format!("No upcoming {} rail departures.", agency.display));
+        ctx.whisper_success(format!("No upcoming {} rail departures.", agency.display));
         return Ok(());
     }
     let mut entries: Vec<_> = by_route.into_iter().collect();
@@ -263,7 +263,7 @@ async fn gtfs_show_trains(
         };
         format!("{route} {mins}m {d_str}")
     }).collect();
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[{}] {} | {}train {} <route> ontime|delayed [chips]",
         agency.display,
         items.join(" | "),
@@ -281,7 +281,7 @@ async fn gtfs_place_bet(
 ) -> anyhow::Result<()> {
     // args: <agency_slug> <route...> ontime|delayed [chips]
     if ctx.args.len() < 3 {
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "Usage: {}train {} <route> ontime|delayed [chips]",
             ctx.runtime.prefix, agency.slug
         ));
@@ -293,7 +293,7 @@ async fn gtfs_place_bet(
         (ctx.args[ctx.args.len() - 1], None, ctx.args[1..ctx.args.len() - 1].join(" "))
     } else {
         if ctx.args.len() < 4 {
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "Usage: {}train {} <route> ontime|delayed [chips]",
                 ctx.runtime.prefix, agency.slug
             ));
@@ -308,18 +308,18 @@ async fn gtfs_place_bet(
 
     let side = side_s.to_lowercase();
     if side != "ontime" && side != "delayed" {
-        ctx.whisper("Side must be ontime or delayed.");
+        ctx.whisper_success("Side must be ontime or delayed.");
         return Ok(());
     }
 
     let client = reqwest::Client::new();
     let Some(trips) = gtfs_rt::fetch_trip_updates(&client, agency.tu_url).await else {
-        ctx.whisper(format!("Could not fetch {} feed.", agency.display));
+        ctx.whisper_success(format!("Could not fetch {} feed.", agency.display));
         return Ok(());
     };
     let now = now_unix();
     let Some(snap) = gtfs_rt::find_next_predeparture(&trips, agency.slug, &route_s, now) else {
-        ctx.whisper(format!(
+        ctx.whisper_error(format!(
             "No upcoming pre-departure trips found for route '{}' in {} feed.",
             route_s, agency.display
         ));
@@ -338,7 +338,7 @@ async fn gtfs_place_bet(
     let train_name = format!("{} {}", agency.display, route_s);
 
     if preview {
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Train] {} | departs {}m | {} | ontime {:.2}x | delayed {:.2}x | {} {:.2}x selected",
             train_name,
             departs_in_mins,
@@ -353,26 +353,26 @@ async fn gtfs_place_bet(
 
     let amt_s = amt_s.unwrap();
     let Ok(stake) = amt_s.parse::<i64>() else {
-        ctx.whisper("Chip amount must be a number.");
+        ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
     if stake < MIN_BET {
-        ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -396,9 +396,9 @@ async fn gtfs_place_bet(
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
                 eprintln!("[Train] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to save bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to save bet. Chips refunded.");
+                ctx.whisper_success("Failed to save bet. Chips refunded.");
             }
             return Ok(());
         }
@@ -410,7 +410,7 @@ async fn gtfs_place_bet(
 
     let payout = (stake as f64 / price).floor() as i64;
     let settles_in = if close_time > now { (close_time - now + 59) / 60 } else { 0 };
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[Train] {} | {} | departs {}m | {} {:.2}x | {} | profit if win: +{} | settles in ~{}m",
         train_name,
         delay_str,
@@ -431,18 +431,18 @@ async fn gtfs_place_bet(
 
 async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     let all_bets = ctx.state.api.casino_train_bet_list().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
-        ctx.whisper("No open train bets.");
+        ctx.whisper_success("No open train bets.");
         return Ok(());
     }
     for bet in &player_bets {
         let payout = (bet.stake as f64 / bet.price).floor() as i64;
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Train] {} ({}) {} {:.2}x | {} -> {} | {}",
             bet.train_name,
             bet.train_code,
@@ -474,14 +474,14 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     };
 
     let Some(country) = normalize_country(country_s) else {
-        ctx.whisper(format!(
+        ctx.whisper_error(format!(
             "Unknown '{country_s}'. Countries: us de fr be ch fi nl no at se it es pl cz my | Agencies: mbta mta mta-ace mta-bdfm mta-nqrw mta-l mta-g mta-jz lirr metro-north"
         ));
         return Ok(());
     };
     let side = side_s.to_lowercase();
     if side != "ontime" && side != "delayed" {
-        ctx.whisper("Side must be ontime or delayed.");
+        ctx.whisper_success("Side must be ontime or delayed.");
         return Ok(());
     }
 
@@ -489,11 +489,11 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let trains = match fetch_trains(&client, country).await {
         Ok(t) => t,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("Trains API rate limit reached. Try again later.");
+            ctx.whisper_success("Trains API rate limit reached. Try again later.");
             return Ok(());
         }
         Err(_) => {
-            ctx.whisper(format!("Could not fetch trains for {country}."));
+            ctx.whisper_success(format!("Could not fetch trains for {country}."));
             return Ok(());
         }
     };
@@ -502,7 +502,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             .map(|c| c.eq_ignore_ascii_case(&code_s))
             .unwrap_or(false)
     }) else {
-        ctx.whisper(format!("Train '{code_s}' not found in {country} realtime feed."));
+        ctx.whisper_error(format!("Train '{code_s}' not found in {country} realtime feed."));
         return Ok(());
     };
 
@@ -515,7 +515,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     if preview {
         let delay_str = if current_delay > 0 { format!("+{}m now", current_delay) } else { "on time now".to_owned() };
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Train] {train_name} ({train_code}) | {delay_str} | ontime {:.2}x | delayed {:.2}x | {} {:.2}x selected",
             1.0 / ontime_price, 1.0 / delayed_price, side.to_uppercase(), 1.0 / price,
         ));
@@ -524,26 +524,26 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let amt_s = amt_s.unwrap();
     let Ok(stake) = amt_s.parse::<i64>() else {
-        ctx.whisper("Chip amount must be a number.");
+        ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
     if stake < MIN_BET {
-        ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -571,9 +571,9 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
                 eprintln!("[Train] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to save bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to save bet. Chips refunded.");
+                ctx.whisper_success("Failed to save bet. Chips refunded.");
             }
             return Ok(());
         }
@@ -584,7 +584,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     let payout = (stake as f64 / price).floor() as i64;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[Train] {train_name} ({train_code}) | {delay_str} | {} {:.2}x | {} | profit if win: +{} | settles in 2h",
         side.to_uppercase(),
         1.0 / price,

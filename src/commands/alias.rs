@@ -17,7 +17,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         };
         match crate::commands::find(name) {
             None => ctx.whisper(format!(" Unknown command: {name}")),
-            Some(def) => ctx.chat(format!(" {name} aliases: {}", def.names.join(", "))),
+            Some(def) => ctx.chat_success(format!(" {name} aliases: {}", def.names.join(", "))),
         }
         Ok(())
     })

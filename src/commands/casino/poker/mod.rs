@@ -64,7 +64,7 @@ async fn execute_new_session(ctx: &CommandContext<'_>, stake_str: &str) -> anyho
         let sessions = ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned");
         if let Some(s) = sessions.get(ctx.sender) {
             let which = session_label(s);
-            ctx.whisper(format!("Already in a {which} game. Finish it first."));
+            ctx.whisper_success(format!("Already in a {which} game. Finish it first."));
             return Ok(());
         }
     }
@@ -72,24 +72,24 @@ async fn execute_new_session(ctx: &CommandContext<'_>, stake_str: &str) -> anyho
     let stake: i64 = match stake_str.parse() {
         Ok(n) => n,
         Err(_) => {
-            ctx.whisper("Usage: !poker <stake> | deal/call/check/fold/raise/allin/quit");
+            ctx.whisper_success("Usage: !poker <stake> | deal/call/check/fold/raise/allin/quit");
             return Ok(());
         }
     };
 
     if stake < MIN_STAKE || stake > MAX_STAKE {
-        ctx.whisper(format!("Stake must be between {} and {}.", chips_str(MIN_STAKE), chips_str(MAX_STAKE)));
+        ctx.whisper_success(format!("Stake must be between {} and {}.", chips_str(MIN_STAKE), chips_str(MAX_STAKE)));
         return Ok(());
     }
 
     match ctx.state.api.casino_adjust(ctx.sender, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -98,7 +98,7 @@ async fn execute_new_session(ctx: &CommandContext<'_>, stake_str: &str) -> anyho
     let mut game = GameState::new((stake / 2) as u32);
     let bot = RuleBasedBot::new(aggression);
 
-    ctx.whisper(format!("Poker vs {}! Stake: {}.", opponent_name, chips_str(stake)));
+    ctx.whisper_success(format!("Poker vs {}! Stake: {}.", opponent_name, chips_str(stake)));
 
     let (bot_events, last_pot) = run_bot_turns(&mut game, &bot, opponent_name);
 
@@ -122,12 +122,12 @@ async fn execute_deal(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     };
 
     if !matches!(game.phase, GamePhase::HandComplete | GamePhase::Showdown) {
-        ctx.whisper("Hand still in progress. !pk fold/call/check/raise/allin to play.");
+        ctx.whisper_success("Hand still in progress. !pk fold/call/check/raise/allin to play.");
         return Ok(());
     }
 
     if game.player_stack == 0 || game.bot_stack == 0 {
-        ctx.whisper("Session over. Start a new one with !poker <stake>.");
+        ctx.whisper_success("Session over. Start a new one with !poker <stake>.");
         return Ok(());
     }
 
@@ -157,9 +157,9 @@ async fn execute_action(ctx: &CommandContext<'_>, subcmd: &str) -> anyhow::Resul
 
     if !game.is_player_turn() {
         if matches!(game.phase, GamePhase::HandComplete | GamePhase::Showdown) {
-            ctx.whisper("Hand over. !pk deal for next hand or !pk quit.");
+            ctx.whisper_success("Hand over. !pk deal for next hand or !pk quit.");
         } else {
-            ctx.whisper("Not your turn.");
+            ctx.whisper_success("Not your turn.");
         }
         return Ok(());
     }
@@ -210,7 +210,7 @@ async fn execute_status(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         Some(CasinoSession::Poker { opponent_name, game, .. }) => {
             let g: &GameState = game;
             let is_player_turn = g.is_player_turn();
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "[H{}] vs {} | You: {} | {}: {} | Pot: {} | Stack: {}",
                 g.hand_number, opponent_name,
                 cards_str(&g.player_cards),
@@ -219,19 +219,19 @@ async fn execute_status(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             ));
             drop(sessions);
             if is_player_turn {
-                ctx.whisper("!pk fold/call/check/raise <n>/allin | !pk quit");
+                ctx.whisper_success("!pk fold/call/check/raise <n>/allin | !pk quit");
             } else {
-                ctx.whisper("!pk deal for next hand | !pk quit");
+                ctx.whisper_success("!pk deal for next hand | !pk quit");
             }
         }
         Some(s) => {
             let which = session_label(s);
             drop(sessions);
-            ctx.whisper(format!("In a {which} game. Usage: !poker <stake>"));
+            ctx.whisper_success(format!("In a {which} game. Usage: !poker <stake>"));
         }
         None => {
             drop(sessions);
-            ctx.whisper("Usage: !poker <stake> (25–5000) | opponents: Glass Joe → Mike Tyson");
+            ctx.whisper_success("Usage: !poker <stake> (25–5000) | opponents: Glass Joe → Mike Tyson");
         }
     }
     Ok(())
@@ -256,7 +256,7 @@ async fn execute_quit(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     };
 
     let sign = if net >= 0 { "+" } else { "" };
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Quit poker vs {}. Returned {}. Net: {sign}{} | Balance: {}",
         opponent_name, chips_str(credit), chips_str(net), chips_str(bal)
     ));
@@ -289,9 +289,9 @@ async fn handle_hand_end(
 
     let result_line = format_hand_result(game, opponent_name);
     if events.is_empty() {
-        ctx.whisper(result_line);
+        ctx.whisper_success(result_line);
     } else {
-        ctx.whisper(format!("{} | {}", events.join(" → "), result_line));
+        ctx.whisper_success(format!("{} | {}", events.join(" → "), result_line));
     }
 
     if game.player_stack == 0 || game.bot_stack == 0 {
@@ -305,10 +305,10 @@ async fn handle_hand_end(
         };
         let sign = if net >= 0 { "+" } else { "" };
         let who = if game.player_stack == 0 { "You're bust" } else { "Bot is bust" };
-        ctx.whisper(format!("{who}! Net: {sign}{} | Balance: {}", chips_str(net), chips_str(bal)));
+        ctx.whisper_success(format!("{who}! Net: {sign}{} | Balance: {}", chips_str(net), chips_str(bal)));
     } else {
         save_session(ctx, stake, opponent_name, aggression, game.clone());
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "Your stack: {} | Bot: {} | !pk deal or !pk quit",
             chips_str(game.player_stack as i64), chips_str(game.bot_stack as i64)
         ));
@@ -377,7 +377,7 @@ fn show_hand_state(
     opponent_name: &'static str,
     events: &[String],
 ) {
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[H{}] vs {} | You: {} | {}: {} | Pot: {} | Stack: {}",
         game.hand_number, opponent_name,
         cards_str(&game.player_cards),
@@ -388,9 +388,9 @@ fn show_hand_state(
     let available = game.available_actions();
     let prompt = action_prompt_str(&available, game.player_stack);
     if events.is_empty() {
-        ctx.whisper(prompt);
+        ctx.whisper_success(prompt);
     } else {
-        ctx.whisper(format!("{} | {}", events.join(" → "), prompt));
+        ctx.whisper_success(format!("{} | {}", events.join(" → "), prompt));
     }
 }
 
@@ -446,7 +446,7 @@ fn parse_action(
     match subcmd {
         "fold" | "f" => {
             if !available.can_fold {
-                ctx.whisper("Nothing to fold against. Try !pk check.");
+                ctx.whisper_success("Nothing to fold against. Try !pk check.");
                 return None;
             }
             Some(Action::Fold)
@@ -454,9 +454,9 @@ fn parse_action(
         "check" | "x" => {
             if !available.can_check {
                 if let Some(n) = available.can_call {
-                    ctx.whisper(format!("Bet to call. !pk call {n} or !pk fold."));
+                    ctx.whisper_success(format!("Bet to call. !pk call {n} or !pk fold."));
                 } else {
-                    ctx.whisper("Can't check here. !pk allin or !pk fold.");
+                    ctx.whisper_success("Can't check here. !pk allin or !pk fold.");
                 }
                 return None;
             }
@@ -466,9 +466,9 @@ fn parse_action(
             Some(n) => Some(Action::Call(n)),
             None => {
                 if available.can_check {
-                    ctx.whisper("No bet to call. Try !pk check.");
+                    ctx.whisper_success("No bet to call. Try !pk check.");
                 } else {
-                    ctx.whisper("Nothing to call. Use !pk allin.");
+                    ctx.whisper_success("Nothing to call. Use !pk allin.");
                 }
                 None
             }
@@ -476,12 +476,12 @@ fn parse_action(
         "bet" | "raise" | "r" => {
             let amt_str = ctx.args.get(1).copied().unwrap_or("");
             let Ok(amt) = amt_str.parse::<u32>() else {
-                ctx.whisper("Usage: !pk raise <amount>");
+                ctx.whisper_success("Usage: !pk raise <amount>");
                 return None;
             };
             if let Some(min_bet) = available.min_bet {
                 if amt < min_bet {
-                    ctx.whisper(format!("Min bet: {min_bet}."));
+                    ctx.whisper_success(format!("Min bet: {min_bet}."));
                     return None;
                 }
                 if amt >= available.max_raise {
@@ -491,7 +491,7 @@ fn parse_action(
                 }
             } else if let Some(min_raise) = available.min_raise {
                 if amt < min_raise {
-                    ctx.whisper(format!("Min raise to: {min_raise}."));
+                    ctx.whisper_success(format!("Min raise to: {min_raise}."));
                     return None;
                 }
                 if amt >= available.max_raise {
@@ -500,13 +500,13 @@ fn parse_action(
                     Some(Action::Raise(amt))
                 }
             } else {
-                ctx.whisper("Can't bet/raise now.");
+                ctx.whisper_success("Can't bet/raise now.");
                 None
             }
         }
         "allin" | "all" => Some(Action::AllIn(game.player_bet + game.player_stack)),
         _ => {
-            ctx.whisper("Unknown action. !pk call/check/fold/raise <n>/allin");
+            ctx.whisper_success("Unknown action. !pk call/check/fold/raise <n>/allin");
             None
         }
     }
@@ -527,12 +527,12 @@ fn get_poker_session(ctx: &CommandContext<'_>) -> Option<(i64, &'static str, f64
         Some(s) => {
             let which = session_label(s);
             drop(sessions);
-            ctx.whisper(format!("In a {which} game, not poker."));
+            ctx.whisper_success(format!("In a {which} game, not poker."));
             None
         }
         None => {
             drop(sessions);
-            ctx.whisper("No active poker session. Start: !poker <stake>");
+            ctx.whisper_success("No active poker session. Start: !poker <stake>");
             None
         }
     }

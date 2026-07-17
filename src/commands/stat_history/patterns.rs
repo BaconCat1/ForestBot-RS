@@ -44,7 +44,7 @@ pub fn death_or_kill(ctx: CommandContext<'_>, death: bool, first: bool) -> Comma
             return Ok(());
         };
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " {}{}: {}, {}",
             target.search,
             label,
@@ -130,7 +130,7 @@ pub fn sorted_unique_users(ctx: CommandContext<'_>, oldest: bool) -> CommandFutu
                 )
             })
             .collect::<Vec<_>>();
-        ctx.chat(format!(" The 3 {label} online players are: {}", rows.join(", ")));
+        ctx.chat_success(format!(" The 3 {label} online players are: {}", rows.join(", ")));
         Ok(())
     })
 }

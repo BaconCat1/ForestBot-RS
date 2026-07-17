@@ -77,7 +77,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             last_seen
         };
 
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " I last saw {}{} {}",
             target.search, server_label, last_seen_string
         ));

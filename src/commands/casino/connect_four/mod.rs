@@ -40,13 +40,13 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 match session {
                     Some((stake, opponent_name, position)) => {
                         show_board(&ctx, &position);
-                        ctx.whisper(format!(
+                        ctx.whisper_success(format!(
                             "Your turn (\u{25D5}) vs {} | Stake: {} | !c4 <1-7> or !c4 quit",
                             opponent_name,
                             chips_str(stake)
                         ));
                     }
-                    None => ctx.whisper("No active C4 game. Start: !c4 <stake>"),
+                    None => ctx.whisper_success("No active C4 game. Start: !c4 <stake>"),
                 }
                 Ok(())
             }
@@ -61,7 +61,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                         if (1..=7).contains(&col) {
                             execute_drop(&ctx, col).await
                         } else {
-                            ctx.whisper("Column must be 1-7.");
+                            ctx.whisper_success("Column must be 1-7.");
                             Ok(())
                         }
                     } else {
@@ -79,7 +79,7 @@ async fn execute_new_game(ctx: &CommandContext<'_>, stake_str: &str) -> anyhow::
     {
         let sessions = ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned");
         if let Some(s) = sessions.get(ctx.sender) {
-            ctx.whisper(format!("Already in a {} game. Finish it first.", session_label(s)));
+            ctx.whisper_success(format!("Already in a {} game. Finish it first.", session_label(s)));
             return Ok(());
         }
     }
@@ -87,24 +87,24 @@ async fn execute_new_game(ctx: &CommandContext<'_>, stake_str: &str) -> anyhow::
     let stake: i64 = match stake_str.parse() {
         Ok(n) => n,
         Err(_) => {
-            ctx.whisper("Usage: !c4 <stake>");
+            ctx.whisper_success("Usage: !c4 <stake>");
             return Ok(());
         }
     };
 
     if stake < MIN_STAKE || stake > MAX_STAKE {
-        ctx.whisper(format!("Stake must be {}-{}.", chips_str(MIN_STAKE), chips_str(MAX_STAKE)));
+        ctx.whisper_success(format!("Stake must be {}-{}.", chips_str(MIN_STAKE), chips_str(MAX_STAKE)));
         return Ok(());
     }
 
     match ctx.state.api.casino_adjust(ctx.sender, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -121,13 +121,13 @@ async fn execute_new_game(ctx: &CommandContext<'_>, stake_str: &str) -> anyhow::
             position,
         });
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "C4: You (\u{25D5}) vs {} | Stake: {} | You go first!",
         opponent_name,
         chips_str(stake)
     ));
     show_board(ctx, &position);
-    ctx.whisper("!c4 <1-7> to drop | !c4 quit to forfeit");
+    ctx.whisper_success("!c4 <1-7> to drop | !c4 quit to forfeit");
 
     Ok(())
 }
@@ -140,11 +140,11 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
                 (*stake, *opponent_name, *difficulty, *position)
             }
             Some(s) => {
-                ctx.whisper(format!("In a {} game, not Connect Four.", session_label(s)));
+                ctx.whisper_success(format!("In a {} game, not Connect Four.", session_label(s)));
                 return Ok(());
             }
             None => {
-                ctx.whisper("No active C4 game. Start: !c4 <stake>");
+                ctx.whisper_success("No active C4 game. Start: !c4 <stake>");
                 return Ok(());
             }
         }
@@ -153,7 +153,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
     let col_idx = (col - 1) as usize;
 
     if !position.is_playable(col_idx) {
-        ctx.whisper(format!("Column {col} is full. Pick another (1-7)."));
+        ctx.whisper_success(format!("Column {col} is full. Pick another (1-7)."));
         return Ok(());
     }
 
@@ -165,7 +165,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
         show_board(ctx, &position);
         let bal = ctx.state.api.casino_adjust(ctx.sender, stake * 2).await.unwrap_or(0);
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "You WIN vs {}! +{} | Balance: {}",
             opponent_name,
             chips_str(stake),
@@ -178,7 +178,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
         show_board(ctx, &position);
         let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
-        ctx.whisper(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
+        ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
         return Ok(());
     }
 
@@ -188,7 +188,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
         None => {
             ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
             let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
-            ctx.whisper(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
+            ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
             return Ok(());
         }
     };
@@ -201,7 +201,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
         show_board(ctx, &position);
         ctx.state.api.casino_jackpot_rake(stake).await;
         let bal = ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0);
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "{} wins! -{} | Balance: {}",
             opponent_name,
             chips_str(stake),
@@ -214,7 +214,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
         show_board(ctx, &position);
         let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
-        ctx.whisper(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
+        ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
         return Ok(());
     }
 
@@ -227,7 +227,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
         });
 
     show_board(ctx, &position);
-    ctx.whisper(format!("Your turn (\u{25D5}) vs {} | !c4 <1-7>", opponent_name));
+    ctx.whisper_success(format!("Your turn (\u{25D5}) vs {} | !c4 <1-7>", opponent_name));
 
     Ok(())
 }
@@ -238,11 +238,11 @@ async fn execute_quit(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         match sessions.get(ctx.sender) {
             Some(CasinoSession::ConnectFour { stake, opponent_name, .. }) => (*stake, *opponent_name),
             Some(s) => {
-                ctx.whisper(format!("In a {} game, not Connect Four.", session_label(s)));
+                ctx.whisper_success(format!("In a {} game, not Connect Four.", session_label(s)));
                 return Ok(());
             }
             None => {
-                ctx.whisper("No active C4 game.");
+                ctx.whisper_success("No active C4 game.");
                 return Ok(());
             }
         }
@@ -250,7 +250,7 @@ async fn execute_quit(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
     ctx.state.api.casino_jackpot_rake(stake).await;
     let bal = ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0);
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Forfeited vs {}. -{} | Balance: {}",
         opponent_name,
         chips_str(stake),
@@ -263,7 +263,7 @@ fn show_board(ctx: &CommandContext<'_>, pos: &Position) {
     // Even move count → player is to move → pos.position = player's pieces (◆)
     // Odd move count  → bot just moved or player just won → pos.position = bot's pieces
     let player_is_current = pos.get_moves() % 2 == 0;
-    ctx.whisper("\u{1D7CF} \u{1D7D0} \u{1D7D1} \u{1D7D2} \u{1D7D3} \u{1D7D4} \u{1D7D5}"); // 𝟏 𝟐 𝟑 𝟒 𝟓 𝟔 𝟕
+    ctx.whisper_success("\u{1D7CF} \u{1D7D0} \u{1D7D1} \u{1D7D2} \u{1D7D3} \u{1D7D4} \u{1D7D5}"); // 𝟏 𝟐 𝟑 𝟒 𝟓 𝟔 𝟕
     for row in (0..Position::HEIGHT).rev() {
         let mut line = String::new();
         for col in 0..Position::WIDTH {
@@ -280,7 +280,7 @@ fn show_board(ctx: &CommandContext<'_>, pos: &Position) {
             };
             line.push(ch);
         }
-        ctx.whisper(line);
+        ctx.whisper_success(line);
     }
 }
 

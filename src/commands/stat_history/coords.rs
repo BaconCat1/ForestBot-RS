@@ -1,4 +1,3 @@
-use super::helpers::whisper;
 use crate::commands::{CommandContext, CommandFuture};
 
 command!(COORDS_COMMAND, &["coords"], "Shows the bot's current coordinates. Usage: {prefix}coords", coords);
@@ -9,9 +8,8 @@ fn coords(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         }
         let pos = ctx.bot.position();
-        whisper(
-            &ctx,
-            &format!(
+        ctx.whisper_success(
+            format!(
                 " I am currently at: X: {} Y: {} Z: {}",
                 pos.x.floor() as i64,
                 pos.y.floor() as i64,

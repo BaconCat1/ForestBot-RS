@@ -86,7 +86,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn show_usage(ctx: &CommandContext<'_>) {
     let p = &ctx.runtime.prefix;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Airport conditions bets (2h window, US airports): {p}faa <IATA/ICAO> — conditions+odds | {p}faa <code> yes|no <chips> — bet IFR/worse (yes) or VFR/MVFR (no) | {p}faa bets | Examples: JFK BOS ORD LAX KLAX"
     ));
 }
@@ -99,11 +99,11 @@ async fn show_airport(ctx: &CommandContext<'_>, code: &str) -> anyhow::Result<()
     let v = match fetch_metar(&client, &icao).await {
         Ok(v) => v,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("aviationweather.gov API rate limit reached. Try again later.");
+            ctx.whisper_success("aviationweather.gov API rate limit reached. Try again later.");
             return Ok(());
         }
         Err(_) => {
-            ctx.whisper(format!("Could not fetch METAR for {code}. Check IATA/ICAO code."));
+            ctx.whisper_error(format!("Could not fetch METAR for {code}. Check IATA/ICAO code."));
             return Ok(());
         }
     };
@@ -112,7 +112,7 @@ async fn show_airport(ctx: &CommandContext<'_>, code: &str) -> anyhow::Result<()
     let currently_ifr = is_ifr(flt_cat);
     let (yes_price, no_price) = compute_odds(currently_ifr);
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "{name} ({icao}) | {flt_cat} | YES (IFR/LIFR) {:.2}x NO (VFR/MVFR) {:.2}x | {}faa {code} yes|no <chips> (2h)",
         1.0 / yes_price, 1.0 / no_price, ctx.runtime.prefix
     ));
@@ -123,18 +123,18 @@ async fn show_airport(ctx: &CommandContext<'_>, code: &str) -> anyhow::Result<()
 
 async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     let all_bets = ctx.state.api.casino_faa_airport_bet_list().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
-        ctx.whisper("No open airport condition bets.");
+        ctx.whisper_success("No open airport condition bets.");
         return Ok(());
     }
     for bet in &player_bets {
         let payout = (bet.stake as f64 / bet.price).floor() as i64;
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[FAA] {} ({}) {} {:.2}x | {} -> {} | {}",
             bet.name, bet.airport_code,
             bet.side.to_uppercase(),
@@ -160,15 +160,15 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let icao = to_icao(&code);
     let side = side_s.to_lowercase();
     if side != "yes" && side != "no" {
-        ctx.whisper("Side must be yes or no.");
+        ctx.whisper_success("Side must be yes or no.");
         return Ok(());
     }
     let Ok(stake) = amt_s.parse::<i64>() else {
-        ctx.whisper("Chip amount must be a number.");
+        ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
     if stake < MIN_BET {
-        ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
 
@@ -176,11 +176,11 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let v = match fetch_metar(&client, &icao).await {
         Ok(v) => v,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("aviationweather.gov API rate limit reached. Try again later.");
+            ctx.whisper_success("aviationweather.gov API rate limit reached. Try again later.");
             return Ok(());
         }
         Err(_) => {
-            ctx.whisper(format!("Could not fetch METAR for {code}."));
+            ctx.whisper_error(format!("Could not fetch METAR for {code}."));
             return Ok(());
         }
     };
@@ -191,17 +191,17 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let price = if side == "yes" { yes_price } else { no_price };
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -222,9 +222,9 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
                 eprintln!("[FAA] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to save bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to save bet. Chips refunded.");
+                ctx.whisper_success("Failed to save bet. Chips refunded.");
             }
             return Ok(());
         }
@@ -235,7 +235,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     let payout = (stake as f64 / price).floor() as i64;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[FAA] {name} ({icao}) | {flt_cat} now | {} {:.2}x | {} | profit if win: +{} | settles in 2h",
         side.to_uppercase(),
         1.0 / price,

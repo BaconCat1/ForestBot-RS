@@ -37,7 +37,7 @@ fn oldnames(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         if names.is_empty() {
             ctx.chat(" No name history was found for that user.");
         } else {
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 " {target} has used the following names: {}",
                 names.join(", ")
             ));

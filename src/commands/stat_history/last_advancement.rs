@@ -27,7 +27,7 @@ fn last_advancement(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .and_then(|mut rows| rows.pop());
         if let Some(row) = row {
             let label = format_server_label(&target.server, &ctx.state.mc_server);
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 " {}{}: {} ({})",
                 target.search,
                 label,

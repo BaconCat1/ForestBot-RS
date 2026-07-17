@@ -40,7 +40,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         let uptime = format_uptime(System::uptime());
 
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             "OS: {os} {os_ver} | Kernel: {kernel} | CPU: {cpu_brand} | RAM: {used_ram:.1}/{total_ram:.1} GB | Disk: {disk_used_gb:.1}/{disk_total_gb:.1} GB | Uptime: {uptime}"
         ));
         Ok(())

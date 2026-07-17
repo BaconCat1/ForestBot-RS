@@ -23,10 +23,10 @@ fn execute_day(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let tod = current_tick_of_day(&ctx).await;
 
         if !is_night(tod) {
-            ctx.chat("It is currently daytime.".to_owned());
+            ctx.chat_success("It is currently daytime.".to_owned());
         } else {
             let remaining = NIGHT_END - tod;
-            ctx.chat(format!("Dawn in {}.", format_ticks(remaining)));
+            ctx.chat_success(format!("Dawn in {}.", format_ticks(remaining)));
         }
         Ok(())
     })
@@ -37,10 +37,10 @@ fn execute_night(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let tod = current_tick_of_day(&ctx).await;
 
         if is_night(tod) {
-            ctx.chat("It is currently nighttime.".to_owned());
+            ctx.chat_success("It is currently nighttime.".to_owned());
         } else {
             let remaining = (NIGHT_START + DAY_TICKS - tod) % DAY_TICKS;
-            ctx.chat(format!("Night in {}.", format_ticks(remaining)));
+            ctx.chat_success(format!("Night in {}.", format_ticks(remaining)));
         }
         Ok(())
     })

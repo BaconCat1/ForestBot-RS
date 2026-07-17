@@ -1,4 +1,3 @@
-use super::helpers::whisper;
 use crate::commands::{CommandContext, CommandFuture};
 
 command!(
@@ -19,10 +18,10 @@ fn list_quote_servers(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .collect::<Vec<_>>();
         let chunks = quote_server_chunks(&servers);
         if chunks.len() == 1 {
-            ctx.chat(format!(" {}", chunks[0]));
+            ctx.chat_success(format!(" {}", chunks[0]));
         } else {
             for chunk in chunks {
-                whisper(&ctx, &format!(" {chunk}"));
+                ctx.whisper_success(format!(" {chunk}"));
             }
         }
         Ok(())

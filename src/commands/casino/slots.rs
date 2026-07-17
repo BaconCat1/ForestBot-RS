@@ -62,31 +62,31 @@ fn evaluate_paylines(above: [usize; 3], center: [usize; 3], below: [usize; 3], b
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(bet_str) = ctx.args.first() else {
-            ctx.whisper(format!("Usage: !slots <bet> ({}-{})", chips_str(MIN_BET), chips_str(MAX_BET)));
+            ctx.whisper_success(format!("Usage: !slots <bet> ({}-{})", chips_str(MIN_BET), chips_str(MAX_BET)));
             return Ok(());
         };
         let Ok(bet) = bet_str.parse::<i64>() else {
-            ctx.whisper("Bet must be a number.");
+            ctx.whisper_success("Bet must be a number.");
             return Ok(());
         };
         if bet < MIN_BET || bet > MAX_BET {
-            ctx.whisper(format!("Bet must be {}-{}.", chips_str(MIN_BET), chips_str(MAX_BET)));
+            ctx.whisper_success(format!("Bet must be {}-{}.", chips_str(MIN_BET), chips_str(MAX_BET)));
             return Ok(());
         }
 
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+            ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
 
         let balance = match ctx.state.api.casino_adjust(&player_uuid, -bet).await {
             Ok(b) => b,
             Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-                ctx.whisper(format!("Need {} but have {}.", chips_str(bet), chips_str(have)));
+                ctx.whisper_success(format!("Need {} but have {}.", chips_str(bet), chips_str(have)));
                 return Ok(());
             }
             Err(CasinoAdjustErr::NetworkErr) => {
-                ctx.whisper("Casino unavailable.");
+                ctx.whisper_success("Casino unavailable.");
                 return Ok(());
             }
         };
@@ -98,9 +98,9 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let below  = [sym_at(pos[0] + 1),                sym_at(pos[1] + 1),                sym_at(pos[2] + 1)];
 
         let l = |i: usize| SYMBOLS[i].label;
-        ctx.whisper(format!("{} | {} | {}", l(above[0]),  l(above[1]),  l(above[2])));
-        ctx.whisper(format!("{} | {} | {}", l(center[0]), l(center[1]), l(center[2])));
-        ctx.whisper(format!("{} | {} | {}", l(below[0]),  l(below[1]),  l(below[2])));
+        ctx.whisper_success(format!("{} | {} | {}", l(above[0]),  l(above[1]),  l(above[2])));
+        ctx.whisper_success(format!("{} | {} | {}", l(center[0]), l(center[1]), l(center[2])));
+        ctx.whisper_success(format!("{} | {} | {}", l(below[0]),  l(below[1]),  l(below[2])));
 
         tokio::time::sleep(std::time::Duration::from_millis(800)).await;
 
@@ -108,10 +108,10 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         if total_win == 0 {
             ctx.state.api.casino_jackpot_rake(bet).await;
-            ctx.whisper(format!("-{} | Balance: {}", chips_str(bet), chips_str(balance)));
+            ctx.whisper_success(format!("-{} | Balance: {}", chips_str(bet), chips_str(balance)));
         } else {
             let bal = ctx.state.api.casino_adjust(&player_uuid, total_win).await.unwrap_or(balance + total_win);
-            ctx.whisper(format!("{} match! +{} | Balance: {}", line_names.join(" + "), chips_str(total_win), chips_str(bal)));
+            ctx.whisper_success(format!("{} match! +{} | Balance: {}", line_names.join(" + "), chips_str(total_win), chips_str(bal)));
         }
 
         Ok(())

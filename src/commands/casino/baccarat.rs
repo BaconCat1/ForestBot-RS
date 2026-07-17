@@ -45,7 +45,7 @@ fn hand_str(hand: &[u8]) -> String {
 fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let (Some(&side_s), Some(&amt_s)) = (ctx.args.first(), ctx.args.get(1)) else {
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "Usage: {p}baccarat player|banker|tie <chips>  |  Player 2× | Banker 1.95× | Tie 8×",
                 p = ctx.runtime.prefix
             ));
@@ -54,7 +54,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         let side = side_s.to_lowercase();
         if !matches!(side.as_str(), "player" | "banker" | "tie" | "p" | "b" | "t") {
-            ctx.whisper("Side must be: player, banker, or tie.");
+            ctx.whisper_success("Side must be: player, banker, or tie.");
             return Ok(());
         }
         let side = match side.as_str() {
@@ -65,27 +65,27 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         };
 
         let Ok(stake) = amt_s.parse::<i64>() else {
-            ctx.whisper("Chip amount must be a number.");
+            ctx.whisper_success("Chip amount must be a number.");
             return Ok(());
         };
         if stake < MIN_BET {
-            ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+            ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
             return Ok(());
         }
 
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+            ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
 
         match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
             Ok(_) => {}
             Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-                ctx.whisper(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
+                ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
                 return Ok(());
             }
             Err(CasinoAdjustErr::NetworkErr) => {
-                ctx.whisper("Casino unavailable.");
+                ctx.whisper_success("Casino unavailable.");
                 return Ok(());
             }
         }
@@ -144,13 +144,13 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         if payout > 0 {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, payout).await {
                 eprintln!("[Baccarat] payout failed for {player_uuid}: {e:?}");
-                ctx.whisper("[Baccarat] Win detected but payout failed — contact an admin.");
+                ctx.whisper_success("[Baccarat] Win detected but payout failed — contact an admin.");
                 return Ok(());
             }
         }
 
         let natural_tag = if natural { " [natural]" } else { "" };
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Baccarat] P: {} ({pt}){natural_tag} B: {} ({bt}) → {} | {result}",
             hand_str(&ph), hand_str(&bh), winner.to_uppercase()
         ));

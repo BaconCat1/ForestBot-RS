@@ -16,11 +16,11 @@ fn realname(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         });
 
         if let Some(player) = by_display {
-            ctx.chat(format!("{target}'s real username is {}.", player.username));
+            ctx.chat_success(format!("{target}'s real username is {}.", player.username));
         } else if players.iter().any(|p| p.username.eq_ignore_ascii_case(target)) {
-            ctx.chat(format!("{target} is the real username."));
+            ctx.chat_success(format!("{target} is the real username."));
         } else {
-            ctx.chat(format!("No player found matching \"{target}\" online."));
+            ctx.chat_error(format!("No player found matching \"{target}\" online."));
         }
         Ok(())
     })

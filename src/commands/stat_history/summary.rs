@@ -36,7 +36,7 @@ fn summary(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .map(member_days)
             .map(|days| format!("{days}d"))
             .unwrap_or_else(|| "?".to_owned());
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " [{search}] KD: {kills}/{deaths} ({kdr:.2}) | Playtime: {pt_days}d | Messages: {messages} | Advancements: {adv} | Member for: {age}"
         ));
         Ok(())

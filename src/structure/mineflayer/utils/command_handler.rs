@@ -105,6 +105,7 @@ async fn handle_with_reply_mode(
 
     logger::command(format!("Executing command: {command_name} from {sender}"));
 
+    let canonical_name = command.names.first().copied().unwrap_or(command_name);
     let ctx = CommandContext {
         bot,
         state,
@@ -112,6 +113,7 @@ async fn handle_with_reply_mode(
         sender,
         args: parts.collect(),
         reply_as_whisper,
+        command_name: canonical_name,
     };
 
     if let Err(error) = (command.execute)(ctx).await {

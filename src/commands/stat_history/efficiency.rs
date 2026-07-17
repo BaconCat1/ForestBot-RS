@@ -48,7 +48,7 @@ fn efficiency(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 return Ok(());
             }
             let count = if stat == "kills" { kd.kills } else { kd.deaths };
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 " {search}: {count} {stat} over {hours:.1} hours = {:.3} {stat}/hr",
                 count as f64 / hours
             ));
@@ -81,7 +81,7 @@ fn efficiency(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 );
                 return Ok(());
             }
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 " {search}: {} messages over {} days = {:.2} messages/day",
                 mc.message_count,
                 days.floor() as u64,

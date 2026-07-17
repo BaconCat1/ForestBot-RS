@@ -261,7 +261,7 @@ async fn show_types(ctx: &CommandContext<'_>) {
     let kinds: Vec<String> = BET_KINDS.iter()
         .map(|k| format!("{} {:.2}x", k.slug, odds.for_type(k.slug)))
         .collect();
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Space Weather bets: {} | Settles midnight UTC | {p}spaceweather <type> <chips>",
         kinds.join(", ")
     ));
@@ -271,19 +271,19 @@ async fn show_types(ctx: &CommandContext<'_>) {
 
 async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     let all_bets = ctx.state.api.casino_nasa_space_weather_bet_list().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
-        ctx.whisper("No open space weather bets.");
+        ctx.whisper_success("No open space weather bets.");
         return Ok(());
     }
     for bet in &player_bets {
         let payout = (bet.stake as f64 * bet.multiplier) as i64;
         let label = find_kind(&bet.bet_type).map_or(bet.bet_type.as_str(), |k| k.label);
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[SpaceWX] {} | {} -> {} | {}",
             label,
             chips_str(bet.stake),
@@ -298,7 +298,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     if ctx.runtime.nasa_api_key.trim().is_empty() {
-        ctx.whisper("Space weather bets are not configured on this server.");
+        ctx.whisper_success("Space weather bets are not configured on this server.");
         return Ok(());
     }
     let (Some(&type_s), Some(&amt_s)) = (ctx.args.first(), ctx.args.get(1)) else {
@@ -306,18 +306,18 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     };
     let Some(kind) = find_kind(type_s) else {
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "Unknown type. Valid: {}",
             BET_KINDS.iter().map(|k| k.slug).collect::<Vec<_>>().join(", ")
         ));
         return Ok(());
     };
     let Ok(stake) = amt_s.parse::<i64>() else {
-        ctx.whisper("Chip amount must be a number.");
+        ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
     if stake < MIN_BET {
-        ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
 
@@ -326,17 +326,17 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let multiplier = odds.for_type(kind.slug);
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -354,9 +354,9 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
                 eprintln!("[NASA] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to save bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to save bet. Chips refunded.");
+                ctx.whisper_success("Failed to save bet. Chips refunded.");
             }
             return Ok(());
         }
@@ -366,7 +366,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         bets.entry(player_uuid.clone()).or_default().push(bet.clone());
     }
     let payout = (stake as f64 * multiplier) as i64;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[SpaceWX] {} | {} | {:.2}x | profit if YES: +{} | settles {}",
         kind.label,
         chips_str(stake),

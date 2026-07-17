@@ -17,7 +17,7 @@ fn namefind(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         if let Some(data) = data
             && !data.usernames.is_empty()
         {
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 " You could be looking for: {}",
                 data.usernames.join(", ")
             ));

@@ -1,4 +1,4 @@
-use super::helpers::{players_snapshot, whisper};
+use super::helpers::players_snapshot;
 use crate::commands::{CommandContext, CommandFuture};
 
 command!(AVERAGE_PING_COMMAND, &["averageping", "ap"], "Shows the average ping for the server. Usage: {prefix}averageping <username>", average_ping);
@@ -7,7 +7,7 @@ fn average_ping(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let players = players_snapshot(&ctx);
         if players.is_empty() {
-            whisper(&ctx, " No players are cached yet.");
+            ctx.whisper_success(" No players are cached yet.");
             return Ok(());
         }
 
@@ -34,7 +34,7 @@ fn average_ping(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .max_by_key(|player| player.latency)
             .expect("ping_players is not empty");
 
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " Average ping: {:.1}ms | Best: {}: {}ms | Worst: {}: {}ms",
             average, best.username, best.latency, worst.username, worst.latency
         ));

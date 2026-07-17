@@ -11,7 +11,7 @@ fn febzey(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         logger::world(format!("[COORDS] x={:.1} y={:.1} z={:.1}", pos.x, pos.y, pos.z));
         let target = "Febzey_";
         let Some(uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
-            ctx.chat(format!(" I couldn't even find {target}. Truly absent."));
+            ctx.chat_success(format!(" I couldn't even find {target}. Truly absent."));
             return Ok(());
         };
         let last_seen = ctx
@@ -21,16 +21,16 @@ fn febzey(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .await;
         let online = player_uuid(&ctx, target).is_some();
         match last_seen.and_then(|row| epoch_ms_from_string(&row.last_seen)) {
-            Some(ts) if online => ctx.chat(format!(
+            Some(ts) if online => ctx.chat_success(format!(
                 " {target} is online after being gone for {}. Someone check on the bot maintainer.",
                 time::time_ago_str(ts)
             )),
-            Some(ts) => ctx.chat(format!(
+            Some(ts) => ctx.chat_success(format!(
                 " Last seen {target}: {} ({}). Still not maintaining his bot.",
                 time::convert_unix_timestamp(ts / 1000),
                 time::time_ago_str(ts)
             )),
-            None => ctx.chat(format!(
+            None => ctx.chat_success(format!(
                 " No last seen data for {target}. The disappearance is complete."
             )),
         }

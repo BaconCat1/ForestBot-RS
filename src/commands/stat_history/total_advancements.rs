@@ -84,7 +84,7 @@ fn total_advancements(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         }
 
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " I have seen {count} advancements from {}{}",
             target.search, label
         ));

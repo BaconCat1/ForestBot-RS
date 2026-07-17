@@ -301,7 +301,7 @@ fn quake_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn quake_usage(ctx: &CommandContext<'_>) {
     let p = &ctx.runtime.prefix;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Earthquake bets (7-day window): \
          {p}quake list | \
          {p}quake <region> [m<mag>] yes|no [chips] | \
@@ -327,7 +327,7 @@ async fn quake_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     }).collect();
     let parts: Vec<String> = join_all(fetches).await;
     let p = &ctx.runtime.prefix;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[Earthquake] 7-day probability | {} | {p}quake <region> [m<mag>] yes|no <chips>",
         parts.join(" | ")
     ));
@@ -336,18 +336,18 @@ async fn quake_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
 async fn quake_show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     let all_bets = ctx.state.api.casino_quake_bet_list().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
-        ctx.whisper("No open earthquake bets.");
+        ctx.whisper_success("No open earthquake bets.");
         return Ok(());
     }
     for bet in &player_bets {
         let payout = (bet.stake as f64 / bet.price).floor() as i64;
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Quake] {} | {} {:.2}x | {} → {} | {}",
             bet.display,
             bet.side.to_uppercase(),
@@ -367,7 +367,7 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
     let region_s = ctx.args.first().copied().unwrap_or("");
     let Some(region) = resolve_region(region_s) else {
-        ctx.whisper(format!(
+        ctx.whisper_error(format!(
             "Unknown region '{region_s}'. Regions: california alaska pacific-nw japan indonesia chile italy turkey new-zealand"
         ));
         return Ok(());
@@ -397,7 +397,7 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         let raw_p = poisson_probability(count, 7.0);
         let p_yes = probability_to_price(raw_p);
         let p_no  = probability_to_price(1.0 - raw_p);
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Quake] {} M{}+ | 7d probability {:.1}% | yes {:.2}x | no {:.2}x | {}{} {} yes|no <chips>",
             region.display, mag, raw_p * 100.0,
             (1.0 / (p_yes)),
@@ -414,11 +414,11 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let count = match fetch_quake_count(&client, region.lat, region.lon, region.radius_km, mag).await {
         Ok(c) => c,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("USGS API rate limit reached. Try again later.");
+            ctx.whisper_success("USGS API rate limit reached. Try again later.");
             return Ok(());
         }
         Err(_) => {
-            ctx.whisper("FDSN API unavailable. Try again later.");
+            ctx.whisper_success("FDSN API unavailable. Try again later.");
             return Ok(());
         }
     };
@@ -428,7 +428,7 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
     // Preview if no chips
     if amt_s.is_empty() {
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Quake] {} M{}+ | 7d yes {:.2}x | no {:.2}x | {} selected {:.2}x",
             region.display, mag,
             (1.0 / (p_yes)),
@@ -440,26 +440,26 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     let Ok(stake) = amt_s.parse::<i64>() else {
-        ctx.whisper("Chip amount must be a number.");
+        ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
     if stake < MIN_BET {
-        ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -487,9 +487,9 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
                 eprintln!("[Seismic] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to save bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to save bet. Chips refunded.");
+                ctx.whisper_success("Failed to save bet. Chips refunded.");
             }
             return Ok(());
         }
@@ -500,7 +500,7 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     let payout = (stake as f64 / price).floor() as i64;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[Quake] {} | {} {:.2}x | {} | profit if win: +{} | settles in 7d",
         display,
         side.to_uppercase(),
@@ -592,7 +592,7 @@ fn volcano_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn volcano_usage(ctx: &CommandContext<'_>) {
     let p = &ctx.runtime.prefix;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Volcano bets (7-day window, resolves YES if reaches Warning/Red): \
          {p}volcano list | \
          {p}volcano <name> yes|no [chips] | \
@@ -606,17 +606,17 @@ async fn volcano_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let statuses = match fetch_all_volcano_status(&client).await {
         Ok(s) => s,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("USGS VHP API rate limit reached. Try again later.");
+            ctx.whisper_success("USGS VHP API rate limit reached. Try again later.");
             return Ok(());
         }
         Err(_) => {
-            ctx.whisper("VHP API unavailable.");
+            ctx.whisper_success("VHP API unavailable.");
             return Ok(());
         }
     };
     let elevated: Vec<_> = statuses.iter().filter(|v| is_elevated(v)).collect();
     if elevated.is_empty() {
-        ctx.whisper("No elevated US volcanoes right now.");
+        ctx.whisper_success("No elevated US volcanoes right now.");
         return Ok(());
     }
     let items: Vec<String> = elevated.iter().take(6).map(|v| {
@@ -629,7 +629,7 @@ async fn volcano_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         )
     }).collect();
     let p = &ctx.runtime.prefix;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[Volcanoes] 7d yes % | {} | {p}volcano <name> yes|no <chips>",
         items.join(" | ")
     ));
@@ -638,18 +638,18 @@ async fn volcano_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
 async fn volcano_show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     let all_bets = ctx.state.api.casino_volcano_bet_list().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
-        ctx.whisper("No open volcano bets.");
+        ctx.whisper_success("No open volcano bets.");
         return Ok(());
     }
     for bet in &player_bets {
         let payout = (bet.stake as f64 / bet.price).floor() as i64;
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Volcano] {} | {} {:.2}x | {} → {} | {}",
             bet.vname,
             bet.side.to_uppercase(),
@@ -690,22 +690,22 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         let statuses = match fetch_all_volcano_status(&client).await {
             Ok(s) => s,
             Err(FetchErr::RateLimit) => {
-                ctx.whisper("USGS VHP API rate limit reached. Try again later.");
+                ctx.whisper_success("USGS VHP API rate limit reached. Try again later.");
                 return Ok(());
             }
             Err(_) => {
-                ctx.whisper("VHP API unavailable.");
+                ctx.whisper_success("VHP API unavailable.");
                 return Ok(());
             }
         };
         let Some(vs) = statuses.iter().find(|v| v.vname.to_lowercase().contains(&name_query)) else {
-            ctx.whisper(format!("Volcano '{name_query}' not found. Use !volcano list to see elevated volcanoes."));
+            ctx.whisper_error(format!("Volcano '{name_query}' not found. Use !volcano list to see elevated volcanoes."));
             return Ok(());
         };
         let raw_p = volcano_yes_probability(&vs.alert_level);
         let p_yes = probability_to_price(raw_p);
         let p_no  = probability_to_price(1.0 - raw_p);
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Volcano] {} {} | yes {:.2}x | no {:.2}x | Bet resolves YES if reaches Warning within 7d",
             vs.vname,
             alert_level_tag(&vs.alert_level),
@@ -719,20 +719,20 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let statuses = match fetch_all_volcano_status(&client).await {
         Ok(s) => s,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("USGS VHP API rate limit reached. Try again later.");
+            ctx.whisper_success("USGS VHP API rate limit reached. Try again later.");
             return Ok(());
         }
         Err(_) => {
-            ctx.whisper("VHP API unavailable.");
+            ctx.whisper_success("VHP API unavailable.");
             return Ok(());
         }
     };
     let Some(vs) = statuses.iter().find(|v| v.vname.to_lowercase().contains(&name_query)) else {
-        ctx.whisper(format!("Volcano '{name_query}' not found. Use !volcano list to see elevated volcanoes."));
+        ctx.whisper_success(format!("Volcano '{name_query}' not found. Use !volcano list to see elevated volcanoes."));
         return Ok(());
     };
     if !is_elevated(vs) {
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "{} is currently {} — no signal to bet on. Use !volcano list for elevated volcanoes.",
             vs.vname, vs.alert_level
         ));
@@ -746,7 +746,7 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
     // Preview if no chips
     let Some(amt_s) = chips_s else {
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Volcano] {} {} | {} {:.2}x | yes {:.2}x | no {:.2}x",
             vs.vname,
             alert_level_tag(&vs.alert_level),
@@ -759,26 +759,26 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     };
 
     let Ok(stake) = amt_s.parse::<i64>() else {
-        ctx.whisper("Chip amount must be a number.");
+        ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
     if stake < MIN_BET {
-        ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -799,9 +799,9 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
                 eprintln!("[Seismic] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to save bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to save bet. Chips refunded.");
+                ctx.whisper_success("Failed to save bet. Chips refunded.");
             }
             return Ok(());
         }
@@ -812,7 +812,7 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     let payout = (bet.stake as f64 / price).floor() as i64;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[Volcano] {} {} | {} {:.2}x | {} | profit if win: +{} | settles in 7d",
         vs.vname,
         alert_level_tag(&vs.alert_level),

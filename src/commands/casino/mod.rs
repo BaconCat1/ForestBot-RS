@@ -120,12 +120,12 @@ pub const FAUCET_COMMAND: CommandDefinition = CommandDefinition {
 pub fn faucet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+            ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
         match ctx.state.api.casino_faucet(&player_uuid).await {
             CasinoFaucetResult::Awarded { chips_awarded, streak, chips, lotto_pick, draw_date } => {
-                ctx.whisper(format!(
+                ctx.whisper_success(format!(
                     "+{} | Day {} streak | Free: lotto {} + jackpot ticket (draw {}) | Balance: {}",
                     chips_str(chips_awarded),
                     streak,
@@ -135,10 +135,10 @@ pub fn faucet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 ));
             }
             CasinoFaucetResult::OnCooldown { next_secs } => {
-                ctx.whisper(format!("Already claimed. Next faucet in {}.", fmt_duration(next_secs)));
+                ctx.whisper_success(format!("Already claimed. Next faucet in {}.", fmt_duration(next_secs)));
             }
             CasinoFaucetResult::Err => {
-                ctx.whisper("Faucet unavailable right now.");
+                ctx.whisper_success("Faucet unavailable right now.");
             }
         }
         Ok(())
@@ -157,32 +157,32 @@ pub const GIVE_COMMAND: CommandDefinition = CommandDefinition {
 pub fn give_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let (Some(target), Some(amount_str)) = (ctx.args.first(), ctx.args.get(1)) else {
-            ctx.whisper("Usage: !give <player> <amount>");
+            ctx.whisper_success("Usage: !give <player> <amount>");
             return Ok(());
         };
         let Ok(amount) = amount_str.parse::<i64>() else {
-            ctx.whisper("Amount must be a number.");
+            ctx.whisper_success("Amount must be a number.");
             return Ok(());
         };
         if amount < 10 {
-            ctx.whisper("Minimum transfer is 10 chips.");
+            ctx.whisper_success("Minimum transfer is 10 chips.");
             return Ok(());
         }
         if target.eq_ignore_ascii_case(ctx.sender) {
-            ctx.whisper("Cannot give chips to yourself.");
+            ctx.whisper_success("Cannot give chips to yourself.");
             return Ok(());
         }
         let Some(from_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+            ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
         let Some(to_uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
-            ctx.whisper(format!("Could not find UUID for {}.", target));
+            ctx.whisper_error(format!("Could not find UUID for {}.", target));
             return Ok(());
         };
         match ctx.state.api.casino_transfer(&from_uuid, &to_uuid, amount).await {
-            Ok(()) => ctx.whisper(format!("Sent {} to {}.", chips_str(amount), target)),
-            Err(e) => ctx.whisper(format!("Transfer failed: {e}")),
+            Ok(()) => ctx.whisper_success(format!("Sent {} to {}.", chips_str(amount), target)),
+            Err(e) => ctx.whisper_success(format!("Transfer failed: {e}")),
         }
         Ok(())
     })
@@ -200,7 +200,7 @@ pub const JACKPOT_COMMAND: CommandDefinition = CommandDefinition {
 pub fn jackpot_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+            ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
         match ctx.args.first().copied() {
@@ -210,25 +210,25 @@ pub fn jackpot_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     .unwrap_or(1)
                     .max(1);
                 match ctx.state.api.casino_jackpot_buy_ticket(&player_uuid, count).await {
-                    Ok(info) => ctx.whisper(format!(
+                    Ok(info) => ctx.whisper_success(format!(
                         "Bought {} ticket{} | Pot: {} | Your tickets: {}",
                         count,
                         if count == 1 { "" } else { "s" },
                         chips_str(info.pot),
                         info.tickets
                     )),
-                    Err(e) => ctx.whisper(format!("Could not buy ticket: {e}")),
+                    Err(e) => ctx.whisper_success(format!("Could not buy ticket: {e}")),
                 }
             }
             _ => {
                 match ctx.state.api.casino_jackpot_get(Some(&player_uuid)).await {
-                    Some(info) => ctx.whisper(format!(
+                    Some(info) => ctx.whisper_success(format!(
                         "Jackpot pot: {} | Your tickets: {} | Draw: {}",
                         chips_str(info.pot),
                         info.tickets,
                         info.next_draw,
                     )),
-                    None => ctx.whisper("Jackpot unavailable right now."),
+                    None => ctx.whisper_success("Jackpot unavailable right now."),
                 }
             }
         }
@@ -248,7 +248,7 @@ pub const LOTTO_COMMAND: CommandDefinition = CommandDefinition {
 pub fn lotto_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+            ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
         match ctx.args.first().copied() {
@@ -260,25 +260,25 @@ pub fn lotto_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 if count == 1 {
                     let nums_str = lotto_quick_pick();
                     match ctx.state.api.casino_lotto_buy_ticket(&player_uuid, &nums_str).await {
-                        Ok(info) => ctx.whisper(format!(
+                        Ok(info) => ctx.whisper_success(format!(
                             "Quick pick: {} | Draw: {} | Pot: {} | Balance: {}",
                             info.numbers.replace('-', " "),
                             info.draw_date,
                             chips_str(info.pot),
                             chips_str(info.chips)
                         )),
-                        Err(e) => ctx.whisper(format!("Could not buy ticket: {e}")),
+                        Err(e) => ctx.whisper_success(format!("Could not buy ticket: {e}")),
                     }
                 } else {
                     match ctx.state.api.casino_lotto_buy_quick(&player_uuid, count).await {
-                        Ok(info) => ctx.whisper(format!(
+                        Ok(info) => ctx.whisper_success(format!(
                             "Bought {} tickets | Draw: {} | Pot: {} | Balance: {}",
                             info.tickets.len(),
                             info.draw_date,
                             chips_str(info.pot),
                             chips_str(info.chips)
                         )),
-                        Err(e) => ctx.whisper(format!("Could not buy tickets: {e}")),
+                        Err(e) => ctx.whisper_success(format!("Could not buy tickets: {e}")),
                     }
                 }
             }
@@ -286,69 +286,69 @@ pub fn lotto_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 match ctx.state.api.casino_lotto_get_pot().await {
                     Some(info) => {
                         let draw = info.draw_date.as_deref().unwrap_or("TBD");
-                        ctx.whisper(format!("Lotto pot: {} | Draw: {}", chips_str(info.pot), draw));
+                        ctx.whisper_success(format!("Lotto pot: {} | Draw: {}", chips_str(info.pot), draw));
                     }
-                    None => ctx.whisper("Could not fetch lotto pot."),
+                    None => ctx.whisper_success("Could not fetch lotto pot."),
                 }
             }
             Some("results") | Some("last") => {
                 match ctx.state.api.casino_lotto_last_draw().await {
-                    Some(draw) => ctx.whisper(format!(
+                    Some(draw) => ctx.whisper_success(format!(
                         "Last draw ({}): {}",
                         draw.draw_date,
                         draw.numbers.replace('-', " ")
                     )),
-                    None => ctx.whisper("No draws yet."),
+                    None => ctx.whisper_success("No draws yet."),
                 }
             }
             Some("check") | Some("tickets") | Some("my") => {
                 let tickets = ctx.state.api.casino_lotto_get_tickets(&player_uuid).await;
                 if tickets.is_empty() {
-                    ctx.whisper("No lotto tickets for the next draw.");
+                    ctx.whisper_success("No lotto tickets for the next draw.");
                 } else {
-                    ctx.whisper(format_lotto_tickets(&tickets));
+                    ctx.whisper_success(format_lotto_tickets(&tickets));
                 }
             }
             Some("buy") | Some("b") => {
                 let num_args = &ctx.args[1..];
                 if num_args.len() != 5 {
-                    ctx.whisper("Pick exactly 5 numbers. Example: !lotto buy 3 12 17 28 35");
+                    ctx.whisper_success("Pick exactly 5 numbers. Example: !lotto buy 3 12 17 28 35");
                     return Ok(());
                 }
 
                 let mut picks: Vec<u8> = match num_args.iter().map(|s| s.parse::<u8>()).collect() {
                     Ok(v) => v,
                     Err(_) => {
-                        ctx.whisper("Invalid number. Each must be an integer between 1-40.");
+                        ctx.whisper_success("Invalid number. Each must be an integer between 1-40.");
                         return Ok(());
                     }
                 };
 
                 if picks.iter().any(|&n| n < 1 || n > 40) {
-                    ctx.whisper("Numbers must be between 1 and 40.");
+                    ctx.whisper_success("Numbers must be between 1 and 40.");
                     return Ok(());
                 }
 
                 picks.sort();
                 if picks.windows(2).any(|w| w[0] == w[1]) {
-                    ctx.whisper("Numbers must be unique.");
+                    ctx.whisper_success("Numbers must be unique.");
                     return Ok(());
                 }
 
                 let nums_str = picks.iter().map(|n| n.to_string()).collect::<Vec<_>>().join("-");
                 match ctx.state.api.casino_lotto_buy_ticket(&player_uuid, &nums_str).await {
-                    Ok(info) => ctx.whisper(format!(
+                    Ok(info) => ctx.whisper_success(format!(
                         "Ticket: {} | Draw: {} | Pot: {} | Balance: {}",
                         info.numbers.replace('-', " "),
                         info.draw_date,
                         chips_str(info.pot),
                         chips_str(info.chips)
                     )),
-                    Err(e) => ctx.whisper(format!("Could not buy ticket: {e}")),
+                    Err(e) => ctx.whisper_success(format!("Could not buy ticket: {e}")),
                 }
             }
             _ => {
-                ctx.whisper("Usage: !lotto buy <n1..n5> | !lotto quick | !lotto pot | !lotto check | !lotto results | 5 unique nums 1-40 | costs 50 chips | draw every Saturday.");
+                ctx.whisper_success("Usage: !lotto buy <n1..n5> | !lotto quick | !lotto pot | !lotto check | !lotto results | 5 unique nums 1-40 | costs 50 chips | draw every Saturday.");
             }
         }
         Ok(())
@@ -388,7 +388,7 @@ pub fn wallet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target_name = ctx.args.first().copied().unwrap_or(ctx.sender);
         let Some(target_uuid) = ctx.state.api.convert_username_to_uuid(target_name).await else {
-            ctx.whisper(format!("Could not resolve UUID for {}.", target_name));
+            ctx.whisper_error(format!("Could not resolve UUID for {}.", target_name));
             return Ok(());
         };
         let (bal, jackpot, lotto_tickets, portfolio_summary) = tokio::join!(
@@ -417,7 +417,7 @@ pub fn wallet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     Some((value, count)) => format!(" | Portfolio: {} ({} pos)", chips_str(value), count),
                     None => String::new(),
                 };
-                ctx.whisper(format!(
+                ctx.whisper_success(format!(
                     "{}: {}{} | Streak: {}d | Lotto: {} ticket{}{} | Jackpot: {} ticket{}{}",
                     target_name,
                     chips_str(b.chips),
@@ -427,7 +427,7 @@ pub fn wallet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     jp_tickets, if jp_tickets == 1 { "" } else { "s" }, jp_draw_info,
                 ));
             }
-            None => ctx.whisper(format!("Could not fetch wallet for {target_name}.")),
+            None => ctx.whisper_success(format!("Could not fetch wallet for {target_name}.")),
         }
         Ok(())
     })
@@ -482,20 +482,20 @@ pub const ADDCHIPS_COMMAND: CommandDefinition = CommandDefinition {
 pub fn addchips_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let (Some(&target), Some(&amount_str)) = (ctx.args.first(), ctx.args.get(1)) else {
-            ctx.whisper("Usage: !addchips <player> <amount>");
+            ctx.whisper_success("Usage: !addchips <player> <amount>");
             return Ok(());
         };
         let Ok(amount) = amount_str.parse::<i64>() else {
-            ctx.whisper("Amount must be a number.");
+            ctx.whisper_success("Amount must be a number.");
             return Ok(());
         };
         let Some(target_uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
-            ctx.whisper(format!("Could not find UUID for {}.", target));
+            ctx.whisper_error(format!("Could not find UUID for {}.", target));
             return Ok(());
         };
         match ctx.state.api.casino_adjust(&target_uuid, amount).await {
-            Ok(bal) => ctx.whisper(format!("Gave {} to {}. Balance: {}.", chips_str(amount), target, chips_str(bal))),
-            Err(_) => ctx.whisper("Failed."),
+            Ok(bal) => ctx.whisper_success(format!("Gave {} to {}. Balance: {}.", chips_str(amount), target, chips_str(bal))),
+            Err(_) => ctx.whisper_success("Failed."),
         }
         Ok(())
     })
@@ -515,19 +515,19 @@ pub fn draw_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         match ctx.args.first().copied() {
             Some("lotto") => {
                 if ctx.state.api.casino_fire_lotto_draw().await {
-                    ctx.whisper("Lotto draw triggered.");
+                    ctx.whisper_success("Lotto draw triggered.");
                 } else {
-                    ctx.whisper("Draw request failed.");
+                    ctx.whisper_success("Draw request failed.");
                 }
             }
             Some("jackpot") => {
                 if ctx.state.api.casino_fire_jackpot_draw().await {
-                    ctx.whisper("Jackpot draw triggered.");
+                    ctx.whisper_success("Jackpot draw triggered.");
                 } else {
-                    ctx.whisper("Draw request failed.");
+                    ctx.whisper_success("Draw request failed.");
                 }
             }
-            _ => ctx.whisper("Usage: !draw lotto|jackpot"),
+            _ => ctx.whisper_success("Usage: !draw lotto|jackpot"),
         }
         Ok(())
     })

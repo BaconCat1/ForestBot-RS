@@ -28,7 +28,7 @@ fn survived(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let survived = time::dhms(now_millis().saturating_sub(death_ms))
             .trim_end_matches('.')
             .to_owned();
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " {search} has survived for {survived} since their last death."
         ));
         Ok(())

@@ -66,7 +66,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 // ── Usage ─────────────────────────────────────────────────────────────────────
 
 fn show_usage(ctx: &CommandContext) {
-    ctx.whisper("!duel <player> <chips> | confirm | reject | odds [player] | bet <player> <chips>");
+    ctx.whisper_success("!duel <player> <chips> | confirm | reject | odds [player] | bet <player> <chips>");
 }
 
 // ── Start duel ────────────────────────────────────────────────────────────────
@@ -74,18 +74,18 @@ fn show_usage(ctx: &CommandContext) {
 async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()> {
     let stake: i64 = match ctx.args.get(1).and_then(|s| s.parse().ok()) {
         Some(n) => n,
-        None => { ctx.whisper("Usage: !duel <player> <chips>"); return Ok(()); }
+        None => { ctx.whisper_success("Usage: !duel <player> <chips>"); return Ok(()); }
     };
 
     if stake < MIN_STAKE || stake > MAX_STAKE {
-        ctx.whisper(format!("Stake must be {}-{}.", chips_str(MIN_STAKE), chips_str(MAX_STAKE)));
+        ctx.whisper_success(format!("Stake must be {}-{}.", chips_str(MIN_STAKE), chips_str(MAX_STAKE)));
         return Ok(());
     }
 
     let sender = ctx.sender;
 
     if target.eq_ignore_ascii_case(sender) {
-        ctx.whisper("Can't duel yourself.");
+        ctx.whisper_success("Can't duel yourself.");
         return Ok(());
     }
 
@@ -93,21 +93,21 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
     {
         let players = ctx.state.players.read().expect("players lock");
         if !players.contains_key(target) {
-            ctx.whisper(format!("{} isn't online.", target));
+            ctx.whisper_error(format!("{} isn't online.", target));
             return Ok(());
         }
     }
 
-    // No existing duel for either party
+    // No existing duel for either party -- target is confirmed online (checked above), safe to echo.
     if let Some(existing) = find_participant_duel(ctx.state, sender) {
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "Already in a duel ({} vs {}). Finish it first.",
             existing.challenger, existing.challenged
         ));
         return Ok(());
     }
     if find_participant_duel(ctx.state, target).is_some() {
-        ctx.whisper(format!("{} is already in a duel.", target));
+        ctx.whisper_success(format!("{} is already in a duel.", target));
         return Ok(());
     }
 
@@ -115,11 +115,11 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
     match ctx.state.api.casino_adjust(sender, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -166,11 +166,11 @@ async fn confirm_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let duel = match duel {
         Some(d) => d,
-        None => { ctx.whisper("No pending duel request for you."); return Ok(()); }
+        None => { ctx.whisper_success("No pending duel request for you."); return Ok(()); }
     };
 
     if now_unix() >= duel.confirm_expires_at {
-        ctx.whisper("Duel request expired.");
+        ctx.whisper_success("Duel request expired.");
         // Cleanup happens in the timeout task
         return Ok(());
     }
@@ -179,11 +179,11 @@ async fn confirm_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     match ctx.state.api.casino_adjust(ctx.sender, -duel.stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but have {}.", chips_str(duel.stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but have {}.", chips_str(duel.stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -229,7 +229,7 @@ async fn reject_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let duel = match duel {
         Some(d) => d,
-        None => { ctx.whisper("No pending duel to reject."); return Ok(()); }
+        None => { ctx.whisper_success("No pending duel to reject."); return Ok(()); }
     };
 
     cancel_duel_refund(ctx.state, &duel).await;
@@ -247,8 +247,8 @@ async fn show_odds(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let duel = find_participant_duel(ctx.state, lookup);
     let duel = match duel {
         Some(d) if d.phase == DuelPhase::Active => d,
-        Some(_) => { ctx.whisper("Duel hasn't started yet."); return Ok(()); }
-        None => { ctx.whisper(format!("No active duel for {}.", lookup)); return Ok(()); }
+        Some(_) => { ctx.whisper_success("Duel hasn't started yet."); return Ok(()); }
+        None => { ctx.whisper_error(format!("No active duel for {}.", lookup)); return Ok(()); }
     };
 
     let (c_pct, x_pct) = duel_odds(ctx.state, &duel.challenger, &duel.challenged).await;
@@ -260,7 +260,7 @@ async fn show_odds(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     if side_bet_count > 0 {
         msg.push_str(&format!(" | {} side bet(s) placed", side_bet_count));
     }
-    ctx.whisper(msg);
+    ctx.whisper_success(msg);
     Ok(())
 }
 
@@ -270,22 +270,22 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     // !duel bet <player> <chips>
     let target = match ctx.args.get(1).copied() {
         Some(t) => t,
-        None => { ctx.whisper("Usage: !duel bet <player> <chips>"); return Ok(()); }
+        None => { ctx.whisper_success("Usage: !duel bet <player> <chips>"); return Ok(()); }
     };
     let amount: i64 = match ctx.args.get(2).and_then(|s| s.parse().ok()) {
         Some(n) => n,
-        None => { ctx.whisper("Usage: !duel bet <player> <chips>"); return Ok(()); }
+        None => { ctx.whisper_success("Usage: !duel bet <player> <chips>"); return Ok(()); }
     };
     if amount < MIN_STAKE {
-        ctx.whisper(format!("Min side bet is {}.", chips_str(MIN_STAKE)));
+        ctx.whisper_success(format!("Min side bet is {}.", chips_str(MIN_STAKE)));
         return Ok(());
     }
 
     let duel = find_participant_duel(ctx.state, target);
     let duel = match duel {
         Some(d) if d.phase == DuelPhase::Active => d,
-        Some(_) => { ctx.whisper("That duel hasn't started yet."); return Ok(()); }
-        None => { ctx.whisper(format!("No active duel involving {}.", target)); return Ok(()); }
+        Some(_) => { ctx.whisper_success("That duel hasn't started yet."); return Ok(()); }
+        None => { ctx.whisper_error(format!("No active duel involving {}.", target)); return Ok(()); }
     };
 
     let target_lc = target.to_ascii_lowercase();
@@ -294,13 +294,13 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     } else if duel.challenged.to_ascii_lowercase() == target_lc {
         duel.challenged.clone()
     } else {
-        ctx.whisper(format!("{} isn't in that duel.", target));
+        ctx.whisper_error(format!("{} isn't in that duel.", target));
         return Ok(());
     };
 
     // Participants can't side-bet on their own duel
     if duel.challenger.eq_ignore_ascii_case(ctx.sender) || duel.challenged.eq_ignore_ascii_case(ctx.sender) {
-        ctx.whisper("Participants can't place side bets on their own duel.");
+        ctx.whisper_success("Participants can't place side bets on their own duel.");
         return Ok(());
     }
 
@@ -309,7 +309,7 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         let duels = ctx.state.duels.lock().expect("duels lock");
         if let Some(d) = duels.iter().find(|d| d.id == duel.id) {
             if d.side_bets.iter().any(|sb| sb.bettor.eq_ignore_ascii_case(ctx.sender)) {
-                ctx.whisper("Already placed a side bet on this duel.");
+                ctx.whisper_success("Already placed a side bet on this duel.");
                 return Ok(());
             }
         }
@@ -323,11 +323,11 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     match ctx.state.api.casino_adjust(ctx.sender, -amount).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but have {}.", chips_str(amount), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but have {}.", chips_str(amount), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -346,7 +346,7 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         }
     }
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "Side bet placed: {} chips on {} ({:.0}% odds) — potential payout: {}",
         chips_str(amount), resolved_target, odds_for_target * 100.0, chips_str(potential_payout)
     ));

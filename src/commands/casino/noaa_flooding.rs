@@ -107,7 +107,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn show_usage(ctx: &CommandContext<'_>) {
     let p = &ctx.runtime.prefix;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "NOAA flood bets: {p}flood list | {p}flood bet <#> yes|no [chips] | {p}flood bets | Omit chips for odds preview"
     ));
 }
@@ -143,15 +143,15 @@ async fn show_list(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         .header("Accept", "application/geo+json")
         .send().await
     else {
-        ctx.whisper("Could not reach NOAA API.");
+        ctx.whisper_success("Could not reach NOAA API.");
         return Ok(());
     };
     let Ok(body) = resp.json::<serde_json::Value>().await else {
-        ctx.whisper("Could not parse NOAA response.");
+        ctx.whisper_success("Could not parse NOAA response.");
         return Ok(());
     };
     let Some(features) = body["features"].as_array() else {
-        ctx.whisper("No active flood alerts right now.");
+        ctx.whisper_success("No active flood alerts right now.");
         return Ok(());
     };
 
@@ -165,7 +165,7 @@ async fn show_list(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     if entries.is_empty() {
-        ctx.whisper("No active flood alerts with location data. Check alerts.weather.gov.");
+        ctx.whisper_success("No active flood alerts with location data. Check alerts.weather.gov.");
         return Ok(());
     }
 
@@ -179,7 +179,7 @@ async fn show_list(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         .map(|(i, e)| format!("#{} {}", i + 1, e.area))
         .collect();
     let p = &ctx.runtime.prefix;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[Flood Alerts] {} | {p}flood bet <#> yes|no <chips>",
         items.join(" | ")
     ));
@@ -188,18 +188,18 @@ async fn show_list(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     let all_bets = ctx.state.api.casino_noaa_flooding_bet_list().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
-        ctx.whisper("No open NOAA flood bets.");
+        ctx.whisper_success("No open NOAA flood bets.");
         return Ok(());
     }
     for bet in &player_bets {
         let payout = (bet.stake as f64 / bet.price).floor() as i64;
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[NOAA Flood] {} | {} {:.2}x | {} -> {} | {}",
             bet.location,
             bet.side.to_uppercase(),
@@ -215,11 +215,11 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 async fn place_bet_indexed(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     // args: bet <#> yes|no [chips]  → ctx.args = ["bet", "#", "yes|no", "chips"?]
     let (Some(&idx_s), Some(&side_s)) = (ctx.args.get(1), ctx.args.get(2)) else {
-        ctx.whisper(format!("Usage: {}flood bet <#> yes|no <chips> | Omit chips for odds preview", ctx.runtime.prefix));
+        ctx.whisper_success(format!("Usage: {}flood bet <#> yes|no <chips> | Omit chips for odds preview", ctx.runtime.prefix));
         return Ok(());
     };
     let Ok(idx) = idx_s.parse::<usize>().map(|n| n.saturating_sub(1)) else {
-        ctx.whisper("Event number must be a positive integer.");
+        ctx.whisper_success("Event number must be a positive integer.");
         return Ok(());
     };
     let entry = {
@@ -227,7 +227,7 @@ async fn place_bet_indexed(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         cache.entries.get(idx).map(|e| (e.area.clone(), e.latitude, e.longitude))
     };
     let Some((area, latitude, longitude)) = entry else {
-        ctx.whisper("Event not found. Run !flood list to refresh.");
+        ctx.whisper_success("Event not found. Run !flood list to refresh.");
         return Ok(());
     };
 
@@ -237,13 +237,13 @@ async fn place_bet_indexed(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         let flooding = match fetch_active_alerts(&client, latitude, longitude).await {
             Ok(alerts) => alerts.iter().any(is_flood_related),
             Err(FetchErr::RateLimit) => {
-                ctx.whisper("NOAA API rate limit reached. Try again later.");
+                ctx.whisper_success("NOAA API rate limit reached. Try again later.");
                 return Ok(());
             }
             Err(_) => false,
         };
         let (yes_price, no_price) = compute_odds(flooding);
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[NOAA Flood] {area} | {} | yes {:.2}x | no {:.2}x",
             if flooding { "flood alert active" } else { "no alert" },
             1.0 / yes_price, 1.0 / no_price,
@@ -262,11 +262,11 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     };
     let Ok(latitude) = lat_s.parse::<f64>() else {
-        ctx.whisper("Latitude must be numeric.");
+        ctx.whisper_success("Latitude must be numeric.");
         return Ok(());
     };
     let Ok(longitude) = lon_s.parse::<f64>() else {
-        ctx.whisper("Longitude must be numeric.");
+        ctx.whisper_success("Longitude must be numeric.");
         return Ok(());
     };
     place_bet_inner(ctx, fmt_location(latitude, longitude), latitude, longitude, side_s, amt_s).await
@@ -282,30 +282,30 @@ async fn place_bet_inner(
 ) -> anyhow::Result<()> {
     let side = side_s.to_lowercase();
     if side != "yes" && side != "no" {
-        ctx.whisper("Side must be yes or no.");
+        ctx.whisper_success("Side must be yes or no.");
         return Ok(());
     }
     let Ok(stake) = amt_s.parse::<i64>() else {
-        ctx.whisper("Chip amount must be a number.");
+        ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
     if stake < MIN_BET {
-        ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable.");
+            ctx.whisper_success("Casino unavailable.");
             return Ok(());
         }
     }
@@ -316,9 +316,9 @@ async fn place_bet_inner(
         Err(FetchErr::RateLimit) => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
                 eprintln!("[NOAA] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("NOAA API rate limit reached. Refund also failed — contact an admin.");
+                ctx.whisper_success("NOAA API rate limit reached. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("NOAA API rate limit reached. Chips refunded.");
+                ctx.whisper_success("NOAA API rate limit reached. Chips refunded.");
             }
             return Ok(());
         }
@@ -344,9 +344,9 @@ async fn place_bet_inner(
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
                 eprintln!("[NOAA] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to save bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to save bet. Chips refunded.");
+                ctx.whisper_success("Failed to save bet. Chips refunded.");
             }
             return Ok(());
         }
@@ -357,7 +357,7 @@ async fn place_bet_inner(
     }
 
     let payout = (stake as f64 / price).floor() as i64;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[NOAA Flood] {location} | {} {} | {:.2}x | {} | profit if win: +{} | settles in 2h",
         side.to_uppercase(),
         if currently_flooding { "flood alert now" } else { "no alert now" },

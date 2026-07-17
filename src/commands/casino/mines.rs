@@ -237,28 +237,28 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             let chips = match arg.parse::<i64>() {
                 Ok(n) if n >= MIN_STAKE => n,
                 Ok(_) => {
-                    ctx.whisper(format!("Minimum stake: {} chips.", MIN_STAKE));
+                    ctx.whisper_success(format!("Minimum stake: {} chips.", MIN_STAKE));
                     return Ok(());
                 }
                 _ => {
-                    ctx.whisper(format!("Usage: !mines <chips>. No active game. Min: {}.", MIN_STAKE));
+                    ctx.whisper_success(format!("Usage: !mines <chips>. No active game. Min: {}.", MIN_STAKE));
                     return Ok(());
                 }
             };
             match ctx.state.api.casino_adjust(&sender, -chips).await {
                 Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-                    ctx.whisper(format!("Not enough chips (have {}).", chips_str(have)));
+                    ctx.whisper_success(format!("Not enough chips (have {}).", chips_str(have)));
                     return Ok(());
                 }
-                Err(e) => { ctx.whisper(format!("Error: {e:?}")); return Ok(()); }
+                Err(e) => { ctx.whisper_success(format!("Error: {e:?}")); return Ok(()); }
                 Ok(_)  => {}
             }
             let session = MinesGame::new(chips);
             let board   = session.render(false);
             ctx.state.mines_games.lock().unwrap().insert(sender.clone(), session);
-            ctx.whisper(format!("Minesweeper | {} stake | 20 mines, 10×10 board", chips_str(chips)));
-            ctx.whisper("Reveal: !mines <coord> (e.g. a3) | Flag: !mines f<coord> | Cashout: !mines cash | !mines board | !mines quit");
-            for line in board { ctx.whisper(&line); }
+            ctx.whisper_success(format!("Minesweeper | {} stake | 20 mines, 10×10 board", chips_str(chips)));
+            ctx.whisper_success("Reveal: !mines <coord> (e.g. a3) | Flag: !mines f<coord> | Cashout: !mines cash | !mines board | !mines quit");
+            for line in board { ctx.whisper_success(&line); }
             return Ok(());
         }
 
@@ -269,8 +269,8 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     let g = games.get(&sender).unwrap();
                     (g.render(false), format!("{:.3}×", g.multiplier), g.safe_revealed)
                 };
-                ctx.whisper(format!("Multiplier: {mult_str} | {sr}/{TOTAL_SAFE} safe revealed"));
-                for line in lines { ctx.whisper(&line); }
+                ctx.whisper_success(format!("Multiplier: {mult_str} | {sr}/{TOTAL_SAFE} safe revealed"));
+                for line in lines { ctx.whisper_success(&line); }
                 return Ok(());
             }
             "cash" | "cashout" => {
@@ -280,18 +280,18 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     (g.safe_revealed, g.payout())
                 };
                 if sr == 0 {
-                    ctx.whisper("Reveal at least one safe cell before cashing out.");
+                    ctx.whisper_success("Reveal at least one safe cell before cashing out.");
                     return Ok(());
                 }
                 ctx.state.mines_games.lock().unwrap().remove(&sender);
                 ctx.state.api.casino_adjust(&sender, payout).await.unwrap_or(0);
-                ctx.whisper(format!("Cashed out! Won {}.", chips_str(payout)));
+                ctx.whisper_success(format!("Cashed out! Won {}.", chips_str(payout)));
                 return Ok(());
             }
             "quit" | "forfeit" => {
                 let stake = ctx.state.mines_games.lock().unwrap().remove(&sender).unwrap().stake;
                 ctx.state.api.casino_jackpot_rake(stake).await;
-                ctx.whisper(format!("Forfeited. {} to jackpot.", chips_str(stake)));
+                ctx.whisper_success(format!("Forfeited. {} to jackpot.", chips_str(stake)));
                 return Ok(());
             }
             _ => {}
@@ -302,7 +302,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             let pos = match parse_coord(coord_part) {
                 Some(p) => p,
                 None => {
-                    ctx.whisper("Invalid coord. Use e.g. !mines fa3 or !mines fj0.");
+                    ctx.whisper_success("Invalid coord. Use e.g. !mines fa3 or !mines fj0.");
                     return Ok(());
                 }
             };
@@ -318,7 +318,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     else { format!("Unflagged {coord_part}.") }
                 }
             };
-            ctx.whisper(&msg);
+            ctx.whisper_success(&msg);
             return Ok(());
         }
 
@@ -326,7 +326,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let pos = match parse_coord(arg) {
             Some(p) => p,
             None => {
-                ctx.whisper("Invalid coord. e.g. !mines a3, !mines j0. Flag: !mines f<coord>.");
+                ctx.whisper_success("Invalid coord. e.g. !mines a3, !mines j0. Flag: !mines f<coord>.");
                 return Ok(());
             }
         };
@@ -371,24 +371,24 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         match outcome {
             Outcome::AlreadyRevealed => {
-                ctx.whisper("Already revealed.");
+                ctx.whisper_success("Already revealed.");
             }
             Outcome::Mine { stake, board } => {
                 ctx.state.api.casino_jackpot_rake(stake).await;
-                ctx.whisper(format!("BOOM! Hit a mine. {} to jackpot.", chips_str(stake)));
-                for line in board { ctx.whisper(&line); }
+                ctx.whisper_success(format!("BOOM! Hit a mine. {} to jackpot.", chips_str(stake)));
+                for line in board { ctx.whisper_success(&line); }
             }
             Outcome::Victory { payout, board } => {
                 ctx.state.api.casino_adjust(&sender, payout).await.unwrap_or(0);
-                ctx.whisper(format!("All safe cells cleared! Won {}!", chips_str(payout)));
-                for line in board { ctx.whisper(&line); }
+                ctx.whisper_success(format!("All safe cells cleared! Won {}!", chips_str(payout)));
+                for line in board { ctx.whisper_success(&line); }
             }
             Outcome::Continue { revealed, multiplier, safe_revealed, board } => {
                 let mult_str = format!("{multiplier:.3}×");
-                ctx.whisper(format!(
+                ctx.whisper_success(format!(
                     "+{revealed} | Multiplier: {mult_str} | {safe_revealed}/{TOTAL_SAFE} safe | !mines cash to collect"
                 ));
-                for line in board { ctx.whisper(&line); }
+                for line in board { ctx.whisper_success(&line); }
             }
         }
 

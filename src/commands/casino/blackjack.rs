@@ -69,7 +69,7 @@ fn state_msg(player: &[u8], dealer_up: u8, extra: &str) -> String {
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+            ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
         let subcmd = ctx.args.first().copied().unwrap_or("").to_ascii_lowercase();
@@ -89,28 +89,28 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
     {
         let sessions = ctx.state.casino_sessions.lock().expect("lock");
         if sessions.contains_key(ctx.sender) {
-            ctx.whisper("Already in a game. Use !bj hit/stand/double/quit.");
+            ctx.whisper_success("Already in a game. Use !bj hit/stand/double/quit.");
             return Ok(());
         }
     }
 
     let Ok(bet) = stake_str.parse::<i64>() else {
-        ctx.whisper(format!("Usage: !bj <bet> (min {MIN_BET}, max {MAX_BET})"));
+        ctx.whisper_success(format!("Usage: !bj <bet> (min {MIN_BET}, max {MAX_BET})"));
         return Ok(());
     };
     if bet < MIN_BET || bet > MAX_BET {
-        ctx.whisper(format!("Bet must be {MIN_BET}–{MAX_BET} chips."));
+        ctx.whisper_success(format!("Bet must be {MIN_BET}–{MAX_BET} chips."));
         return Ok(());
     }
 
     let balance = match ctx.state.api.casino_adjust(player_uuid, -bet).await {
         Ok(b) => b,
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Not enough chips (have {}, need {}).", chips_str(have), chips_str(bet)));
+            ctx.whisper_success(format!("Not enough chips (have {}, need {}).", chips_str(have), chips_str(bet)));
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable right now.");
+            ctx.whisper_success("Casino unavailable right now.");
             return Ok(());
         }
     };
@@ -127,7 +127,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
             Ok(b) => b,
             Err(_) => balance + bet,
         };
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "BJ | You: {} (21) | Dealer: {} {} (21) | Both blackjack — Push | Balance: {}",
             hand_str(&player), card_str(dealer[0]), card_str(dealer[1]), chips_str(new_balance)
         ));
@@ -135,7 +135,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
     }
     if dbj {
         ctx.state.api.casino_jackpot_rake(bet).await;
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "BJ | You: {} ({}) | Dealer: {} {} (21) | Dealer blackjack — Lost {} | Balance: {}",
             hand_str(&player), score(&player),
             card_str(dealer[0]), card_str(dealer[1]),
@@ -150,7 +150,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
             Ok(b) => b,
             Err(_) => balance + payout,
         };
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "BJ | You: {} (21) | Dealer: {} ? | BLACKJACK! +{} | Balance: {}",
             hand_str(&player), card_str(dealer[0]),
             chips_str(payout - bet), chips_str(new_balance)
@@ -171,7 +171,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
         },
     );
 
-    ctx.whisper(state_msg(&player, dealer[0], &format!("{actions}? | Balance: {}", chips_str(balance))));
+    ctx.whisper_success(state_msg(&player, dealer[0], &format!("{actions}? | Balance: {}", chips_str(balance))));
     Ok(())
 }
 
@@ -186,11 +186,11 @@ async fn do_hit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()
             }
             Some(_) => {
                 let label = sessions.get(ctx.sender).map(session_label).unwrap_or("another");
-                ctx.whisper(format!("In a {label} game, not blackjack."));
+                ctx.whisper_success(format!("In a {label} game, not blackjack."));
                 return Ok(());
             }
             None => {
-                ctx.whisper("No blackjack session. Start with !bj <bet>.");
+                ctx.whisper_success("No blackjack session. Start with !bj <bet>.");
                 return Ok(());
             }
         }
@@ -203,7 +203,7 @@ async fn do_hit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
         let balance = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0);
         ctx.state.api.casino_jackpot_rake(bet).await;
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "BJ | You: {} ({ps}) | Dealer: {} ? | Bust — Lost {} | Balance: {}",
             hand_str(&player), card_str(dealer[0]), chips_str(bet), chips_str(balance)
         ));
@@ -220,7 +220,7 @@ async fn do_hit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()
         ctx.sender.to_owned(),
         CasinoSession::Blackjack { bet, player_hand: player.clone(), dealer_hand: dealer.clone() },
     );
-    ctx.whisper(state_msg(&player, dealer[0], &format!("Hit or Stand? ({ps})")));
+    ctx.whisper_success(state_msg(&player, dealer[0], &format!("Hit or Stand? ({ps})")));
     Ok(())
 }
 
@@ -235,11 +235,11 @@ async fn do_stand(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<
             }
             Some(_) => {
                 let label = sessions.get(ctx.sender).map(session_label).unwrap_or("another");
-                ctx.whisper(format!("In a {label} game, not blackjack."));
+                ctx.whisper_success(format!("In a {label} game, not blackjack."));
                 return Ok(());
             }
             None => {
-                ctx.whisper("No blackjack session. Start with !bj <bet>.");
+                ctx.whisper_success("No blackjack session. Start with !bj <bet>.");
                 return Ok(());
             }
         }
@@ -259,18 +259,18 @@ async fn do_double(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result
             }
             Some(_) => {
                 let label = sessions.get(ctx.sender).map(session_label).unwrap_or("another");
-                ctx.whisper(format!("In a {label} game, not blackjack."));
+                ctx.whisper_success(format!("In a {label} game, not blackjack."));
                 return Ok(());
             }
             None => {
-                ctx.whisper("No blackjack session. Start with !bj <bet>.");
+                ctx.whisper_success("No blackjack session. Start with !bj <bet>.");
                 return Ok(());
             }
         }
     };
 
     if player.len() != 2 {
-        ctx.whisper("Can only double on first two cards.");
+        ctx.whisper_success("Can only double on first two cards.");
         return Ok(());
     }
 
@@ -278,11 +278,11 @@ async fn do_double(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result
     let balance = match ctx.state.api.casino_adjust(player_uuid, -bet).await {
         Ok(b) => b,
         Err(CasinoAdjustErr::InsufficientFunds(_)) => {
-            ctx.whisper("Not enough chips to double.");
+            ctx.whisper_success("Not enough chips to double.");
             return Ok(());
         }
         Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper("Casino unavailable right now.");
+            ctx.whisper_success("Casino unavailable right now.");
             return Ok(());
         }
     };
@@ -296,7 +296,7 @@ async fn do_double(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result
 
     if ps > 21 {
         ctx.state.api.casino_jackpot_rake(doubled_bet).await;
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "BJ | You: {} ({ps}) | Dealer: {} ? | Bust on double — Lost {} | Balance: {}",
             hand_str(&new_player), card_str(dealer[0]), chips_str(doubled_bet), chips_str(balance)
         ));
@@ -314,10 +314,10 @@ async fn do_quit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<(
         Some(CasinoSession::Blackjack { bet, .. }) => {
             ctx.state.api.casino_jackpot_rake(bet).await;
             let balance = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0);
-            ctx.whisper(format!("BJ | Quit — forfeited {} | Balance: {}", chips_str(bet), chips_str(balance)));
+            ctx.whisper_success(format!("BJ | Quit — forfeited {} | Balance: {}", chips_str(bet), chips_str(balance)));
         }
-        Some(_) => ctx.whisper("Quit that game with its own quit command."),
-        None => ctx.whisper("No blackjack session active."),
+        Some(_) => ctx.whisper_success("Quit that game with its own quit command."),
+        None => ctx.whisper_success("No blackjack session active."),
     }
     Ok(())
 }
@@ -356,7 +356,7 @@ async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut 
         ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0)
     };
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "BJ | You: {} ({ps}) | Dealer: {} ({ds}) | {result_msg} | Balance: {}",
         hand_str(&player), dealer_display, chips_str(new_balance)
     ));

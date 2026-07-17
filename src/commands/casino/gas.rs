@@ -193,7 +193,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         match arg0.as_str() {
             "" => {
                 let p = &ctx.runtime.prefix;
-                ctx.whisper(format!(
+                ctx.whisper_success(format!(
                     "Gas price bets (24h window): {p}gas <zip> | {p}gas <zip> up|down <chips> | {p}gas bets"
                 ));
             }
@@ -206,7 +206,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     let bets = {
@@ -214,12 +214,12 @@ async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         map.get(&player_uuid).cloned().unwrap_or_default()
     };
     if bets.is_empty() {
-        ctx.whisper("No open gas bets.");
+        ctx.whisper_success("No open gas bets.");
         return Ok(());
     }
     for b in &bets {
         let secs_left = b.close_time.saturating_sub(now_unix());
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[GAS] {} {} {} — baseline ${:.3}/gal | {:.2}× | closes in {}h",
             b.region, b.side.to_uppercase(), chips_str(b.stake),
             b.baseline as f64 / 1000.0, 10000.0 / b.price as f64, secs_left / 3600,
@@ -249,11 +249,11 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
                 r
             }
             Err(FetchErr::RateLimit) => {
-                ctx.whisper("GasBuddy API rate limit reached. Try again later.");
+                ctx.whisper_success("GasBuddy API rate limit reached. Try again later.");
                 return Ok(());
             }
             Err(_) => {
-                ctx.whisper("Could not fetch gas price — GasBuddy unavailable or zip not found.");
+                ctx.whisper_success("Could not fetch gas price — GasBuddy unavailable or zip not found.");
                 return Ok(());
             }
         }
@@ -263,7 +263,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
     let price_up   = to_price(p_up);
     let price_down = to_price(p_down);
 
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[GAS: {region}] ${price:.3}/gal avg regular | Up tomorrow: {} | Down tomorrow: {}",
         fmt_odds(price_up), fmt_odds(price_down),
     ));
@@ -273,26 +273,26 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
     let bet_price: i64 = match side {
         "up"   => (price_up   * 10000.0).round() as i64,
         "down" => (price_down * 10000.0).round() as i64,
-        _ => { ctx.whisper("Side must be 'up' or 'down'."); return Ok(()); }
+        _ => { ctx.whisper_success("Side must be 'up' or 'down'."); return Ok(()); }
     };
 
     let chips = match chips_str_arg.parse::<i64>() {
         Ok(n) if n >= MIN_BET => n,
-        Ok(_) => { ctx.whisper(format!("Min bet: {} chips.", MIN_BET)); return Ok(()); }
-        Err(_) => { ctx.whisper("Usage: !gas <zip> up|down <chips>"); return Ok(()); }
+        Ok(_) => { ctx.whisper_success(format!("Min bet: {} chips.", MIN_BET)); return Ok(()); }
+        Err(_) => { ctx.whisper_success("Usage: !gas <zip> up|down <chips>"); return Ok(()); }
     };
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
 
     match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Not enough chips (have {}).", chips_str(have)));
+            ctx.whisper_success(format!("Not enough chips (have {}).", chips_str(have)));
             return Ok(());
         }
-        Err(e) => { ctx.whisper(format!("Error: {e:?}")); return Ok(()); }
+        Err(e) => { ctx.whisper_success(format!("Error: {e:?}")); return Ok(()); }
         Ok(_)  => {}
     }
 
@@ -314,16 +314,16 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, chips).await {
                 eprintln!("[Gas] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to record bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to record bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to record bet. Chips refunded.");
+                ctx.whisper_success("Failed to record bet. Chips refunded.");
             }
             return Ok(());
         }
     }
 
     let payout = (chips as f64 * 10000.0 / bet_price as f64).floor() as i64;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[GAS] {} {} {} — pays {} if price goes {} from ${price:.3} | closes in 24h",
         region, side.to_uppercase(), chips_str(chips), chips_str(payout), side,
     ));

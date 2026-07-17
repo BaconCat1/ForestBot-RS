@@ -36,7 +36,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "Lagging"
         };
 
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             "TPS: {:.1} / 20.0 — {} ({}s window, {} samples)",
             tps,
             status,

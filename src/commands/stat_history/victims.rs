@@ -47,7 +47,7 @@ fn victims(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         }
         let label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " {}{} has killed {} unique player{}.",
             target.search,
             label,

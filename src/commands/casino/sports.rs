@@ -229,7 +229,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 async fn load_events(ctx: &CommandContext<'_>) -> Option<Vec<EventDisplay>> {
     let key = ctx.runtime.sharpapi_key.clone();
     if key.is_empty() {
-        ctx.whisper("Sports betting is not configured (missing sharpapi_key).");
+        ctx.whisper_success("Sports betting is not configured (missing sharpapi_key).");
         return None;
     }
     let cached = {
@@ -244,7 +244,7 @@ async fn load_events(ctx: &CommandContext<'_>) -> Option<Vec<EventDisplay>> {
     let evs = match build_event_cache(&client, &key).await {
         Ok(e) => e,
         Err(FetchErr::RateLimit) => {
-            ctx.whisper("SharpAPI rate limit reached. Try again later.");
+            ctx.whisper_success("SharpAPI rate limit reached. Try again later.");
             return None;
         }
         Err(_) => vec![],
@@ -259,7 +259,7 @@ async fn show_events(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(events) = load_events(ctx).await else { return Ok(()); };
 
     if events.is_empty() {
-        ctx.whisper("No upcoming events found. Try again in a few minutes.");
+        ctx.whisper_success("No upcoming events found. Try again in a few minutes.");
         return Ok(());
     }
 
@@ -274,7 +274,7 @@ async fn show_events(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             .map(|(s, n)| format!("{s} ({n})"))
             .collect::<Vec<_>>()
             .join(", ");
-        ctx.whisper(format!("Sports: {list} | {}sports <sport>", ctx.runtime.prefix));
+        ctx.whisper_success(format!("Sports: {list} | {}sports <sport>", ctx.runtime.prefix));
     } else {
         let matching: Vec<(usize, &EventDisplay)> = events.iter().enumerate()
             .filter(|(_, ev)| ev.sport.to_lowercase() == sport_arg)
@@ -283,7 +283,7 @@ async fn show_events(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         if matching.is_empty() {
             let known: std::collections::BTreeSet<String> =
                 events.iter().map(|ev| ev.sport.to_lowercase()).collect();
-            ctx.whisper(format!(
+            ctx.whisper_error(format!(
                 "No '{sport_arg}' events. Available: {}",
                 known.into_iter().collect::<Vec<_>>().join(", ")
             ));
@@ -308,8 +308,8 @@ async fn show_events(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             format!("#{} {} v {} h{:.2}{draw} a{:.2}{date_label}", i + 1, ev.home_team, ev.away_team, ev.home_odds, ev.away_odds)
         }).collect::<Vec<_>>().join(" | ");
 
-        ctx.whisper(lines);
-        ctx.whisper(format!("Bet: {}sports bet <#> home|away|draw <chips> | Odds preview: omit <chips>", ctx.runtime.prefix));
+        ctx.whisper_success(lines);
+        ctx.whisper_success(format!("Bet: {}sports bet <#> home|away|draw <chips> | Odds preview: omit <chips>", ctx.runtime.prefix));
     }
     Ok(())
 }
@@ -319,13 +319,13 @@ async fn show_events(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let tail = &ctx.args[1..]; // skip "bet"
     let (Some(&idx_s), Some(&sel_s)) = (tail.first(), tail.get(1)) else {
-        ctx.whisper(format!("Usage: {}sports bet <#> home|away|draw <chips> | Omit chips for odds preview", ctx.runtime.prefix));
+        ctx.whisper_success(format!("Usage: {}sports bet <#> home|away|draw <chips> | Omit chips for odds preview", ctx.runtime.prefix));
         return Ok(());
     };
     let amt_s = tail.get(2).copied();
 
     let Ok(idx) = idx_s.parse::<usize>().map(|n| n.saturating_sub(1)) else {
-        ctx.whisper("Event number must be a positive integer.");
+        ctx.whisper_success("Event number must be a positive integer.");
         return Ok(());
     };
     let sel = match sel_s.to_lowercase().as_str() {
@@ -333,7 +333,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         "a" | "away" => "away",
         "d" | "draw" => "draw",
         _ => {
-            ctx.whisper("Selection must be: home/h, away/a, or draw/d.");
+            ctx.whisper_success("Selection must be: home/h, away/a, or draw/d.");
             return Ok(());
         }
     }.to_string();
@@ -342,7 +342,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         cache.events.get(idx).cloned()
     };
     let Some(ev) = ev else {
-        ctx.whisper("Event not found. Run !sports to refresh the list.");
+        ctx.whisper_success("Event not found. Run !sports to refresh the list.");
         return Ok(());
     };
 
@@ -351,7 +351,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         "away" => ev.away_odds,
         "draw" => match ev.draw_odds {
             Some(d) => d,
-            None => { ctx.whisper("Draw is not available for this event."); return Ok(()); }
+            None => { ctx.whisper_success("Draw is not available for this event."); return Ok(()); }
         },
         _ => unreachable!(),
     };
@@ -359,7 +359,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     // preview mode — no chip amount provided
     let Some(amt_s) = amt_s else {
         let draw_str = ev.draw_odds.map(|d| format!(" | draw {d:.2}x")).unwrap_or_default();
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Sports] {} v {} | home {:.2}x | away {:.2}x{draw_str} | {} {:.2}x selected",
             ev.home_team, ev.away_team, ev.home_odds, ev.away_odds, sel, payout_mult
         ));
@@ -367,25 +367,25 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     };
 
     let Ok(stake) = amt_s.parse::<i64>() else {
-        ctx.whisper("Chip amount must be a number.");
+        ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
     if stake < MIN_BET {
-        ctx.whisper(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
         return Ok(());
     }
 
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
+            ctx.whisper_success(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
         }
-        Err(CasinoAdjustErr::NetworkErr) => { ctx.whisper("Casino unavailable."); return Ok(()); }
+        Err(CasinoAdjustErr::NetworkErr) => { ctx.whisper_success("Casino unavailable."); return Ok(()); }
     }
 
     let mut bet = SportsBet {
@@ -406,9 +406,9 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         None => {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, stake).await {
                 eprintln!("[Sports] refund failed for {player_uuid}: {e:?}");
-                ctx.whisper("Failed to save bet. Refund also failed — contact an admin.");
+                ctx.whisper_success("Failed to save bet. Refund also failed — contact an admin.");
             } else {
-                ctx.whisper("Failed to save bet. Chips refunded.");
+                ctx.whisper_success("Failed to save bet. Chips refunded.");
             }
             return Ok(());
         }
@@ -419,7 +419,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     let profit = (stake as f64 * payout_mult).ceil() as i64 - stake;
-    ctx.whisper(format!(
+    ctx.whisper_success(format!(
         "[Sports] {} vs {} | {} {:.2}x | {} | profit if win: +{}",
         ev.home_team, ev.away_team, sel, payout_mult, chips_str(stake), chips_str(profit)
     ));
@@ -434,13 +434,13 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
+        ctx.whisper_success("Could not resolve your UUID.");
         return Ok(());
     };
     let all_bets = ctx.state.api.casino_sports_bet_list().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
-        ctx.whisper("No open sports bets.");
+        ctx.whisper_success("No open sports bets.");
         return Ok(());
     }
     let now = now_unix();
@@ -448,7 +448,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         let payout = (bet.stake as f64 * bet.payout_mult).ceil() as i64;
         let t = bet.start_unix.saturating_sub(now);
         let when = if t == 0 { "in progress".into() } else if t < 3600 { format!("{}m", t / 60) } else { format!("{}h", t / 3600) };
-        ctx.whisper(format!(
+        ctx.whisper_success(format!(
             "[Sports] {} vs {} | {} {:.2}x | {} -> {} | {}",
             bet.home_team, bet.away_team, bet.selection, bet.payout_mult,
             chips_str(bet.stake), chips_str(payout), when

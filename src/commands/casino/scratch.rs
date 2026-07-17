@@ -111,13 +111,13 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "gold"   | "g" => &GOLD,
             "diamond"| "d" => &DIAMOND,
             _ => {
-                ctx.whisper("Usage: !scratch (free copper) | !scratch copper/gold/diamond");
+                ctx.whisper_success("Usage: !scratch (free copper) | !scratch copper/gold/diamond");
                 return Ok(());
             }
         };
 
         let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper("Could not resolve your UUID.");
+            ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
 
@@ -128,7 +128,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     let elapsed = last.elapsed().as_secs();
                     if elapsed < FREE_SCRATCH_COOLDOWN_SECS {
                         let remaining = FREE_SCRATCH_COOLDOWN_SECS - elapsed;
-                        ctx.whisper(format!(
+                        ctx.whisper_success(format!(
                             "Free scratch on cooldown. Next in {}. Buy with !scratch copper/gold/diamond.",
                             fmt_duration(remaining)
                         ));
@@ -138,21 +138,21 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 cooldowns.insert(ctx.sender.to_owned(), std::time::Instant::now());
             }
             if let CasinoScratchResult::Err = ctx.state.api.casino_free_scratch(&player_uuid).await {
-                ctx.whisper("Scratch service unavailable.");
+                ctx.whisper_success("Scratch service unavailable.");
                 return Ok(());
             }
         } else {
             match ctx.state.api.casino_adjust(&player_uuid, -tier.cost).await {
                 Ok(_) => {}
                 Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-                    ctx.whisper(format!(
+                    ctx.whisper_success(format!(
                         "{} ticket costs {} — you have {}.",
                         tier.name, chips_str(tier.cost), chips_str(have)
                     ));
                     return Ok(());
                 }
                 Err(CasinoAdjustErr::NetworkErr) => {
-                    ctx.whisper("Casino unavailable.");
+                    ctx.whisper_success("Casino unavailable.");
                     return Ok(());
                 }
             }
@@ -166,15 +166,15 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let tier_label = if is_free { "FREE COPPER".to_owned() } else { tier.name.to_uppercase() };
         let cell_str = cells.iter().map(|&i| PRIZE_SYMBOLS[i]).collect::<Vec<_>>().join(" ");
 
-        ctx.whisper(format!("=== {tier_label} SCRATCHER ==="));
-        ctx.whisper(cell_str);
+        ctx.whisper_success(format!("=== {tier_label} SCRATCHER ==="));
+        ctx.whisper_success(cell_str);
 
         tokio::time::sleep(std::time::Duration::from_millis(600)).await;
 
         if prize > 0 {
             let sym = PRIZE_SYMBOLS[prize_idx];
             let new_balance = ctx.state.api.casino_adjust(&player_uuid, prize).await.unwrap_or(0);
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "3x {sym} — WIN! +{} | Balance: {}",
                 chips_str(prize), chips_str(new_balance)
             ));
@@ -182,7 +182,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             let rake_base = if is_free { 25 } else { tier.cost };
             ctx.state.api.casino_jackpot_rake(rake_base).await;
             let balance = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
-            ctx.whisper(format!("No match. | Balance: {}", chips_str(balance)));
+            ctx.whisper_success(format!("No match. | Balance: {}", chips_str(balance)));
         }
 
         Ok(())
