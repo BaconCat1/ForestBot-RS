@@ -3,7 +3,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, fmt_close, sleep_until, deliver};
+use super::{chips_str, fmt_close, sleep_until, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["spaceweather", "sw"],
@@ -400,14 +400,19 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         fmt_close(settle_at),
     ));
     let wcmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(settle_task(ctx.state.clone(), wcmd, nasa_key, bet));
+    let deps = SettleDeps::from(ctx.state);
+    let bets_map = ctx.state.nasa_space_weather_bets.clone();
+    let http = ctx.state.http.clone();
+    tokio::spawn(settle_task(deps, bets_map, http, wcmd, nasa_key, bet));
     Ok(())
 }
 
 // ── settle_task ───────────────────────────────────────────────────────────────
 
 pub async fn settle_task(
-    state: AzaleaState,
+    deps: SettleDeps,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<NasaSpaceWeatherBet>>>>,
+    http: reqwest::Client,
     whisper_cmd: String,
     nasa_api_key: String,
     bet: NasaSpaceWeatherBet,
@@ -422,7 +427,7 @@ pub async fn settle_task(
     }
 
     let claimed = {
-        let mut bets = state.nasa_space_weather_bets.lock().expect("nasa_space_weather_bets lock");
+        let mut bets = bets_map.lock().expect("nasa_space_weather_bets lock");
         bets.get_mut(&bet.player)
             .map(|v| {
                 let pos = v.iter().position(|b| b.id == bet.id);
@@ -432,7 +437,7 @@ pub async fn settle_task(
     };
     if !claimed { return; }
 
-    let client = &state.http;
+    let client = &http;
 
     // Settle date = the day before midnight (i.e. the day the bet was placed on)
     let settle_date = unix_to_ymd(bet.settle_at - 86400);
@@ -448,14 +453,14 @@ pub async fn settle_task(
         }
     };
 
-    state.api.casino_bet_delete::<NasaSpaceWeatherBet>(bet.id).await;
+    deps.api.casino_bet_delete::<NasaSpaceWeatherBet>(bet.id).await;
 
     let label = find_kind(&bet.bet_type).map_or(bet.bet_type.as_str(), |k| k.label);
 
     let msg = match result {
         Some(true) => {
             let payout = (bet.stake as f64 * bet.multiplier) as i64;
-            match state.api.casino_win(&bet.player, payout).await {
+            match deps.api.casino_win(&bet.player, payout).await {
                 Ok(win) => {
                     let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                     format!(
@@ -473,7 +478,7 @@ pub async fn settle_task(
             }
         }
         Some(false) => {
-            state.api.casino_jackpot_rake(bet.stake).await;
+            deps.api.casino_jackpot_rake(bet.stake).await;
             format!(
                 "[SpaceWX] {} — NO. LOSS -{} (to jackpot).",
                 label,
@@ -481,7 +486,7 @@ pub async fn settle_task(
             )
         }
         None => {
-            match state.api.casino_adjust(&bet.player, bet.stake).await {
+            match deps.api.casino_adjust(&bet.player, bet.stake).await {
                 Ok(_) => format!(
                     "[SpaceWX] {} — NASA API unavailable. {} refunded.",
                     label,
@@ -495,5 +500,5 @@ pub async fn settle_task(
         }
     };
 
-    deliver(&state, &whisper_cmd, &bet.player, msg).await;
+    deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }

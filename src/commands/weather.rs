@@ -1,9 +1,9 @@
-use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
+use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::casino::chips_str;
+use super::casino::{chips_str, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["weather", "w"],
@@ -372,7 +372,7 @@ async fn place_rain_bet(ctx: &CommandContext<'_>, city_arg: &str, tail: &[&str])
     ));
 
     let whisper_cmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(settle_task(ctx.state.clone(), whisper_cmd, bet, dur_secs));
+    tokio::spawn(settle_task(SettleDeps::from(ctx.state), ctx.state.weather_bets.clone(), whisper_cmd, bet, dur_secs));
 
     Ok(())
 }
@@ -497,7 +497,7 @@ async fn place_ensemble_bet(
     ));
 
     let whisper_cmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(settle_task(ctx.state.clone(), whisper_cmd, bet, dur_secs));
+    tokio::spawn(settle_task(SettleDeps::from(ctx.state), ctx.state.weather_bets.clone(), whisper_cmd, bet, dur_secs));
 
     Ok(())
 }
@@ -532,12 +532,18 @@ async fn show_bets(ctx: &CommandContext<'_>, player_uuid: &str) {
 
 // ── Settle task ───────────────────────────────────────────────────────────────
 
-pub async fn settle_task(state: AzaleaState, whisper_cmd: String, bet: WeatherBet, dur_secs: u64) {
+pub async fn settle_task(
+    deps: SettleDeps,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<WeatherBet>>>>,
+    whisper_cmd: String,
+    bet: WeatherBet,
+    dur_secs: u64,
+) {
     tokio::time::sleep(std::time::Duration::from_secs(dur_secs)).await;
 
     // Atomically claim the bet — only one task wins if two race here.
     let claimed = {
-        let mut bets = state.weather_bets.lock().expect("weather_bets lock");
+        let mut bets = bets_map.lock().expect("weather_bets lock");
         bets.get_mut(&bet.player)
             .map(|v| { let pos = v.iter().position(|b| b.id == bet.id); pos.map(|i| { v.remove(i); }).is_some() })
             .unwrap_or(false)
@@ -549,7 +555,7 @@ pub async fn settle_task(state: AzaleaState, whisper_cmd: String, bet: WeatherBe
     let threshold = bet.threshold.unwrap_or(0.0);
     let unit = bet.unit.as_deref().unwrap_or("");
 
-    let online_username = state.players.read().ok()
+    let online_username = deps.players.read().ok()
         .and_then(|pl| pl.values().find(|s| s.uuid == bet.player).map(|s| s.username.clone()));
 
     let (won, result_str) = match fetch_actual(&client, &bet, &target_date).await {
@@ -565,13 +571,13 @@ pub async fn settle_task(state: AzaleaState, whisper_cmd: String, bet: WeatherBe
             (won, result_str)
         }
         None => {
-            state.api.casino_weather_bet_delete(bet.id).await;
-            let _ = state.api.casino_adjust(&bet.player, bet.stake).await;
+            deps.api.casino_weather_bet_delete(bet.id).await;
+            let _ = deps.api.casino_adjust(&bet.player, bet.stake).await;
             let msg = format!("[Weather] Data unavailable — {} refunded.", chips_str(bet.stake));
             if let Some(ref username) = online_username {
-                enqueue_chat(&state, format!("/{whisper_cmd} {username} {msg}"));
+                deps.enqueue_chat(format!("/{whisper_cmd} {username} {msg}"));
             } else {
-                state.api.casino_add_notification(&bet.player, &msg).await;
+                deps.api.casino_add_notification(&bet.player, &msg).await;
             }
             return;
         }
@@ -582,24 +588,24 @@ pub async fn settle_task(state: AzaleaState, whisper_cmd: String, bet: WeatherBe
         _      => format!("{} {} {:.1}{}", bet.bet_type, bet.direction, threshold, unit),
     };
 
-    state.api.casino_weather_bet_delete(bet.id).await;
+    deps.api.casino_weather_bet_delete(bet.id).await;
 
     let msg = if won {
         let payout = (bet.stake as f64 * bet.payout_mult).ceil() as i64;
         let net    = payout - bet.stake;
-        let win = state.api.casino_win(&bet.player, payout).await.unwrap_or_default();
+        let win = deps.api.casino_win(&bet.player, payout).await.unwrap_or_default();
         let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
         format!("[Weather] {} {} — {}. WIN +{}{alimony_note} ({} @ {:.2}x).",
             bet.city, type_str, result_str, chips_str(net), chips_str(bet.stake), bet.payout_mult)
     } else {
-        let _ = state.api.casino_jackpot_rake(bet.stake).await;
+        let _ = deps.api.casino_jackpot_rake(bet.stake).await;
         format!("[Weather] {} {} — {}. LOSS -{} (to jackpot).",
             bet.city, type_str, result_str, chips_str(bet.stake))
     };
     if let Some(ref username) = online_username {
-        enqueue_chat(&state, format!("/{whisper_cmd} {username} {msg}"));
+        deps.enqueue_chat(format!("/{whisper_cmd} {username} {msg}"));
     } else {
-        state.api.casino_add_notification(&bet.player, &msg).await;
+        deps.api.casino_add_notification(&bet.player, &msg).await;
     }
 }
 

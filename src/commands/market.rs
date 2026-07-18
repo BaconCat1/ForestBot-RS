@@ -1,12 +1,10 @@
-use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
+use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::{
     fmt_price, format_remaining, now_unix, parse_duration, Direction, MarketBet,
     PortfolioPosition,
 };
-use crate::structure::mineflayer::bot::AzaleaState;
-
-use super::casino::chips_str;
+use super::casino::{chips_str, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["market", "stock", "stocks", "crypto", "stonk", "stonks"],
@@ -202,10 +200,12 @@ async fn place_bet(ctx: &CommandContext<'_>, long: bool) -> anyhow::Result<()> {
     ));
 
     // Spawn settlement task
-    let state = ctx.state.clone();
+    let deps = SettleDeps::from(ctx.state);
+    let bets_map = ctx.state.market_bets.clone();
+    let market_service = ctx.state.market_service.clone();
     let player = player_uuid.clone();
-    let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-    tokio::spawn(settle_task(state, player, whisper_cmd, bet, dur_secs));
+    let whisper_cmd = deps.runtime.read().expect("runtime lock").whisper_command.clone();
+    tokio::spawn(settle_task(deps, bets_map, market_service, player, whisper_cmd, bet, dur_secs));
 
     Ok(())
 }
@@ -257,7 +257,7 @@ async fn cashout(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let net = payout - bet.stake;
 
     // Remove from state first so the settle_task finds nothing and exits cleanly.
-    remove_bet(&ctx.state, &player_uuid, bet.id);
+    remove_bet(&ctx.state.market_bets, &player_uuid, bet.id);
     ctx.state.api.casino_market_bet_delete(bet.id).await;
 
     let mut alimony_note = String::new();
@@ -290,7 +290,9 @@ async fn cashout(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 }
 
 pub async fn settle_task(
-    state: AzaleaState,
+    deps: SettleDeps,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<MarketBet>>>>,
+    market_service: std::sync::Arc<crate::structure::market::service::MarketService>,
     player: String,
     whisper_cmd: String,
     bet: MarketBet,
@@ -300,7 +302,7 @@ pub async fn settle_task(
 
     // Bail if bet was already cashed out manually while we slept.
     {
-        let bets = state.market_bets.lock().expect("market bets lock");
+        let bets = bets_map.lock().expect("market bets lock");
         let still_open = bets.get(&player)
             .map(|v| v.iter().any(|b| b.id == bet.id))
             .unwrap_or(false);
@@ -312,24 +314,24 @@ pub async fn settle_task(
     // If the bet closed while the bot was down, use historical price at the close time.
     let age_secs = now_unix().saturating_sub(bet.closes_unix);
     let exit_price_result = if age_secs > 60 {
-        match state.market_service.price_at(&bet.symbol, bet.closes_unix).await {
+        match market_service.price_at(&bet.symbol, bet.closes_unix).await {
             Ok(p) => Ok(p),
-            Err(_) => state.market_service.quote(&bet.symbol).await.map(|q| q.price),
+            Err(_) => market_service.quote(&bet.symbol).await.map(|q| q.price),
         }
     } else {
-        state.market_service.quote(&bet.symbol).await.map(|q| q.price)
+        market_service.quote(&bet.symbol).await.map(|q| q.price)
     };
 
     let exit_price = match exit_price_result {
         Ok(p) => p,
         Err(_) => {
-            let _ = state.api.casino_adjust(&player, bet.stake).await;
-            remove_bet(&state, &player, bet.id);
-            state.api.casino_market_bet_delete(bet.id).await;
-            let username_for_msg = state.players.read().ok()
+            let _ = deps.api.casino_adjust(&player, bet.stake).await;
+            remove_bet(&bets_map, &player, bet.id);
+            deps.api.casino_market_bet_delete(bet.id).await;
+            let username_for_msg = deps.players.read().ok()
                 .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()))
                 .unwrap_or_else(|| player.clone());
-            enqueue_chat(&state, format!(
+            deps.enqueue_chat(format!(
                 "/{whisper_cmd} {username_for_msg} Market data unavailable — {} {} bet refunded. +{}",
                 bet.direction.label(), bet.symbol, chips_str(bet.stake)
             ));
@@ -349,17 +351,17 @@ pub async fn settle_task(
     let payout = payout.max(0);
     let net = payout - bet.stake;
 
-    remove_bet(&state, &player, bet.id);
-    state.api.casino_market_bet_delete(bet.id).await;
+    remove_bet(&bets_map, &player, bet.id);
+    deps.api.casino_market_bet_delete(bet.id).await;
 
     let mut alimony_note = String::new();
     if payout > bet.stake {
-        let win = state.api.casino_win(&player, payout).await.unwrap_or_default();
+        let win = deps.api.casino_win(&player, payout).await.unwrap_or_default();
         if win.alimony_paid > 0 {
             alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
         }
     } else if payout > 0 {
-        let _ = state.api.casino_adjust(&player, payout).await;
+        let _ = deps.api.casino_adjust(&player, payout).await;
     }
 
     let (result_str, net_str) = if net > 0 {
@@ -371,10 +373,10 @@ pub async fn settle_task(
     };
 
     let sign = if pct >= 0.0 { "+" } else { "" };
-    let username_for_msg = state.players.read().ok()
+    let username_for_msg = deps.players.read().ok()
         .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()))
         .unwrap_or_else(|| player.clone());
-    enqueue_chat(&state, format!(
+    deps.enqueue_chat(format!(
         "/{whisper_cmd} {username_for_msg} {} {} settled: {} | {}→{} ({}{:.2}%) | {}{alimony_note}",
         bet.direction.label(), bet.symbol, result_str,
         fmt_price(bet.entry_price), fmt_price(exit_price), sign, pct, net_str
@@ -677,8 +679,8 @@ async fn show_portfolio(ctx: &CommandContext<'_>, player_uuid: &str) -> anyhow::
     Ok(())
 }
 
-fn remove_bet(state: &AzaleaState, player: &str, id: i64) {
-    if let Ok(mut bets) = state.market_bets.lock() {
+fn remove_bet(bets_map: &std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<MarketBet>>>>, player: &str, id: i64) {
+    if let Ok(mut bets) = bets_map.lock() {
         if let Some(v) = bets.get_mut(player) {
             v.retain(|b| b.id != id);
         }

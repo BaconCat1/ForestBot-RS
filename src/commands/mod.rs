@@ -190,14 +190,26 @@ impl CommandContext<'_> {
 }
 
 pub fn enqueue_chat(state: &AzaleaState, message: impl AsRef<str>) {
+    enqueue_chat_raw(&state.runtime, &state.recent_whispers, &state.outbound_chat, message)
+}
+
+/// Real logic behind `enqueue_chat`, taking the 3 fields it actually needs
+/// directly instead of the whole `AzaleaState` -- lets settle tasks queue chat
+/// through their narrow `SettleDeps` (see `casino::SettleDeps`) without giving
+/// them the full state struct just for this.
+pub(crate) fn enqueue_chat_raw(
+    runtime: &std::sync::Arc<std::sync::RwLock<RuntimeConfig>>,
+    recent_whispers: &std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, (String, std::time::Instant)>>>,
+    outbound_chat: &std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<String>>>,
+    message: impl AsRef<str>,
+) {
     let message = message.as_ref().trim_start().to_owned();
 
     // Record outgoing whispers so the chat handler can recognize the server echoing
     // one back and suppress it, instead of misreading it as the target speaking.
     // Strip the censor-skip marker first, if present, so this detection still works
     // for whisper_uncensored's output.
-    let whisper_command = state
-        .runtime
+    let whisper_command = runtime
         .read()
         .expect("runtime config lock poisoned")
         .whisper_command
@@ -205,16 +217,14 @@ pub fn enqueue_chat(state: &AzaleaState, message: impl AsRef<str>) {
     let for_whisper_check = message.strip_prefix(SKIP_CENSOR_MARKER).unwrap_or(&message);
     if let Some(rest) = for_whisper_check.strip_prefix(&format!("/{whisper_command} ")) {
         if let Some((target, content)) = rest.split_once(' ') {
-            state
-                .recent_whispers
+            recent_whispers
                 .lock()
                 .expect("recent_whispers lock poisoned")
                 .insert(target.to_lowercase(), (content.to_owned(), std::time::Instant::now()));
         }
     }
 
-    state
-        .outbound_chat
+    outbound_chat
         .lock()
         .expect("outbound chat queue lock poisoned")
         .push_back(message);

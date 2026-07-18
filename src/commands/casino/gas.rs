@@ -3,9 +3,8 @@ use serde_json::json;
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
-use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{MIN_BET, chips_str, to_price, fmt_odds, sleep_until, deliver, FetchErr};
+use super::{MIN_BET, chips_str, to_price, fmt_odds, sleep_until, FetchErr, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["gas", "gasbuddy", "gasprice"],
@@ -176,21 +175,22 @@ async fn gql_price(client: &reqwest::Client, zip: &str, token: &str) -> GqlResul
 }
 
 async fn fetch_gas_price(
-    state: &AzaleaState,
+    http: &reqwest::Client,
+    gasbuddy_csrf: &std::sync::Arc<std::sync::Mutex<Option<String>>>,
     zip: &str,
     solver_url: &str,
     readonly: bool,
 ) -> Result<(f64, String), FetchErr> {
-    let token = state.gasbuddy_csrf.lock().unwrap().clone().unwrap_or_default();
+    let token = gasbuddy_csrf.lock().unwrap().clone().unwrap_or_default();
 
-    match gql_price(&state.http, zip, &token).await {
+    match gql_price(http, zip, &token).await {
         GqlResult::Ok(p, n) => Ok((p, n)),
         GqlResult::RateLimit => Err(FetchErr::RateLimit),
         GqlResult::TokenBad => {
-            let new_token = fetch_csrf(&state.http, solver_url).await.ok_or(FetchErr::Error)?;
+            let new_token = fetch_csrf(http, solver_url).await.ok_or(FetchErr::Error)?;
             if !readonly { save_token(&new_token).await; }
-            *state.gasbuddy_csrf.lock().unwrap() = Some(new_token.clone());
-            match gql_price(&state.http, zip, &new_token).await {
+            *gasbuddy_csrf.lock().unwrap() = Some(new_token.clone());
+            match gql_price(http, zip, &new_token).await {
                 GqlResult::Ok(p, n) => Ok((p, n)),
                 GqlResult::RateLimit => Err(FetchErr::RateLimit),
                 _ => Err(FetchErr::Error),
@@ -273,7 +273,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
     let (price, region) = if let Some(hit) = cached {
         hit
     } else {
-        match fetch_gas_price(&ctx.state, zip, &solver_url, readonly).await {
+        match fetch_gas_price(&ctx.state.http, &ctx.state.gasbuddy_csrf, zip, &solver_url, readonly).await {
             Ok(r) => {
                 ctx.state.gas_price_cache.lock().unwrap()
                     .insert(zip.to_owned(), (r.0, r.1.clone(), now_unix()));
@@ -364,33 +364,43 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
         .or_default()
         .push(bet.clone());
 
-    let state       = ctx.state.clone();
+    let deps = SettleDeps::from(ctx.state);
+    let bets_map = ctx.state.gas_bets.clone();
+    let http = ctx.state.http.clone();
+    let gasbuddy_csrf = ctx.state.gasbuddy_csrf.clone();
     let whisper_cmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(gas_settle_task(state, whisper_cmd, bet));
+    tokio::spawn(gas_settle_task(deps, bets_map, http, gasbuddy_csrf, whisper_cmd, bet));
 
     Ok(())
 }
 
 // ── Settlement ────────────────────────────────────────────────────────────────
 
-pub async fn gas_settle_task(state: AzaleaState, whisper_cmd: String, bet: GasBet) {
+pub async fn gas_settle_task(
+    deps: SettleDeps,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<GasBet>>>>,
+    http: reqwest::Client,
+    gasbuddy_csrf: std::sync::Arc<std::sync::Mutex<Option<String>>>,
+    whisper_cmd: String,
+    bet: GasBet,
+) {
     sleep_until(bet.close_time).await;
 
     {
-        let mut bets = state.gas_bets.lock().unwrap();
+        let mut bets = bets_map.lock().unwrap();
         if let Some(v) = bets.get_mut(&bet.player) {
             v.retain(|b| b.id != bet.id);
         }
     }
 
     let (solver_url, readonly) = {
-        let rt = state.runtime.read().expect("runtime lock");
+        let rt = deps.runtime.read().expect("runtime lock");
         (rt.gasbuddy_solver_url.clone(), rt.gasbuddy_csrf_readonly)
     };
 
-    let current = fetch_gas_price(&state, &bet.zip, &solver_url, readonly).await.ok();
+    let current = fetch_gas_price(&http, &gasbuddy_csrf, &bet.zip, &solver_url, readonly).await.ok();
 
-    state.api.casino_bet_delete::<GasBet>(bet.id.unwrap()).await;
+    deps.api.casino_bet_delete::<GasBet>(bet.id.unwrap()).await;
 
     let msg = match current {
         Some((new_price, _)) => {
@@ -398,7 +408,7 @@ pub async fn gas_settle_task(state: AzaleaState, whisper_cmd: String, bet: GasBe
             let mult_display = 10000.0 / bet.price as f64;
             if gas_outcome(&bet.side, new_price, bet.baseline) {
                 let payout = (bet.stake as f64 * 10000.0 / bet.price as f64).floor() as i64;
-                match state.api.casino_win(&bet.player, payout).await {
+                match deps.api.casino_win(&bet.player, payout).await {
                     Ok(win) => {
                         let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                         format!(
@@ -417,7 +427,7 @@ pub async fn gas_settle_task(state: AzaleaState, whisper_cmd: String, bet: GasBe
                     }
                 }
             } else {
-                state.api.casino_jackpot_rake(bet.stake).await;
+                deps.api.casino_jackpot_rake(bet.stake).await;
                 format!(
                     "[GAS] {} {} — ${:.3}→${:.3}. {} LOSS -{} (to jackpot).",
                     bet.region, bet.side.to_uppercase(),
@@ -428,7 +438,7 @@ pub async fn gas_settle_task(state: AzaleaState, whisper_cmd: String, bet: GasBe
             }
         }
         None => {
-            match state.api.casino_adjust(&bet.player, bet.stake).await {
+            match deps.api.casino_adjust(&bet.player, bet.stake).await {
                 Ok(_) => format!(
                     "[GAS] {} {} — GasBuddy unavailable at settlement. {} refunded.",
                     bet.region, bet.side.to_uppercase(), chips_str(bet.stake),
@@ -441,5 +451,5 @@ pub async fn gas_settle_task(state: AzaleaState, whisper_cmd: String, bet: GasBe
         }
     };
 
-    deliver(&state, &whisper_cmd, &bet.player, msg).await;
+    deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }

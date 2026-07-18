@@ -1,9 +1,8 @@
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
-use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, fmt_close, fmt_odds, calc_payout, sleep_until, deliver, FetchErr, check_resp};
+use super::{chips_str, fmt_close, fmt_odds, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["aqi", "airquality"],
@@ -370,30 +369,38 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
         .or_default()
         .push(bet.clone());
 
-    let state = ctx.state.clone();
+    let deps = SettleDeps::from(ctx.state);
+    let bets_map = ctx.state.aqi_bets.clone();
+    let http = ctx.state.http.clone();
     let whisper_cmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(aqi_settle_task(state, whisper_cmd, bet));
+    tokio::spawn(aqi_settle_task(deps, bets_map, http, whisper_cmd, bet));
 
     Ok(())
 }
 
 // ── Settlement task ───────────────────────────────────────────────────────────
 
-pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBet) {
+pub async fn aqi_settle_task(
+    deps: SettleDeps,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<AqiBet>>>>,
+    http: reqwest::Client,
+    whisper_cmd: String,
+    bet: AqiBet,
+) {
     sleep_until(bet.close_time).await;
 
     let claimed = {
-        let mut bets = state.aqi_bets.lock().unwrap();
+        let mut bets = bets_map.lock().unwrap();
         bets.get_mut(&bet.player)
             .map(|v| v.iter().position(|b| b.id == bet.id).map(|i| { v.remove(i); }).is_some())
             .unwrap_or(false)
     };
     if !claimed { return; }
 
-    let key = state.runtime.read().expect("runtime lock").airnow_api_key.clone();
-    let readings = fetch_current(&state.http, &bet.zip, &key).await.ok();
+    let key = deps.runtime.read().expect("runtime lock").airnow_api_key.clone();
+    let readings = fetch_current(&http, &bet.zip, &key).await.ok();
 
-    state.api.casino_bet_delete::<AqiBet>(bet.id).await;
+    deps.api.casino_bet_delete::<AqiBet>(bet.id).await;
 
     let msg = match readings.and_then(|r| worst(&r).map(|w| w.aqi)) {
         Some(actual_aqi) => {
@@ -404,7 +411,7 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
             };
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                match state.api.casino_win(&bet.player, payout).await {
+                match deps.api.casino_win(&bet.player, payout).await {
                     Ok(win) => {
                         let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                         format!(
@@ -422,7 +429,7 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
                     }
                 }
             } else {
-                state.api.casino_jackpot_rake(bet.stake).await;
+                deps.api.casino_jackpot_rake(bet.stake).await;
                 format!(
                     "[AQI] {} {} — actual AQI {}. {} loses. LOSS -{} (to jackpot).",
                     bet.zip, bet.side.to_uppercase(), actual_aqi,
@@ -432,7 +439,7 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
             }
         }
         None => {
-            match state.api.casino_adjust(&bet.player, bet.stake).await {
+            match deps.api.casino_adjust(&bet.player, bet.stake).await {
                 Ok(_) => format!(
                     "[AQI] {} {} — AirNow API unavailable at settlement. {} refunded.",
                     bet.zip, bet.side.to_uppercase(),
@@ -446,5 +453,5 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
         }
     };
 
-    deliver(&state, &whisper_cmd, &bet.player, msg).await;
+    deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }

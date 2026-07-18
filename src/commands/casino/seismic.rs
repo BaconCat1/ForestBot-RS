@@ -1,9 +1,8 @@
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
-use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver, FetchErr, check_resp};
+use super::{chips_str, fmt_close, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
 
 // ── Command definitions ───────────────────────────────────────────────────────
 
@@ -583,17 +582,22 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     ));
 
     let wcmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(quake_settle_task(ctx.state.clone(), wcmd, bet));
+    tokio::spawn(quake_settle_task(SettleDeps::from(ctx.state), ctx.state.quake_bets.clone(), wcmd, bet));
     Ok(())
 }
 
 // ── Quake settlement ──────────────────────────────────────────────────────────
 
-pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: QuakeBet) {
+pub async fn quake_settle_task(
+    deps: SettleDeps,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<QuakeBet>>>>,
+    whisper_cmd: String,
+    bet: QuakeBet,
+) {
     sleep_until(bet.close_time).await;
 
     let claimed = {
-        let mut bets = state.quake_bets.lock().expect("quake_bets lock");
+        let mut bets = bets_map.lock().expect("quake_bets lock");
         bets.get_mut(&bet.player)
             .map(|v| v.iter().position(|b| b.id == bet.id).map(|i| { v.remove(i); }).is_some())
             .unwrap_or(false)
@@ -603,14 +607,14 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
     let client = reqwest::Client::new();
     let result = quake_occurred(&client, bet.lat, bet.lon, bet.radius_km, bet.mag, bet.placed_at, bet.close_time).await;
 
-    state.api.casino_bet_delete::<QuakeBet>(bet.id).await;
+    deps.api.casino_bet_delete::<QuakeBet>(bet.id).await;
 
     let msg = match result {
         Some(occurred) => {
             let won = (bet.side == "yes") == occurred;
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                match state.api.casino_win(&bet.player, payout).await {
+                match deps.api.casino_win(&bet.player, payout).await {
                     Ok(win) => {
                         let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                         format!(
@@ -629,7 +633,7 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
                     }
                 }
             } else {
-                state.api.casino_jackpot_rake(bet.stake).await;
+                deps.api.casino_jackpot_rake(bet.stake).await;
                 format!(
                     "[Quake] {} — {}. {} loses. LOSS -{} (to jackpot).",
                     bet.display,
@@ -640,7 +644,7 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
             }
         }
         None => {
-            match state.api.casino_adjust(&bet.player, bet.stake).await {
+            match deps.api.casino_adjust(&bet.player, bet.stake).await {
                 Ok(_) => format!(
                     "[Quake] {} — FDSN API unavailable. {} refunded.",
                     bet.display,
@@ -654,7 +658,7 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
         }
     };
 
-    deliver(&state, &whisper_cmd, &bet.player, msg).await;
+    deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }
 
 // ── Volcano command ───────────────────────────────────────────────────────────
@@ -905,17 +909,22 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     ));
 
     let wcmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(volcano_settle_task(ctx.state.clone(), wcmd, bet));
+    tokio::spawn(volcano_settle_task(SettleDeps::from(ctx.state), ctx.state.volcano_bets.clone(), wcmd, bet));
     Ok(())
 }
 
 // ── Volcano settlement ────────────────────────────────────────────────────────
 
-pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: VolcanoBet) {
+pub async fn volcano_settle_task(
+    deps: SettleDeps,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<VolcanoBet>>>>,
+    whisper_cmd: String,
+    bet: VolcanoBet,
+) {
     sleep_until(bet.close_time).await;
 
     let claimed = {
-        let mut bets = state.volcano_bets.lock().expect("volcano_bets lock");
+        let mut bets = bets_map.lock().expect("volcano_bets lock");
         bets.get_mut(&bet.player)
             .map(|v| v.iter().position(|b| b.id == bet.id).map(|i| { v.remove(i); }).is_some())
             .unwrap_or(false)
@@ -930,14 +939,14 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
         None => None,
     };
 
-    state.api.casino_bet_delete::<VolcanoBet>(bet.id).await;
+    deps.api.casino_bet_delete::<VolcanoBet>(bet.id).await;
 
     let msg = match result {
         Some(at_warning) => {
             let won = (bet.side == "yes") == at_warning;
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                match state.api.casino_win(&bet.player, payout).await {
+                match deps.api.casino_win(&bet.player, payout).await {
                     Ok(win) => {
                         let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                         format!(
@@ -956,7 +965,7 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
                     }
                 }
             } else {
-                state.api.casino_jackpot_rake(bet.stake).await;
+                deps.api.casino_jackpot_rake(bet.stake).await;
                 format!(
                     "[Volcano] {} — {}. {} loses. LOSS -{} (to jackpot).",
                     bet.vname,
@@ -967,7 +976,7 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
             }
         }
         None => {
-            match state.api.casino_adjust(&bet.player, bet.stake).await {
+            match deps.api.casino_adjust(&bet.player, bet.stake).await {
                 Ok(_) => format!(
                     "[Volcano] {} — VHP API unavailable. {} refunded.",
                     bet.vname,
@@ -981,5 +990,5 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
         }
     };
 
-    deliver(&state, &whisper_cmd, &bet.player, msg).await;
+    deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }

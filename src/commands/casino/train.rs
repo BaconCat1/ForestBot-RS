@@ -1,9 +1,10 @@
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
-use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver, gtfs_rt, FetchErr, check_resp};
+use super::{chips_str, fmt_close, calc_payout, sleep_until, gtfs_rt, FetchErr, check_resp, SettleDeps};
+
+type TrainBetsMap = std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<TrainBet>>>>;
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["train", "trains"],
@@ -454,7 +455,7 @@ async fn gtfs_place_bet(
     ));
 
     let wcmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(settle_task(ctx.state.clone(), wcmd, bet));
+    tokio::spawn(settle_task(SettleDeps::from(ctx.state), ctx.state.train_bets.clone(), wcmd, bet));
     Ok(())
 }
 
@@ -624,7 +625,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     ));
 
     let wcmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(settle_task(ctx.state.clone(), wcmd, bet));
+    tokio::spawn(settle_task(SettleDeps::from(ctx.state), ctx.state.train_bets.clone(), wcmd, bet));
     Ok(())
 }
 
@@ -633,21 +634,21 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 // Legacy bets: country field matches normalize_country → poll trainstracking API at close_time.
 // GTFS-RT bets: country field is an agency slug → wake near close_time, find trip_id in feed.
 
-pub async fn settle_task(state: AzaleaState, whisper_cmd: String, bet: TrainBet) {
+pub async fn settle_task(deps: SettleDeps, bets_map: TrainBetsMap, whisper_cmd: String, bet: TrainBet) {
     let now = now_unix();
     if normalize_country(&bet.country).is_none() {
         // GTFS-RT path
-        gtfs_settle(state, whisper_cmd, bet).await;
+        gtfs_settle(deps, bets_map, whisper_cmd, bet).await;
     } else {
         // Legacy path
-        legacy_settle(state, whisper_cmd, bet, now).await;
+        legacy_settle(deps, bets_map, whisper_cmd, bet, now).await;
     }
 }
 
-async fn legacy_settle(state: AzaleaState, whisper_cmd: String, bet: TrainBet, started_at: u64) {
+async fn legacy_settle(deps: SettleDeps, bets_map: TrainBetsMap, whisper_cmd: String, bet: TrainBet, started_at: u64) {
     sleep_until(bet.close_time).await;
 
-    let claimed = claim_bet(&state, &bet);
+    let claimed = claim_bet(&bets_map, &bet);
     if !claimed { return; }
 
     let client = reqwest::Client::new();
@@ -665,17 +666,17 @@ async fn legacy_settle(state: AzaleaState, whisper_cmd: String, bet: TrainBet, s
     };
 
     let _ = started_at; // suppress unused warning
-    state.api.casino_bet_delete::<TrainBet>(bet.id).await;
-    let msg = apply_outcome(&state, &bet, outcome).await;
-    deliver(&state, &whisper_cmd, &bet.player, msg).await;
+    deps.api.casino_bet_delete::<TrainBet>(bet.id).await;
+    let msg = apply_outcome(&deps, &bet, outcome).await;
+    deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }
 
-async fn gtfs_settle(state: AzaleaState, whisper_cmd: String, bet: TrainBet) {
+async fn gtfs_settle(deps: SettleDeps, bets_map: TrainBetsMap, whisper_cmd: String, bet: TrainBet) {
     // Wake 2 minutes before the trip's last stop time so it's still in the feed.
     let wake_at = bet.close_time.saturating_sub(120);
     sleep_until(wake_at).await;
 
-    let claimed = claim_bet(&state, &bet);
+    let claimed = claim_bet(&bets_map, &bet);
     if !claimed { return; }
 
     let agency = gtfs_rt::resolve_agency(&bet.country);
@@ -683,9 +684,9 @@ async fn gtfs_settle(state: AzaleaState, whisper_cmd: String, bet: TrainBet) {
 
     // If the bet is already >1h past close_time the trip is gone from the feed — refund immediately.
     if now_unix() > bet.close_time + 3600 {
-        state.api.casino_bet_delete::<TrainBet>(bet.id).await;
-        let msg = apply_outcome(&state, &bet, None).await;
-        deliver(&state, &whisper_cmd, &bet.player, msg).await;
+        deps.api.casino_bet_delete::<TrainBet>(bet.id).await;
+        let msg = apply_outcome(&deps, &bet, None).await;
+        deps.deliver(&whisper_cmd, &bet.player, msg).await;
         return;
     }
 
@@ -706,15 +707,15 @@ async fn gtfs_settle(state: AzaleaState, whisper_cmd: String, bet: TrainBet) {
         }
     };
 
-    state.api.casino_bet_delete::<TrainBet>(bet.id).await;
-    let msg = apply_outcome(&state, &bet, outcome).await;
-    deliver(&state, &whisper_cmd, &bet.player, msg).await;
+    deps.api.casino_bet_delete::<TrainBet>(bet.id).await;
+    let msg = apply_outcome(&deps, &bet, outcome).await;
+    deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }
 
 // ── Shared settle helpers ─────────────────────────────────────────────────────
 
-fn claim_bet(state: &AzaleaState, bet: &TrainBet) -> bool {
-    let mut bets = state.train_bets.lock().expect("train_bets lock");
+fn claim_bet(bets_map: &TrainBetsMap, bet: &TrainBet) -> bool {
+    let mut bets = bets_map.lock().expect("train_bets lock");
     bets.get_mut(&bet.player)
         .map(|v| {
             v.iter().position(|b| b.id == bet.id)
@@ -724,7 +725,7 @@ fn claim_bet(state: &AzaleaState, bet: &TrainBet) -> bool {
         .unwrap_or(false)
 }
 
-async fn apply_outcome(state: &AzaleaState, bet: &TrainBet, outcome: Option<bool>) -> String {
+async fn apply_outcome(deps: &SettleDeps, bet: &TrainBet, outcome: Option<bool>) -> String {
     match outcome {
         Some(is_delayed_result) => {
             let won        = (bet.side == "delayed") == is_delayed_result;
@@ -735,7 +736,7 @@ async fn apply_outcome(state: &AzaleaState, bet: &TrainBet, outcome: Option<bool
             };
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                match state.api.casino_win(&bet.player, payout).await {
+                match deps.api.casino_win(&bet.player, payout).await {
                     Ok(win) => {
                         let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                         format!(
@@ -755,7 +756,7 @@ async fn apply_outcome(state: &AzaleaState, bet: &TrainBet, outcome: Option<bool
                     }
                 }
             } else {
-                state.api.casino_jackpot_rake(bet.stake).await;
+                deps.api.casino_jackpot_rake(bet.stake).await;
                 format!(
                     "[Train] {} ({}) — {}. {} loses. LOSS -{} (to jackpot).",
                     bet.train_name,
@@ -767,7 +768,7 @@ async fn apply_outcome(state: &AzaleaState, bet: &TrainBet, outcome: Option<bool
             }
         }
         None => {
-            match state.api.casino_adjust(&bet.player, bet.stake).await {
+            match deps.api.casino_adjust(&bet.player, bet.stake).await {
                 Ok(_) => format!(
                     "[Train] {} ({}) — train not found or API error. {} refunded.",
                     bet.train_name,

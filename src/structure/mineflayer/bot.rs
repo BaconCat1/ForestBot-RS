@@ -408,7 +408,9 @@ impl Bot {
                 for bet in open_bets {
                     let remaining = bet.closes_unix.saturating_sub(now);
                     tokio::spawn(crate::commands::market::settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.market_bets.clone(),
+                        state.market_service.clone(),
                         bet.player.clone(),
                         whisper_cmd.clone(),
                         bet,
@@ -433,7 +435,8 @@ impl Bot {
                 for bet in open_bets {
                     let remaining = bet.closes_unix.saturating_sub(now);
                     tokio::spawn(crate::commands::weather::settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.weather_bets.clone(),
                         whisper_cmd.clone(),
                         bet,
                         remaining,
@@ -456,7 +459,8 @@ impl Bot {
                 }
                 for bet in open_bets {
                     tokio::spawn(crate::commands::casino::sports::settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.sports_bets.clone(),
                         whisper_cmd.clone(),
                         api_key.clone(),
                         bet,
@@ -478,7 +482,8 @@ impl Bot {
                 }
                 for bet in open_bets {
                     tokio::spawn(crate::commands::casino::kalshi::settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.kalshi_bets.clone(),
                         whisper_cmd.clone(),
                         bet,
                     ));
@@ -502,7 +507,9 @@ impl Bot {
                 }
                 for bet in open_bets {
                     tokio::spawn(crate::commands::casino::nasa_space_weather::settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.nasa_space_weather_bets.clone(),
+                        state.http.clone(),
                         whisper_cmd.clone(),
                         nasa_api_key.clone(),
                         bet,
@@ -527,7 +534,8 @@ impl Bot {
                     // close_time may already be past if bot was down; settle_task handles that
                     let _ = now; // suppress unused warning
                     tokio::spawn(crate::commands::casino::faa_airport::settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.faa_airport_bets.clone(),
                         whisper_cmd.clone(),
                         bet,
                     ));
@@ -550,7 +558,8 @@ impl Bot {
                 for bet in open_bets {
                     let _ = now;
                     tokio::spawn(crate::commands::casino::noaa_flooding::settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.noaa_flooding_bets.clone(),
                         whisper_cmd.clone(),
                         bet,
                     ));
@@ -573,7 +582,8 @@ impl Bot {
                 for bet in open_bets {
                     let _ = now;
                     tokio::spawn(crate::commands::casino::train::settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.train_bets.clone(),
                         whisper_cmd.clone(),
                         bet,
                     ));
@@ -594,7 +604,8 @@ impl Bot {
                 }
                 for bet in open_bets {
                     tokio::spawn(crate::commands::casino::seismic::quake_settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.quake_bets.clone(),
                         whisper_cmd.clone(),
                         bet,
                     ));
@@ -615,7 +626,8 @@ impl Bot {
                 }
                 for bet in open_bets {
                     tokio::spawn(crate::commands::casino::seismic::volcano_settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.volcano_bets.clone(),
                         whisper_cmd.clone(),
                         bet,
                     ));
@@ -636,7 +648,9 @@ impl Bot {
                 }
                 for bet in open_bets {
                     tokio::spawn(crate::commands::casino::aqi::aqi_settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.aqi_bets.clone(),
+                        state.http.clone(),
                         whisper_cmd.clone(),
                         bet,
                     ));
@@ -657,7 +671,9 @@ impl Bot {
                 }
                 for bet in open_bets {
                     tokio::spawn(crate::commands::casino::launch::launch_settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.launch_bets.clone(),
+                        state.http.clone(),
                         whisper_cmd.clone(),
                         bet,
                     ));
@@ -678,7 +694,10 @@ impl Bot {
                 }
                 for bet in open_bets {
                     tokio::spawn(crate::commands::casino::gas::gas_settle_task(
-                        state.clone(),
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.gas_bets.clone(),
+                        state.http.clone(),
+                        state.gasbuddy_csrf.clone(),
                         whisper_cmd.clone(),
                         bet,
                     ));

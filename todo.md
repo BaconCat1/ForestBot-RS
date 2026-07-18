@@ -171,7 +171,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ⏸️ parlays across all betting types (needs mapping) // on hold for casino phase II
 * ⏸️ side betting on any game, not just dueling // on hold for casino phase II
 * ⏸️ add multiplayer where applicable to "casino games" // on hold for casino phase II
-* ⏸ !marry, as well as !divorce and !spouse, let's you marry a player, check their spouse. Append marital status to whois, alimony system based on winning casino games? // ON HOLD; written, untested. need to create the "betting" api so alimony raking doesn't need manual wiring in every game/market
+* ✅ ~~!marry, as well as !divorce and !spouse, let's you marry a player, check their spouse. Append marital status to whois, alimony system based on winning casino games? // ON HOLD; written, untested. need to create the "betting" api so alimony raking doesn't need manual wiring in every game/market~~
 
 * ✅ ~~**bug**: `increment_ms` cooldown not working~~ // spam path (blocked attempt) now also increments cooldown; success path already had it
 * ✅ ~~**bug**: !ud upvotes/downvotes always 0~~ // improved type parsing (i64 fallback); votes hidden when both 0 rather than showing (+0/-0)

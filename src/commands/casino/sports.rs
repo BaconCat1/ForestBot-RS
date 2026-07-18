@@ -1,9 +1,8 @@
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
-use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, sleep_until, deliver, FetchErr, check_resp};
+use super::{chips_str, sleep_until, FetchErr, check_resp, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["sports", "sb"],
@@ -459,7 +458,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let key = ctx.runtime.sharpapi_key.clone();
     let wcmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(settle_task(ctx.state.clone(), wcmd, key, bet));
+    tokio::spawn(settle_task(SettleDeps::from(ctx.state), ctx.state.sports_bets.clone(), wcmd, key, bet));
     Ok(())
 }
 
@@ -493,7 +492,8 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 // ── settle_task ───────────────────────────────────────────────────────────────
 
 pub async fn settle_task(
-    state: AzaleaState,
+    deps: SettleDeps,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<SportsBet>>>>,
     whisper_cmd: String,
     api_key: String,
     bet: SportsBet,
@@ -501,7 +501,7 @@ pub async fn settle_task(
     sleep_until(bet.start_unix).await;
 
     let claimed = {
-        let mut bets = state.sports_bets.lock().expect("sports_bets lock");
+        let mut bets = bets_map.lock().expect("sports_bets lock");
         bets.get_mut(&bet.player)
             .map(|v| { let pos = v.iter().position(|b| b.id == bet.id); pos.map(|i| { v.remove(i); }).is_some() })
             .unwrap_or(false)
@@ -522,13 +522,13 @@ pub async fn settle_task(
         }
     };
 
-    state.api.casino_bet_delete::<SportsBet>(bet.id).await;
+    deps.api.casino_bet_delete::<SportsBet>(bet.id).await;
 
     let msg = match outcome {
         Some(ref winner) => {
             if *winner == bet.selection {
                 let payout = (bet.stake as f64 * bet.payout_mult).ceil() as i64;
-                match state.api.casino_win(&bet.player, payout).await {
+                match deps.api.casino_win(&bet.player, payout).await {
                     Ok(win) => {
                         let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                         format!("[Sports] {} vs {} — {winner} wins. WIN +{}{alimony_note} ({} @ {:.2}x).",
@@ -541,13 +541,13 @@ pub async fn settle_task(
                     }
                 }
             } else {
-                state.api.casino_jackpot_rake(bet.stake).await;
+                deps.api.casino_jackpot_rake(bet.stake).await;
                 format!("[Sports] {} vs {} — {winner} wins. LOSS -{} (to jackpot).",
                     bet.home_team, bet.away_team, chips_str(bet.stake))
             }
         }
         None => {
-            match state.api.casino_adjust(&bet.player, bet.stake).await {
+            match deps.api.casino_adjust(&bet.player, bet.stake).await {
                 Ok(_) => format!("[Sports] {} vs {} — result unavailable. {} refunded.",
                     bet.home_team, bet.away_team, chips_str(bet.stake)),
                 Err(e) => {
@@ -557,5 +557,5 @@ pub async fn settle_task(
             }
         }
     };
-    deliver(&state, &whisper_cmd, &bet.player, msg).await;
+    deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }

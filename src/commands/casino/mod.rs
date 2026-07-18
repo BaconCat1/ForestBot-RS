@@ -23,7 +23,7 @@ pub mod launch;
 pub mod gas;
 pub mod bets;
 
-use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
+use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::{CasinoFaucetResult, CasinoLottoPlayerTicket};
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
@@ -133,12 +133,53 @@ pub async fn check_resp(resp: reqwest::Response) -> Result<reqwest::Response, Fe
 }
 
 pub async fn deliver(state: &AzaleaState, whisper_cmd: &str, player: &str, msg: String) {
-    let online = state.players.read().ok()
-        .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()));
-    if let Some(username) = online {
-        enqueue_chat(state, format!("/{whisper_cmd} {username} {msg}"));
-    } else {
-        state.api.casino_add_notification(player, &msg).await;
+    SettleDeps::from(state).deliver(whisper_cmd, player, msg).await
+}
+
+/// Minimal deps for a settle task -- every one of the ~13 async settle tasks
+/// (aqi/gas/kalshi/launch/faa_airport/nasa_space_weather/noaa_flooding/quake/
+/// volcano/train/sports/weather/market) turns out to touch exactly this same
+/// 5-field core (confirmed via a direct field-usage audit, not guessed) and
+/// nothing else from `AzaleaState`'s 69 fields except its own bet-type cache
+/// map, which stays a separate explicit parameter since it's the one thing
+/// that's genuinely different per task. Cheap to clone (all `Arc`), same as
+/// cloning `AzaleaState` itself was before -- this is a coupling/readability
+/// fix, not a performance one: a settle task's signature now says exactly
+/// what it can touch, instead of "anything in the whole bot."
+#[derive(Clone)]
+pub struct SettleDeps {
+    pub api: std::sync::Arc<crate::structure::endpoints::endpoints::ApiClient>,
+    pub players: std::sync::Arc<std::sync::RwLock<std::collections::HashMap<String, crate::structure::mineflayer::bot::PlayerSnapshot>>>,
+    pub runtime: std::sync::Arc<std::sync::RwLock<crate::structure::mineflayer::bot::RuntimeConfig>>,
+    pub outbound_chat: std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<String>>>,
+    pub recent_whispers: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, (String, std::time::Instant)>>>,
+}
+
+impl From<&AzaleaState> for SettleDeps {
+    fn from(state: &AzaleaState) -> Self {
+        SettleDeps {
+            api: state.api.clone(),
+            players: state.players.clone(),
+            runtime: state.runtime.clone(),
+            outbound_chat: state.outbound_chat.clone(),
+            recent_whispers: state.recent_whispers.clone(),
+        }
+    }
+}
+
+impl SettleDeps {
+    pub fn enqueue_chat(&self, message: impl AsRef<str>) {
+        crate::commands::enqueue_chat_raw(&self.runtime, &self.recent_whispers, &self.outbound_chat, message)
+    }
+
+    pub async fn deliver(&self, whisper_cmd: &str, player: &str, msg: String) {
+        let online = self.players.read().ok()
+            .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()));
+        if let Some(username) = online {
+            self.enqueue_chat(format!("/{whisper_cmd} {username} {msg}"));
+        } else {
+            self.api.casino_add_notification(player, &msg).await;
+        }
     }
 }
 

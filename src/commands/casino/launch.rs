@@ -4,9 +4,9 @@ use std::sync::{Arc, Mutex};
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
-use crate::structure::mineflayer::bot::AzaleaState;
+use super::{MIN_BET, chips_str, to_price, fmt_odds, fmt_time, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
 
-use super::{MIN_BET, chips_str, to_price, fmt_odds, fmt_time, calc_payout, sleep_until, deliver, FetchErr, check_resp};
+type LaunchBetsMap = Arc<Mutex<HashMap<String, Vec<LaunchBet>>>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LaunchBetSide {
@@ -423,9 +423,11 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
         .or_default()
         .push(bet.clone());
 
-    let state      = ctx.state.clone();
+    let deps = SettleDeps::from(ctx.state);
+    let bets_map = ctx.state.launch_bets.clone();
+    let http = ctx.state.http.clone();
     let whisper_cmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(launch_settle_task(state, whisper_cmd, bet));
+    tokio::spawn(launch_settle_task(deps, bets_map, http, whisper_cmd, bet));
 
     Ok(())
 }
@@ -440,7 +442,13 @@ fn determine_launch_win(side: LaunchBetSide, status_id: u64, net: Option<u64>, w
     }
 }
 
-pub async fn launch_settle_task(state: AzaleaState, whisper_cmd: String, bet: LaunchBet) {
+pub async fn launch_settle_task(
+    deps: SettleDeps,
+    bets_map: LaunchBetsMap,
+    http: reqwest::Client,
+    whisper_cmd: String,
+    bet: LaunchBet,
+) {
     sleep_until(bet.close_time).await;
 
     let give_up = now_unix() + MAX_SETTLE_WAIT_SECS;
@@ -448,11 +456,11 @@ pub async fn launch_settle_task(state: AzaleaState, whisper_cmd: String, bet: La
     loop {
         if now_unix() > give_up { break; }
 
-        let info = fetch_single_by_full_id(&state.http, &bet.launch_id).await;
+        let info = fetch_single_by_full_id(&http, &bet.launch_id).await;
         if let Some(ref l) = info {
             let finished = matches!(l.status_id, STATUS_SUCCESS | STATUS_FAILURE | STATUS_PARTIAL_FAILURE);
             if finished {
-                settle(&state, &whisper_cmd, &bet, l).await;
+                settle(&deps, &bets_map, &whisper_cmd, &bet, l).await;
                 return;
             }
         }
@@ -461,9 +469,9 @@ pub async fn launch_settle_task(state: AzaleaState, whisper_cmd: String, bet: La
     }
 
     // Give-up path: refund
-    remove_bet(&state, &bet);
-    state.api.casino_bet_delete::<LaunchBet>(bet.id.unwrap()).await;
-    let msg = if let Err(e) = state.api.casino_adjust(&bet.player, bet.stake).await {
+    remove_bet(&bets_map, &bet);
+    deps.api.casino_bet_delete::<LaunchBet>(bet.id.unwrap()).await;
+    let msg = if let Err(e) = deps.api.casino_adjust(&bet.player, bet.stake).await {
         eprintln!("[Launch settle] refund failed for {}: {e:?}", bet.player);
         format!(
             "[ROCKET] {} {} — no final status after 7 days. Refund failed — contact an admin.",
@@ -475,18 +483,18 @@ pub async fn launch_settle_task(state: AzaleaState, whisper_cmd: String, bet: La
             bet.launch_name, bet.side.display(), chips_str(bet.stake)
         )
     };
-    deliver(&state, &whisper_cmd, &bet.player, msg).await;
+    deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }
 
-async fn settle(state: &AzaleaState, whisper_cmd: &str, bet: &LaunchBet, l: &LaunchInfo) {
-    remove_bet(state, bet);
-    state.api.casino_bet_delete::<LaunchBet>(bet.id.unwrap()).await;
+async fn settle(deps: &SettleDeps, bets_map: &LaunchBetsMap, whisper_cmd: &str, bet: &LaunchBet, l: &LaunchInfo) {
+    remove_bet(bets_map, bet);
+    deps.api.casino_bet_delete::<LaunchBet>(bet.id.unwrap()).await;
 
     let won = determine_launch_win(bet.side, l.status_id, l.net, bet.window_start);
 
     let msg = if won {
         let payout = calc_payout(bet.stake, bet.price);
-        match state.api.casino_win(&bet.player, payout).await {
+        match deps.api.casino_win(&bet.player, payout).await {
             Err(e) => {
                 eprintln!("[Launch settle] payout failed for {}: {e:?}", bet.player);
                 format!(
@@ -506,7 +514,7 @@ async fn settle(state: &AzaleaState, whisper_cmd: &str, bet: &LaunchBet, l: &Lau
             }
         }
     } else {
-        let _ = state.api.casino_jackpot_rake(bet.stake).await;
+        let _ = deps.api.casino_jackpot_rake(bet.stake).await;
         format!(
             "[ROCKET] {} {} — {}. LOSS -{} (to jackpot).",
             bet.launch_name, bet.side.display(), l.status_name,
@@ -514,11 +522,11 @@ async fn settle(state: &AzaleaState, whisper_cmd: &str, bet: &LaunchBet, l: &Lau
         )
     };
 
-    deliver(state, whisper_cmd, &bet.player, msg).await;
+    deps.deliver(whisper_cmd, &bet.player, msg).await;
 }
 
-fn remove_bet(state: &AzaleaState, bet: &LaunchBet) {
-    let mut bets = state.launch_bets.lock().unwrap();
+fn remove_bet(bets_map: &LaunchBetsMap, bet: &LaunchBet) {
+    let mut bets = bets_map.lock().unwrap();
     if let Some(v) = bets.get_mut(&bet.player) {
         v.retain(|b| b.id != bet.id);
     }

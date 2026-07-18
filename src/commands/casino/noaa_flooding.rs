@@ -1,9 +1,8 @@
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
-use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, fmt_close, calc_payout, sleep_until, deliver, FetchErr, check_resp};
+use super::{chips_str, fmt_close, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["flood", "flooding", "noaa"],
@@ -398,19 +397,20 @@ async fn place_bet_inner(
     ));
 
     let wcmd = ctx.runtime.whisper_command.clone();
-    tokio::spawn(settle_task(ctx.state.clone(), wcmd, bet));
+    tokio::spawn(settle_task(SettleDeps::from(ctx.state), ctx.state.noaa_flooding_bets.clone(), wcmd, bet));
     Ok(())
 }
 
 pub async fn settle_task(
-    state: AzaleaState,
+    deps: SettleDeps,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<NOAAFloodingBet>>>>,
     whisper_cmd: String,
     bet: NOAAFloodingBet,
 ) {
     sleep_until(bet.close_time).await;
 
     let claimed = {
-        let mut bets = state.noaa_flooding_bets.lock().expect("noaa_flooding_bets lock");
+        let mut bets = bets_map.lock().expect("noaa_flooding_bets lock");
         bets.get_mut(&bet.player)
             .map(|v| {
                 let pos = v.iter().position(|b| b.id == bet.id);
@@ -433,14 +433,14 @@ pub async fn settle_task(
         }
     };
 
-    state.api.casino_bet_delete::<NOAAFloodingBet>(bet.id).await;
+    deps.api.casino_bet_delete::<NOAAFloodingBet>(bet.id).await;
 
     let msg = match result {
         Some(was_flooding) => {
             let won = (bet.side == "yes") == was_flooding;
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                match state.api.casino_win(&bet.player, payout).await {
+                match deps.api.casino_win(&bet.player, payout).await {
                     Ok(win) => {
                         let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                         format!(
@@ -459,7 +459,7 @@ pub async fn settle_task(
                     }
                 }
             } else {
-                state.api.casino_jackpot_rake(bet.stake).await;
+                deps.api.casino_jackpot_rake(bet.stake).await;
                 format!(
                     "[NOAA Flood] {} — {}. {} loses. LOSS -{} (to jackpot).",
                     bet.location,
@@ -470,7 +470,7 @@ pub async fn settle_task(
             }
         }
         None => {
-            match state.api.casino_adjust(&bet.player, bet.stake).await {
+            match deps.api.casino_adjust(&bet.player, bet.stake).await {
                 Ok(_) => format!(
                     "[NOAA Flood] {} — NOAA API unavailable. {} refunded.",
                     bet.location,
@@ -484,7 +484,7 @@ pub async fn settle_task(
         }
     };
 
-    deliver(&state, &whisper_cmd, &bet.player, msg).await;
+    deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }
 
 #[cfg(test)]
