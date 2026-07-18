@@ -578,8 +578,9 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
     match p1 {
         Phase1::BadMove(e) => ctx.whisper_success(e),
         Phase1::PlayerWins { stake, opponent } => {
-            let bal = ctx.state.api.casino_adjust(ctx.sender, stake * 2).await.unwrap_or(0);
-            ctx.whisper_success(format!("{} has no moves — you WIN! +{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
+            let win = ctx.state.api.casino_win(ctx.sender, stake * 2).await.unwrap_or_default();
+            let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+            ctx.whisper_success(format!("{} has no moves — you WIN! +{}{alimony_note} | Balance: {}", opponent, chips_str(stake), chips_str(win.chips)));
         }
         Phase1::Draw { stake, reason } => {
             let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
@@ -588,8 +589,9 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
         Phase1::NpcTurn { mut game, stake, difficulty, opponent, mut no_progress_ply, mut position_history } => {
             // NPC computes move without holding lock (potentially slow at Hard depth)
             let Some(npc_path) = npc_pick_move(&game, difficulty) else {
-                let bal = ctx.state.api.casino_adjust(ctx.sender, stake * 2).await.unwrap_or(0);
-                ctx.whisper_success(format!("{} has no moves — you WIN! +{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
+                let win = ctx.state.api.casino_win(ctx.sender, stake * 2).await.unwrap_or_default();
+                let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                ctx.whisper_success(format!("{} has no moves — you WIN! +{}{alimony_note} | Balance: {}", opponent, chips_str(stake), chips_str(win.chips)));
                 return Ok(());
             };
 

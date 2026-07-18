@@ -404,17 +404,20 @@ pub async fn aqi_settle_task(state: AzaleaState, whisper_cmd: String, bet: AqiBe
             };
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                match state.api.casino_adjust(&bet.player, payout).await {
-                    Ok(_) => format!(
-                        "[AQI] {} {} — actual AQI {}. {} wins. WIN +{} ({} @ {:.2}×).",
-                        bet.zip, bet.side.to_uppercase(), actual_aqi,
-                        bet.side.to_uppercase(),
-                        chips_str(payout - bet.stake),
-                        chips_str(bet.stake),
-                        1.0 / bet.price,
-                    ),
+                match state.api.casino_win(&bet.player, payout).await {
+                    Ok(win) => {
+                        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                        format!(
+                            "[AQI] {} {} — actual AQI {}. {} wins. WIN +{}{alimony_note} ({} @ {:.2}×).",
+                            bet.zip, bet.side.to_uppercase(), actual_aqi,
+                            bet.side.to_uppercase(),
+                            chips_str(payout - bet.stake),
+                            chips_str(bet.stake),
+                            1.0 / bet.price,
+                        )
+                    }
                     Err(e) => {
-                        eprintln!("[AQI settle] casino_adjust failed for {}: {e:?}", bet.player);
+                        eprintln!("[AQI settle] casino_win failed for {}: {e:?}", bet.player);
                         format!("[AQI] {} {} wins but payout failed. Contact an admin.", bet.zip, bet.side.to_uppercase())
                     }
                 }

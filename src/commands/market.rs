@@ -260,7 +260,13 @@ async fn cashout(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     remove_bet(&ctx.state, &player_uuid, bet.id);
     ctx.state.api.casino_market_bet_delete(bet.id).await;
 
-    if payout > 0 {
+    let mut alimony_note = String::new();
+    if payout > bet.stake {
+        let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
+        if win.alimony_paid > 0 {
+            alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
+        }
+    } else if payout > 0 {
         let _ = ctx.state.api.casino_adjust(&player_uuid, payout).await;
     }
 
@@ -275,7 +281,7 @@ async fn cashout(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     };
 
     ctx.whisper_success(format!(
-        "Cashed out {} {} | {} | {}→{} ({}{:.2}%) | {}",
+        "Cashed out {} {} | {} | {}→{} ({}{:.2}%) | {}{alimony_note}",
         bet.direction.label(), bet.symbol, result_str,
         fmt_price(bet.entry_price), fmt_price(exit_price), sign, pct, net_str
     ));
@@ -346,7 +352,13 @@ pub async fn settle_task(
     remove_bet(&state, &player, bet.id);
     state.api.casino_market_bet_delete(bet.id).await;
 
-    if payout > 0 {
+    let mut alimony_note = String::new();
+    if payout > bet.stake {
+        let win = state.api.casino_win(&player, payout).await.unwrap_or_default();
+        if win.alimony_paid > 0 {
+            alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
+        }
+    } else if payout > 0 {
         let _ = state.api.casino_adjust(&player, payout).await;
     }
 
@@ -363,7 +375,7 @@ pub async fn settle_task(
         .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()))
         .unwrap_or_else(|| player.clone());
     enqueue_chat(&state, format!(
-        "/{whisper_cmd} {username_for_msg} {} {} settled: {} | {}→{} ({}{:.2}%) | {}",
+        "/{whisper_cmd} {username_for_msg} {} {} settled: {} | {}→{} ({}{:.2}%) | {}{alimony_note}",
         bet.direction.label(), bet.symbol, result_str,
         fmt_price(bet.entry_price), fmt_price(exit_price), sign, pct, net_str
     ));
@@ -501,7 +513,13 @@ async fn portfolio_sell(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         }
     }
     ctx.state.api.casino_portfolio_delete(pos.id).await;
-    if payout > 0 {
+    let mut alimony_note = String::new();
+    if payout > pos.stake {
+        let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
+        if win.alimony_paid > 0 {
+            alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
+        }
+    } else if payout > 0 {
         let _ = ctx.state.api.casino_adjust(&player_uuid, payout).await;
     }
 
@@ -516,7 +534,7 @@ async fn portfolio_sell(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     };
 
     ctx.whisper_success(format!(
-        "Closed {} | {} | {}→{} ({}{:.2}%) | {}",
+        "Closed {} | {} | {}→{} ({}{:.2}%) | {}{alimony_note}",
         sym, result_str,
         fmt_price(pos.entry_price), fmt_price(exit_price), sign, pct, net_str
     ));
@@ -544,6 +562,7 @@ async fn portfolio_sell_all(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let mut total_invested = 0i64;
     let mut total_payout = 0i64;
+    let mut total_alimony = 0i64;
     let mut quote_failures = 0usize;
 
     for (pos, quote_result) in positions.iter().zip(quotes.iter()) {
@@ -562,7 +581,10 @@ async fn portfolio_sell_all(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             }
         }
         ctx.state.api.casino_portfolio_delete(pos.id).await;
-        if payout > 0 {
+        if payout > pos.stake {
+            let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
+            total_alimony += win.alimony_paid;
+        } else if payout > 0 {
             let _ = ctx.state.api.casino_adjust(&player_uuid, payout).await;
         }
     }
@@ -578,9 +600,14 @@ async fn portfolio_sell_all(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     } else {
         String::new()
     };
+    let alimony_note = if total_alimony > 0 {
+        format!(" (-{} alimony)", chips_str(total_alimony))
+    } else {
+        String::new()
+    };
 
     ctx.whisper_success(format!(
-        "Closed {} positions | Returned: {} | Net: {}{}",
+        "Closed {} positions | Returned: {} | Net: {}{}{alimony_note}",
         positions.len(), chips_str(total_payout), net_str, caveat
     ));
     Ok(())

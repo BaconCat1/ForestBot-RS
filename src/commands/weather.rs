@@ -587,8 +587,9 @@ pub async fn settle_task(state: AzaleaState, whisper_cmd: String, bet: WeatherBe
     let msg = if won {
         let payout = (bet.stake as f64 * bet.payout_mult).ceil() as i64;
         let net    = payout - bet.stake;
-        let _ = state.api.casino_adjust(&bet.player, payout).await;
-        format!("[Weather] {} {} — {}. WIN +{} ({} @ {:.2}x).",
+        let win = state.api.casino_win(&bet.player, payout).await.unwrap_or_default();
+        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+        format!("[Weather] {} {} — {}. WIN +{}{alimony_note} ({} @ {:.2}x).",
             bet.city, type_str, result_str, chips_str(net), chips_str(bet.stake), bet.payout_mult)
     } else {
         let _ = state.api.casino_jackpot_rake(bet.stake).await;

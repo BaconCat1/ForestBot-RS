@@ -322,6 +322,7 @@ impl Bot {
             reversi_games: Arc::new(Mutex::new(HashMap::new())),
             battleship_games: Arc::new(Mutex::new(HashMap::new())),
             mines_games: Arc::new(Mutex::new(HashMap::new())),
+            pending_force_divorces: Arc::new(Mutex::new(HashMap::new())),
             aqi_bets: Arc::new(Mutex::new(HashMap::new())),
             launch_bets: Arc::new(Mutex::new(HashMap::new())),
             launch_cache: Arc::new(Mutex::new(HashMap::new())),
@@ -838,6 +839,11 @@ pub struct AzaleaState {
     pub reversi_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::reversi::ReversiSession>>>,
     pub battleship_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::battleship::BattleshipSession>>>,
     pub mines_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::casino::mines::MinesGame>>>,
+    // Key = initiator's uuid, value = (target's uuid, request time). 60s TTL enforced
+    // in marry.rs -- "!divorce force <player>" stages here, "!divorce force confirm"
+    // consumes it. Deliberately not Hub-backed: losing this on restart just means
+    // re-running the first step, same posture as other short-lived confirm windows.
+    pub pending_force_divorces: Arc<Mutex<HashMap<String, (String, Instant)>>>,
 
     // ── Casino: betting markets (bet lists + external-data caches, one pair per type) ──
     pub market_service: Arc<crate::structure::market::service::MarketService>,
@@ -1044,6 +1050,7 @@ impl Default for AzaleaState {
             reversi_games: Arc::new(Mutex::new(HashMap::new())),
             battleship_games: Arc::new(Mutex::new(HashMap::new())),
             mines_games: Arc::new(Mutex::new(HashMap::new())),
+            pending_force_divorces: Arc::new(Mutex::new(HashMap::new())),
             aqi_bets: Arc::new(Mutex::new(HashMap::new())),
             launch_bets: Arc::new(Mutex::new(HashMap::new())),
             launch_cache: Arc::new(Mutex::new(HashMap::new())),

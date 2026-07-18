@@ -173,10 +173,11 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         if prize > 0 {
             let sym = PRIZE_SYMBOLS[prize_idx];
-            let new_balance = ctx.state.api.casino_adjust(&player_uuid, prize).await.unwrap_or(0);
+            let win = ctx.state.api.casino_win(&player_uuid, prize).await.unwrap_or_default();
+            let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
             ctx.whisper_success(format!(
-                "3x {sym} — WIN! +{} | Balance: {}",
-                chips_str(prize), chips_str(new_balance)
+                "3x {sym} — WIN! +{}{alimony_note} | Balance: {}",
+                chips_str(prize), chips_str(win.chips)
             ));
         } else {
             let rake_base = if is_free { 25 } else { tier.cost };

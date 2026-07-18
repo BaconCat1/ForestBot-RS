@@ -506,8 +506,9 @@ async fn finish_game(
     match result {
         GameResult::PlayerWins => {
             let payout = stake * 2;
-            let bal = ctx.state.api.casino_adjust(sender, payout).await.unwrap_or(0);
-            ctx.whisper_success(format!("You beat {}! +{} | Balance: {}", opponent, chips_str(payout), chips_str(bal)));
+            let win = ctx.state.api.casino_win(sender, payout).await.unwrap_or_default();
+            let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+            ctx.whisper_success(format!("You beat {}! +{}{alimony_note} | Balance: {}", opponent, chips_str(payout), chips_str(win.chips)));
         }
         GameResult::CpuWins => {
             ctx.state.api.casino_jackpot_rake(stake).await;

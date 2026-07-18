@@ -455,16 +455,19 @@ pub async fn settle_task(
     let msg = match result {
         Some(true) => {
             let payout = (bet.stake as f64 * bet.multiplier) as i64;
-            match state.api.casino_adjust(&bet.player, payout).await {
-                Ok(_) => format!(
-                    "[SpaceWX] {} — YES. WIN +{} ({} @ {:.2}x).",
-                    label,
-                    chips_str(payout - bet.stake),
-                    chips_str(bet.stake),
-                    bet.multiplier,
-                ),
+            match state.api.casino_win(&bet.player, payout).await {
+                Ok(win) => {
+                    let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                    format!(
+                        "[SpaceWX] {} — YES. WIN +{}{alimony_note} ({} @ {:.2}x).",
+                        label,
+                        chips_str(payout - bet.stake),
+                        chips_str(bet.stake),
+                        bet.multiplier,
+                    )
+                }
                 Err(e) => {
-                    eprintln!("[SpaceWX settle] casino_adjust failed for {}: {e:?}", bet.player);
+                    eprintln!("[SpaceWX settle] casino_win failed for {}: {e:?}", bet.player);
                     format!("[SpaceWX] {} — YES, but payout failed. Contact an admin.", label)
                 }
             }

@@ -610,18 +610,21 @@ pub async fn quake_settle_task(state: AzaleaState, whisper_cmd: String, bet: Qua
             let won = (bet.side == "yes") == occurred;
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                match state.api.casino_adjust(&bet.player, payout).await {
-                    Ok(_) => format!(
-                        "[Quake] {} — {}. {} wins. WIN +{} ({} @ {:.2}x).",
-                        bet.display,
-                        if occurred { "event occurred" } else { "no event" },
-                        bet.side.to_uppercase(),
-                        chips_str(payout - bet.stake),
-                        chips_str(bet.stake),
-                        (1.0 / (bet.price)),
-                    ),
+                match state.api.casino_win(&bet.player, payout).await {
+                    Ok(win) => {
+                        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                        format!(
+                            "[Quake] {} — {}. {} wins. WIN +{}{alimony_note} ({} @ {:.2}x).",
+                            bet.display,
+                            if occurred { "event occurred" } else { "no event" },
+                            bet.side.to_uppercase(),
+                            chips_str(payout - bet.stake),
+                            chips_str(bet.stake),
+                            (1.0 / (bet.price)),
+                        )
+                    }
                     Err(e) => {
-                        eprintln!("[Quake settle] casino_adjust failed for {}: {e:?}", bet.player);
+                        eprintln!("[Quake settle] casino_win failed for {}: {e:?}", bet.player);
                         format!("[Quake] {} — {} wins but payout failed. Contact an admin.", bet.display, bet.side.to_uppercase())
                     }
                 }
@@ -934,18 +937,21 @@ pub async fn volcano_settle_task(state: AzaleaState, whisper_cmd: String, bet: V
             let won = (bet.side == "yes") == at_warning;
             if won {
                 let payout = calc_payout(bet.stake, bet.price);
-                match state.api.casino_adjust(&bet.player, payout).await {
-                    Ok(_) => format!(
-                        "[Volcano] {} — {}. {} wins. WIN +{} ({} @ {:.2}x).",
-                        bet.vname,
-                        if at_warning { "Warning/Red" } else { "below Warning" },
-                        bet.side.to_uppercase(),
-                        chips_str(payout - bet.stake),
-                        chips_str(bet.stake),
-                        (1.0 / (bet.price)),
-                    ),
+                match state.api.casino_win(&bet.player, payout).await {
+                    Ok(win) => {
+                        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                        format!(
+                            "[Volcano] {} — {}. {} wins. WIN +{}{alimony_note} ({} @ {:.2}x).",
+                            bet.vname,
+                            if at_warning { "Warning/Red" } else { "below Warning" },
+                            bet.side.to_uppercase(),
+                            chips_str(payout - bet.stake),
+                            chips_str(bet.stake),
+                            (1.0 / (bet.price)),
+                        )
+                    }
                     Err(e) => {
-                        eprintln!("[Volcano settle] casino_adjust failed for {}: {e:?}", bet.player);
+                        eprintln!("[Volcano settle] casino_win failed for {}: {e:?}", bet.player);
                         format!("[Volcano] {} — {} wins but payout failed. Contact an admin.", bet.vname, bet.side.to_uppercase())
                     }
                 }

@@ -486,20 +486,24 @@ async fn settle(state: &AzaleaState, whisper_cmd: &str, bet: &LaunchBet, l: &Lau
 
     let msg = if won {
         let payout = calc_payout(bet.stake, bet.price);
-        if let Err(e) = state.api.casino_adjust(&bet.player, payout).await {
-            eprintln!("[Launch settle] payout failed for {}: {e:?}", bet.player);
-            format!(
-                "[ROCKET] {} {} — {}. Win detected but payout failed — contact an admin.",
-                bet.launch_name, bet.side.display(), l.status_name
-            )
-        } else {
-            format!(
-                "[ROCKET] {} {} — {}. WIN +{} ({} @ {:.2}×).",
-                bet.launch_name, bet.side.display(), l.status_name,
-                chips_str(payout - bet.stake),
-                chips_str(bet.stake),
-                1.0 / bet.price,
-            )
+        match state.api.casino_win(&bet.player, payout).await {
+            Err(e) => {
+                eprintln!("[Launch settle] payout failed for {}: {e:?}", bet.player);
+                format!(
+                    "[ROCKET] {} {} — {}. Win detected but payout failed — contact an admin.",
+                    bet.launch_name, bet.side.display(), l.status_name
+                )
+            }
+            Ok(win) => {
+                let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                format!(
+                    "[ROCKET] {} {} — {}. WIN +{}{alimony_note} ({} @ {:.2}×).",
+                    bet.launch_name, bet.side.display(), l.status_name,
+                    chips_str(payout - bet.stake),
+                    chips_str(bet.stake),
+                    1.0 / bet.price,
+                )
+            }
         }
     } else {
         let _ = state.api.casino_jackpot_rake(bet.stake).await;

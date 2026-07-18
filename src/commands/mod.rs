@@ -18,6 +18,7 @@ pub mod hardware;
 pub mod health;
 pub mod help;
 pub mod link;
+pub mod marry;
 pub mod report;
 pub mod trade;
 pub mod joins;
@@ -361,6 +362,9 @@ pub fn registry() -> &'static [CommandDefinition] {
         trade::TRADES_COMMAND,
         trade::TRADESTATS_COMMAND,
         trade::SCAMMERS_COMMAND,
+        marry::MARRY_COMMAND,
+        marry::DIVORCE_COMMAND,
+        marry::SPOUSE_COMMAND,
         server_summary::SERVER_SUMMARY_COMMAND,
         server_summary::COMPARE_COMMAND,
         wiki::WIKI_COMMAND,

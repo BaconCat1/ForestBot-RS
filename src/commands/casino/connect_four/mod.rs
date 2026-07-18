@@ -168,12 +168,13 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
     if player_wins {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
         show_board(ctx, &position);
-        let bal = ctx.state.api.casino_adjust(ctx.sender, stake * 2).await.unwrap_or(0);
+        let win = ctx.state.api.casino_win(ctx.sender, stake * 2).await.unwrap_or_default();
+        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
         ctx.whisper_success(format!(
-            "You WIN vs {}! +{} | Balance: {}",
+            "You WIN vs {}! +{}{alimony_note} | Balance: {}",
             opponent_name,
             chips_str(stake),
-            chips_str(bal)
+            chips_str(win.chips)
         ));
         return Ok(());
     }

@@ -810,6 +810,168 @@ impl ApiClient {
             .await;
     }
 
+    // ── Marriage / alimony ───────────────────────────────────────────────────
+    // casino_win is the universal payout endpoint -- every real win-credit call
+    // site uses this instead of casino_adjust, so alimony garnishment (computed
+    // Hub-side against the alimony_debt ledger) applies uniformly. Non-win
+    // credits (debits, refunds, pushes, admin transfers) stay on casino_adjust.
+
+    pub async fn casino_win(
+        &self,
+        player_uuid: &str,
+        gross_win: i64,
+    ) -> Result<CasinoWinResult, CasinoAdjustErr> {
+        let Some(v) = self
+            .post_json("/casino/win", json!({ "player_uuid": player_uuid, "gross_win": gross_win }))
+            .await
+        else {
+            return Err(CasinoAdjustErr::NetworkErr);
+        };
+        if v.get("error").is_some() {
+            return Err(CasinoAdjustErr::NetworkErr);
+        }
+        Ok(CasinoWinResult {
+            chips: v.get("chips").and_then(|c| c.as_i64()).unwrap_or(0),
+            alimony_paid: v.get("alimony_paid").and_then(|c| c.as_i64()).unwrap_or(0),
+            ex_count: v.get("ex_count").and_then(|c| c.as_u64()).unwrap_or(0) as usize,
+            net: v.get("net").and_then(|c| c.as_i64()).unwrap_or(gross_win),
+        })
+    }
+
+    pub async fn marry_propose(&self, proposer_uuid: &str, target_uuid: &str) -> Result<(), String> {
+        let Some(v) = self
+            .post_json("/casino/marriage/propose", json!({ "proposer_uuid": proposer_uuid, "target_uuid": target_uuid }))
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(err.to_owned());
+        }
+        Ok(())
+    }
+
+    pub async fn marry_dowry(&self, target_uuid: &str, dowry: i64) -> Result<String, String> {
+        let Some(v) = self
+            .post_json("/casino/marriage/dowry", json!({ "target_uuid": target_uuid, "dowry": dowry }))
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(err.to_owned());
+        }
+        Ok(v.get("proposer_uuid").and_then(|p| p.as_str()).unwrap_or("").to_owned())
+    }
+
+    pub async fn marry_accept(&self, uuid: &str) -> Result<MarryAcceptResult, String> {
+        let Some(v) = self
+            .post_json("/casino/marriage/accept", json!({ "uuid": uuid }))
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(err.to_owned());
+        }
+        Ok(MarryAcceptResult {
+            proposer_uuid: v.get("proposer_uuid").and_then(|p| p.as_str()).unwrap_or("").to_owned(),
+            target_uuid: v.get("target_uuid").and_then(|p| p.as_str()).unwrap_or("").to_owned(),
+            dowry_paid: v.get("dowry_paid").and_then(|d| d.as_i64()).unwrap_or(0),
+        })
+    }
+
+    pub async fn marry_reject(&self, uuid: &str) -> Result<(), String> {
+        let Some(v) = self
+            .post_json("/casino/marriage/reject", json!({ "uuid": uuid }))
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(err.to_owned());
+        }
+        Ok(())
+    }
+
+    pub async fn marry_get_proposal(&self, uuid: &str) -> Option<MarriageProposal> {
+        let v = self.get_json(&format!("/casino/marriage/proposal/{uuid}"), &[]).await?;
+        if v.get("error").is_some() {
+            return None;
+        }
+        let role = v.get("role").and_then(|r| r.as_str()).unwrap_or("").to_owned();
+        let p = v.get("proposal")?;
+        if p.is_null() {
+            return None;
+        }
+        Some(MarriageProposal {
+            proposer_uuid: p.get("proposer_uuid").and_then(|s| s.as_str()).unwrap_or("").to_owned(),
+            target_uuid: p.get("target_uuid").and_then(|s| s.as_str()).unwrap_or("").to_owned(),
+            dowry: p.get("dowry").and_then(|d| d.as_i64()).unwrap_or(0),
+            state: p.get("state").and_then(|s| s.as_str()).unwrap_or("pending").to_owned(),
+            role,
+        })
+    }
+
+    pub async fn marry_get_spouses(&self, uuid: &str) -> Vec<MarriageSpouseEntry> {
+        let Some(v) = self.get_json(&format!("/casino/marriage/spouses/{uuid}"), &[]).await else {
+            return vec![];
+        };
+        v.get("spouses")
+            .and_then(|s| s.as_array())
+            .map(|arr| arr.iter().filter_map(|e| {
+                Some(MarriageSpouseEntry {
+                    spouse_uuid: e.get("spouse_uuid").and_then(|s| s.as_str())?.to_owned(),
+                })
+            }).collect())
+            .unwrap_or_default()
+    }
+
+    pub async fn marry_divorce(&self, initiator_uuid: &str, partner_uuid: &str) -> Result<DivorceResult, String> {
+        let Some(v) = self
+            .post_json(
+                "/casino/marriage/divorce",
+                json!({ "initiator_uuid": initiator_uuid, "partner_uuid": partner_uuid }),
+            )
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(err.to_owned());
+        }
+        let status = v.get("status").and_then(|s| s.as_str()).unwrap_or("");
+        match status {
+            "divorced" => Ok(DivorceResult::Divorced),
+            _ => Ok(DivorceResult::Pending {
+                already_waiting: v.get("already_waiting").and_then(|w| w.as_bool()).unwrap_or(false),
+            }),
+        }
+    }
+
+    pub async fn marry_divorce_force(
+        &self,
+        initiator_uuid: &str,
+        partner_uuid: &str,
+    ) -> Result<ForceDivorceResult, String> {
+        let Some(v) = self
+            .post_json(
+                "/casino/marriage/divorce/force",
+                json!({ "initiator_uuid": initiator_uuid, "partner_uuid": partner_uuid }),
+            )
+            .await
+        else {
+            return Err("Network error".to_owned());
+        };
+        if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+            return Err(err.to_owned());
+        }
+        Ok(ForceDivorceResult {
+            partner_uuid: v.get("partner_uuid").and_then(|p| p.as_str()).unwrap_or("").to_owned(),
+            alimony_days: v.get("alimony_days").and_then(|d| d.as_i64()).unwrap_or(0),
+        })
+    }
+
     pub async fn casino_claim_notifications(&self, player_uuid: &str) -> Vec<String> {
         let Some(v) = self
             .post_json("/casino/notifications/claim", json!({ "player_uuid": player_uuid }))
@@ -2062,6 +2224,49 @@ pub struct CasinoLastLottoDraw {
 pub struct CasinoLottoPot {
     pub pot: i64,
     pub draw_date: Option<String>,
+}
+
+// ── Marriage types ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Default)]
+pub struct CasinoWinResult {
+    pub chips: i64,
+    pub alimony_paid: i64,
+    pub ex_count: usize,
+    pub net: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct MarriageProposal {
+    pub proposer_uuid: String,
+    pub target_uuid: String,
+    pub dowry: i64,
+    pub state: String,
+    pub role: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct MarriageSpouseEntry {
+    pub spouse_uuid: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct MarryAcceptResult {
+    pub proposer_uuid: String,
+    pub target_uuid: String,
+    pub dowry_paid: i64,
+}
+
+#[derive(Debug, Clone)]
+pub enum DivorceResult {
+    Divorced,
+    Pending { already_waiting: bool },
+}
+
+#[derive(Debug, Clone)]
+pub struct ForceDivorceResult {
+    pub partner_uuid: String,
+    pub alimony_days: i64,
 }
 
 fn unwrap_data(value: Value) -> Value {

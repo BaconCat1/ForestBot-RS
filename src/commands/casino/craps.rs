@@ -1,7 +1,7 @@
 use rand::{Rng, rngs::OsRng};
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
+use crate::structure::endpoints::endpoints::{CasinoAdjustErr, CasinoWinResult};
 use crate::structure::mineflayer::bot::CasinoSession;
 
 use super::chips_str;
@@ -109,8 +109,10 @@ async fn do_come_out(ctx: CommandContext<'_>, pass_line: bool) -> anyhow::Result
         ComeOutRoll::Natural => {
             if pass_line {
                 let payout = bet * 2;
-                let new_balance = ctx.state.api.casino_adjust(&player_uuid, payout).await.unwrap_or(balance + payout);
-                ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Natural {total}! {bet_label} wins +{} | Balance: {}", chips_str(bet), chips_str(new_balance)));
+                let result = ctx.state.api.casino_win(&player_uuid, payout).await
+                    .unwrap_or(CasinoWinResult { chips: balance + payout, alimony_paid: 0, ex_count: 0, net: payout });
+                let alimony_note = if result.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(result.alimony_paid)) } else { String::new() };
+                ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Natural {total}! {bet_label} wins +{}{alimony_note} | Balance: {}", chips_str(bet), chips_str(result.chips)));
             } else {
                 ctx.state.api.casino_jackpot_rake(bet).await;
                 ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Natural {total}! {bet_label} loses {} | Balance: {}", chips_str(bet), chips_str(balance)));
@@ -122,8 +124,10 @@ async fn do_come_out(ctx: CommandContext<'_>, pass_line: bool) -> anyhow::Result
                 ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Craps {total}! {bet_label} loses {} | Balance: {}", chips_str(bet), chips_str(balance)));
             } else {
                 let payout = bet * 2;
-                let new_balance = ctx.state.api.casino_adjust(&player_uuid, payout).await.unwrap_or(balance + payout);
-                ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Craps {total}! {bet_label} wins +{} | Balance: {}", chips_str(bet), chips_str(new_balance)));
+                let result = ctx.state.api.casino_win(&player_uuid, payout).await
+                    .unwrap_or(CasinoWinResult { chips: balance + payout, alimony_paid: 0, ex_count: 0, net: payout });
+                let alimony_note = if result.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(result.alimony_paid)) } else { String::new() };
+                ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Craps {total}! {bet_label} wins +{}{alimony_note} | Balance: {}", chips_str(bet), chips_str(result.chips)));
             }
         }
         ComeOutRoll::BarTwelve => {
@@ -186,8 +190,10 @@ async fn do_roll(ctx: CommandContext<'_>) -> anyhow::Result<()> {
             ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
             if pass_line {
                 let payout = bet * 2;
-                let new_balance = ctx.state.api.casino_adjust(&player_uuid, payout).await.unwrap_or(0);
-                ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Hit the point {point}! {bet_label} wins +{} | Balance: {}", chips_str(bet), chips_str(new_balance)));
+                let result = ctx.state.api.casino_win(&player_uuid, payout).await
+                    .unwrap_or(CasinoWinResult { chips: 0, alimony_paid: 0, ex_count: 0, net: payout });
+                let alimony_note = if result.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(result.alimony_paid)) } else { String::new() };
+                ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Hit the point {point}! {bet_label} wins +{}{alimony_note} | Balance: {}", chips_str(bet), chips_str(result.chips)));
             } else {
                 ctx.state.api.casino_jackpot_rake(bet).await;
                 let balance = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
@@ -202,8 +208,10 @@ async fn do_roll(ctx: CommandContext<'_>) -> anyhow::Result<()> {
                 ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Seven out! {bet_label} loses {} | Balance: {}", chips_str(bet), chips_str(balance)));
             } else {
                 let payout = bet * 2;
-                let new_balance = ctx.state.api.casino_adjust(&player_uuid, payout).await.unwrap_or(0);
-                ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Seven out! {bet_label} wins +{} | Balance: {}", chips_str(bet), chips_str(new_balance)));
+                let result = ctx.state.api.casino_win(&player_uuid, payout).await
+                    .unwrap_or(CasinoWinResult { chips: 0, alimony_paid: 0, ex_count: 0, net: payout });
+                let alimony_note = if result.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(result.alimony_paid)) } else { String::new() };
+                ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Seven out! {bet_label} wins +{}{alimony_note} | Balance: {}", chips_str(bet), chips_str(result.chips)));
             }
         }
         PointRoll::Ongoing => {

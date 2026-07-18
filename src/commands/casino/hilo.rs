@@ -206,9 +206,17 @@ async fn predict(
                 sessions.remove(ctx.sender);
             }
             let cashout = (stake as f64 * new_mult) as i64;
-            let bal = ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0);
+            // A "safe" (high-probability) correct guess can shrink the multiplier below
+            // 1.0 (house edge < step probability), so cashout isn't always a real profit.
+            let (bal, alimony_note) = if cashout > stake {
+                let win = ctx.state.api.casino_win(player_uuid, cashout).await.unwrap_or_default();
+                let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                (win.chips, note)
+            } else {
+                (ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0), String::new())
+            };
             ctx.whisper_success(format!(
-                "Correct! {} → {} | Deck exhausted — auto-cashout: x{:.2}={} | Balance: {}",
+                "Correct! {} → {} | Deck exhausted — auto-cashout: x{:.2}={}{alimony_note} | Balance: {}",
                 rank_name(current_card), rank_name(next_card), new_mult, chips_str(cashout), chips_str(bal)
             ));
         } else {
@@ -243,9 +251,15 @@ async fn do_cashout(ctx: &CommandContext<'_>, stake: i64, multiplier: f64, guess
         let mut sessions = ctx.state.casino_sessions.lock().expect("casino sessions lock");
         sessions.remove(ctx.sender);
     }
-    let bal = ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0);
+    let (bal, alimony_note) = if cashout > stake {
+        let win = ctx.state.api.casino_win(player_uuid, cashout).await.unwrap_or_default();
+        let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+        (win.chips, note)
+    } else {
+        (ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0), String::new())
+    };
     ctx.whisper_success(format!(
-        "Cashed out! x{:.2} × {} = {} (+{}) after {} guess{} | Balance: {}",
+        "Cashed out! x{:.2} × {} = {} (+{}){alimony_note} after {} guess{} | Balance: {}",
         multiplier, chips_str(stake), chips_str(cashout), chips_str(profit),
         guesses, if guesses == 1 { "" } else { "es" }, chips_str(bal)
     ));

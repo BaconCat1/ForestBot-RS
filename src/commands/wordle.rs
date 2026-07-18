@@ -201,10 +201,11 @@ async fn submit_guess(ctx: &CommandContext<'_>, word: &str) -> anyhow::Result<()
             let mult = WIN_MULTIPLIERS[guesses_used.saturating_sub(1).min(5)];
             let payout = (stake as f64 * mult).ceil() as i64;
             let net = payout - stake;
-            let _ = ctx.state.api.casino_adjust(ctx.sender, payout).await;
+            let win = ctx.state.api.casino_win(ctx.sender, payout).await.unwrap_or_default();
+            let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
             for line in &board { ctx.whisper_success(line); }
             ctx.whisper_success(format!(
-                "You got it in {}/{}! {}x payout — +{} chips ({})",
+                "You got it in {}/{}! {}x payout — +{} chips ({}){alimony_note}",
                 guesses_used, MAX_GUESSES, mult, chips_str(net), chips_str(payout)
             ));
         }

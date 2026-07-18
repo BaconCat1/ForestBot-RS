@@ -132,14 +132,12 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let (won, mult) = resolve(&bet, &dice);
         if won {
             let payout = stake * mult;
-            let new_balance = match ctx.state.api.casino_adjust(&player_uuid, payout).await {
-                Ok(b) => b,
-                Err(_) => balance + payout,
-            };
+            let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
+            let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
             ctx.whisper_success(format!(
-                "Sic Bo [{}-{}-{}={}] {} | WIN +{} | Balance: {}",
+                "Sic Bo [{}-{}-{}={}] {} | WIN +{}{alimony_note} | Balance: {}",
                 dice[0], dice[1], dice[2], total,
-                label, chips_str(payout - stake), chips_str(new_balance)
+                label, chips_str(payout - stake), chips_str(win.chips)
             ));
         } else {
             let _ = ctx.state.api.casino_jackpot_rake(stake).await;

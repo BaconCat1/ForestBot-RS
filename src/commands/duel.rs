@@ -415,7 +415,7 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
     let pot = duel.stake * 2;
     let rake = (pot as f64 * RAKE) as i64;
     let payout = pot - rake;
-    let _ = state.api.casino_adjust(winner, payout).await;
+    let win = state.api.casino_win(winner, payout).await.unwrap_or_default();
     state.api.casino_jackpot_rake(rake).await;
 
     // Duel win stat
@@ -430,9 +430,10 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
             let sb_rake = (raw as f64 * RAKE) as i64;
             let sb_payout = (raw - sb_rake).max(0);
             jackpot_extra += sb_rake;
-            let _ = state.api.casino_adjust(&sb.bettor, sb_payout).await;
+            let sb_win = state.api.casino_win(&sb.bettor, sb_payout).await.unwrap_or_default();
+            let sb_alimony_note = if sb_win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(sb_win.alimony_paid)) } else { String::new() };
             enqueue_chat(state, format!(
-                "/{whisper_cmd} {} Side bet on {} paid: +{} chips",
+                "/{whisper_cmd} {} Side bet on {} paid: +{} chips{sb_alimony_note}",
                 sb.bettor, winner, chips_str(sb_payout)
             ));
         } else {
@@ -444,8 +445,9 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
     }
 
     let net = chips_str(payout - duel.stake);
+    let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
     enqueue_chat(state, format!(
-        "{winner} defeated {loser} in a duel! +{net} chips"
+        "{winner} defeated {loser} in a duel! +{net} chips{alimony_note}"
     ));
 }
 

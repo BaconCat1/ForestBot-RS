@@ -146,14 +146,17 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
     if pbj {
         // Natural BJ pays 3:2
         let payout = bet + bet * 3 / 2;
-        let new_balance = match ctx.state.api.casino_adjust(player_uuid, payout).await {
-            Ok(b) => b,
-            Err(_) => balance + payout,
+        let win = match ctx.state.api.casino_win(player_uuid, payout).await {
+            Ok(w) => w,
+            Err(_) => crate::structure::endpoints::endpoints::CasinoWinResult {
+                chips: balance + payout, alimony_paid: 0, ex_count: 0, net: payout,
+            },
         };
+        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
         ctx.whisper_success(format!(
-            "BJ | You: {} (21) | Dealer: {} ? | BLACKJACK! +{} | Balance: {}",
+            "BJ | You: {} (21) | Dealer: {} ? | BLACKJACK! +{}{alimony_note} | Balance: {}",
             hand_str(&player), card_str(dealer[0]),
-            chips_str(payout - bet), chips_str(new_balance)
+            chips_str(payout - bet), chips_str(win.chips)
         ));
         return Ok(());
     }
@@ -348,7 +351,18 @@ async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut 
         (format!("Dealer wins — Lost {}", chips_str(bet)), 0)
     };
 
-    let new_balance = if payout > 0 {
+    let mut alimony_note = String::new();
+    let new_balance = if payout > bet {
+        match ctx.state.api.casino_win(player_uuid, payout).await {
+            Ok(win) => {
+                if win.alimony_paid > 0 {
+                    alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
+                }
+                win.chips
+            }
+            Err(_) => 0,
+        }
+    } else if payout > 0 {
         match ctx.state.api.casino_adjust(player_uuid, payout).await {
             Ok(b) => b,
             Err(_) => 0,
@@ -359,7 +373,7 @@ async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut 
     };
 
     ctx.whisper_success(format!(
-        "BJ | You: {} ({ps}) | Dealer: {} ({ds}) | {result_msg} | Balance: {}",
+        "BJ | You: {} ({ps}) | Dealer: {} ({ds}) | {result_msg}{alimony_note} | Balance: {}",
         hand_str(&player), dealer_display, chips_str(new_balance)
     ));
     Ok(())

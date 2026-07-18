@@ -259,8 +259,9 @@ async fn finish_game(
 ) -> anyhow::Result<()> {
     match outcome {
         Outcome::Decisive { winner } if winner == player_color => {
-            let bal = ctx.state.api.casino_adjust(ctx.sender, stake * 2).await.unwrap_or(0);
-            ctx.whisper_success(format!("{}Checkmate! You WIN! +{} | Balance: {}", prefix, chips_str(stake), chips_str(bal)));
+            let win = ctx.state.api.casino_win(ctx.sender, stake * 2).await.unwrap_or_default();
+            let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+            ctx.whisper_success(format!("{}Checkmate! You WIN! +{}{alimony_note} | Balance: {}", prefix, chips_str(stake), chips_str(win.chips)));
         }
         Outcome::Decisive { .. } => {
             ctx.state.api.casino_jackpot_rake(stake).await;

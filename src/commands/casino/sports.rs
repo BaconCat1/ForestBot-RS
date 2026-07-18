@@ -528,12 +528,15 @@ pub async fn settle_task(
         Some(ref winner) => {
             if *winner == bet.selection {
                 let payout = (bet.stake as f64 * bet.payout_mult).ceil() as i64;
-                match state.api.casino_adjust(&bet.player, payout).await {
-                    Ok(_) => format!("[Sports] {} vs {} — {winner} wins. WIN +{} ({} @ {:.2}x).",
-                        bet.home_team, bet.away_team,
-                        chips_str(payout - bet.stake), chips_str(bet.stake), bet.payout_mult),
+                match state.api.casino_win(&bet.player, payout).await {
+                    Ok(win) => {
+                        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                        format!("[Sports] {} vs {} — {winner} wins. WIN +{}{alimony_note} ({} @ {:.2}x).",
+                            bet.home_team, bet.away_team,
+                            chips_str(payout - bet.stake), chips_str(bet.stake), bet.payout_mult)
+                    }
                     Err(e) => {
-                        eprintln!("[Sports settle] casino_adjust failed for {}: {e:?}", bet.player);
+                        eprintln!("[Sports settle] casino_win failed for {}: {e:?}", bet.player);
                         format!("[Sports] {} vs {} — {winner} wins but payout failed. Contact an admin.", bet.home_team, bet.away_team)
                     }
                 }

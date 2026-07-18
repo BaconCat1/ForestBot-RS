@@ -1,7 +1,7 @@
 use rand::{Rng, rngs::OsRng};
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
+use crate::structure::endpoints::endpoints::{CasinoAdjustErr, CasinoWinResult};
 
 use super::chips_str;
 
@@ -124,13 +124,18 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         if wins {
             let total_return = bet * multiplier;
-            let new_balance = match ctx.state.api.casino_adjust(&player_uuid, total_return).await {
-                Ok(b) => b,
-                Err(_) => balance + total_return,
+            let result = ctx.state.api.casino_win(&player_uuid, total_return).await
+                .unwrap_or(CasinoWinResult {
+                    chips: balance + total_return, alimony_paid: 0, ex_count: 0, net: total_return,
+                });
+            let alimony_note = if result.alimony_paid > 0 {
+                format!(" (-{} alimony)", chips_str(result.alimony_paid))
+            } else {
+                String::new()
             };
             ctx.whisper_success(format!(
-                "Roulette: {} {color_str} | {label} — Win! +{} | Balance: {}",
-                spin, chips_str(total_return - bet), chips_str(new_balance),
+                "Roulette: {} {color_str} | {label} — Win! +{}{alimony_note} | Balance: {}",
+                spin, chips_str(result.net - bet), chips_str(result.chips),
             ));
         } else {
             ctx.state.api.casino_jackpot_rake(bet).await;

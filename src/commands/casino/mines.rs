@@ -284,8 +284,9 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     return Ok(());
                 }
                 ctx.state.mines_games.lock().unwrap().remove(&sender);
-                ctx.state.api.casino_adjust(&sender, payout).await.unwrap_or(0);
-                ctx.whisper_success(format!("Cashed out! Won {}.", chips_str(payout)));
+                let win = ctx.state.api.casino_win(&sender, payout).await.unwrap_or_default();
+                let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                ctx.whisper_success(format!("Cashed out! Won {}{alimony_note}.", chips_str(payout)));
                 return Ok(());
             }
             "quit" | "forfeit" => {
@@ -379,8 +380,9 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 for line in board { ctx.whisper_success(&line); }
             }
             Outcome::Victory { payout, board } => {
-                ctx.state.api.casino_adjust(&sender, payout).await.unwrap_or(0);
-                ctx.whisper_success(format!("All safe cells cleared! Won {}!", chips_str(payout)));
+                let win = ctx.state.api.casino_win(&sender, payout).await.unwrap_or_default();
+                let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                ctx.whisper_success(format!("All safe cells cleared! Won {}{alimony_note}!", chips_str(payout)));
                 for line in board { ctx.whisper_success(&line); }
             }
             Outcome::Continue { revealed, multiplier, safe_revealed, board } => {

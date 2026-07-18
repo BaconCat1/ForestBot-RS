@@ -441,17 +441,20 @@ pub async fn settle_task(
     let msg = match result {
         Some(ref winner) if *winner == bet.side => {
             let payout = calc_payout(bet.stake, bet.price);
-            match state.api.casino_adjust(&bet.player, payout).await {
-                Ok(_) => format!(
-                    "[Kalshi] {} — {} wins. WIN +{} ({} @ {:.2}x).",
-                    bet.title,
-                    winner.to_uppercase(),
-                    chips_str(payout - bet.stake),
-                    chips_str(bet.stake),
-                    1.0 / bet.price,
-                ),
+            match state.api.casino_win(&bet.player, payout).await {
+                Ok(win) => {
+                    let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                    format!(
+                        "[Kalshi] {} — {} wins. WIN +{}{alimony_note} ({} @ {:.2}x).",
+                        bet.title,
+                        winner.to_uppercase(),
+                        chips_str(payout - bet.stake),
+                        chips_str(bet.stake),
+                        1.0 / bet.price,
+                    )
+                }
                 Err(e) => {
-                    eprintln!("[Kalshi settle] casino_adjust failed for {}: {e:?}", bet.player);
+                    eprintln!("[Kalshi settle] casino_win failed for {}: {e:?}", bet.player);
                     format!("[Kalshi] {} — {} wins but payout failed. Contact an admin.", bet.title, winner.to_uppercase())
                 }
             }

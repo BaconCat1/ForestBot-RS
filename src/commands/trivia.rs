@@ -301,9 +301,13 @@ fn spawn_answer_timer(state: AzaleaState, stake: i64, delay_secs: u64) {
             (summary, correct, wrong, no_answer)
         };
 
-        // Refund 2× to correct players
+        // Pay 2x to correct players
+        let mut alimony_notes: std::collections::HashMap<String, String> = std::collections::HashMap::new();
         for player in &correct_players {
-            let _ = state.api.casino_adjust(player, stake * 2).await;
+            let win = state.api.casino_win(player, stake * 2).await.unwrap_or_default();
+            if win.alimony_paid > 0 {
+                alimony_notes.insert(player.clone(), format!(" (-{} alimony)", chips_str(win.alimony_paid)));
+            }
         }
         // Wrong + no-answer players' stakes go to jackpot (already deducted at join)
         let forfeited = (wrong_players.len() + no_answer_players.len()) as i64;
@@ -315,7 +319,8 @@ fn spawn_answer_timer(state: AzaleaState, stake: i64, delay_secs: u64) {
             let mut out = state.outbound_chat.lock().expect("outbound lock");
             out.push_back(summary);
             for player in &correct_players {
-                out.push_back(format!("/msg {player} [Trivia] Correct! +{}.", chips_str(stake)));
+                let alimony_note = alimony_notes.get(player).cloned().unwrap_or_default();
+                out.push_back(format!("/msg {player} [Trivia] Correct! +{}{alimony_note}.", chips_str(stake)));
             }
             for player in &wrong_players {
                 out.push_back(format!("/msg {player} [Trivia] Wrong! -{} (to jackpot).", chips_str(stake)));

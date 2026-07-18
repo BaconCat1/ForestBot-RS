@@ -141,17 +141,32 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             }
         };
 
-        if payout > 0 {
+        // payout > stake is a real win (alimony-eligible); payout == stake is a tie
+        // push (stake simply returned, no profit) and stays on casino_adjust.
+        let mut alimony_note = String::new();
+        if payout > stake {
+            match ctx.state.api.casino_win(&player_uuid, payout).await {
+                Err(e) => {
+                    eprintln!("[Baccarat] payout failed for {player_uuid}: {e:?}");
+                    ctx.whisper_success("[Baccarat] Win detected but payout failed — contact an admin.");
+                    return Ok(());
+                }
+                Ok(win) if win.alimony_paid > 0 => {
+                    alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
+                }
+                Ok(_) => {}
+            }
+        } else if payout > 0 {
             if let Err(e) = ctx.state.api.casino_adjust(&player_uuid, payout).await {
                 eprintln!("[Baccarat] payout failed for {player_uuid}: {e:?}");
-                ctx.whisper_success("[Baccarat] Win detected but payout failed — contact an admin.");
+                ctx.whisper_success("[Baccarat] Push detected but return failed — contact an admin.");
                 return Ok(());
             }
         }
 
         let natural_tag = if natural { " [natural]" } else { "" };
         ctx.whisper_success(format!(
-            "[Baccarat] P: {} ({pt}){natural_tag} B: {} ({bt}) → {} | {result}",
+            "[Baccarat] P: {} ({pt}){natural_tag} B: {} ({bt}) → {} | {result}{alimony_note}",
             hand_str(&ph), hand_str(&bh), winner.to_uppercase()
         ));
         Ok(())

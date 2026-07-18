@@ -450,9 +450,10 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 ctx.whisper_success("Already fired there.");
             }
             Outcome::Win { stake, opponent, player_msg, board_lines } => {
-                ctx.state.api.casino_adjust(&sender, stake * 2).await.unwrap_or(0);
+                let win = ctx.state.api.casino_win(&sender, stake * 2).await.unwrap_or_default();
                 ctx.whisper_success(&player_msg);
-                ctx.whisper_success(format!("All of {opponent}'s ships sunk! Win: {}!", chips_str(stake * 2)));
+                let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                ctx.whisper_success(format!("All of {opponent}'s ships sunk! Win: {}!{alimony_note}", chips_str(stake * 2)));
                 for line in board_lines { ctx.whisper_success(&line); }
             }
             Outcome::Lose { stake, opponent, player_msg, bot_msg, board_lines } => {
