@@ -8,12 +8,18 @@ use crate::structure::mineflayer::bot::AzaleaState;
 
 pub fn spawn_announce_loop(state: AzaleaState, active: Arc<AtomicBool>) {
     tokio::spawn(async move {
-        // TS: getRandomInterval() = floor(random * 1_800_001) + 900_000 ms (15–45 min, chosen once)
-        // In debug mode, fire every 10s for easy testing
+        // Randomized wait in [min, max), config-driven (announce_min_interval_ms /
+        // announce_max_interval_ms), defaults matching the original hardcoded 15-45min
+        // range. In debug mode, fire every 10s for easy testing.
         let interval_ms = if std::env::var("ANNOUNCE_FAST").is_ok() {
             10_000
         } else {
-            900_000 + pseudo_rand(now_nanos(), 0) % 1_800_001
+            let (min_ms, max_ms) = {
+                let runtime = state.runtime.read().expect("runtime config lock poisoned");
+                (runtime.announce_min_interval_ms, runtime.announce_max_interval_ms)
+            };
+            let span = max_ms.saturating_sub(min_ms).max(1);
+            min_ms + pseudo_rand(now_nanos(), 0) % span
         };
         let mut used_indices: Vec<usize> = Vec::new();
 

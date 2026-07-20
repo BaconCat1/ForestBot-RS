@@ -86,6 +86,8 @@ async fn reload_runtime(
         queue_probe_command: app_state.config.queue_probe_command,
         queue_retry_delay_ms: app_state.config.queue_retry_delay_ms,
         board_whisper_delay_ms: app_state.config.board_whisper_delay_ms,
+        announce_min_interval_ms: app_state.config.announce_min_interval_ms,
+        announce_max_interval_ms: app_state.config.announce_max_interval_ms,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;

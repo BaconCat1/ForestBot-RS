@@ -89,6 +89,8 @@ pub struct RuntimeConfig {
     pub queue_probe_command: String,
     pub queue_retry_delay_ms: u64,
     pub board_whisper_delay_ms: u64,
+    pub announce_min_interval_ms: u64,
+    pub announce_max_interval_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -152,6 +154,8 @@ pub struct Bot {
     pub queue_probe_command: String,
     pub queue_retry_delay_ms: u64,
     pub board_whisper_delay_ms: u64,
+    pub announce_min_interval_ms: u64,
+    pub announce_max_interval_ms: u64,
 }
 
 impl Bot {
@@ -209,6 +213,8 @@ impl Bot {
             queue_probe_command: state.config.queue_probe_command.clone(),
             queue_retry_delay_ms: state.config.queue_retry_delay_ms,
             board_whisper_delay_ms: state.config.board_whisper_delay_ms,
+            announce_min_interval_ms: state.config.announce_min_interval_ms,
+            announce_max_interval_ms: state.config.announce_max_interval_ms,
         }
     }
 
@@ -279,6 +285,8 @@ impl Bot {
                 queue_probe_command: self.queue_probe_command.clone(),
                 queue_retry_delay_ms: self.queue_retry_delay_ms,
                 board_whisper_delay_ms: self.board_whisper_delay_ms,
+                announce_min_interval_ms: self.announce_min_interval_ms,
+                announce_max_interval_ms: self.announce_max_interval_ms,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -1027,6 +1035,8 @@ impl Default for AzaleaState {
                 queue_probe_command: String::new(),
                 queue_retry_delay_ms: 300_000,
                 board_whisper_delay_ms: 1_000,
+                announce_min_interval_ms: 900_000,
+                announce_max_interval_ms: 2_700_000,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -1140,20 +1150,26 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     let list = crate::commands::build_bridge_command_list(&unsafe_names);
                     push_state.api.push_bridge_commands(&list).await;
                 });
+                // antiafk/announce/reminder loops must only ever be spawned once, same as
+                // the tasks above -- each one runs forever with no cancellation, so
+                // starting a fresh one on every reconnect (rather than just the first
+                // connection) stacks duplicates that never die. Confirmed live: 159
+                // concurrent announce loops accumulated over a month of reconnects,
+                // firing independently and looking like chat spam.
+                if state.antiafk {
+                    state.antiafk_active.store(true, Ordering::Relaxed);
+                    anti_afk::spawn_antiafk_loop(bot.clone(), Arc::clone(&state.antiafk_active));
+                    logger::info("AntiAFK started.");
+                }
+                if state.announce {
+                    state.announce_active.store(true, Ordering::Relaxed);
+                    announce::spawn_announce_loop(state.clone(), Arc::clone(&state.announce_active));
+                    logger::info("Announce loop started.");
+                }
+                state.reminder_active.store(true, Ordering::Relaxed);
+                spawn_reminder_tick_task(state.clone(), Arc::clone(&state.reminder_active));
             }
             send_player_list_update(&state).await;
-            if state.antiafk {
-                state.antiafk_active.store(true, Ordering::Relaxed);
-                anti_afk::spawn_antiafk_loop(bot.clone(), Arc::clone(&state.antiafk_active));
-                logger::info("AntiAFK started.");
-            }
-            if state.announce {
-                state.announce_active.store(true, Ordering::Relaxed);
-                announce::spawn_announce_loop(state.clone(), Arc::clone(&state.announce_active));
-                logger::info("Announce loop started.");
-            }
-            state.reminder_active.store(true, Ordering::Relaxed);
-            spawn_reminder_tick_task(state.clone(), Arc::clone(&state.reminder_active));
 
             // Queue detection: fires on every spawn (including after reconnects), so
             // it keeps re-checking until the probe command actually works, meaning

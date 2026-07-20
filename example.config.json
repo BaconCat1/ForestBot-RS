@@ -409,5 +409,7 @@
     "heartbeat_interval_ms": 60000,
     "queue_probe_command": "",
     "queue_retry_delay_ms": 300000,
-    "board_whisper_delay_ms": 1000
+    "board_whisper_delay_ms": 1000,
+    "announce_min_interval_ms": 900000,
+    "announce_max_interval_ms": 2700000
 }

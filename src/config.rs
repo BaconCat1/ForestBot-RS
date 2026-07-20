@@ -28,6 +28,14 @@ fn default_board_whisper_delay_ms() -> u64 {
     1_000
 }
 
+fn default_announce_min_interval_ms() -> u64 {
+    900_000
+}
+
+fn default_announce_max_interval_ms() -> u64 {
+    2_700_000
+}
+
 fn default_censor_threshold() -> String {
     "moderate".to_owned()
 }
@@ -257,6 +265,12 @@ pub struct Config {
     // drain rate (~1 msg/tick).
     #[serde(default = "default_board_whisper_delay_ms")]
     pub board_whisper_delay_ms: u64,
+    // Announce loop picks a random wait in [min, max) before each command-usage tip.
+    // Defaults match the original hardcoded 15-45min range.
+    #[serde(default = "default_announce_min_interval_ms")]
+    pub announce_min_interval_ms: u64,
+    #[serde(default = "default_announce_max_interval_ms")]
+    pub announce_max_interval_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
