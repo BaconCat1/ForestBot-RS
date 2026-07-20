@@ -12,10 +12,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 };
 
 const SHARPAPI_BASE: &str = "https://api.sharpapi.io/api/v1";
-const CACHE_TTL: u64 = 600; // 10 min
 const MIN_BET: i64 = 50;
-const POLL_INTERVAL_SECS: u64 = 300; // poll every 5 min for result
-const MAX_POLL_SECS: u64 = 18_000;   // 5 hours max
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -267,7 +264,7 @@ async fn load_events(ctx: &CommandContext<'_>) -> Option<Vec<EventDisplay>> {
     let cached = {
         let cache = ctx.state.sports_cache.lock().expect("sports_cache lock");
         let age = now_unix().saturating_sub(cache.fetched_at);
-        (age < CACHE_TTL && !cache.events.is_empty()).then(|| cache.events.clone())
+        (age < ctx.runtime.sports_cache_ttl_ms / 1000 && !cache.events.is_empty()).then(|| cache.events.clone())
     };
     if let Some(c) = cached {
         return Some(c);
@@ -504,14 +501,18 @@ pub async fn settle_task(
 
     let client = reqwest::Client::new();
 
-    let deadline = now_unix() + MAX_POLL_SECS;
+    let (max_poll_ms, poll_interval_ms) = {
+        let runtime = deps.runtime.read().expect("runtime lock");
+        (runtime.sports_max_poll_ms, runtime.sports_poll_interval_ms)
+    };
+    let deadline = now_unix() + max_poll_ms / 1000;
     let outcome: Option<String> = loop {
         match poll_event_result(&client, &api_key, &bet.event_id).await {
             EventStatus::Completed(w) => break Some(w),
             EventStatus::Cancelled => break None,
             EventStatus::InProgress => {
                 if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_secs(POLL_INTERVAL_SECS)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
             }
         }
     };

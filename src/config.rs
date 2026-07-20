@@ -152,6 +152,98 @@ fn default_websocket_keepalive_ms() -> u64 {
     5_000
 }
 
+// Per-market-game timing knobs (2026-07-20 follow-up to the config-gating scan) -- deliberately
+// per-game rather than unified, since the underlying values already diverge by an order of
+// magnitude across markets (kalshi polls every 60s, launch every hour) -- a shared knob would
+// force a wrong cadence on one end or the other.
+fn default_aqi_settle_window_ms() -> u64 {
+    86_400_000
+}
+fn default_aqi_timeout_ms() -> u64 {
+    10_000
+}
+fn default_gas_settle_window_ms() -> u64 {
+    86_400_000
+}
+fn default_gas_timeout_ms() -> u64 {
+    20_000
+}
+fn default_gas_cache_ttl_ms() -> u64 {
+    3_600_000
+}
+fn default_kalshi_cache_ttl_ms() -> u64 {
+    600_000
+}
+fn default_kalshi_poll_interval_ms() -> u64 {
+    60_000
+}
+fn default_kalshi_max_poll_ms() -> u64 {
+    3_600_000
+}
+fn default_faa_airport_bet_duration_ms() -> u64 {
+    7_200_000
+}
+fn default_faa_airport_poll_interval_ms() -> u64 {
+    120_000
+}
+fn default_faa_airport_max_poll_ms() -> u64 {
+    3_600_000
+}
+fn default_noaa_flooding_bet_duration_ms() -> u64 {
+    7_200_000
+}
+fn default_noaa_flooding_poll_interval_ms() -> u64 {
+    120_000
+}
+fn default_noaa_flooding_max_poll_ms() -> u64 {
+    3_600_000
+}
+fn default_launch_lock_before_ms() -> u64 {
+    7_200_000
+}
+fn default_launch_poll_interval_ms() -> u64 {
+    3_600_000
+}
+fn default_launch_max_settle_wait_ms() -> u64 {
+    604_800_000
+}
+fn default_launch_timeout_ms() -> u64 {
+    15_000
+}
+fn default_launch_cache_ttl_ms() -> u64 {
+    3_600_000
+}
+fn default_nasa_space_weather_poll_interval_ms() -> u64 {
+    600_000
+}
+fn default_nasa_space_weather_max_poll_ms() -> u64 {
+    7_200_000
+}
+fn default_nasa_space_weather_settle_buffer_ms() -> u64 {
+    3_600_000
+}
+fn default_nasa_space_weather_odds_cache_ttl_ms() -> u64 {
+    3_600_000
+}
+fn default_sports_cache_ttl_ms() -> u64 {
+    600_000
+}
+fn default_sports_poll_interval_ms() -> u64 {
+    300_000
+}
+fn default_sports_max_poll_ms() -> u64 {
+    18_000_000
+}
+fn default_train_bet_duration_ms() -> u64 {
+    7_200_000
+}
+fn default_train_poll_interval_ms() -> u64 {
+    120_000
+}
+fn default_train_max_poll_ms() -> u64 {
+    3_600_000
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ApiKeys {
     #[serde(default)]
@@ -448,6 +540,67 @@ pub struct Config {
     pub url_blocklist_timeout_ms: u64,
     #[serde(default = "default_websocket_keepalive_ms")]
     pub websocket_keepalive_ms: u64,
+
+    // Per-market-game timing knobs -- see the default_* fns above for why these stay
+    // per-game instead of a shared market_* key.
+    #[serde(default = "default_aqi_settle_window_ms")]
+    pub aqi_settle_window_ms: u64,
+    #[serde(default = "default_aqi_timeout_ms")]
+    pub aqi_timeout_ms: u64,
+    #[serde(default = "default_gas_settle_window_ms")]
+    pub gas_settle_window_ms: u64,
+    #[serde(default = "default_gas_timeout_ms")]
+    pub gas_timeout_ms: u64,
+    #[serde(default = "default_gas_cache_ttl_ms")]
+    pub gas_cache_ttl_ms: u64,
+    #[serde(default = "default_kalshi_cache_ttl_ms")]
+    pub kalshi_cache_ttl_ms: u64,
+    #[serde(default = "default_kalshi_poll_interval_ms")]
+    pub kalshi_poll_interval_ms: u64,
+    #[serde(default = "default_kalshi_max_poll_ms")]
+    pub kalshi_max_poll_ms: u64,
+    #[serde(default = "default_faa_airport_bet_duration_ms")]
+    pub faa_airport_bet_duration_ms: u64,
+    #[serde(default = "default_faa_airport_poll_interval_ms")]
+    pub faa_airport_poll_interval_ms: u64,
+    #[serde(default = "default_faa_airport_max_poll_ms")]
+    pub faa_airport_max_poll_ms: u64,
+    #[serde(default = "default_noaa_flooding_bet_duration_ms")]
+    pub noaa_flooding_bet_duration_ms: u64,
+    #[serde(default = "default_noaa_flooding_poll_interval_ms")]
+    pub noaa_flooding_poll_interval_ms: u64,
+    #[serde(default = "default_noaa_flooding_max_poll_ms")]
+    pub noaa_flooding_max_poll_ms: u64,
+    #[serde(default = "default_launch_lock_before_ms")]
+    pub launch_lock_before_ms: u64,
+    #[serde(default = "default_launch_poll_interval_ms")]
+    pub launch_poll_interval_ms: u64,
+    #[serde(default = "default_launch_max_settle_wait_ms")]
+    pub launch_max_settle_wait_ms: u64,
+    #[serde(default = "default_launch_timeout_ms")]
+    pub launch_timeout_ms: u64,
+    #[serde(default = "default_launch_cache_ttl_ms")]
+    pub launch_cache_ttl_ms: u64,
+    #[serde(default = "default_nasa_space_weather_poll_interval_ms")]
+    pub nasa_space_weather_poll_interval_ms: u64,
+    #[serde(default = "default_nasa_space_weather_max_poll_ms")]
+    pub nasa_space_weather_max_poll_ms: u64,
+    #[serde(default = "default_nasa_space_weather_settle_buffer_ms")]
+    pub nasa_space_weather_settle_buffer_ms: u64,
+    #[serde(default = "default_nasa_space_weather_odds_cache_ttl_ms")]
+    pub nasa_space_weather_odds_cache_ttl_ms: u64,
+    #[serde(default = "default_sports_cache_ttl_ms")]
+    pub sports_cache_ttl_ms: u64,
+    #[serde(default = "default_sports_poll_interval_ms")]
+    pub sports_poll_interval_ms: u64,
+    #[serde(default = "default_sports_max_poll_ms")]
+    pub sports_max_poll_ms: u64,
+    #[serde(default = "default_train_bet_duration_ms")]
+    pub train_bet_duration_ms: u64,
+    #[serde(default = "default_train_poll_interval_ms")]
+    pub train_poll_interval_ms: u64,
+    #[serde(default = "default_train_max_poll_ms")]
+    pub train_max_poll_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

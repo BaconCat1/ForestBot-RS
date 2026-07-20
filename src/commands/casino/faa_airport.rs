@@ -12,9 +12,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 };
 
 const METAR_BASE: &str = "https://aviationweather.gov/api/data/metar";
-const BET_DURATION_SECS: u64 = 7200;
-const POLL_INTERVAL_SECS: u64 = 120;
-const MAX_POLL_SECS: u64 = 3600;
 const MIN_BET: i64 = 25;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -228,7 +225,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         }
     }
 
-    let close_time = now_unix() + BET_DURATION_SECS;
+    let close_time = now_unix() + ctx.runtime.faa_airport_bet_duration_ms / 1000;
     let mut bet = FaaAirportBet {
         id: 0,
         player: player_uuid.clone(),
@@ -293,13 +290,17 @@ pub async fn settle_task(
 
     let client = reqwest::Client::new();
 
-    let deadline = now_unix() + MAX_POLL_SECS;
+    let (max_poll_ms, poll_interval_ms) = {
+        let runtime = deps.runtime.read().expect("runtime lock");
+        (runtime.faa_airport_max_poll_ms, runtime.faa_airport_poll_interval_ms)
+    };
+    let deadline = now_unix() + max_poll_ms / 1000;
     let result: Option<String> = loop {
         match poll_flt_cat(&client, &bet.airport_code).await {
             Some(cat) => break Some(cat),
             None => {
                 if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_secs(POLL_INTERVAL_SECS)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
             }
         }
     };

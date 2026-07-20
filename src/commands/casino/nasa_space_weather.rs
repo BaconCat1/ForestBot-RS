@@ -15,10 +15,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 const NASA_BASE: &str = "https://api.nasa.gov";
 const SWPC_KP_URL: &str = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json";
 const MIN_BET: i64 = 25;
-const POLL_INTERVAL_SECS: u64 = 600;
-const MAX_POLL_SECS: u64 = 7200;
-const SETTLE_BUFFER_SECS: u64 = 3600;
-const ODDS_CACHE_TTL: u64 = 3600;
 const HOUSE_EDGE: f64 = 0.97;
 const DONKI_WINDOW_DAYS: i64 = 27;
 
@@ -249,7 +245,13 @@ async fn load_odds(state: &AzaleaState, client: &reqwest::Client, nasa_key: &str
     {
         let lock = state.sw_odds_cache.lock().expect("sw_odds_cache lock");
         if let Some((odds, fetched_at)) = *lock {
-            if now_unix().saturating_sub(fetched_at) < ODDS_CACHE_TTL {
+            let odds_cache_ttl_secs = state
+                .runtime
+                .read()
+                .expect("runtime config lock poisoned")
+                .nasa_space_weather_odds_cache_ttl_ms
+                / 1000;
+            if now_unix().saturating_sub(fetched_at) < odds_cache_ttl_secs {
                 return odds;
             }
         }
@@ -415,7 +417,13 @@ pub async fn settle_task(
     // Buffer: give NASA 1h after midnight to log events.
     // Credit elapsed time against buffer so stale bets don't spin forever through bot restarts.
     let elapsed_past_close = now_unix().saturating_sub(bet.settle_at);
-    let remaining_buffer = SETTLE_BUFFER_SECS.saturating_sub(elapsed_past_close);
+    let settle_buffer_secs = deps
+        .runtime
+        .read()
+        .expect("runtime lock")
+        .nasa_space_weather_settle_buffer_ms
+        / 1000;
+    let remaining_buffer = settle_buffer_secs.saturating_sub(elapsed_past_close);
     if remaining_buffer > 0 {
         tokio::time::sleep(std::time::Duration::from_secs(remaining_buffer)).await;
     }
@@ -436,13 +444,17 @@ pub async fn settle_task(
     // Settle date = the day before midnight (i.e. the day the bet was placed on)
     let settle_date = unix_to_ymd(bet.settle_at - 86400);
 
-    let deadline = now_unix() + MAX_POLL_SECS;
+    let (max_poll_ms, poll_interval_ms) = {
+        let runtime = deps.runtime.read().expect("runtime lock");
+        (runtime.nasa_space_weather_max_poll_ms, runtime.nasa_space_weather_poll_interval_ms)
+    };
+    let deadline = now_unix() + max_poll_ms / 1000;
     let result: Option<bool> = loop {
         match poll_event_occurred(client, &bet.bet_type, &settle_date, &nasa_api_key).await {
             Some(r) => break Some(r),
             None => {
                 if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_secs(POLL_INTERVAL_SECS)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
             }
         }
     };

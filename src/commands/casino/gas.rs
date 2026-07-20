@@ -13,9 +13,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     execute,
 };
 
-const SETTLE_SECS: u64 = 24 * 3600;
-const TIMEOUT_SECS: u64 = 20;
-const CACHE_TTL: u64 = 3600;
 const TOKEN_CACHE_PATH: &str = "./gasbuddy_token.json";
 const GQL_URL: &str = "https://www.gasbuddy.com/graphql";
 const HOME_URL: &str = "https://www.gasbuddy.com/home";
@@ -92,10 +89,10 @@ fn extract_csrf(html: &str) -> Option<String> {
     Some(html[start..end].to_owned())
 }
 
-async fn fetch_csrf_raw(client: &reqwest::Client) -> Option<String> {
+async fn fetch_csrf_raw(client: &reqwest::Client, timeout_ms: u64) -> Option<String> {
     let resp = client
         .get(HOME_URL)
-        .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+        .timeout(std::time::Duration::from_millis(timeout_ms))
         .header("User-Agent", UA)
         .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
         .send().await.ok()?;
@@ -114,15 +111,15 @@ async fn fetch_csrf_via_solver(client: &reqwest::Client, solver_url: &str) -> Op
     extract_csrf(solve["solution"]["response"].as_str()?)
 }
 
-async fn fetch_csrf(client: &reqwest::Client, solver_url: &str) -> Option<String> {
-    if let Some(t) = fetch_csrf_raw(client).await { return Some(t); }
+async fn fetch_csrf(client: &reqwest::Client, solver_url: &str, timeout_ms: u64) -> Option<String> {
+    if let Some(t) = fetch_csrf_raw(client, timeout_ms).await { return Some(t); }
     if !solver_url.is_empty() { return fetch_csrf_via_solver(client, solver_url).await; }
     None
 }
 
 enum GqlResult { Ok(f64, String), RateLimit, TokenBad, NoData }
 
-async fn gql_price(client: &reqwest::Client, zip: &str, token: &str) -> GqlResult {
+async fn gql_price(client: &reqwest::Client, zip: &str, token: &str, timeout_ms: u64) -> GqlResult {
     let query = r#"query LocationBySearchTerm($brandId: Int, $cursor: String, $fuel: Int, $lat: Float, $lng: Float, $maxAge: Int, $search: String) {
   locationBySearchTerm(lat: $lat, lng: $lng, search: $search, priority: "locality") {
     displayName
@@ -134,7 +131,7 @@ async fn gql_price(client: &reqwest::Client, zip: &str, token: &str) -> GqlResul
 
     let resp = match client
         .post(GQL_URL)
-        .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+        .timeout(std::time::Duration::from_millis(timeout_ms))
         .header("Content-Type", "application/json")
         .header("gbcsrf", token)
         .header("apollo-require-preflight", "true")
@@ -180,17 +177,18 @@ async fn fetch_gas_price(
     zip: &str,
     solver_url: &str,
     readonly: bool,
+    timeout_ms: u64,
 ) -> Result<(f64, String), FetchErr> {
     let token = gasbuddy_csrf.lock().unwrap().clone().unwrap_or_default();
 
-    match gql_price(http, zip, &token).await {
+    match gql_price(http, zip, &token, timeout_ms).await {
         GqlResult::Ok(p, n) => Ok((p, n)),
         GqlResult::RateLimit => Err(FetchErr::RateLimit),
         GqlResult::TokenBad => {
-            let new_token = fetch_csrf(http, solver_url).await.ok_or(FetchErr::Error)?;
+            let new_token = fetch_csrf(http, solver_url, timeout_ms).await.ok_or(FetchErr::Error)?;
             if !readonly { save_token(&new_token).await; }
             *gasbuddy_csrf.lock().unwrap() = Some(new_token.clone());
-            match gql_price(http, zip, &new_token).await {
+            match gql_price(http, zip, &new_token, timeout_ms).await {
                 GqlResult::Ok(p, n) => Ok((p, n)),
                 GqlResult::RateLimit => Err(FetchErr::RateLimit),
                 _ => Err(FetchErr::Error),
@@ -263,14 +261,14 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
     let cached = {
         let cache = ctx.state.gas_price_cache.lock().unwrap();
         cache.get(zip).and_then(|(p, r, t)| {
-            if now_unix() - t < CACHE_TTL { Some((*p, r.clone())) } else { None }
+            if now_unix() - t < ctx.runtime.gas_cache_ttl_ms / 1000 { Some((*p, r.clone())) } else { None }
         })
     };
 
     let (price, region) = if let Some(hit) = cached {
         hit
     } else {
-        match fetch_gas_price(&ctx.state.http, &ctx.state.gasbuddy_csrf, zip, &solver_url, readonly).await {
+        match fetch_gas_price(&ctx.state.http, &ctx.state.gasbuddy_csrf, zip, &solver_url, readonly, ctx.runtime.gas_timeout_ms).await {
             Ok(r) => {
                 ctx.state.gas_price_cache.lock().unwrap()
                     .insert(zip.to_owned(), (r.0, r.1.clone(), now_unix()));
@@ -321,7 +319,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
         Ok(_)  => {}
     }
 
-    let close_time = now_unix() + SETTLE_SECS;
+    let close_time = now_unix() + ctx.runtime.gas_settle_window_ms / 1000;
     let mut bet = GasBet {
         id: None,
         player:     player_uuid.clone(),
@@ -387,12 +385,12 @@ pub async fn gas_settle_task(
         }
     }
 
-    let (solver_url, readonly) = {
+    let (solver_url, readonly, timeout_ms) = {
         let rt = deps.runtime.read().expect("runtime lock");
-        (rt.gasbuddy_solver_url.clone(), rt.gasbuddy_csrf_readonly)
+        (rt.gasbuddy_solver_url.clone(), rt.gasbuddy_csrf_readonly, rt.gas_timeout_ms)
     };
 
-    let current = fetch_gas_price(&http, &gasbuddy_csrf, &bet.zip, &solver_url, readonly).await.ok();
+    let current = fetch_gas_price(&http, &gasbuddy_csrf, &bet.zip, &solver_url, readonly, timeout_ms).await.ok();
 
     deps.api.casino_bet_delete::<GasBet>(bet.id.unwrap()).await;
 

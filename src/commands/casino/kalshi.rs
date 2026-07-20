@@ -12,10 +12,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 };
 
 const KALSHI_BASE: &str = "https://external-api.kalshi.com/trade-api/v2";
-const CACHE_TTL: u64 = 600;
 const MIN_BET: i64 = 25;
-const POLL_INTERVAL_SECS: u64 = 60;
-const MAX_POLL_SECS: u64 = 3600;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -213,7 +210,7 @@ async fn load_markets(ctx: &CommandContext<'_>, category: &str) -> Result<Vec<Ka
     let cached = {
         let cache = ctx.state.kalshi_cache.lock().expect("kalshi_cache lock");
         let age = now_unix().saturating_sub(cache.fetched_at);
-        if age < CACHE_TTL && cache.category == category && !cache.markets.is_empty() {
+        if age < ctx.runtime.kalshi_cache_ttl_ms / 1000 && cache.category == category && !cache.markets.is_empty() {
             Some(cache.markets.clone())
         } else {
             None
@@ -419,13 +416,17 @@ pub async fn settle_task(
 
     let client = reqwest::Client::new();
 
-    let deadline = now_unix() + MAX_POLL_SECS;
+    let (max_poll_ms, poll_interval_ms) = {
+        let runtime = deps.runtime.read().expect("runtime lock");
+        (runtime.kalshi_max_poll_ms, runtime.kalshi_poll_interval_ms)
+    };
+    let deadline = now_unix() + max_poll_ms / 1000;
     let result: Option<String> = loop {
         match poll_market_result(&client, &bet.ticker).await {
             Some(r) => break Some(r),
             None => {
                 if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_secs(POLL_INTERVAL_SECS)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
             }
         }
     };

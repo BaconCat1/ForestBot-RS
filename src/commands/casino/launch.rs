@@ -37,11 +37,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     execute,
 };
 
-const LOCK_BEFORE_SECS: u64 = 2 * 3600; // lock bets 2h before window_start
-const POLL_INTERVAL_SECS: u64 = 3600;    // poll every hour at settlement
-const MAX_SETTLE_WAIT_SECS: u64 = 7 * 24 * 3600; // give up after 7 days
 const LL2_BASE: &str = "https://ll.thespacedevs.com/2.2.0";
-const TIMEOUT_SECS: u64 = 15;
 
 // Status IDs from LL2
 const STATUS_SUCCESS: u64 = 3;
@@ -113,26 +109,24 @@ struct LaunchInfo {
     net:          Option<u64>,
 }
 
-const CACHE_TTL: u64 = 3600; // 1h
-
 // ── LL2 helpers ───────────────────────────────────────────────────────────────
 
-async fn fetch_upcoming(client: &reqwest::Client) -> Result<Vec<LaunchInfo>, FetchErr> {
+async fn fetch_upcoming(client: &reqwest::Client, timeout_ms: u64) -> Result<Vec<LaunchInfo>, FetchErr> {
     let url = format!("{LL2_BASE}/launch/upcoming/?limit=5&status__in=1,8&format=json");
     let resp = client
         .get(&url)
-        .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+        .timeout(std::time::Duration::from_millis(timeout_ms))
         .send().await.map_err(|_| FetchErr::Error)?;
     let resp = check_resp(resp).await?;
     let v: serde_json::Value = resp.json().await.map_err(|_| FetchErr::Error)?;
     parse_launches(v.get("results").ok_or(FetchErr::Error)?).ok_or(FetchErr::Error)
 }
 
-async fn fetch_single(client: &reqwest::Client, short_id: &str) -> Result<LaunchInfo, FetchErr> {
+async fn fetch_single(client: &reqwest::Client, short_id: &str, timeout_ms: u64) -> Result<LaunchInfo, FetchErr> {
     let url = format!("{LL2_BASE}/launch/upcoming/?limit=20&status__in=1,8&format=json");
     let resp = client
         .get(&url)
-        .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+        .timeout(std::time::Duration::from_millis(timeout_ms))
         .send().await.map_err(|_| FetchErr::Error)?;
     let resp = check_resp(resp).await?;
     let v: serde_json::Value = resp.json().await.map_err(|_| FetchErr::Error)?;
@@ -140,11 +134,11 @@ async fn fetch_single(client: &reqwest::Client, short_id: &str) -> Result<Launch
     all.into_iter().find(|l| l.id.starts_with(short_id)).ok_or(FetchErr::Error)
 }
 
-async fn fetch_single_by_full_id(client: &reqwest::Client, full_id: &str) -> Option<LaunchInfo> {
+async fn fetch_single_by_full_id(client: &reqwest::Client, full_id: &str, timeout_ms: u64) -> Option<LaunchInfo> {
     let url = format!("{LL2_BASE}/launch/{full_id}/?format=json");
     let v: serde_json::Value = client
         .get(&url)
-        .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+        .timeout(std::time::Duration::from_millis(timeout_ms))
         .send().await.ok()?
         .json().await.ok()?;
     parse_one_launch(&v)
@@ -166,11 +160,11 @@ fn calc_provider_probs(results: &[serde_json::Value]) -> (f64, f64) {
     (p_success, p_ontime)
 }
 
-async fn fetch_provider_history(client: &reqwest::Client, lsp_id: u32) -> Option<(f64, f64)> {
+async fn fetch_provider_history(client: &reqwest::Client, lsp_id: u32, timeout_ms: u64) -> Option<(f64, f64)> {
     let url = format!("{LL2_BASE}/launch/previous/?limit=50&lsp__id={lsp_id}&format=json");
     let v: serde_json::Value = client
         .get(&url)
-        .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+        .timeout(std::time::Duration::from_millis(timeout_ms))
         .send().await.ok()?
         .json().await.ok()?;
     let results = v.get("results")?.as_array()?;
@@ -208,16 +202,18 @@ async fn get_rates(
     client: &reqwest::Client,
     cache: &Arc<Mutex<HashMap<u32, (f64, f64, u64)>>>,
     lsp_id: u32,
+    timeout_ms: u64,
+    cache_ttl_ms: u64,
 ) -> (f64, f64) {
     {
         let c = cache.lock().unwrap();
         if let Some(&(ps, po, fetched)) = c.get(&lsp_id) {
-            if now_unix() - fetched < CACHE_TTL {
+            if now_unix() - fetched < cache_ttl_ms / 1000 {
                 return (ps, po);
             }
         }
     }
-    let rates = fetch_provider_history(client, lsp_id).await.unwrap_or((0.80, 0.70));
+    let rates = fetch_provider_history(client, lsp_id, timeout_ms).await.unwrap_or((0.80, 0.70));
     cache.lock().unwrap().insert(lsp_id, (rates.0, rates.1, now_unix()));
     rates
 }
@@ -245,7 +241,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 }
 
 async fn show_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
-    let launches = match fetch_upcoming(&ctx.state.http).await {
+    let launches = match fetch_upcoming(&ctx.state.http, ctx.runtime.launch_timeout_ms).await {
         Ok(l) if !l.is_empty() => l,
         Err(FetchErr::RateLimit) => {
             ctx.whisper_success("Launch Library API rate limit reached. Try again later.");
@@ -290,7 +286,7 @@ async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 }
 
 async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<()> {
-    let l = match fetch_single(&ctx.state.http, short_id).await {
+    let l = match fetch_single(&ctx.state.http, short_id, ctx.runtime.launch_timeout_ms).await {
         Ok(l) => l,
         Err(FetchErr::RateLimit) => {
             ctx.whisper_success("Launch Library API rate limit reached. Try again later.");
@@ -303,7 +299,7 @@ async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<
     };
 
     let now = now_unix();
-    let lock_at = l.window_start.saturating_sub(LOCK_BEFORE_SECS);
+    let lock_at = l.window_start.saturating_sub(ctx.runtime.launch_lock_before_ms / 1000);
     if now >= lock_at {
         ctx.whisper_success(format!(
             "[{}] {} — bets locked (T-2h window passed).",
@@ -312,7 +308,7 @@ async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<
         return Ok(());
     }
 
-    let (p_s, p_o) = get_rates(&ctx.state.http, &ctx.state.launch_cache, l.lsp_id).await;
+    let (p_s, p_o) = get_rates(&ctx.state.http, &ctx.state.launch_cache, l.lsp_id, ctx.runtime.launch_timeout_ms, ctx.runtime.launch_cache_ttl_ms).await;
     let price_success = to_price(p_s);
     let price_ontime  = to_price(p_o);
     let p = &ctx.runtime.prefix;
@@ -340,7 +336,7 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
 
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
-    let l = match fetch_single(&ctx.state.http, short_id).await {
+    let l = match fetch_single(&ctx.state.http, short_id, ctx.runtime.launch_timeout_ms).await {
         Ok(l) => l,
         Err(FetchErr::RateLimit) => {
             ctx.whisper_success("Launch Library API rate limit reached. Try again later.");
@@ -353,13 +349,13 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
     };
 
     let now = now_unix();
-    let lock_at = l.window_start.saturating_sub(LOCK_BEFORE_SECS);
+    let lock_at = l.window_start.saturating_sub(ctx.runtime.launch_lock_before_ms / 1000);
     if now >= lock_at {
         ctx.whisper_success("Bets locked (within 2h of launch window).");
         return Ok(());
     }
 
-    let (p_s, p_o) = get_rates(&ctx.state.http, &ctx.state.launch_cache, l.lsp_id).await;
+    let (p_s, p_o) = get_rates(&ctx.state.http, &ctx.state.launch_cache, l.lsp_id, ctx.runtime.launch_timeout_ms, ctx.runtime.launch_cache_ttl_ms).await;
     let price = match side {
         LaunchBetSide::Success => to_price(p_s),
         LaunchBetSide::OnTime  => to_price(p_o),
@@ -445,12 +441,16 @@ pub async fn launch_settle_task(
 ) {
     sleep_until(bet.close_time).await;
 
-    let give_up = now_unix() + MAX_SETTLE_WAIT_SECS;
+    let (max_settle_wait_ms, poll_interval_ms, timeout_ms) = {
+        let runtime = deps.runtime.read().expect("runtime lock");
+        (runtime.launch_max_settle_wait_ms, runtime.launch_poll_interval_ms, runtime.launch_timeout_ms)
+    };
+    let give_up = now_unix() + max_settle_wait_ms / 1000;
 
     loop {
         if now_unix() > give_up { break; }
 
-        let info = fetch_single_by_full_id(&http, &bet.launch_id).await;
+        let info = fetch_single_by_full_id(&http, &bet.launch_id, timeout_ms).await;
         if let Some(ref l) = info {
             let finished = matches!(l.status_id, STATUS_SUCCESS | STATUS_FAILURE | STATUS_PARTIAL_FAILURE);
             if finished {
@@ -459,7 +459,7 @@ pub async fn launch_settle_task(
             }
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(POLL_INTERVAL_SECS)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
     }
 
     // Give-up path: refund

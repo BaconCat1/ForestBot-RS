@@ -13,9 +13,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 const MIN_BET: i64 = 25;
 const HOUSE_EDGE: f64 = 0.03;
-const SETTLE_SECS: u64 = 24 * 3600; // 24h
 const AIRNOW_BASE: &str = "https://www.airnowapi.org/aq";
-const TIMEOUT_SECS: u64 = 10;
 
 // ── Bet struct ────────────────────────────────────────────────────────────────
 
@@ -71,14 +69,14 @@ struct AqiReading {
     area:      String,
 }
 
-async fn fetch_forecast(client: &reqwest::Client, zip: &str, key: &str) -> Result<Vec<AqiReading>, FetchErr> {
+async fn fetch_forecast(client: &reqwest::Client, zip: &str, key: &str, timeout_ms: u64) -> Result<Vec<AqiReading>, FetchErr> {
     let date = tomorrow_date_str();
     let url = format!(
         "{AIRNOW_BASE}/forecast/zipCode/?format=application/json&zipCode={zip}&date={date}&distance=25&API_KEY={key}"
     );
     let resp = client
         .get(&url)
-        .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+        .timeout(std::time::Duration::from_millis(timeout_ms))
         .send()
         .await
         .map_err(|_| FetchErr::Error)?;
@@ -87,13 +85,13 @@ async fn fetch_forecast(client: &reqwest::Client, zip: &str, key: &str) -> Resul
     parse_readings_for_date(&body, Some(&date)).ok_or(FetchErr::Error)
 }
 
-async fn fetch_current(client: &reqwest::Client, zip: &str, key: &str) -> Result<Vec<AqiReading>, FetchErr> {
+async fn fetch_current(client: &reqwest::Client, zip: &str, key: &str, timeout_ms: u64) -> Result<Vec<AqiReading>, FetchErr> {
     let url = format!(
         "{AIRNOW_BASE}/observation/zipCode/current/?format=application/json&zipCode={zip}&distance=25&API_KEY={key}"
     );
     let resp = client
         .get(&url)
-        .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+        .timeout(std::time::Duration::from_millis(timeout_ms))
         .send()
         .await
         .map_err(|_| FetchErr::Error)?;
@@ -246,10 +244,11 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     }
 
     let client = reqwest::Client::new();
+    let timeout_ms = ctx.runtime.aqi_timeout_ms;
 
     let (current_result, forecast_result) = tokio::join!(
-        fetch_current(&client, &zip, &key),
-        fetch_forecast(&client, &zip, &key),
+        fetch_current(&client, &zip, &key, timeout_ms),
+        fetch_forecast(&client, &zip, &key, timeout_ms),
     );
 
     let forecast_readings = match forecast_result {
@@ -322,7 +321,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
         Ok(_) => {}
     }
 
-    let close_time = now_unix() + SETTLE_SECS;
+    let close_time = now_unix() + ctx.runtime.aqi_settle_window_ms / 1000;
     let mut bet = AqiBet {
         id: 0,
         player: player_uuid.clone(),
@@ -391,8 +390,11 @@ pub async fn aqi_settle_task(
     };
     if !claimed { return; }
 
-    let key = deps.runtime.read().expect("runtime lock").airnow_api_key.clone();
-    let readings = fetch_current(&http, &bet.zip, &key).await.ok();
+    let (key, timeout_ms) = {
+        let runtime = deps.runtime.read().expect("runtime lock");
+        (runtime.airnow_api_key.clone(), runtime.aqi_timeout_ms)
+    };
+    let readings = fetch_current(&http, &bet.zip, &key, timeout_ms).await.ok();
 
     deps.api.casino_bet_delete::<AqiBet>(bet.id).await;
 

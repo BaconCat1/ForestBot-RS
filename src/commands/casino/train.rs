@@ -16,9 +16,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 const TRAINS_BASE: &str = "https://trainstracking.com";
 const DELAY_THRESHOLD_SECS: i32 = 300; // 5 minutes
 const DELAY_THRESHOLD_MINS: i64 = 5;
-const BET_DURATION_SECS: u64 = 7200;
-const POLL_INTERVAL_SECS: u64 = 120;
-const MAX_POLL_SECS: u64 = 3600;
 const MIN_BET: i64 = 25;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -571,7 +568,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         }
     }
 
-    let close_time = now_unix() + BET_DURATION_SECS;
+    let close_time = now_unix() + ctx.runtime.train_bet_duration_ms / 1000;
     let delay_str  = if current_delay > 0 {
         format!("+{}m now", current_delay)
     } else {
@@ -644,14 +641,18 @@ async fn legacy_settle(deps: SettleDeps, bets_map: TrainBetsMap, whisper_cmd: St
 
     let client = reqwest::Client::new();
 
-    let deadline = now_unix() + MAX_POLL_SECS;
+    let (max_poll_ms, poll_interval_ms) = {
+        let runtime = deps.runtime.read().expect("runtime lock");
+        (runtime.train_max_poll_ms, runtime.train_poll_interval_ms)
+    };
+    let deadline = now_unix() + max_poll_ms / 1000;
     let outcome: Option<bool> = loop {
         match poll_train_legacy(&client, &bet.country, &bet.train_code).await {
             PollOutcome::Found(currently_delayed) => break Some(currently_delayed),
             PollOutcome::Gone => break None,
             PollOutcome::ApiError => {
                 if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_secs(POLL_INTERVAL_SECS)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
             }
         }
     };
