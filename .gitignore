@@ -54,3 +54,4 @@ gasbuddy_token.json
 ai_providers_survey.csv
 .claudeignore
 debug.json
+/dev-tools/*
