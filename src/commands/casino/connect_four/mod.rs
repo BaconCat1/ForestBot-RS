@@ -39,7 +39,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 };
                 match session {
                     Some((stake, opponent_name, position)) => {
-                        show_board(&ctx, &position);
+                        show_board(&ctx, &position).await;
                         ctx.whisper_success(format!(
                             "Your turn (\u{25D5}) vs {} | Stake: {} | !c4 <1-7> or !c4 quit",
                             opponent_name,
@@ -130,7 +130,7 @@ async fn execute_new_game(ctx: &CommandContext<'_>, stake_str: &str) -> anyhow::
         opponent_name,
         chips_str(stake)
     ));
-    show_board(ctx, &position);
+    show_board(ctx, &position).await;
     ctx.whisper_success("!c4 <1-7> to drop | !c4 quit to forfeit");
 
     Ok(())
@@ -167,7 +167,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
 
     if player_wins {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
-        show_board(ctx, &position);
+        show_board(ctx, &position).await;
         let win = ctx.state.api.casino_win(ctx.sender, stake * 2).await.unwrap_or_default();
         let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
         ctx.whisper_success(format!(
@@ -181,7 +181,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
 
     if position.get_moves() == Position::BOARD_SIZE {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
-        show_board(ctx, &position);
+        show_board(ctx, &position).await;
         let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
         ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
         return Ok(());
@@ -203,7 +203,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
 
     if bot_wins {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
-        show_board(ctx, &position);
+        show_board(ctx, &position).await;
         ctx.state.api.casino_jackpot_rake(stake).await;
         let bal = ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0);
         ctx.whisper_success(format!(
@@ -217,7 +217,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
 
     if position.get_moves() == Position::BOARD_SIZE {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
-        show_board(ctx, &position);
+        show_board(ctx, &position).await;
         let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
         ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
         return Ok(());
@@ -231,7 +231,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
             position,
         });
 
-    show_board(ctx, &position);
+    show_board(ctx, &position).await;
     ctx.whisper_success(format!("Your turn (\u{25D5}) vs {} | !c4 <1-7>", opponent_name));
 
     Ok(())
@@ -264,11 +264,11 @@ async fn execute_quit(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn show_board(ctx: &CommandContext<'_>, pos: &Position) {
+async fn show_board(ctx: &CommandContext<'_>, pos: &Position) {
     // Even move count → player is to move → pos.position = player's pieces (◆)
     // Odd move count  → bot just moved or player just won → pos.position = bot's pieces
     let player_is_current = pos.get_moves() % 2 == 0;
-    ctx.whisper_success("\u{1D7CF} \u{1D7D0} \u{1D7D1} \u{1D7D2} \u{1D7D3} \u{1D7D4} \u{1D7D5}"); // 𝟏 𝟐 𝟑 𝟒 𝟓 𝟔 𝟕
+    let mut lines = vec!["\u{1D7CF} \u{1D7D0} \u{1D7D1} \u{1D7D2} \u{1D7D3} \u{1D7D4} \u{1D7D5}".to_string()]; // 𝟏 𝟐 𝟑 𝟒 𝟓 𝟔 𝟕
     for row in (0..Position::HEIGHT).rev() {
         let mut line = String::new();
         for col in 0..Position::WIDTH {
@@ -285,8 +285,9 @@ fn show_board(ctx: &CommandContext<'_>, pos: &Position) {
             };
             line.push(ch);
         }
-        ctx.whisper_success(line);
+        lines.push(line);
     }
+    ctx.whisper_board(lines).await;
 }
 
 fn session_label(s: &CasinoSession) -> &'static str {

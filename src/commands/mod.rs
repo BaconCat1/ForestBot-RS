@@ -147,6 +147,23 @@ impl CommandContext<'_> {
             .unwrap_or(true)
     }
 
+    /// Sends a multi-line game board (battleship/checkers/chess/connect four/mines/
+    /// reversi/wordle) one whisper per line, paced by `board_whisper_delay_ms`.
+    /// Unpaced bursts trip RV's anti-spam filter and get the bot kicked -- delay
+    /// is skipped after the last line since nothing follows it.
+    pub async fn whisper_board(&self, lines: impl IntoIterator<Item = impl AsRef<str>>) {
+        let mut lines = lines.into_iter().peekable();
+        while let Some(line) = lines.next() {
+            self.whisper_success(line);
+            if lines.peek().is_some() {
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    self.runtime.board_whisper_delay_ms,
+                ))
+                .await;
+            }
+        }
+    }
+
     /// For a command's normal/computed output (stats, prices, game results). Censored
     /// unless json/commands_censorship.json explicitly marks this command's `success`
     /// path as bypassed.

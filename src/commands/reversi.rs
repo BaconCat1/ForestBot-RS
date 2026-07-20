@@ -331,15 +331,20 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         match first.as_str() {
             "board" => {
-                let games = ctx.state.reversi_games.lock().unwrap();
-                match games.get(&sender) {
-                    None => { ctx.whisper_success("No active reversi game."); }
-                    Some(sess) => {
+                let info = {
+                    let games = ctx.state.reversi_games.lock().unwrap();
+                    games.get(&sender).map(|sess| {
                         let legal = gen_moves(&sess.cells, 1);
                         let lines = render_board(&sess.cells, &legal);
                         let (ps, cs) = score(&sess.cells);
-                        ctx.whisper_success(format!("Reversi vs {} | you \u{25D5} / bot \u{25A3} / \u{25CC} legal | You: {} Bot: {}", sess.opponent, ps, cs));
-                        for line in lines { ctx.whisper_success(line); }
+                        (sess.opponent, ps, cs, lines)
+                    })
+                };
+                match info {
+                    None => { ctx.whisper_success("No active reversi game."); }
+                    Some((opponent, ps, cs, lines)) => {
+                        ctx.whisper_success(format!("Reversi vs {} | you \u{25D5} / bot \u{25A3} / \u{25CC} legal | You: {} Bot: {}", opponent, ps, cs));
+                        ctx.whisper_board(lines).await;
                     }
                 }
             }
@@ -409,7 +414,7 @@ async fn start_game(ctx: &CommandContext<'_>, sender: &str, stake: i64) -> anyho
 
     let board_lines = render_board(&cells, &legal);
     ctx.whisper_success(format!("Reversi vs {} | stake {} | you=\u{25D5} bot=\u{25A3} \u{25CC}=legal", opp_name, chips_str(stake)));
-    for line in board_lines { ctx.whisper_success(line); }
+    ctx.whisper_board(board_lines).await;
     ctx.whisper_success("Your move. Format: !reversi a1");
 
     Ok(())
@@ -421,26 +426,50 @@ async fn make_move(ctx: &CommandContext<'_>, sender: &str, pos_str: &str) -> any
         Some(p) => p,
     };
 
-    // Phase 1: apply player move under lock, clone state
-    let (mut cells, stake, diff, opponent) = {
-        let mut games = ctx.state.reversi_games.lock().unwrap();
-        let sess = match games.get_mut(sender) {
-            None => { ctx.whisper_success("No active reversi game. Start with !reversi <chips>."); return Ok(()); }
-            Some(s) => s,
-        };
+    // Phase 1: apply player move under lock, clone state. Lock must not span an
+    // .await -- MutexGuard is !Send, so the check/apply lives in its own block that
+    // returns owned data, and every whisper_board() call happens after it closes.
+    enum MoveCheck {
+        NoGame,
+        Illegal { lines: Vec<String>, ps: u8, cs: u8 },
+        Applied { cells: [u8; 64], stake: i64, diff: Diff, opponent: &'static str },
+    }
 
-        let legal = gen_moves(&sess.cells, 1);
-        if !legal.contains(&pos) {
-            ctx.whisper_success(format!("{} is not a legal move.", pos_str));
-            let (ps, cs) = score(&sess.cells);
-            let lines = render_board(&sess.cells, &legal);
-            ctx.whisper_success(format!("You: {} Bot: {}", ps, cs));
-            for line in lines { ctx.whisper_success(line); }
+    let check = {
+        let mut games = ctx.state.reversi_games.lock().unwrap();
+        match games.get_mut(sender) {
+            None => MoveCheck::NoGame,
+            Some(sess) => {
+                let legal = gen_moves(&sess.cells, 1);
+                if !legal.contains(&pos) {
+                    let (ps, cs) = score(&sess.cells);
+                    let lines = render_board(&sess.cells, &legal);
+                    MoveCheck::Illegal { lines, ps, cs }
+                } else {
+                    apply_move(&mut sess.cells, pos, 1);
+                    MoveCheck::Applied {
+                        cells: sess.cells,
+                        stake: sess.stake,
+                        diff: sess.difficulty,
+                        opponent: sess.opponent,
+                    }
+                }
+            }
+        }
+    };
+
+    let (mut cells, stake, diff, opponent) = match check {
+        MoveCheck::NoGame => {
+            ctx.whisper_success("No active reversi game. Start with !reversi <chips>.");
             return Ok(());
         }
-
-        apply_move(&mut sess.cells, pos, 1);
-        (sess.cells, sess.stake, sess.difficulty, sess.opponent)
+        MoveCheck::Illegal { lines, ps, cs } => {
+            ctx.whisper_success(format!("{} is not a legal move.", pos_str));
+            ctx.whisper_success(format!("You: {} Bot: {}", ps, cs));
+            ctx.whisper_board(lines).await;
+            return Ok(());
+        }
+        MoveCheck::Applied { cells, stake, diff, opponent } => (cells, stake, diff, opponent),
     };
 
     // Check game state after player move
@@ -474,7 +503,7 @@ async fn make_move(ctx: &CommandContext<'_>, sender: &str, pos_str: &str) -> any
     let (ps, cs) = score(&cells);
     let lines = render_board(&cells, &legal);
     ctx.whisper_success(format!("You: {} Bot: {}", ps, cs));
-    for line in lines { ctx.whisper_success(line); }
+    ctx.whisper_board(lines).await;
 
     if legal.is_empty() {
         // Shouldn't reach here (handled in run_cpu_turns) but guard anyway
@@ -500,7 +529,7 @@ async fn finish_game(
     let legal_empty: Vec<u8> = Vec::new();
     let lines = render_board(cells, &legal_empty);
     let (ps, cs) = score(cells);
-    for line in lines { ctx.whisper_success(line); }
+    ctx.whisper_board(lines).await;
     ctx.whisper_success(format!("Final score — You: {} Bot: {}", ps, cs));
 
     match result {

@@ -88,6 +88,7 @@ pub struct RuntimeConfig {
     pub google_safe_browsing_key: String,
     pub queue_probe_command: String,
     pub queue_retry_delay_ms: u64,
+    pub board_whisper_delay_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -150,6 +151,7 @@ pub struct Bot {
     pub api_keys: crate::config::ApiKeys,
     pub queue_probe_command: String,
     pub queue_retry_delay_ms: u64,
+    pub board_whisper_delay_ms: u64,
 }
 
 impl Bot {
@@ -206,6 +208,7 @@ impl Bot {
             api_keys: state.config.api_keys.clone(),
             queue_probe_command: state.config.queue_probe_command.clone(),
             queue_retry_delay_ms: state.config.queue_retry_delay_ms,
+            board_whisper_delay_ms: state.config.board_whisper_delay_ms,
         }
     }
 
@@ -275,6 +278,7 @@ impl Bot {
                 google_safe_browsing_key: self.google_safe_browsing_key.clone(),
                 queue_probe_command: self.queue_probe_command.clone(),
                 queue_retry_delay_ms: self.queue_retry_delay_ms,
+                board_whisper_delay_ms: self.board_whisper_delay_ms,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -1022,6 +1026,7 @@ impl Default for AzaleaState {
                 google_safe_browsing_key: String::new(),
                 queue_probe_command: String::new(),
                 queue_retry_delay_ms: 300_000,
+                board_whisper_delay_ms: 1_000,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),

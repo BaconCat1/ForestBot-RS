@@ -431,7 +431,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let first = ctx.args.first().copied().unwrap_or("").to_ascii_lowercase();
 
         match first.as_str() {
-            "" | "board" => show_board(&ctx),
+            "" | "board" => show_board(&ctx).await,
             "quit" | "forfeit" => quit_game(&ctx).await?,
             "help" => {
                 ctx.whisper_success("!checkers <chips> — start | !checkers a1 b2 — move (or a1 c3 e5 for jumps) | !checkers board | !checkers quit");
@@ -456,20 +456,25 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     })
 }
 
-fn show_board(ctx: &CommandContext) {
-    let games = ctx.state.checkers_games.lock().expect("checkers lock");
-    match games.get(ctx.sender) {
-        None => ctx.whisper_success("No active game. Start: !checkers <chips>"),
-        Some(s) => {
+async fn show_board(ctx: &CommandContext<'_>) {
+    let info = {
+        let games = ctx.state.checkers_games.lock().expect("checkers lock");
+        games.get(ctx.sender).map(|s| {
             let turn_label = match s.game.current {
                 Color::Red   => "your turn (r/R)",
                 Color::Black => "bot's turn",
             };
+            (s.opponent, turn_label, s.stake, render_board(&s.game))
+        })
+    };
+    match info {
+        None => ctx.whisper_success("No active game. Start: !checkers <chips>"),
+        Some((opponent, turn_label, stake, board)) => {
             ctx.whisper_success(format!(
                 "Checkers vs {} — {} | Stake: {}",
-                s.opponent, turn_label, chips_str(s.stake)
+                opponent, turn_label, chips_str(stake)
             ));
-            for line in render_board(&s.game) { ctx.whisper_success(line); }
+            ctx.whisper_board(board).await;
         }
     }
 }
@@ -514,7 +519,7 @@ async fn start_game(ctx: &CommandContext<'_>, stake: i64) -> anyhow::Result<()> 
         "Checkers vs {}! You are r/R (red, bottom). Stake: {}",
         opponent, chips_str(stake)
     ));
-    for line in &board { ctx.whisper_success(line); }
+    ctx.whisper_board(&board).await;
     ctx.whisper_success("Move: !checkers a1 b2 | Jump: !checkers a1 c3 | Multi-jump: !checkers a1 c3 e5 | !checkers quit");
     Ok(())
 }
@@ -623,7 +628,7 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
                     .map(|b| b.chips).unwrap_or(0);
                 ctx.whisper_success(format!("You have no moves — {} wins. -{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
             } else {
-                for line in render_board(&game) { ctx.whisper_success(line); }
+                ctx.whisper_board(render_board(&game)).await;
                 if let Some(hint) = move_hint(&game) { ctx.whisper_success(hint); }
             }
         }

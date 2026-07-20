@@ -24,6 +24,10 @@ fn default_queue_retry_delay_ms() -> u64 {
     300_000
 }
 
+fn default_board_whisper_delay_ms() -> u64 {
+    1_000
+}
+
 fn default_censor_threshold() -> String {
     "moderate".to_owned()
 }
@@ -247,6 +251,12 @@ pub struct Config {
     pub queue_probe_command: String,
     #[serde(default = "default_queue_retry_delay_ms")]
     pub queue_retry_delay_ms: u64,
+    // Gap between whisper lines when sending a multi-line game board (battleship,
+    // checkers, chess, connect four, mines, reversi, wordle). Tune per target server --
+    // RV's anti-spam filter kicks the bot on rapid-fire whispers at the default queue
+    // drain rate (~1 msg/tick).
+    #[serde(default = "default_board_whisper_delay_ms")]
+    pub board_whisper_delay_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

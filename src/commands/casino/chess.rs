@@ -41,7 +41,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 };
                 match session {
                     Some((stake, player_color, position, opponent_name, _)) => {
-                        show_board(&ctx, &position, player_color);
+                        show_board(&ctx, &position, player_color).await;
                         ctx.whisper_success(format!(
                             "Chess: You ({}) vs {} | Stake: {} | !chess <from> <to> or !chess quit",
                             color_name(player_color), opponent_name, chips_str(stake)
@@ -113,7 +113,7 @@ async fn execute_new_game(ctx: &CommandContext<'_>, color_str: &str) -> anyhow::
         "Chess: You ({}) vs {} | Stake: {} | !chess <from> <to>",
         color_name(player_color), opponent_name, chips_str(stake)
     ));
-    show_board(ctx, &position, player_color);
+    show_board(ctx, &position, player_color).await;
 
     if player_color == Color::Black {
         execute_bot_turn(ctx, position, stake, player_color, opponent_name, ai_depth).await?;
@@ -177,13 +177,13 @@ async fn execute_move(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     if let Some(outcome) = pos_after.outcome() {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-        show_board(ctx, &pos_after, player_color);
+        show_board(ctx, &pos_after, player_color).await;
         return finish_game(ctx, outcome, player_color, stake, opponent_name,
             &format!("You played {}. ", move_str)).await;
     }
     if pos_after.halfmoves() >= 100 {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-        show_board(ctx, &pos_after, player_color);
+        show_board(ctx, &pos_after, player_color).await;
         let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
         ctx.whisper_success(format!("You played {}. Draw by 50-move rule. Stake returned. Balance: {}", move_str, chips_str(bal)));
         return Ok(());
@@ -222,13 +222,13 @@ async fn execute_bot_turn(
 
     if let Some(outcome) = pos_after.outcome() {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-        show_board(ctx, &pos_after, player_color);
+        show_board(ctx, &pos_after, player_color).await;
         return finish_game(ctx, outcome, player_color, stake, opponent_name,
             &format!("{} played {}. ", opponent_name, bot_move_str)).await;
     }
     if pos_after.halfmoves() >= 100 {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-        show_board(ctx, &pos_after, player_color);
+        show_board(ctx, &pos_after, player_color).await;
         let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
         ctx.whisper_success(format!("{} played {}. Draw by 50-move rule. Stake returned. Balance: {}", opponent_name, bot_move_str, chips_str(bal)));
         return Ok(());
@@ -244,7 +244,7 @@ async fn execute_bot_turn(
         });
 
     let check = if !pos_after.checkers().is_empty() { " — CHECK!" } else { "" };
-    show_board(ctx, &pos_after, player_color);
+    show_board(ctx, &pos_after, player_color).await;
     ctx.whisper_success(format!("{} played {}{} | !chess <from> <to>", opponent_name, bot_move_str, check));
     Ok(())
 }
@@ -298,14 +298,14 @@ async fn execute_quit(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn show_board(ctx: &CommandContext<'_>, pos: &ChessPos, player_color: Color) {
+async fn show_board(ctx: &CommandContext<'_>, pos: &ChessPos, player_color: Color) {
     let board = pos.board();
     // Math Bold Small a-h (U+1D41A-1D421) = 4px, matches chess piece width
-    ctx.whisper_success(if player_color == Color::White {
-        "# \u{1D41A} \u{1D41B} \u{1D41C} \u{1D41D} \u{1D41E} \u{1D41F} \u{1D420} \u{1D421}"
+    let mut lines = vec![if player_color == Color::White {
+        "# \u{1D41A} \u{1D41B} \u{1D41C} \u{1D41D} \u{1D41E} \u{1D41F} \u{1D420} \u{1D421}".to_string()
     } else {
-        "# \u{1D421} \u{1D420} \u{1D41F} \u{1D41E} \u{1D41D} \u{1D41C} \u{1D41B} \u{1D41A}"
-    });
+        "# \u{1D421} \u{1D420} \u{1D41F} \u{1D41E} \u{1D41D} \u{1D41C} \u{1D41B} \u{1D41A}".to_string()
+    }];
     let rank_iter: Vec<u32> = if player_color == Color::White { (0..8).rev().collect() } else { (0..8).collect() };
     let file_iter: Vec<u32> = if player_color == Color::White { (0..8).collect() }      else { (0..8).rev().collect() };
     for rank_idx in rank_iter {
@@ -319,8 +319,9 @@ fn show_board(ctx: &CommandContext<'_>, pos: &ChessPos, player_color: Color) {
                 None => line.push('\u{25A2}'), // ▢ unifont 3.5px, matches King/Queen/Rook/Bishop
             }
         }
-        ctx.whisper_success(line);
+        lines.push(line);
     }
+    ctx.whisper_board(lines).await;
 }
 
 fn fmt_move(mv: &Move) -> String {

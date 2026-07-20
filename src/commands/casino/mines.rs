@@ -258,7 +258,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             ctx.state.mines_games.lock().unwrap().insert(sender.clone(), session);
             ctx.whisper_success(format!("Minesweeper | {} stake | 20 mines, 10×10 board", chips_str(chips)));
             ctx.whisper_success("Reveal: !mines <coord> (e.g. a3) | Flag: !mines f<coord> | Cashout: !mines cash | !mines board | !mines quit");
-            for line in board { ctx.whisper_success(&line); }
+            ctx.whisper_board(board).await;
             return Ok(());
         }
 
@@ -270,7 +270,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     (g.render(false), format!("{:.3}×", g.multiplier), g.safe_revealed)
                 };
                 ctx.whisper_success(format!("Multiplier: {mult_str} | {sr}/{TOTAL_SAFE} safe revealed"));
-                for line in lines { ctx.whisper_success(&line); }
+                ctx.whisper_board(lines).await;
                 return Ok(());
             }
             "cash" | "cashout" => {
@@ -377,20 +377,20 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             Outcome::Mine { stake, board } => {
                 ctx.state.api.casino_jackpot_rake(stake).await;
                 ctx.whisper_success(format!("BOOM! Hit a mine. {} to jackpot.", chips_str(stake)));
-                for line in board { ctx.whisper_success(&line); }
+                ctx.whisper_board(board).await;
             }
             Outcome::Victory { payout, board } => {
                 let win = ctx.state.api.casino_win(&sender, payout).await.unwrap_or_default();
                 let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                 ctx.whisper_success(format!("All safe cells cleared! Won {}{alimony_note}!", chips_str(payout)));
-                for line in board { ctx.whisper_success(&line); }
+                ctx.whisper_board(board).await;
             }
             Outcome::Continue { revealed, multiplier, safe_revealed, board } => {
                 let mult_str = format!("{multiplier:.3}×");
                 ctx.whisper_success(format!(
                     "+{revealed} | Multiplier: {mult_str} | {safe_revealed}/{TOTAL_SAFE} safe | !mines cash to collect"
                 ));
-                for line in board { ctx.whisper_success(&line); }
+                ctx.whisper_board(board).await;
             }
         }
 

@@ -359,14 +359,16 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Err(e) => { ctx.whisper_success(format!("Error: {e:?}")); return Ok(()); }
                 Ok(_) => {}
             }
-            let mut rng = rand::thread_rng();
-            let choice = OPPONENTS.choose(&mut rng).unwrap();
+            let choice = {
+                let mut rng = rand::thread_rng();
+                OPPONENTS.choose(&mut rng).unwrap()
+            };
             let session = BattleshipSession::new(chips, choice.0, choice.1.clone());
             let board_lines = render_enemy_board(&session);
             ctx.state.battleship_games.lock().unwrap().insert(sender.clone(), session);
             ctx.whisper_success(format!("Battleship vs {} | Stake: {}", choice.0, chips_str(chips)));
             ctx.whisper_success("Ships placed randomly. Fire: !bs <coord> (e.g. a5, j0) | !bs own | !bs forfeit");
-            for line in board_lines { ctx.whisper_success(&line); }
+            ctx.whisper_board(board_lines).await;
             return Ok(());
         }
 
@@ -376,7 +378,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     let games = ctx.state.battleship_games.lock().unwrap();
                     render_enemy_board(games.get(&sender).unwrap())
                 };
-                for line in lines { ctx.whisper_success(&line); }
+                ctx.whisper_board(lines).await;
                 return Ok(());
             }
             "own" => {
@@ -384,7 +386,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     let games = ctx.state.battleship_games.lock().unwrap();
                     render_own_board(games.get(&sender).unwrap())
                 };
-                for line in lines { ctx.whisper_success(&line); }
+                ctx.whisper_board(lines).await;
                 return Ok(());
             }
             "forfeit" | "quit" => {
@@ -454,19 +456,19 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 ctx.whisper_success(&player_msg);
                 let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                 ctx.whisper_success(format!("All of {opponent}'s ships sunk! Win: {}!{alimony_note}", chips_str(stake * 2)));
-                for line in board_lines { ctx.whisper_success(&line); }
+                ctx.whisper_board(board_lines).await;
             }
             Outcome::Lose { stake, opponent, player_msg, bot_msg, board_lines } => {
                 ctx.whisper_success(&player_msg);
                 ctx.whisper_success(&bot_msg);
                 ctx.state.api.casino_jackpot_rake(stake).await;
                 ctx.whisper_success(format!("{opponent} sank all your ships. {} chips to jackpot.", chips_str(stake)));
-                for line in board_lines { ctx.whisper_success(&line); }
+                ctx.whisper_board(board_lines).await;
             }
             Outcome::Continue { player_msg, bot_msg, board_lines } => {
                 ctx.whisper_success(&player_msg);
                 ctx.whisper_success(&bot_msg);
-                for line in board_lines { ctx.whisper_success(&line); }
+                ctx.whisper_board(board_lines).await;
             }
         }
 

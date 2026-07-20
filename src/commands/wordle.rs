@@ -194,7 +194,7 @@ async fn submit_guess(ctx: &CommandContext<'_>, word: &str) -> anyhow::Result<()
             ctx.whisper_success(format!("Hard mode: position {} must stay fixed.", i + 1));
         }
         GuessOutcome::Continue { board, guesses_used } => {
-            for line in &board { ctx.whisper_success(line); }
+            ctx.whisper_board(&board).await;
             ctx.whisper_success(format!("Guess {}/{}.", guesses_used, MAX_GUESSES));
         }
         GuessOutcome::Win { board, guesses_used, stake } => {
@@ -203,7 +203,7 @@ async fn submit_guess(ctx: &CommandContext<'_>, word: &str) -> anyhow::Result<()
             let net = payout - stake;
             let win = ctx.state.api.casino_win(ctx.sender, payout).await.unwrap_or_default();
             let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
-            for line in &board { ctx.whisper_success(line); }
+            ctx.whisper_board(&board).await;
             ctx.whisper_success(format!(
                 "You got it in {}/{}! {}x payout — +{} chips ({}){alimony_note}",
                 guesses_used, MAX_GUESSES, mult, chips_str(net), chips_str(payout)
@@ -211,7 +211,7 @@ async fn submit_guess(ctx: &CommandContext<'_>, word: &str) -> anyhow::Result<()
         }
         GuessOutcome::Lose { board, solution, stake } => {
             let _ = ctx.state.api.casino_jackpot_rake(stake).await;
-            for line in &board { ctx.whisper_success(line); }
+            ctx.whisper_board(&board).await;
             ctx.whisper_success(format!(
                 "The word was {}. -{} chips (to jackpot).",
                 solution.to_uppercase(), chips_str(stake)

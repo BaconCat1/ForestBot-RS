@@ -109,6 +109,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~survey all commands with cross server data to confirm they can all pull cross server data, verify syntax is unified~~
 	* ✅ ~~also need to survey command descriptions to verify they all have usage instructions~~
 * ✅ ~~**bug**: [blacklisted people can dodge the blacklist if they have access to a discord bridge](https://discord.com/channels/1427088370676400241/1428539816764506294/1527024487223263374). Idea: when a command is run from a user without a uuid, assume it's a discord user. Parse out their username, and pass it to Discord via Hub to resolve the snowflake id, then check that against the blacklist. If found, command silently doesn't run, in line with existing blacklist behaviour. If Discord is offline, give an error to all non uuid commands.~~
+* 🐛 **bug**: Forest spammed chat with command announces (the reminders that are supposed to fire every 45 min on how to use a command). Need to investigate why and should gate the "announce" in `config.json`
 
 
 ## !quote
@@ -156,7 +157,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 
 ### Casino Phase II
 * ✅️ ~~migrate to a betting api over the current approach (requires Hub changes, deslopify-2026-07-07.md line 111)~~
-* ⏸️ board building whisper delay should be data driven in config.json
+* ✅ ~~board building whisper delay should be data driven in config.json~~ // done 2026-07-19: `board_whisper_delay_ms` config field + `CommandContext::whisper_board()`, applied to battleship/checkers/chess/connect_four/mines/reversi/wordle. Not yet compiled/tested.
 * ⏸️ eSports betting (OddsPapi — oddspapi.io (or panda api... wtv), free key, 250 req/month) — CS2, LoL, Dota 2, Valorant, CoD, Rocket League, Overwatch, R6, StarCraft; match winner moneyline; reuses existing odds-market UI // casino phase II
 * ⏸️ Hurricane betting (NHC — nhc.noaa.gov, no auth, flat file/GeoJSON) — "will storm X make landfall in region Y?"; seasonal; no REST API, flat file parse required // casino phase II
 * ⏸️ River/streamflow betting (NOAA NWPS — water.noaa.gov, no auth) — HEFS ensemble forecast, "will river X exceed flood stage?"; distinct from existing alert-based noaa_flooding.rs // casino phase II
@@ -171,7 +172,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ⏸️ parlays across all betting types (needs mapping) // on hold for casino phase II
 * ⏸️ side betting on any game, not just dueling // on hold for casino phase II
 * ⏸️ add multiplayer where applicable to "casino games" // on hold for casino phase II
-* ✅ ~~!marry, as well as !divorce and !spouse, let's you marry a player, check their spouse. Append marital status to whois, alimony system based on winning casino games? // ON HOLD; written, untested. need to create the "betting" api so alimony raking doesn't need manual wiring in every game/market~~
+* ✅ ~~!marry, as well as !divorce and !spouse, let's you marry a player, check their spouse. Append marital status to whois, alimony system based on winning casino games?~~ // built for real 2026-07-18, compiled + live-tested + pushed (Hub schema + endpoints, marry.rs, universal alimony hook across every casino/market/weather win-credit site). The old "betting api" blocker is resolved by the `casino_win`/`SettleDeps` payout choke point built the same session — alimony now applies automatically to any game, no per-game wiring needed.
 
 * ✅ ~~**bug**: `increment_ms` cooldown not working~~ // spam path (blocked attempt) now also increments cooldown; success path already had it
 * ✅ ~~**bug**: !ud upvotes/downvotes always 0~~ // improved type parsing (i64 fallback); votes hidden when both 0 rather than showing (+0/-0)
