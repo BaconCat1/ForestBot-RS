@@ -32,7 +32,15 @@ pub enum DuelPhase {
 pub struct Duel {
     pub id: Uuid,
     pub challenger: String,
+    // casino_adjust/casino_win are keyed by UUID, not username -- resolved once at
+    // escrow time (start_duel/confirm_duel, where ctx is available to bail cleanly on
+    // resolution failure) and stored here so the detached payout paths below
+    // (resolve_duel/cancel_duel_refund, timeout tasks) never need a ctx to pay out
+    // correctly. challenged_uuid is None until confirm_duel resolves it -- only ever
+    // read once phase == Active, by which point it's guaranteed Some.
+    pub challenger_uuid: String,
     pub challenged: String,
+    pub challenged_uuid: Option<String>,
     pub stake: i64,
     pub phase: DuelPhase,
     pub confirm_expires_at: u64,
@@ -43,6 +51,7 @@ pub struct Duel {
 #[derive(Clone, Debug)]
 pub struct SideBet {
     pub bettor: String,
+    pub bettor_uuid: String,
     pub target: String,      // participant name they are betting on
     pub amount: i64,
     pub odds_at_placement: f64, // win probability of `target` when bet was placed
@@ -111,8 +120,10 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
         return Ok(());
     }
 
+    let Some(challenger_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+
     // Escrow challenger chips
-    match ctx.state.api.casino_adjust(sender, -stake).await {
+    match ctx.state.api.casino_adjust(&challenger_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
@@ -128,7 +139,9 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
     let duel = Duel {
         id: Uuid::new_v4(),
         challenger: sender.to_owned(),
+        challenger_uuid,
         challenged: target.to_owned(),
+        challenged_uuid: None,
         stake,
         phase: DuelPhase::Pending,
         confirm_expires_at,
@@ -175,8 +188,10 @@ async fn confirm_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
 
+    let Some(challenged_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+
     // Escrow challenged chips
-    match ctx.state.api.casino_adjust(ctx.sender, -duel.stake).await {
+    match ctx.state.api.casino_adjust(&challenged_uuid, -duel.stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper_success(format!("Need {} but have {}.", chips_str(duel.stake), chips_str(have)));
@@ -196,6 +211,7 @@ async fn confirm_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         if let Some(d) = duels.iter_mut().find(|d| d.id == duel.id) {
             d.phase = DuelPhase::Active;
             d.expires_at = Some(expires_at);
+            d.challenged_uuid = Some(challenged_uuid);
         }
     }
 
@@ -319,8 +335,10 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let (c_odds, x_odds) = duel_odds(ctx.state, &duel.challenger, &duel.challenged).await;
     let odds_for_target = if resolved_target == duel.challenger { c_odds } else { x_odds };
 
+    let Some(bettor_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+
     // Deduct chips
-    match ctx.state.api.casino_adjust(ctx.sender, -amount).await {
+    match ctx.state.api.casino_adjust(&bettor_uuid, -amount).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper_success(format!("Need {} but have {}.", chips_str(amount), chips_str(have)));
@@ -339,6 +357,7 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         if let Some(d) = duels.iter_mut().find(|d| d.id == duel.id) {
             d.side_bets.push(SideBet {
                 bettor: ctx.sender.to_owned(),
+                bettor_uuid,
                 target: resolved_target.clone(),
                 amount,
                 odds_at_placement: odds_for_target,
@@ -409,13 +428,29 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
         &duel.challenger
     };
 
+    let winner_uuid = if duel.challenger.eq_ignore_ascii_case(winner) {
+        duel.challenger_uuid.clone()
+    } else {
+        match &duel.challenged_uuid {
+            Some(uuid) => uuid.clone(),
+            None => {
+                // Should be unreachable -- resolve_duel only fires once phase == Active,
+                // which confirm_duel guarantees set challenged_uuid. Refuse the payout
+                // rather than risk crediting a bogus username-keyed row.
+                eprintln!("[duel] resolve_duel: challenged_uuid missing on an Active duel (id {:?}) -- refusing payout", duel.id);
+                remove_duel(state, duel.id);
+                return;
+            }
+        }
+    };
+
     remove_duel(state, duel.id);
 
     // Main pot
     let pot = duel.stake * 2;
     let rake = (pot as f64 * RAKE) as i64;
     let payout = pot - rake;
-    let win = state.api.casino_win(winner, payout).await.unwrap_or_default();
+    let win = state.api.casino_win(&winner_uuid, payout).await.unwrap_or_default();
     state.api.casino_jackpot_rake(rake).await;
 
     // Duel win stat
@@ -430,7 +465,7 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
             let sb_rake = (raw as f64 * RAKE) as i64;
             let sb_payout = (raw - sb_rake).max(0);
             jackpot_extra += sb_rake;
-            let sb_win = state.api.casino_win(&sb.bettor, sb_payout).await.unwrap_or_default();
+            let sb_win = state.api.casino_win(&sb.bettor_uuid, sb_payout).await.unwrap_or_default();
             let sb_alimony_note = if sb_win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(sb_win.alimony_paid)) } else { String::new() };
             enqueue_chat(state, format!(
                 "/{whisper_cmd} {} Side bet on {} paid: +{} chips{sb_alimony_note}",
@@ -453,12 +488,14 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
 
 async fn cancel_duel_refund(state: &AzaleaState, duel: &Duel) {
     remove_duel(state, duel.id);
-    let _ = state.api.casino_adjust(&duel.challenger, duel.stake).await;
+    let _ = state.api.casino_adjust(&duel.challenger_uuid, duel.stake).await;
     if duel.phase == DuelPhase::Active {
-        let _ = state.api.casino_adjust(&duel.challenged, duel.stake).await;
+        if let Some(uuid) = &duel.challenged_uuid {
+            let _ = state.api.casino_adjust(uuid, duel.stake).await;
+        }
     }
     for sb in &duel.side_bets {
-        let _ = state.api.casino_adjust(&sb.bettor, sb.amount).await;
+        let _ = state.api.casino_adjust(&sb.bettor_uuid, sb.amount).await;
     }
 }
 

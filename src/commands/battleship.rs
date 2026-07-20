@@ -337,6 +337,8 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let arg = raw_arg.to_ascii_lowercase();
         let arg = arg.as_str();
 
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+
         let has_session = ctx.state.battleship_games.lock().unwrap().contains_key(&sender);
 
         if !has_session {
@@ -351,7 +353,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     return Ok(());
                 }
             };
-            match ctx.state.api.casino_adjust(&sender, -chips).await {
+            match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
                 Err(CasinoAdjustErr::InsufficientFunds(have)) => {
                     ctx.whisper_success(format!("Not enough chips (have {}).", chips_str(have)));
                     return Ok(());
@@ -452,7 +454,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 ctx.whisper_success("Already fired there.");
             }
             Outcome::Win { stake, opponent, player_msg, board_lines } => {
-                let win = ctx.state.api.casino_win(&sender, stake * 2).await.unwrap_or_default();
+                let win = ctx.state.api.casino_win(&player_uuid, stake * 2).await.unwrap_or_default();
                 ctx.whisper_success(&player_msg);
                 let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                 ctx.whisper_success(format!("All of {opponent}'s ships sunk! Win: {}!{alimony_note}", chips_str(stake * 2)));

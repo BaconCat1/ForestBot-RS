@@ -82,7 +82,9 @@ async fn execute_new_session(ctx: &CommandContext<'_>, stake_str: &str) -> anyho
         return Ok(());
     }
 
-    match ctx.state.api.casino_adjust(ctx.sender, -stake).await {
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+
+    match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
@@ -113,7 +115,7 @@ async fn execute_new_session(ctx: &CommandContext<'_>, stake_str: &str) -> anyho
         stake, opponent_name, aggression, game: Box::new(game),
     });
     if !started {
-        let bal = ctx.state.api.casino_adjust(ctx.sender, stake).await.unwrap_or(0);
+        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
         ctx.whisper_success(format!("Already in another game — this stake refunded. Balance: {}", chips_str(bal)));
     }
     Ok(())
@@ -253,16 +255,17 @@ async fn execute_quit(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
 
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
     let credit = game.player_stack as i64;
     let net = credit - stake;
     let (bal, alimony_note) = if credit > stake {
-        let win = ctx.state.api.casino_win(ctx.sender, credit).await.unwrap_or_default();
+        let win = ctx.state.api.casino_win(&player_uuid, credit).await.unwrap_or_default();
         let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
         (win.chips, note)
     } else if credit > 0 {
-        (ctx.state.api.casino_adjust(ctx.sender, credit).await.unwrap_or(0), String::new())
+        (ctx.state.api.casino_adjust(&player_uuid, credit).await.unwrap_or(0), String::new())
     } else {
-        (ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0), String::new())
+        (ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0), String::new())
     };
 
     let sign = if net >= 0 { "+" } else { "" };
@@ -308,14 +311,17 @@ async fn handle_hand_end(
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
         let credit = game.player_stack as i64;
         let net = credit - stake;
-        let (bal, alimony_note) = if credit > stake {
-            let win = ctx.state.api.casino_win(ctx.sender, credit).await.unwrap_or_default();
-            let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
-            (win.chips, note)
-        } else if credit > 0 {
-            (ctx.state.api.casino_adjust(ctx.sender, credit).await.unwrap_or(0), String::new())
-        } else {
-            (ctx.state.api.casino_get_balance(ctx.sender).await.map(|b| b.chips).unwrap_or(0), String::new())
+        let (bal, alimony_note) = match ctx.require_player_uuid().await {
+            None => return,
+            Some(player_uuid) => if credit > stake {
+                let win = ctx.state.api.casino_win(&player_uuid, credit).await.unwrap_or_default();
+                let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                (win.chips, note)
+            } else if credit > 0 {
+                (ctx.state.api.casino_adjust(&player_uuid, credit).await.unwrap_or(0), String::new())
+            } else {
+                (ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0), String::new())
+            },
         };
         let sign = if net >= 0 { "+" } else { "" };
         let who = if game.player_stack == 0 { "You're bust" } else { "Bot is bust" };

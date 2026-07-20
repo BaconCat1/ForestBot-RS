@@ -977,6 +977,12 @@ pub struct TriviaRound {
     pub phase: TriviaPhase,
     pub stake: i64,
     pub participants: HashSet<String>,
+    // username -> resolved UUID, populated as each participant joins (start_round/
+    // join_round, where ctx is available to bail cleanly on resolution failure).
+    // casino_win/casino_adjust are keyed by UUID; the payout timer that pays winners
+    // 30-75s later only has `state`, not `ctx`, so resolving once up front here avoids
+    // needing to re-resolve (and risk failure) at payout time.
+    pub player_uuids: std::collections::HashMap<String, String>,
     // Results
     pub correct_players: Vec<String>,
     pub wrong_players: Vec<String>,

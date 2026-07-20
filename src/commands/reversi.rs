@@ -381,7 +381,9 @@ async fn start_game(ctx: &CommandContext<'_>, sender: &str, stake: i64) -> anyho
         return Ok(());
     }
 
-    match ctx.state.api.casino_adjust(sender, -stake).await {
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+
+    match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
             return Ok(());
@@ -532,20 +534,22 @@ async fn finish_game(
     ctx.whisper_board(lines).await;
     ctx.whisper_success(format!("Final score — You: {} Bot: {}", ps, cs));
 
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+
     match result {
         GameResult::PlayerWins => {
             let payout = stake * 2;
-            let win = ctx.state.api.casino_win(sender, payout).await.unwrap_or_default();
+            let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
             let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
             ctx.whisper_success(format!("You beat {}! +{}{alimony_note} | Balance: {}", opponent, chips_str(payout), chips_str(win.chips)));
         }
         GameResult::CpuWins => {
             ctx.state.api.casino_jackpot_rake(stake).await;
-            let bal = ctx.state.api.casino_get_balance(sender).await.map(|b| b.chips).unwrap_or(0);
+            let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
             ctx.whisper_success(format!("{} wins. -{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
         }
         GameResult::Draw => {
-            let bal = ctx.state.api.casino_adjust(sender, stake).await.unwrap_or(0);
+            let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
             ctx.whisper_success(format!("Draw! Stake returned. | Balance: {}", chips_str(bal)));
         }
         GameResult::InProgress => {}
@@ -564,7 +568,8 @@ async fn quit_game(ctx: &CommandContext<'_>, sender: &str, reason: &str) -> anyh
         None => { ctx.whisper_success("No active reversi game."); }
         Some(s) => {
             ctx.state.api.casino_jackpot_rake(s.stake).await;
-            let bal = ctx.state.api.casino_get_balance(sender).await.map(|b| b.chips).unwrap_or(0);
+            let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+            let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
             ctx.whisper_success(format!("{} — lost {}. Stake to jackpot. | Balance: {}", reason, chips_str(s.stake), chips_str(bal)));
         }
     }

@@ -96,7 +96,9 @@ async fn start_game(ctx: &CommandContext<'_>, stake: i64, hard_mode: bool) -> an
         return Ok(());
     }
 
-    match ctx.state.api.casino_adjust(ctx.sender, -stake).await {
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+
+    match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
@@ -201,7 +203,8 @@ async fn submit_guess(ctx: &CommandContext<'_>, word: &str) -> anyhow::Result<()
             let mult = WIN_MULTIPLIERS[guesses_used.saturating_sub(1).min(5)];
             let payout = (stake as f64 * mult).ceil() as i64;
             let net = payout - stake;
-            let win = ctx.state.api.casino_win(ctx.sender, payout).await.unwrap_or_default();
+            let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+            let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
             let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
             ctx.whisper_board(&board).await;
             ctx.whisper_success(format!(

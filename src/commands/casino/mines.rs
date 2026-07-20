@@ -231,6 +231,8 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let raw_arg = ctx.args.first().copied().unwrap_or("").to_ascii_lowercase();
         let arg     = raw_arg.as_str();
 
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+
         let has_session = ctx.state.mines_games.lock().unwrap().contains_key(&sender);
 
         if !has_session {
@@ -245,7 +247,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     return Ok(());
                 }
             };
-            match ctx.state.api.casino_adjust(&sender, -chips).await {
+            match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
                 Err(CasinoAdjustErr::InsufficientFunds(have)) => {
                     ctx.whisper_success(format!("Not enough chips (have {}).", chips_str(have)));
                     return Ok(());
@@ -284,7 +286,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     return Ok(());
                 }
                 ctx.state.mines_games.lock().unwrap().remove(&sender);
-                let win = ctx.state.api.casino_win(&sender, payout).await.unwrap_or_default();
+                let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
                 let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                 ctx.whisper_success(format!("Cashed out! Won {}{alimony_note}.", chips_str(payout)));
                 return Ok(());
@@ -380,7 +382,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 ctx.whisper_board(board).await;
             }
             Outcome::Victory { payout, board } => {
-                let win = ctx.state.api.casino_win(&sender, payout).await.unwrap_or_default();
+                let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
                 let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
                 ctx.whisper_success(format!("All safe cells cleared! Won {}{alimony_note}!", chips_str(payout)));
                 ctx.whisper_board(board).await;

@@ -76,8 +76,10 @@ fn execute_trivia(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         }
 
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+
         // Deduct stake from starter
-        match ctx.state.api.casino_adjust(ctx.sender, -stake).await {
+        match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
             Ok(_) => {}
             Err(CasinoAdjustErr::InsufficientFunds(have)) => {
                 ctx.whisper(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
@@ -94,7 +96,7 @@ fn execute_trivia(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             Some(r) => r,
             None => {
                 // Refund on fetch failure
-                let _ = ctx.state.api.casino_adjust(ctx.sender, stake).await;
+                let _ = ctx.state.api.casino_adjust(&player_uuid, stake).await;
                 ctx.whisper("Failed to fetch trivia question, try again.");
                 return Ok(());
             }
@@ -106,6 +108,7 @@ fn execute_trivia(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             let mut r = round;
             r.stake = stake;
             r.participants.insert(sender.clone());
+            r.player_uuids.insert(sender.clone(), player_uuid);
             *lock = Some(r);
         }
 
@@ -151,7 +154,8 @@ async fn join_round(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             ctx.whisper("Already joined this round!");
         }
         JoinOutcome::NeedDeduct { stake } => {
-            match ctx.state.api.casino_adjust(ctx.sender, -stake).await {
+            let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
+            match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
                 Ok(_) => {}
                 Err(CasinoAdjustErr::InsufficientFunds(have)) => {
                     ctx.whisper(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
@@ -166,6 +170,7 @@ async fn join_round(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
                 let mut lock = ctx.state.active_trivia.lock().expect("trivia lock");
                 if let Some(round) = lock.as_mut() {
                     round.participants.insert(sender.clone());
+                    round.player_uuids.insert(sender.clone(), player_uuid);
                 }
             }
             ctx.chat(format!("{} joined the trivia round!", sender));
@@ -286,7 +291,7 @@ fn spawn_answer_timer(state: AzaleaState, stake: i64, delay_secs: u64) {
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(delay_secs)).await;
 
-        let (summary, correct_players, wrong_players, no_answer_players) = {
+        let (summary, correct_players, wrong_players, no_answer_players, player_uuids) = {
             let mut lock = state.active_trivia.lock().expect("trivia lock");
             let Some(round) = lock.as_mut() else { return; };
             if round.phase != TriviaPhase::Open { return; }
@@ -298,13 +303,20 @@ fn spawn_answer_timer(state: AzaleaState, stake: i64, delay_secs: u64) {
                 .filter(|p| !round.answered.contains(*p))
                 .cloned()
                 .collect();
-            (summary, correct, wrong, no_answer)
+            (summary, correct, wrong, no_answer, round.player_uuids.clone())
         };
 
-        // Pay 2x to correct players
+        // Pay 2x to correct players. UUIDs were resolved at join time (player_uuids,
+        // populated in execute_trivia/join_round) rather than re-resolved here --
+        // casino_win/casino_adjust are UUID-keyed, and re-resolving this late would risk
+        // a payout failing to find anyone to credit instead of a clean pre-money bail.
         let mut alimony_notes: std::collections::HashMap<String, String> = std::collections::HashMap::new();
         for player in &correct_players {
-            let win = state.api.casino_win(player, stake * 2).await.unwrap_or_default();
+            let Some(player_uuid) = player_uuids.get(player) else {
+                eprintln!("[trivia] payout: no resolved UUID stored for {player} -- skipping, contact admin");
+                continue;
+            };
+            let win = state.api.casino_win(player_uuid, stake * 2).await.unwrap_or_default();
             if win.alimony_paid > 0 {
                 alimony_notes.insert(player.clone(), format!(" (-{} alimony)", chips_str(win.alimony_paid)));
             }
@@ -376,6 +388,7 @@ async fn fetch_question(category: Option<u32>) -> Option<(TriviaRound, String)> 
             phase: TriviaPhase::Joining,
             stake: 0,
             participants: HashSet::new(),
+            player_uuids: std::collections::HashMap::new(),
             correct_players: Vec::new(),
             wrong_players: Vec::new(),
             answered: HashSet::new(),
@@ -426,6 +439,7 @@ async fn fetch_question(category: Option<u32>) -> Option<(TriviaRound, String)> 
             phase: TriviaPhase::Joining,
             stake: 0,
             participants: HashSet::new(),
+            player_uuids: std::collections::HashMap::new(),
             correct_players: Vec::new(),
             wrong_players: Vec::new(),
             answered: HashSet::new(),

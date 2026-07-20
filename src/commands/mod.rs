@@ -147,6 +147,22 @@ impl CommandContext<'_> {
             .unwrap_or(true)
     }
 
+    /// Resolves the sender's real UUID, whispering an error if resolution fails.
+    /// `casino_adjust`/`casino_win` are keyed by UUID (`casino_balance.player_uuid`) --
+    /// passing a raw username instead silently reads/creates a bogus shadow row keyed
+    /// by that literal string, disconnected from the player's real balance. Always
+    /// resolve through this (or `resolve_player_uuid` for detached/non-ctx contexts
+    /// like spawned timer tasks) before any money-touching API call.
+    pub async fn require_player_uuid(&self) -> Option<String> {
+        match resolve_player_uuid(self.state, self.sender).await {
+            Some(uuid) => Some(uuid),
+            None => {
+                self.whisper_success("Could not resolve your UUID.");
+                None
+            }
+        }
+    }
+
     /// Sends a multi-line game board (battleship/checkers/chess/connect four/mines/
     /// reversi/wordle) one whisper per line, paced by `board_whisper_delay_ms`.
     /// Unpaced bursts trip RV's anti-spam filter and get the bot kicked -- delay
@@ -208,6 +224,16 @@ impl CommandContext<'_> {
 
 pub fn enqueue_chat(state: &AzaleaState, message: impl AsRef<str>) {
     enqueue_chat_raw(&state.runtime, &state.recent_whispers, &state.outbound_chat, message)
+}
+
+/// Resolves a username to their real UUID for use with `casino_adjust`/`casino_win`,
+/// which are keyed by UUID. Free-function form of `CommandContext::require_player_uuid`
+/// for detached contexts (spawned timer tasks, event hooks) that only have
+/// `&AzaleaState`, not a `CommandContext` -- e.g. `duel.rs`'s deferred payout tasks,
+/// `trivia.rs`'s answer-timer payout loop. Doesn't whisper on failure since there's no
+/// command invocation to reply to; callers decide how to handle a `None`.
+pub async fn resolve_player_uuid(state: &AzaleaState, username: &str) -> Option<String> {
+    state.api.convert_username_to_uuid(username).await
 }
 
 /// Real logic behind `enqueue_chat`, taking the 3 fields it actually needs
