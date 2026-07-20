@@ -943,6 +943,24 @@
       "increment_ms": 0,
       "reset_multiplier": 2,
       "max_cooldown_ms": 0
+    },
+    "accept": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "max_cooldown_ms": 0,
+      "reset_multiplier": 2
+    },
+    "poke": {
+      "cooldown_ms": 15000,
+      "increment_ms": 0,
+      "max_cooldown_ms": 0,
+      "reset_multiplier": 2
+    },
+    "reject": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "max_cooldown_ms": 0,
+      "reset_multiplier": 2
     }
   },
   "welcome_messages": true,
@@ -1118,7 +1136,13 @@
     "launch": true,
     "gas": true,
     "bets": true,
-    "url": true
+    "url": true,
+    "accept": true,
+    "poke": true,
+    "reject": true,
+    "wp": true,
+    "kill": false,
+    "urban": true
   },
   "url_whitelist_file": "./json/url_whitelist_domains.hosts",
   "url_blocklist_sources": [

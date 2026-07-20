@@ -579,12 +579,24 @@ async fn merge_config_from_example() -> Result<()> {
     let mut added: Vec<String> = Vec::new();
     merge_missing(&mut config, &example, "", &mut added);
 
-    if !added.is_empty() {
-        println!(
-            "[config] Auto-merged {} missing key(s) from example.config.json: {}",
-            added.len(),
-            added.join(", ")
-        );
+    let mut removed: Vec<String> = Vec::new();
+    prune_extra(&mut config, &example, "", &mut removed);
+
+    if !added.is_empty() || !removed.is_empty() {
+        if !added.is_empty() {
+            println!(
+                "[config] Auto-merged {} missing key(s) from example.config.json: {}",
+                added.len(),
+                added.join(", ")
+            );
+        }
+        if !removed.is_empty() {
+            println!(
+                "[config] Pruned {} key(s) not present in example.config.json: {}",
+                removed.len(),
+                removed.join(", ")
+            );
+        }
         let updated = serde_json::to_string_pretty(&config)?;
         fs::write("./config.json", updated)
             .await
@@ -614,6 +626,50 @@ fn merge_missing(
             added.push(full_key);
         } else if value.is_object() {
             merge_missing(target_obj.get_mut(key).unwrap(), value, &full_key, added);
+        }
+    }
+}
+
+// example.config.json is the schema authority -- any key present in config.json but not
+// there is either stale (renamed/removed field) or was never a real Config field to begin
+// with, so it's dropped rather than left inert forever (config.rs's Deserialize isn't
+// deny_unknown_fields, so orphaned keys would otherwise sit silently unused). Only
+// descends into keys present on both sides so it can prune nested extras (e.g. an orphaned
+// api_keys entry) without touching arrays or scalars, mirroring merge_missing's shape.
+fn prune_extra(
+    target: &mut serde_json::Value,
+    source: &serde_json::Value,
+    prefix: &str,
+    removed: &mut Vec<String>,
+) {
+    let (Some(target_obj), Some(source_obj)) = (target.as_object_mut(), source.as_object()) else {
+        return;
+    };
+    let extra_keys: Vec<String> = target_obj
+        .keys()
+        .filter(|key| !source_obj.contains_key(*key))
+        .cloned()
+        .collect();
+    for key in extra_keys {
+        let full_key = if prefix.is_empty() {
+            key.clone()
+        } else {
+            format!("{prefix}.{key}")
+        };
+        target_obj.remove(&key);
+        removed.push(full_key);
+    }
+    for (key, source_value) in source_obj {
+        if !source_value.is_object() {
+            continue;
+        }
+        if let Some(target_value) = target_obj.get_mut(key) {
+            let full_key = if prefix.is_empty() {
+                key.clone()
+            } else {
+                format!("{prefix}.{key}")
+            };
+            prune_extra(target_value, source_value, &full_key, removed);
         }
     }
 }
