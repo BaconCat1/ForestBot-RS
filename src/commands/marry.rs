@@ -3,8 +3,6 @@ use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFu
 use crate::commands::casino::{chips_str, deliver};
 use crate::structure::endpoints::endpoints::DivorceResult;
 
-const FORCE_CONFIRM_WINDOW: Duration = Duration::from_secs(60);
-
 pub const MARRY_COMMAND: CommandDefinition = CommandDefinition {
     names: &["marry"],
     description: "Marriage: !marry <player> | !marry preview | !marry dowry <amount> | !marry accept | !marry reject",
@@ -187,7 +185,7 @@ fn divorce_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                         ctx.whisper_success("No pending force-divorce. Use !divorce force <player> first.");
                     }
                     Some((partner_uuid, started_at)) => {
-                        if started_at.elapsed() > FORCE_CONFIRM_WINDOW {
+                        if started_at.elapsed() > Duration::from_secs(ctx.runtime.marry_confirm_window_secs) {
                             ctx.state.pending_force_divorces.lock().expect("pending_force_divorces lock poisoned").remove(&sender_uuid);
                             ctx.whisper_success("Confirmation window expired. Use !divorce force <player> again.");
                             return Ok(());

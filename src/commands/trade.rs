@@ -6,9 +6,6 @@ use crate::{
     structure::mineflayer::bot::PlayerSnapshot,
 };
 
-const TRADE_PROPOSE_COOLDOWN: Duration = Duration::from_secs(60);
-const TRADE_REJECT_PENALTY_COOLDOWN: Duration = Duration::from_secs(600);
-
 // ===== !trade [confirm | reject | <player> <desc>] =====
 
 pub const TRADE_COMMAND: CommandDefinition = CommandDefinition {
@@ -100,7 +97,7 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     {
         let mut cooldowns = ctx.state.trade_cooldowns.lock().expect("trade cooldown lock poisoned");
-        cooldowns.insert(sender_uuid, Instant::now() + TRADE_PROPOSE_COOLDOWN);
+        cooldowns.insert(sender_uuid, Instant::now() + Duration::from_secs(ctx.runtime.trade_propose_cooldown_secs));
     }
 
     ctx.whisper(format!("Trade #{id} proposed to {recipient_name}."));
@@ -170,7 +167,7 @@ async fn reject_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             if is_recipient {
                 let mut cooldowns =
                     ctx.state.trade_cooldowns.lock().expect("trade cooldown lock poisoned");
-                cooldowns.insert(initiator_id, Instant::now() + TRADE_REJECT_PENALTY_COOLDOWN);
+                cooldowns.insert(initiator_id, Instant::now() + Duration::from_secs(ctx.runtime.trade_reject_penalty_secs));
             }
         }
         Err(msg) => ctx.whisper(format!("Could not reject: {msg}")),

@@ -40,6 +40,118 @@ fn default_censor_threshold() -> String {
     "moderate".to_owned()
 }
 
+fn default_duplicate_message_window_secs() -> u64 {
+    5
+}
+
+fn default_afk_mention_cooldown_secs() -> u64 {
+    60
+}
+
+fn default_connection_failure_backoff_secs() -> u64 {
+    600
+}
+
+fn default_packet_send_delay_ms() -> u64 {
+    25
+}
+
+fn default_entity_spawn_greeting_ttl_ms() -> u64 {
+    500_000
+}
+
+fn default_player_detection_cooldown_ms() -> u64 {
+    600_000
+}
+
+fn default_smart_censor_timeout_ms() -> u64 {
+    5_000
+}
+
+fn default_ws_response_timeout_secs() -> u64 {
+    5
+}
+
+fn default_player_list_update_interval_secs() -> u64 {
+    60
+}
+
+fn default_reminder_tick_interval_secs() -> u64 {
+    30
+}
+
+fn default_crouch_max_hold_secs() -> u64 {
+    600
+}
+
+fn default_crouch_toggle_delay_ms() -> u64 {
+    50
+}
+
+fn default_poll_duration_secs() -> u64 {
+    120
+}
+
+fn default_duel_confirm_window_secs() -> u64 {
+    60
+}
+
+fn default_duel_timeout_secs() -> u64 {
+    600
+}
+
+fn default_marry_confirm_window_secs() -> u64 {
+    60
+}
+
+fn default_trade_propose_cooldown_secs() -> u64 {
+    60
+}
+
+fn default_trade_reject_penalty_secs() -> u64 {
+    600
+}
+
+fn default_roast_timeout_ms() -> u64 {
+    8_000
+}
+
+fn default_scratch_animation_delay_ms() -> u64 {
+    600
+}
+
+fn default_slots_animation_delay_ms() -> u64 {
+    800
+}
+
+fn default_twerk_flash_delay_ms() -> u64 {
+    100
+}
+
+fn default_market_quote_ttl_secs() -> u64 {
+    60
+}
+
+fn default_market_history_ttl_secs() -> u64 {
+    300
+}
+
+fn default_market_search_ttl_secs() -> u64 {
+    86_400
+}
+
+fn default_market_api_timeout_secs() -> u64 {
+    10
+}
+
+fn default_url_blocklist_timeout_secs() -> u64 {
+    30
+}
+
+fn default_websocket_keepalive_secs() -> u64 {
+    5
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ApiKeys {
     #[serde(default)]
@@ -271,6 +383,70 @@ pub struct Config {
     pub announce_min_interval_ms: u64,
     #[serde(default = "default_announce_max_interval_ms")]
     pub announce_max_interval_ms: u64,
+
+    // Config-driven-gating scan (2026-07-19/20, todo.md:114) -- hardcoded timing/threshold
+    // constants surfaced by grep, moved here so ops can tune per-server without a recompile.
+    #[serde(default = "default_duplicate_message_window_secs")]
+    pub duplicate_message_window_secs: u64,
+    #[serde(default = "default_afk_mention_cooldown_secs")]
+    pub afk_mention_cooldown_secs: u64,
+    #[serde(default = "default_connection_failure_backoff_secs")]
+    pub connection_failure_backoff_secs: u64,
+    #[serde(default = "default_packet_send_delay_ms")]
+    pub packet_send_delay_ms: u64,
+    #[serde(default = "default_entity_spawn_greeting_ttl_ms")]
+    pub entity_spawn_greeting_ttl_ms: u64,
+    #[serde(default = "default_player_detection_cooldown_ms")]
+    pub player_detection_cooldown_ms: u64,
+    #[serde(default = "default_smart_censor_timeout_ms")]
+    pub smart_censor_timeout_ms: u64,
+    // Shared by run_queue_probe and resolve_and_check_bridge_sender -- both are bounded
+    // waits on a oneshot channel for a websocket round trip, same structural role.
+    #[serde(default = "default_ws_response_timeout_secs")]
+    pub ws_response_timeout_secs: u64,
+    #[serde(default = "default_player_list_update_interval_secs")]
+    pub player_list_update_interval_secs: u64,
+    #[serde(default = "default_reminder_tick_interval_secs")]
+    pub reminder_tick_interval_secs: u64,
+    #[serde(default = "default_crouch_max_hold_secs")]
+    pub crouch_max_hold_secs: u64,
+    #[serde(default = "default_crouch_toggle_delay_ms")]
+    pub crouch_toggle_delay_ms: u64,
+    #[serde(default = "default_poll_duration_secs")]
+    pub poll_duration_secs: u64,
+    #[serde(default = "default_duel_confirm_window_secs")]
+    pub duel_confirm_window_secs: u64,
+    #[serde(default = "default_duel_timeout_secs")]
+    pub duel_timeout_secs: u64,
+    #[serde(default = "default_marry_confirm_window_secs")]
+    pub marry_confirm_window_secs: u64,
+    #[serde(default = "default_trade_propose_cooldown_secs")]
+    pub trade_propose_cooldown_secs: u64,
+    #[serde(default = "default_trade_reject_penalty_secs")]
+    pub trade_reject_penalty_secs: u64,
+    #[serde(default = "default_roast_timeout_ms")]
+    pub roast_timeout_ms: u64,
+    #[serde(default = "default_scratch_animation_delay_ms")]
+    pub scratch_animation_delay_ms: u64,
+    #[serde(default = "default_slots_animation_delay_ms")]
+    pub slots_animation_delay_ms: u64,
+    #[serde(default = "default_twerk_flash_delay_ms")]
+    pub twerk_flash_delay_ms: u64,
+    // Constructor-time only (MarketService::new/Cache::new, build_blocklist,
+    // WebsocketClient::connect) -- not in RuntimeConfig since nothing re-reads them
+    // per-message, only once at startup.
+    #[serde(default = "default_market_quote_ttl_secs")]
+    pub market_quote_ttl_secs: u64,
+    #[serde(default = "default_market_history_ttl_secs")]
+    pub market_history_ttl_secs: u64,
+    #[serde(default = "default_market_search_ttl_secs")]
+    pub market_search_ttl_secs: u64,
+    #[serde(default = "default_market_api_timeout_secs")]
+    pub market_api_timeout_secs: u64,
+    #[serde(default = "default_url_blocklist_timeout_secs")]
+    pub url_blocklist_timeout_secs: u64,
+    #[serde(default = "default_websocket_keepalive_secs")]
+    pub websocket_keepalive_secs: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -365,6 +541,7 @@ pub struct ApiConfig {
     pub is_bot_client: bool,
     pub log_errors: bool,
     pub use_websocket: bool,
+    pub websocket_keepalive_secs: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -542,6 +719,7 @@ impl AppState {
                 is_bot_client: true,
                 log_errors: true,
                 use_websocket: true,
+                websocket_keepalive_secs: self.config.websocket_keepalive_secs,
             },
         })
     }

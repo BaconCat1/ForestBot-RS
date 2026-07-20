@@ -5,11 +5,11 @@ use tokio::fs;
 
 const CACHE_DIR: &str = "./json/url_blocklist_cache";
 
-pub async fn build_blocklist(sources: &[String], whitelist_file: &str) -> HashSet<String> {
+pub async fn build_blocklist(sources: &[String], whitelist_file: &str, timeout_secs: u64) -> HashSet<String> {
     let _ = fs::create_dir_all(CACHE_DIR).await;
 
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
+        .timeout(std::time::Duration::from_secs(timeout_secs))
         .user_agent("ForestBot/1.0")
         .build()
         .unwrap_or_default();

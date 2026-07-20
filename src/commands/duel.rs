@@ -14,8 +14,6 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
     execute,
 };
 
-const CONFIRM_WINDOW_SECS: u64 = 60;
-const DUEL_TIMEOUT_SECS: u64 = 600;
 const RAKE: f64 = 0.03;
 const MIN_STAKE: i64 = 50;
 const MAX_STAKE: i64 = 10_000;
@@ -135,7 +133,8 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
         }
     }
 
-    let confirm_expires_at = now_unix() + CONFIRM_WINDOW_SECS;
+    let confirm_window_secs = ctx.runtime.duel_confirm_window_secs;
+    let confirm_expires_at = now_unix() + confirm_window_secs;
     let duel = Duel {
         id: Uuid::new_v4(),
         challenger: sender.to_owned(),
@@ -157,7 +156,7 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
     // Announce in public chat so challenged player sees it
     enqueue_chat(ctx.state, format!(
         "{} challenges {} to a duel for {}! Type !duel confirm to accept ({}s to respond).",
-        sender, target, chips_str(stake), CONFIRM_WINDOW_SECS
+        sender, target, chips_str(stake), confirm_window_secs
     ));
 
     // Spawn confirm timeout
@@ -203,7 +202,7 @@ async fn confirm_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         }
     }
 
-    let expires_at = now_unix() + DUEL_TIMEOUT_SECS;
+    let expires_at = now_unix() + ctx.runtime.duel_timeout_secs;
 
     // Upgrade phase
     {
@@ -529,7 +528,12 @@ async fn confirm_timeout_task(state: AzaleaState, duel_id: Uuid) {
 }
 
 async fn active_timeout_task(state: AzaleaState, duel_id: Uuid) {
-    tokio::time::sleep(std::time::Duration::from_secs(DUEL_TIMEOUT_SECS)).await;
+    let timeout_secs = state
+        .runtime
+        .read()
+        .expect("runtime config lock poisoned")
+        .duel_timeout_secs;
+    tokio::time::sleep(std::time::Duration::from_secs(timeout_secs)).await;
 
     let duel = {
         let duels = state.duels.lock().expect("duels lock");

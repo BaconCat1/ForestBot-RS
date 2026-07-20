@@ -166,7 +166,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         ctx.whisper_success(format!("=== {tier_label} SCRATCHER ==="));
         ctx.whisper_success(cell_str);
 
-        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(ctx.runtime.scratch_animation_delay_ms)).await;
 
         if prize > 0 {
             let sym = PRIZE_SYMBOLS[prize_idx];

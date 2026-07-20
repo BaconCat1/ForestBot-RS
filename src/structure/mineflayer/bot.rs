@@ -33,7 +33,6 @@ use crate::structure::{
 };
 
 const TOGETHER_MODEL: &str = "ServiceNow-AI/Apriel-1.6-15b-Thinker";
-const SMART_CENSOR_TIMEOUT_MS: u64 = 5_000;
 const SMART_CENSOR_MAX_INPUT_LENGTH: usize = 280;
 const SMART_CENSOR_MAX_OUTPUT_LENGTH: usize = 280;
 
@@ -91,6 +90,28 @@ pub struct RuntimeConfig {
     pub board_whisper_delay_ms: u64,
     pub announce_min_interval_ms: u64,
     pub announce_max_interval_ms: u64,
+    pub duplicate_message_window_secs: u64,
+    pub afk_mention_cooldown_secs: u64,
+    pub connection_failure_backoff_secs: u64,
+    pub packet_send_delay_ms: u64,
+    pub entity_spawn_greeting_ttl_ms: u64,
+    pub player_detection_cooldown_ms: u64,
+    pub smart_censor_timeout_ms: u64,
+    pub ws_response_timeout_secs: u64,
+    pub player_list_update_interval_secs: u64,
+    pub reminder_tick_interval_secs: u64,
+    pub crouch_max_hold_secs: u64,
+    pub crouch_toggle_delay_ms: u64,
+    pub poll_duration_secs: u64,
+    pub duel_confirm_window_secs: u64,
+    pub duel_timeout_secs: u64,
+    pub marry_confirm_window_secs: u64,
+    pub trade_propose_cooldown_secs: u64,
+    pub trade_reject_penalty_secs: u64,
+    pub roast_timeout_ms: u64,
+    pub scratch_animation_delay_ms: u64,
+    pub slots_animation_delay_ms: u64,
+    pub twerk_flash_delay_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -156,6 +177,33 @@ pub struct Bot {
     pub board_whisper_delay_ms: u64,
     pub announce_min_interval_ms: u64,
     pub announce_max_interval_ms: u64,
+    pub duplicate_message_window_secs: u64,
+    pub afk_mention_cooldown_secs: u64,
+    pub connection_failure_backoff_secs: u64,
+    pub packet_send_delay_ms: u64,
+    pub entity_spawn_greeting_ttl_ms: u64,
+    pub player_detection_cooldown_ms: u64,
+    pub smart_censor_timeout_ms: u64,
+    pub ws_response_timeout_secs: u64,
+    pub player_list_update_interval_secs: u64,
+    pub reminder_tick_interval_secs: u64,
+    pub crouch_max_hold_secs: u64,
+    pub crouch_toggle_delay_ms: u64,
+    pub poll_duration_secs: u64,
+    pub duel_confirm_window_secs: u64,
+    pub duel_timeout_secs: u64,
+    pub marry_confirm_window_secs: u64,
+    pub trade_propose_cooldown_secs: u64,
+    pub trade_reject_penalty_secs: u64,
+    pub roast_timeout_ms: u64,
+    pub scratch_animation_delay_ms: u64,
+    pub slots_animation_delay_ms: u64,
+    pub twerk_flash_delay_ms: u64,
+    pub market_quote_ttl_secs: u64,
+    pub market_history_ttl_secs: u64,
+    pub market_search_ttl_secs: u64,
+    pub market_api_timeout_secs: u64,
+    pub url_blocklist_timeout_secs: u64,
 }
 
 impl Bot {
@@ -215,6 +263,33 @@ impl Bot {
             board_whisper_delay_ms: state.config.board_whisper_delay_ms,
             announce_min_interval_ms: state.config.announce_min_interval_ms,
             announce_max_interval_ms: state.config.announce_max_interval_ms,
+            duplicate_message_window_secs: state.config.duplicate_message_window_secs,
+            afk_mention_cooldown_secs: state.config.afk_mention_cooldown_secs,
+            connection_failure_backoff_secs: state.config.connection_failure_backoff_secs,
+            packet_send_delay_ms: state.config.packet_send_delay_ms,
+            entity_spawn_greeting_ttl_ms: state.config.entity_spawn_greeting_ttl_ms,
+            player_detection_cooldown_ms: state.config.player_detection_cooldown_ms,
+            smart_censor_timeout_ms: state.config.smart_censor_timeout_ms,
+            ws_response_timeout_secs: state.config.ws_response_timeout_secs,
+            player_list_update_interval_secs: state.config.player_list_update_interval_secs,
+            reminder_tick_interval_secs: state.config.reminder_tick_interval_secs,
+            crouch_max_hold_secs: state.config.crouch_max_hold_secs,
+            crouch_toggle_delay_ms: state.config.crouch_toggle_delay_ms,
+            poll_duration_secs: state.config.poll_duration_secs,
+            duel_confirm_window_secs: state.config.duel_confirm_window_secs,
+            duel_timeout_secs: state.config.duel_timeout_secs,
+            marry_confirm_window_secs: state.config.marry_confirm_window_secs,
+            trade_propose_cooldown_secs: state.config.trade_propose_cooldown_secs,
+            trade_reject_penalty_secs: state.config.trade_reject_penalty_secs,
+            roast_timeout_ms: state.config.roast_timeout_ms,
+            scratch_animation_delay_ms: state.config.scratch_animation_delay_ms,
+            slots_animation_delay_ms: state.config.slots_animation_delay_ms,
+            twerk_flash_delay_ms: state.config.twerk_flash_delay_ms,
+            market_quote_ttl_secs: state.config.market_quote_ttl_secs,
+            market_history_ttl_secs: state.config.market_history_ttl_secs,
+            market_search_ttl_secs: state.config.market_search_ttl_secs,
+            market_api_timeout_secs: state.config.market_api_timeout_secs,
+            url_blocklist_timeout_secs: state.config.url_blocklist_timeout_secs,
         }
     }
 
@@ -287,6 +362,28 @@ impl Bot {
                 board_whisper_delay_ms: self.board_whisper_delay_ms,
                 announce_min_interval_ms: self.announce_min_interval_ms,
                 announce_max_interval_ms: self.announce_max_interval_ms,
+                duplicate_message_window_secs: self.duplicate_message_window_secs,
+                afk_mention_cooldown_secs: self.afk_mention_cooldown_secs,
+                connection_failure_backoff_secs: self.connection_failure_backoff_secs,
+                packet_send_delay_ms: self.packet_send_delay_ms,
+                entity_spawn_greeting_ttl_ms: self.entity_spawn_greeting_ttl_ms,
+                player_detection_cooldown_ms: self.player_detection_cooldown_ms,
+                smart_censor_timeout_ms: self.smart_censor_timeout_ms,
+                ws_response_timeout_secs: self.ws_response_timeout_secs,
+                player_list_update_interval_secs: self.player_list_update_interval_secs,
+                reminder_tick_interval_secs: self.reminder_tick_interval_secs,
+                crouch_max_hold_secs: self.crouch_max_hold_secs,
+                crouch_toggle_delay_ms: self.crouch_toggle_delay_ms,
+                poll_duration_secs: self.poll_duration_secs,
+                duel_confirm_window_secs: self.duel_confirm_window_secs,
+                duel_timeout_secs: self.duel_timeout_secs,
+                marry_confirm_window_secs: self.marry_confirm_window_secs,
+                trade_propose_cooldown_secs: self.trade_propose_cooldown_secs,
+                trade_reject_penalty_secs: self.trade_reject_penalty_secs,
+                roast_timeout_ms: self.roast_timeout_ms,
+                scratch_animation_delay_ms: self.scratch_animation_delay_ms,
+                slots_animation_delay_ms: self.slots_animation_delay_ms,
+                twerk_flash_delay_ms: self.twerk_flash_delay_ms,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -311,7 +408,13 @@ impl Bot {
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
             casino_sessions: Arc::new(Mutex::new(HashMap::new())),
-            market_service: Arc::new(crate::structure::market::service::MarketService::new(self.coingecko_api_key.clone())),
+            market_service: Arc::new(crate::structure::market::service::MarketService::new(
+                self.coingecko_api_key.clone(),
+                self.market_quote_ttl_secs,
+                self.market_history_ttl_secs,
+                self.market_search_ttl_secs,
+                self.market_api_timeout_secs,
+            )),
             market_bets: Arc::new(Mutex::new(HashMap::new())),
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
             weather_bets: Arc::new(Mutex::new(HashMap::new())),
@@ -385,8 +488,9 @@ impl Bot {
             let blocklist_arc = state.url_blocklist.clone();
             let sources = self.url_blocklist_sources.clone();
             let whitelist = self.url_whitelist_file.clone();
+            let blocklist_timeout_secs = self.url_blocklist_timeout_secs;
             tokio::spawn(async move {
-                let set = crate::structure::mineflayer::url_blocklist::build_blocklist(&sources, &whitelist).await;
+                let set = crate::structure::mineflayer::url_blocklist::build_blocklist(&sources, &whitelist, blocklist_timeout_secs).await;
                 *blocklist_arc.write().expect("url_blocklist write") = Some(set);
             });
         }
@@ -1007,6 +1111,7 @@ impl Default for AzaleaState {
                 is_bot_client: true,
                 log_errors: false,
                 use_websocket: false,
+                websocket_keepalive_secs: 5,
             })),
             runtime: Arc::new(RwLock::new(RuntimeConfig {
                 prefix: "!".to_owned(),
@@ -1043,6 +1148,28 @@ impl Default for AzaleaState {
                 board_whisper_delay_ms: 1_000,
                 announce_min_interval_ms: 900_000,
                 announce_max_interval_ms: 2_700_000,
+                duplicate_message_window_secs: 5,
+                afk_mention_cooldown_secs: 60,
+                connection_failure_backoff_secs: 600,
+                packet_send_delay_ms: 25,
+                entity_spawn_greeting_ttl_ms: 500_000,
+                player_detection_cooldown_ms: 600_000,
+                smart_censor_timeout_ms: 5_000,
+                ws_response_timeout_secs: 5,
+                player_list_update_interval_secs: 60,
+                reminder_tick_interval_secs: 30,
+                crouch_max_hold_secs: 600,
+                crouch_toggle_delay_ms: 50,
+                poll_duration_secs: 120,
+                duel_confirm_window_secs: 60,
+                duel_timeout_secs: 600,
+                marry_confirm_window_secs: 60,
+                trade_propose_cooldown_secs: 60,
+                trade_reject_penalty_secs: 600,
+                roast_timeout_ms: 8_000,
+                scratch_animation_delay_ms: 600,
+                slots_animation_delay_ms: 800,
+                twerk_flash_delay_ms: 100,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -1067,7 +1194,13 @@ impl Default for AzaleaState {
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
             casino_sessions: Arc::new(Mutex::new(HashMap::new())),
-            market_service: Arc::new(crate::structure::market::service::MarketService::new(String::new())),
+            market_service: Arc::new(crate::structure::market::service::MarketService::new(
+                String::new(),
+                60,
+                300,
+                86_400,
+                10,
+            )),
             market_bets: Arc::new(Mutex::new(HashMap::new())),
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
             weather_bets: Arc::new(Mutex::new(HashMap::new())),
@@ -1295,9 +1428,14 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 // that target, it's our own echo — drop it before AFK/mention/command
                 // handling ever sees it.
                 {
+                    let dup_window_secs = state
+                        .runtime
+                        .read()
+                        .expect("runtime config lock poisoned")
+                        .duplicate_message_window_secs;
                     let mut recent = state.recent_whispers.lock().expect("recent_whispers lock poisoned");
                     if let Some((sent_content, sent_at)) = recent.get(&sender_lower) {
-                        if *sent_content == content && sent_at.elapsed() < Duration::from_secs(5) {
+                        if *sent_content == content && sent_at.elapsed() < Duration::from_secs(dup_window_secs) {
                             recent.remove(&sender_lower);
                             return Ok(());
                         }
@@ -1332,12 +1470,17 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
 
                     if !hits.is_empty() {
                         let now = Instant::now();
+                        let afk_mention_cooldown_secs = state
+                            .runtime
+                            .read()
+                            .expect("runtime config lock poisoned")
+                            .afk_mention_cooldown_secs;
                         let on_cd = state
                             .afk_cooldowns
                             .lock()
                             .expect("afk_cooldowns lock")
                             .get(&sender_lower)
-                            .map_or(false, |&t| now.duration_since(t) < Duration::from_secs(60));
+                            .map_or(false, |&t| now.duration_since(t) < Duration::from_secs(afk_mention_cooldown_secs));
 
                         if !on_cd {
                             let wcmd = state.runtime.read().expect("runtime config lock poisoned").whisper_command.clone();
@@ -1563,8 +1706,13 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             let failures = state.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
             if failures >= 10 {
                 state.consecutive_failures.store(0, Ordering::Relaxed);
-                logger::warn("Server unreachable after 10 consecutive failures. Waiting 10 minutes before reconnect.");
-                tokio::time::sleep(Duration::from_secs(10 * 60)).await;
+                let backoff_secs = state
+                    .runtime
+                    .read()
+                    .expect("runtime config lock poisoned")
+                    .connection_failure_backoff_secs;
+                logger::warn(format!("Server unreachable after 10 consecutive failures. Waiting {backoff_secs}s before reconnect."));
+                tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
             }
         }
         Event::ConnectionFailed(error) => {
@@ -1575,8 +1723,13 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             let failures = state.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
             if failures >= 10 {
                 state.consecutive_failures.store(0, Ordering::Relaxed);
-                logger::warn("Server unreachable after 10 consecutive failures. Waiting 10 minutes before reconnect.");
-                tokio::time::sleep(Duration::from_secs(10 * 60)).await;
+                let backoff_secs = state
+                    .runtime
+                    .read()
+                    .expect("runtime config lock poisoned")
+                    .connection_failure_backoff_secs;
+                logger::warn(format!("Server unreachable after 10 consecutive failures. Waiting {backoff_secs}s before reconnect."));
+                tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
             }
         }
         Event::Packet(packet) => {
@@ -1674,7 +1827,12 @@ async fn flush_outbound_chat(bot: &Client, state: &AzaleaState) {
         };
         logger::chat(format!("Sending chat reply: {message}"));
         bot.chat(message);
-        tokio::time::sleep(Duration::from_millis(25)).await;
+        let packet_send_delay_ms = state
+            .runtime
+            .read()
+            .expect("runtime config lock poisoned")
+            .packet_send_delay_ms;
+        tokio::time::sleep(Duration::from_millis(packet_send_delay_ms)).await;
     }
 }
 
@@ -1691,7 +1849,6 @@ fn mark_background_tasks_started(state: &AzaleaState) -> bool {
     true
 }
 
-const ENTITY_SPAWN_GREETING_TTL_MS: u64 = 500_000;
 const ENTITY_SPAWN_SCAN_INTERVAL_MS: i64 = 1_000;
 const ENTITY_SPAWN_GREETINGS: &[&str] = &[
     "Hello {username}, Good day!",
@@ -1790,8 +1947,13 @@ fn handle_entity_spawn_first_sight(bot: &Client, state: &AzaleaState) {
 
         let seen = state.seen_entity_spawns.clone();
         let uuid = player.uuid;
+        let ttl_ms = state
+            .runtime
+            .read()
+            .expect("runtime config lock poisoned")
+            .entity_spawn_greeting_ttl_ms;
         tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(ENTITY_SPAWN_GREETING_TTL_MS)).await;
+            tokio::time::sleep(Duration::from_millis(ttl_ms)).await;
             seen.write()
                 .expect("entity spawn seen lock poisoned")
                 .remove(&uuid);
@@ -1804,7 +1966,6 @@ fn entity_spawn_greeting(username: &str, now: i64) -> String {
     ENTITY_SPAWN_GREETINGS[index].replace("{username}", username)
 }
 
-const PLAYER_DETECTION_COOLDOWN_MS: u64 = 600_000;
 const PLAYER_DETECTION_SCAN_INTERVAL_MS: i64 = 1_000;
 
 fn handle_player_detection(bot: &Client, state: &AzaleaState) {
@@ -1865,8 +2026,13 @@ fn handle_player_detection(bot: &Client, state: &AzaleaState) {
 
         let seen = state.seen_player_detections.clone();
         let uuid = player.uuid;
+        let cooldown_ms = state
+            .runtime
+            .read()
+            .expect("runtime config lock poisoned")
+            .player_detection_cooldown_ms;
         tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(PLAYER_DETECTION_COOLDOWN_MS)).await;
+            tokio::time::sleep(Duration::from_millis(cooldown_ms)).await;
             seen.write()
                 .expect("player detection seen lock poisoned")
                 .remove(&uuid);
@@ -1960,7 +2126,7 @@ async fn maybe_smart_censor_message(message: &str, runtime: &RuntimeConfig) -> O
         }));
 
     let response = match tokio::time::timeout(
-        Duration::from_millis(SMART_CENSOR_TIMEOUT_MS),
+        Duration::from_millis(runtime.smart_censor_timeout_ms),
         request.send(),
     )
     .await
@@ -2049,7 +2215,12 @@ async fn run_queue_probe(state: &AzaleaState, probe_command: &str) -> bool {
 
     crate::commands::enqueue_chat(state, probe_command);
 
-    match tokio::time::timeout(Duration::from_secs(5), rx).await {
+    let timeout_secs = state
+        .runtime
+        .read()
+        .expect("runtime config lock poisoned")
+        .ws_response_timeout_secs;
+    match tokio::time::timeout(Duration::from_secs(timeout_secs), rx).await {
         Ok(Ok(true)) => true,
         _ => {
             // Timed out (or the sender was dropped without sending) -- clear the
@@ -2378,7 +2549,12 @@ fn spawn_websocket_event_task(bot: Client, state: AzaleaState) {
 
 fn spawn_player_list_update_task(state: AzaleaState) {
     tokio::spawn(async move {
-        let mut ticker = tokio::time::interval(Duration::from_secs(60));
+        let interval_secs = state
+            .runtime
+            .read()
+            .expect("runtime config lock poisoned")
+            .player_list_update_interval_secs;
+        let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs));
         loop {
             ticker.tick().await;
             send_player_list_update(&state).await;
@@ -2758,8 +2934,13 @@ async fn send_player_death(
 
 fn spawn_reminder_tick_task(state: AzaleaState, active: Arc<AtomicBool>) {
     tokio::spawn(async move {
+        let tick_secs = state
+            .runtime
+            .read()
+            .expect("runtime config lock poisoned")
+            .reminder_tick_interval_secs;
         while active.load(Ordering::Relaxed) {
-            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(tick_secs)).await;
             if !active.load(Ordering::Relaxed) {
                 break;
             }
@@ -2962,7 +3143,12 @@ async fn resolve_and_check_bridge_sender(state: &AzaleaState, sender: &str) -> B
         return BridgeSenderStatus::Unavailable;
     }
 
-    match tokio::time::timeout(Duration::from_secs(5), rx).await {
+    let timeout_secs = state
+        .runtime
+        .read()
+        .expect("runtime config lock poisoned")
+        .ws_response_timeout_secs;
+    match tokio::time::timeout(Duration::from_secs(timeout_secs), rx).await {
         Ok(Ok(DiscordResolution::Found(snowflake))) => {
             let blacklisted = state
                 .runtime

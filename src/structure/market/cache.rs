@@ -4,10 +4,6 @@ use std::time::{Duration, Instant};
 
 use super::types::{Asset, Candle, Quote};
 
-const TTL_QUOTE: Duration   = Duration::from_secs(60);
-const TTL_HISTORY: Duration = Duration::from_secs(300);
-const TTL_SEARCH: Duration  = Duration::from_secs(86400);
-
 struct Entry<T> {
     value: T,
     expires: Instant,
@@ -23,14 +19,20 @@ pub struct Cache {
     quotes:  Mutex<HashMap<String, Entry<Quote>>>,
     history: Mutex<HashMap<String, Entry<Vec<Candle>>>>,
     search:  Mutex<HashMap<String, Entry<Vec<Asset>>>>,
+    quote_ttl: Duration,
+    history_ttl: Duration,
+    search_ttl: Duration,
 }
 
 impl Cache {
-    pub fn new() -> Self {
+    pub fn new(quote_ttl_secs: u64, history_ttl_secs: u64, search_ttl_secs: u64) -> Self {
         Self {
             quotes:  Mutex::new(HashMap::new()),
             history: Mutex::new(HashMap::new()),
             search:  Mutex::new(HashMap::new()),
+            quote_ttl: Duration::from_secs(quote_ttl_secs),
+            history_ttl: Duration::from_secs(history_ttl_secs),
+            search_ttl: Duration::from_secs(search_ttl_secs),
         }
     }
 
@@ -39,7 +41,7 @@ impl Cache {
     }
     pub fn put_quote(&self, key: &str, v: Quote) {
         if let Ok(mut m) = self.quotes.lock() {
-            m.insert(key.to_owned(), Entry { value: v, expires: Instant::now() + TTL_QUOTE });
+            m.insert(key.to_owned(), Entry { value: v, expires: Instant::now() + self.quote_ttl });
         }
     }
 
@@ -48,7 +50,7 @@ impl Cache {
     }
     pub fn put_history(&self, key: &str, v: Vec<Candle>) {
         if let Ok(mut m) = self.history.lock() {
-            m.insert(key.to_owned(), Entry { value: v, expires: Instant::now() + TTL_HISTORY });
+            m.insert(key.to_owned(), Entry { value: v, expires: Instant::now() + self.history_ttl });
         }
     }
 
@@ -57,7 +59,7 @@ impl Cache {
     }
     pub fn put_search(&self, key: &str, v: Vec<Asset>) {
         if let Ok(mut m) = self.search.lock() {
-            m.insert(key.to_owned(), Entry { value: v, expires: Instant::now() + TTL_SEARCH });
+            m.insert(key.to_owned(), Entry { value: v, expires: Instant::now() + self.search_ttl });
         }
     }
 }

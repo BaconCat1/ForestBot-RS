@@ -99,7 +99,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         ctx.whisper_success(format!("{} | {} | {}", l(center[0]), l(center[1]), l(center[2])));
         ctx.whisper_success(format!("{} | {} | {}", l(below[0]),  l(below[1]),  l(below[2])));
 
-        tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(ctx.runtime.slots_animation_delay_ms)).await;
 
         let (total_win, line_names) = evaluate_paylines(above, center, below, bet);
 

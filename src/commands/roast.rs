@@ -17,7 +17,6 @@ const MODEL_PRIORITY: &[&str] = &[
     "Qwen/Qwen2.5-7B-Instruct-Turbo",
 ];
 const FALLBACK_MODEL: &str = "meta-llama/Llama-3.3-70B-Instruct-Turbo";
-const TIMEOUT_MS: u64 = 8000;
 
 static SELECTED_MODEL: OnceLock<String> = OnceLock::new();
 
@@ -55,12 +54,13 @@ async fn roast_run(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     };
 
     let state = ctx.state.clone();
+    let timeout_ms = ctx.runtime.roast_timeout_ms;
 
     tokio::spawn(async move {
         let client = reqwest::Client::new();
         let model = pick_model(&client, &api_key).await;
         let result = tokio::time::timeout(
-            std::time::Duration::from_millis(TIMEOUT_MS),
+            std::time::Duration::from_millis(timeout_ms),
             call_together(&client, &api_key, &prompt, model),
         )
         .await;

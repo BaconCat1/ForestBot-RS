@@ -88,6 +88,28 @@ async fn reload_runtime(
         board_whisper_delay_ms: app_state.config.board_whisper_delay_ms,
         announce_min_interval_ms: app_state.config.announce_min_interval_ms,
         announce_max_interval_ms: app_state.config.announce_max_interval_ms,
+        duplicate_message_window_secs: app_state.config.duplicate_message_window_secs,
+        afk_mention_cooldown_secs: app_state.config.afk_mention_cooldown_secs,
+        connection_failure_backoff_secs: app_state.config.connection_failure_backoff_secs,
+        packet_send_delay_ms: app_state.config.packet_send_delay_ms,
+        entity_spawn_greeting_ttl_ms: app_state.config.entity_spawn_greeting_ttl_ms,
+        player_detection_cooldown_ms: app_state.config.player_detection_cooldown_ms,
+        smart_censor_timeout_ms: app_state.config.smart_censor_timeout_ms,
+        ws_response_timeout_secs: app_state.config.ws_response_timeout_secs,
+        player_list_update_interval_secs: app_state.config.player_list_update_interval_secs,
+        reminder_tick_interval_secs: app_state.config.reminder_tick_interval_secs,
+        crouch_max_hold_secs: app_state.config.crouch_max_hold_secs,
+        crouch_toggle_delay_ms: app_state.config.crouch_toggle_delay_ms,
+        poll_duration_secs: app_state.config.poll_duration_secs,
+        duel_confirm_window_secs: app_state.config.duel_confirm_window_secs,
+        duel_timeout_secs: app_state.config.duel_timeout_secs,
+        marry_confirm_window_secs: app_state.config.marry_confirm_window_secs,
+        trade_propose_cooldown_secs: app_state.config.trade_propose_cooldown_secs,
+        trade_reject_penalty_secs: app_state.config.trade_reject_penalty_secs,
+        roast_timeout_ms: app_state.config.roast_timeout_ms,
+        scratch_animation_delay_ms: app_state.config.scratch_animation_delay_ms,
+        slots_animation_delay_ms: app_state.config.slots_animation_delay_ms,
+        twerk_flash_delay_ms: app_state.config.twerk_flash_delay_ms,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;
@@ -123,8 +145,9 @@ async fn reload_runtime(
         let blocklist_arc = state.url_blocklist.clone();
         let sources = app_state.config.url_blocklist_sources;
         let whitelist = app_state.config.url_whitelist_file;
+        let blocklist_timeout_secs = app_state.config.url_blocklist_timeout_secs;
         tokio::spawn(async move {
-            let set = crate::structure::mineflayer::url_blocklist::build_blocklist(&sources, &whitelist).await;
+            let set = crate::structure::mineflayer::url_blocklist::build_blocklist(&sources, &whitelist, blocklist_timeout_secs).await;
             *blocklist_arc.write().expect("url_blocklist write") = Some(set);
         });
     }

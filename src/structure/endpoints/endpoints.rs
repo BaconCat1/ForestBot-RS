@@ -58,6 +58,7 @@ impl ApiClient {
             self.options.api_key.clone(),
             self.options.is_bot_client,
             self.options.mc_server.clone(),
+            self.options.websocket_keepalive_secs,
         )
         .await?;
 
@@ -1484,6 +1485,7 @@ impl WebsocketClient {
         api_key: String,
         is_bot_client: bool,
         mc_server: String,
+        keepalive_secs: u64,
     ) -> Result<Self> {
         let (sender, mut receiver) = mpsc::unbounded_channel::<Message>();
         let (events, _) = broadcast::channel(64);
@@ -1531,7 +1533,7 @@ impl WebsocketClient {
                         reconnect_count = 0;
 
                         let (mut write, mut read) = socket.split();
-                        let mut keepalive = interval(Duration::from_secs(5));
+                        let mut keepalive = interval(Duration::from_secs(keepalive_secs));
 
                         loop {
                             tokio::select! {

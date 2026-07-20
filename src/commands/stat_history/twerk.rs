@@ -14,6 +14,8 @@ fn twerk(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         use azalea::protocol::packets::game::s_player_command::{Action, ServerboundPlayerCommand};
 
+        let flash_delay_ms = ctx.runtime.twerk_flash_delay_ms;
+
         if BOT_SLEEPING.load(Ordering::Relaxed) {
             ctx.bot.write_packet(ServerboundPlayerCommand {
                 id: ctx.bot.minecraft_id(),
@@ -21,7 +23,7 @@ fn twerk(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 data: 0,
             });
             BOT_SLEEPING.store(false, Ordering::Relaxed);
-            tokio::time::sleep(time::Duration::from_millis(100)).await;
+            tokio::time::sleep(time::Duration::from_millis(flash_delay_ms)).await;
         }
 
         let bot = ctx.bot.clone();
@@ -31,7 +33,7 @@ fn twerk(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             while now_millis() < end {
                 state = !state;
                 bot.set_crouching(state);
-                tokio::time::sleep(time::Duration::from_millis(100)).await;
+                tokio::time::sleep(time::Duration::from_millis(flash_delay_ms)).await;
             }
             bot.set_crouching(false);
         });
