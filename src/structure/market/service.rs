@@ -13,15 +13,15 @@ pub struct MarketService {
 impl MarketService {
     pub fn new(
         coingecko_key: String,
-        quote_ttl_secs: u64,
-        history_ttl_secs: u64,
-        search_ttl_secs: u64,
-        api_timeout_secs: u64,
+        quote_ttl_ms: u64,
+        history_ttl_ms: u64,
+        search_ttl_ms: u64,
+        api_timeout_ms: u64,
     ) -> Self {
         Self {
-            cache: Arc::new(Cache::new(quote_ttl_secs, history_ttl_secs, search_ttl_secs)),
+            cache: Arc::new(Cache::new(quote_ttl_ms, history_ttl_ms, search_ttl_ms)),
             client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(api_timeout_secs))
+                .timeout(std::time::Duration::from_millis(api_timeout_ms))
                 .build()
                 .expect("reqwest client"),
             coingecko_key,

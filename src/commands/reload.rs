@@ -49,7 +49,7 @@ async fn reload_runtime(
         prefix: app_state.config.prefix,
         whisper_command: app_state.config.whisper_command,
         use_commands: app_state.config.use_commands,
-        anti_spam_global_cooldown_ms: app_state.config.anti_spam_global_cooldown,
+        anti_spam_global_cooldown_ms: app_state.config.anti_spam_global_cooldown_ms,
         command_cooldowns: app_state.config.command_cooldowns,
         use_whitelist: app_state.config.use_mc_whitelist,
         user_whitelist: app_state.mc_whitelist.into_iter().collect::<HashSet<_>>(),
@@ -88,24 +88,24 @@ async fn reload_runtime(
         board_whisper_delay_ms: app_state.config.board_whisper_delay_ms,
         announce_min_interval_ms: app_state.config.announce_min_interval_ms,
         announce_max_interval_ms: app_state.config.announce_max_interval_ms,
-        duplicate_message_window_secs: app_state.config.duplicate_message_window_secs,
-        afk_mention_cooldown_secs: app_state.config.afk_mention_cooldown_secs,
-        connection_failure_backoff_secs: app_state.config.connection_failure_backoff_secs,
+        duplicate_message_window_ms: app_state.config.duplicate_message_window_ms,
+        afk_mention_cooldown_ms: app_state.config.afk_mention_cooldown_ms,
+        connection_failure_backoff_ms: app_state.config.connection_failure_backoff_ms,
         packet_send_delay_ms: app_state.config.packet_send_delay_ms,
         entity_spawn_greeting_ttl_ms: app_state.config.entity_spawn_greeting_ttl_ms,
         player_detection_cooldown_ms: app_state.config.player_detection_cooldown_ms,
         smart_censor_timeout_ms: app_state.config.smart_censor_timeout_ms,
-        ws_response_timeout_secs: app_state.config.ws_response_timeout_secs,
-        player_list_update_interval_secs: app_state.config.player_list_update_interval_secs,
-        reminder_tick_interval_secs: app_state.config.reminder_tick_interval_secs,
-        crouch_max_hold_secs: app_state.config.crouch_max_hold_secs,
+        ws_response_timeout_ms: app_state.config.ws_response_timeout_ms,
+        player_list_update_interval_ms: app_state.config.player_list_update_interval_ms,
+        reminder_tick_interval_ms: app_state.config.reminder_tick_interval_ms,
+        crouch_max_hold_ms: app_state.config.crouch_max_hold_ms,
         crouch_toggle_delay_ms: app_state.config.crouch_toggle_delay_ms,
-        poll_duration_secs: app_state.config.poll_duration_secs,
-        duel_confirm_window_secs: app_state.config.duel_confirm_window_secs,
-        duel_timeout_secs: app_state.config.duel_timeout_secs,
-        marry_confirm_window_secs: app_state.config.marry_confirm_window_secs,
-        trade_propose_cooldown_secs: app_state.config.trade_propose_cooldown_secs,
-        trade_reject_penalty_secs: app_state.config.trade_reject_penalty_secs,
+        poll_duration_ms: app_state.config.poll_duration_ms,
+        duel_confirm_window_ms: app_state.config.duel_confirm_window_ms,
+        duel_timeout_ms: app_state.config.duel_timeout_ms,
+        marry_confirm_window_ms: app_state.config.marry_confirm_window_ms,
+        trade_propose_cooldown_ms: app_state.config.trade_propose_cooldown_ms,
+        trade_reject_penalty_ms: app_state.config.trade_reject_penalty_ms,
         roast_timeout_ms: app_state.config.roast_timeout_ms,
         scratch_animation_delay_ms: app_state.config.scratch_animation_delay_ms,
         slots_animation_delay_ms: app_state.config.slots_animation_delay_ms,
@@ -145,9 +145,9 @@ async fn reload_runtime(
         let blocklist_arc = state.url_blocklist.clone();
         let sources = app_state.config.url_blocklist_sources;
         let whitelist = app_state.config.url_whitelist_file;
-        let blocklist_timeout_secs = app_state.config.url_blocklist_timeout_secs;
+        let blocklist_timeout_ms = app_state.config.url_blocklist_timeout_ms;
         tokio::spawn(async move {
-            let set = crate::structure::mineflayer::url_blocklist::build_blocklist(&sources, &whitelist, blocklist_timeout_secs).await;
+            let set = crate::structure::mineflayer::url_blocklist::build_blocklist(&sources, &whitelist, blocklist_timeout_ms).await;
             *blocklist_arc.write().expect("url_blocklist write") = Some(set);
         });
     }

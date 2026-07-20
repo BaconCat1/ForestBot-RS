@@ -39,15 +39,15 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         if is_hold {
             HOLD_ACTIVE.store(true, Ordering::Relaxed);
             ctx.bot.set_crouching(true);
-            let max_hold_secs = ctx.runtime.crouch_max_hold_secs;
+            let max_hold_ms = ctx.runtime.crouch_max_hold_ms;
             ctx.whisper_success(format!(
                 "Crouching for up to {} minutes. Run {}crouch to release.",
-                max_hold_secs / 60,
+                max_hold_ms / 60_000,
                 ctx.runtime.prefix
             ));
             let bot = ctx.bot.clone();
             tokio::spawn(async move {
-                tokio::time::sleep(Duration::from_secs(max_hold_secs)).await;
+                tokio::time::sleep(Duration::from_millis(max_hold_ms)).await;
                 if HOLD_ACTIVE.swap(false, Ordering::Relaxed) {
                     bot.set_crouching(false);
                 }

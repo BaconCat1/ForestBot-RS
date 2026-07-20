@@ -25,14 +25,14 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn new(quote_ttl_secs: u64, history_ttl_secs: u64, search_ttl_secs: u64) -> Self {
+    pub fn new(quote_ttl_ms: u64, history_ttl_ms: u64, search_ttl_ms: u64) -> Self {
         Self {
             quotes:  Mutex::new(HashMap::new()),
             history: Mutex::new(HashMap::new()),
             search:  Mutex::new(HashMap::new()),
-            quote_ttl: Duration::from_secs(quote_ttl_secs),
-            history_ttl: Duration::from_secs(history_ttl_secs),
-            search_ttl: Duration::from_secs(search_ttl_secs),
+            quote_ttl: Duration::from_millis(quote_ttl_ms),
+            history_ttl: Duration::from_millis(history_ttl_ms),
+            search_ttl: Duration::from_millis(search_ttl_ms),
         }
     }
 

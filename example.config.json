@@ -1,443 +1,1178 @@
 {
-    "api_keys": {
-        "nasa": "",
-        "together": "",
-        "wolfram": "",
-        "azure_key": "",
-        "azure_region": "",
-        "sharpapi": "",
-        "airnow": "",
-        "coingecko": "",
-        "gasbuddy_solver_url": "",
-        "gasbuddy_csrf_readonly": false,
-        "google_safe_browsing": "",
-        "ai_gemini": "",
-        "ai_github_models": "",
-        "ai_groq": "",
-        "ai_cerebras": "",
-        "ai_ollama_cloud": "",
-        "ai_mistral": "",
-        "ai_nvidia_nim": "",
-        "ai_nscale": "",
-        "ai_sambanova": "",
-        "ai_modelscope": "",
-        "ai_chutes": "",
-        "ai_venice": "",
-        "ai_zhipu": "",
-        "ai_siliconflow": "",
-        "ai_openrouter": "",
-        "ai_cohere": "",
-        "ai_cloudflare_key": "",
-        "ai_cloudflare_account_id": "",
-        "ai_huggingface": "",
-        "ai_deepseek": "",
-        "ai_nebius": "",
-        "ai_glhf": "",
-        "ai_ovhcloud": "",
-        "ai_kilo_code": "",
-        "ai_llm7": "",
-        "ai_agnes_ai": "",
-        "ai_opencode_zen": "",
-        "ai_alibaba": "",
-        "ai_xai": ""
+  "api_keys": {
+    "nasa": "",
+    "together": "",
+    "wolfram": "",
+    "azure_key": "",
+    "azure_region": "",
+    "sharpapi": "",
+    "airnow": "",
+    "coingecko": "",
+    "gasbuddy_solver_url": "",
+    "gasbuddy_csrf_readonly": false,
+    "google_safe_browsing": "",
+    "ai_gemini": "",
+    "ai_github_models": "",
+    "ai_groq": "",
+    "ai_cerebras": "",
+    "ai_ollama_cloud": "",
+    "ai_mistral": "",
+    "ai_nvidia_nim": "",
+    "ai_nscale": "",
+    "ai_sambanova": "",
+    "ai_modelscope": "",
+    "ai_chutes": "",
+    "ai_venice": "",
+    "ai_zhipu": "",
+    "ai_siliconflow": "",
+    "ai_openrouter": "",
+    "ai_cohere": "",
+    "ai_cloudflare_key": "",
+    "ai_cloudflare_account_id": "",
+    "ai_huggingface": "",
+    "ai_deepseek": "",
+    "ai_nebius": "",
+    "ai_glhf": "",
+    "ai_ovhcloud": "",
+    "ai_kilo_code": "",
+    "ai_llm7": "",
+    "ai_agnes_ai": "",
+    "ai_opencode_zen": "",
+    "ai_alibaba": "",
+    "ai_xai": ""
+  },
+  "mc_server": "newtest_new",
+  "host": "localhost",
+  "port": 25565,
+  "version": "1.21.11",
+  "server-version": "1.21.11",
+  "azalea-version": "26.1",
+  "enable-viaversion": true,
+  "viaversion-target-version": "1.21.11",
+  "disableChatSigning": true,
+  "api_url": "http://localhost:8001",
+  "websocket_url": "ws://localhost:8001",
+  "useLogger": true,
+  "prefix": "!",
+  "useCustomChatPrefix": false,
+  "customChatPrefix": "&d&l",
+  "whisperCommand": "msg",
+  "announce": true,
+  "antiafk": false,
+  "use_mc_whitelist": true,
+  "anti_spam_msg_limit": 5,
+  "command_cooldowns": {
+    "active": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
     },
-    "mc_server": "newtest_new",
-    "host": "localhost",
-    "port": 25565,
-    "version": "1.21.11",
-    "server-version": "1.21.11",
-    "azalea-version": "26.1",
-    "enable-viaversion": true,
-    "viaversion-target-version": "1.21.11",
-    "disableChatSigning": true,
-    "api_url": "http://localhost:8001",
-    "websocket_url": "ws://localhost:8001",
-    "useLogger": true,
-    "prefix": "!",
-    "useCustomChatPrefix": false,
-    "customChatPrefix": "&d&l",
-    "whisperCommand": "msg",
-    "announce": true,
-    "antiafk": false,
-    "use_mc_whitelist": true,
-    "reconnect_time": 30000,
-    "anti_spam_cooldown": 10000,
-    "anti_spam_global_cooldown": 1000,
-    "anti_spam_msg_limit": 5,
-    "command_cooldowns": {
-        "active":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "addfaq":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "advancement":      { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "ai":               { "cooldown_ms": 10000, "increment_ms": 1000, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "alias":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "askgod":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "averageping":      { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "bestping":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "blacklist":        { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "calc":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "censor":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "coords":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "crouch":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "day":              { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "delfaq":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "discord":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "divorce":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "drop":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "editfaq":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "efficiency":       { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "equip":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "execute":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "faq":              { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "febzey":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "firstdeath":       { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "firstkill":        { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "firstmessage":     { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "godstats":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "godverse":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "greeting":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "grudge":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "hardware":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "health":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "help":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "iam":              { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "jdpt":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "joindate":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "joins":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "kd":               { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "lastadvancement":  { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "lastdeath":        { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "lastkill":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "lastseen":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "lastmessage":      { "cooldown_ms": 300000, "increment_ms": 60000, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "link":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "listgods":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "listquoteservers": { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "marry":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "minewiki":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "mount":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "msgcount":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "news":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "nickname":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "night":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "noobs":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "offlinemsg":       { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "oldheads":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "oldnames":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "ownsfaq":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "ping":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "playtime":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "poll":             { "cooldown_ms": 300000, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "profile":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "quote":            { "cooldown_ms": 10000, "increment_ms": 1000, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "randomquote":      { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "roast":            { "cooldown_ms": 300000, "increment_ms": 30000, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "randomquoteall":   { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "realname":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "reload":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "report":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "scammers":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "search":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "searchgod":        { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "servers":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "setpreset":        { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "shout":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "slurcount":        { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "sleep":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "spouse":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "standing":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "summary":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "survived":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "top":              { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "totaladvancements":{ "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "trade":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "tradestats":       { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "trades":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "twerk":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "ud":               { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "unequip":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "uniqueusers":      { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "unlink":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "victims":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "vs":               { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "whitelist":        { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "whois":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "wiki":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "winrate":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "wordcount":        { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "wordwhitelist":    { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "worstping":        { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "addchips":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "answer":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "baccarat":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "battleship":       { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "faa":              { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "kalshi":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "spaceweather":     { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "flood":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "train":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "blackjack":        { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "checkers":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "chess":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "compare":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "connect4":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "craps":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "sicbo":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "draw":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "duel":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "faucet":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "give":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "godfight":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "hilo":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "jackpot":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "lotto":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "market":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "pearl":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "poker":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "portfolio":        { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "reversi":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "roulette":         { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "scratch":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "serversummary":    { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "slots":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "sports":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "trivia":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "wallet":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "weather":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "wordle":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "aqi":              { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "mines":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "quake":            { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "volcano":          { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "launch":           { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "gas":              { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "bets":             { "cooldown_ms": 0, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 },
-        "url":              { "cooldown_ms": 60000, "increment_ms": 0, "reset_multiplier": 2, "max_cooldown_ms": 0 }
+    "addfaq": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
     },
-    "welcome_messages": true,
-    "useCommands": true,
-    "disabled_events": [
-        "entitySpawn",
-        "entitySpawnGreeting",
-        "playerDetected",
-        "fadvAnnouncements",
-        "scammerAnnouncements",
-        "tradeResetAnnouncements",
-        "offlineMessages",
-        "greetings"
-    ],
-    "allow_chatbridge_input": true,
-    "use_live_time_query": false,
-    "rotateHeadOnJoin": false,
-    "smart_censoring": false,
-    "censor_threshold": "moderate",
-    "useLegacyChat": false,
-    "useCustomChatFormatParser": false,
-    "customChatFormats": [
-        "<{username}> {message}",
-        "{username}: {message}",
-        "[{skip}] {username} >> {message}"
-    ],
-    "commands": {
-        "active":           true,
-        "addfaq":           true,
-        "advancement":      true,
-        "alias":            true,
-        "askgod":           true,
-        "averageping":      true,
-        "bestping":         true,
-        "blacklist":        true,
-        "calc":             true,
-        "censor":           true,
-        "coords":           false,
-        "crouch":           true,
-        "day":              true,
-        "delfaq":           true,
-        "discord":          true,
-        "divorce":          true,
-        "drop":             true,
-        "editfaq":          true,
-        "efficiency":       true,
-        "equip":            true,
-        "execute":          true,
-        "fadvs":            true,
-        "translate":        true,
-        "remindme":         true,
-        "faq":              true,
-        "febzey":           true,
-        "firstdeath":       true,
-        "firstkill":        true,
-        "firstmessage":     true,
-        "godstats":         true,
-        "godverse":         true,
-        "greeting":         true,
-        "grudge":           true,
-        "hardware":         true,
-        "health":           true,
-        "help":             true,
-        "iam":              true,
-        "jdpt":             true,
-        "joindate":         true,
-        "joins":            true,
-        "kd":               true,
-        "lastadvancement":  true,
-        "lastdeath":        true,
-        "lastkill":         true,
-        "lastseen":         true,
-        "lastmessage":      true,
-        "link":             true,
-        "listgods":         true,
-        "listquoteservers": true,
-        "marry":            true,
-        "minewiki":         true,
-        "mount":            true,
-        "msgcount":         true,
-        "news":             true,
-        "nickname":         true,
-        "night":            true,
-        "noobs":            true,
-        "offlinemsg":       true,
-        "oldheads":         true,
-        "oldnames":         true,
-        "ownsfaq":          true,
-        "ping":             true,
-        "playtime":         true,
-        "poll":             true,
-        "profile":          true,
-        "quote":            true,
-        "randomquote":      true,
-        "roast":            true,
-        "randomquoteall":   true,
-        "realname":         true,
-        "reload":           true,
-        "report":           true,
-        "scammers":         true,
-        "search":           true,
-        "searchgod":        true,
-        "servers":          true,
-        "setpreset":        true,
-        "shout":            true,
-        "slurcount":        true,
-        "sleep":            true,
-        "spouse":           true,
-        "standing":         true,
-        "summary":          true,
-        "survived":         true,
-        "top":              true,
-        "totaladvancements":true,
-        "trade":            true,
-        "tradestats":       true,
-        "trades":           true,
-        "twerk":            true,
-        "ud":               true,
-        "unequip":          true,
-        "uniqueusers":      true,
-        "unlink":           true,
-        "victims":          true,
-        "vs":               true,
-        "whitelist":        true,
-        "whois":            true,
-        "wiki":             true,
-        "winrate":          true,
-        "wordcount":        true,
-        "wordwhitelist":    true,
-        "worstping":        true,
-        "addchips":         true,
-        "answer":           true,
-        "baccarat":         true,
-        "battleship":       true,
-        "faa":              true,
-        "kalshi":           true,
-        "spaceweather":     true,
-        "flood":            true,
-        "train":            true,
-        "blackjack":        true,
-        "checkers":         true,
-        "chess":            true,
-        "compare":          true,
-        "connect4":         true,
-        "craps":            true,
-        "sicbo":            true,
-        "draw":             true,
-        "duel":             true,
-        "faucet":           true,
-        "give":             true,
-        "godfight":         true,
-        "hilo":             true,
-        "jackpot":          true,
-        "lotto":            true,
-        "market":           true,
-        "pearl":            true,
-        "poker":            true,
-        "portfolio":        true,
-        "reversi":          true,
-        "roulette":         true,
-        "scratch":          true,
-        "serversummary":    true,
-        "slots":            true,
-        "sports":           true,
-        "trivia":           true,
-        "wallet":           true,
-        "weather":          true,
-        "wordle":           true,
-        "aqi":              true,
-        "mines":            true,
-        "quake":            true,
-        "volcano":          true,
-        "launch":           true,
-        "gas":              true,
-        "bets":             true,
-        "url":              true
+    "advancement": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
     },
-    "url_whitelist_file": "./json/url_whitelist_domains.hosts",
-    "url_blocklist_sources": [
-        "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-porn/hosts",
-        "https://blocklist.sefinek.net/generated/v1/0.0.0.0/fakenews/StevenBlack/hosts.fork.txt",
-        "https://blocklist.sefinek.net/generated/v1/0.0.0.0/fakenews/marktron/hosts.fork.txt",
-        "https://raw.githubusercontent.com/TMAFE/anti-grabify/refs/heads/master/pihole-dns-list.txt",
-        "https://github.com/6unsatiable/HOSTS-File-List/blob/master/Ip-Grabber-blocklist",
-        "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/pro-onlydomains.txt",
-        "https://raw.githubusercontent.com/PeterDaveHello/url-shorteners/master/list",
-        "https://raw.githubusercontent.com/PeterDaveHello/url-shorteners/master/inactive",
-        "https://raw.githubusercontent.com/olbat/ut1-blacklists/refs/heads/master/blacklists/sect/domains",
-        "https://raw.githubusercontent.com/olbat/ut1-blacklists/refs/heads/master/blacklists/fakenews/domains",
-        "https://raw.githubusercontent.com/olbat/ut1-blacklists/refs/heads/master/blacklists/agressif/domains",
-        "./json/url_blacklist_domains.hosts"
-    ],
-    "usePViewer": true,
-    "pViewerPort": 8080,
-    "heartbeat_url": "",
-    "heartbeat_interval_ms": 60000,
-    "queue_probe_command": "",
-    "queue_retry_delay_ms": 300000,
-    "board_whisper_delay_ms": 1000,
-    "announce_min_interval_ms": 900000,
-    "announce_max_interval_ms": 2700000,
-    "duplicate_message_window_secs": 5,
-    "afk_mention_cooldown_secs": 60,
-    "connection_failure_backoff_secs": 600,
-    "packet_send_delay_ms": 25,
-    "entity_spawn_greeting_ttl_ms": 500000,
-    "player_detection_cooldown_ms": 600000,
-    "smart_censor_timeout_ms": 5000,
-    "ws_response_timeout_secs": 5,
-    "player_list_update_interval_secs": 60,
-    "reminder_tick_interval_secs": 30,
-    "crouch_max_hold_secs": 600,
-    "crouch_toggle_delay_ms": 50,
-    "poll_duration_secs": 120,
-    "duel_confirm_window_secs": 60,
-    "duel_timeout_secs": 600,
-    "marry_confirm_window_secs": 60,
-    "trade_propose_cooldown_secs": 60,
-    "trade_reject_penalty_secs": 600,
-    "roast_timeout_ms": 8000,
-    "scratch_animation_delay_ms": 600,
-    "slots_animation_delay_ms": 800,
-    "twerk_flash_delay_ms": 100,
-    "market_quote_ttl_secs": 60,
-    "market_history_ttl_secs": 300,
-    "market_search_ttl_secs": 86400,
-    "market_api_timeout_secs": 10,
-    "url_blocklist_timeout_secs": 30,
-    "websocket_keepalive_secs": 5
+    "ai": {
+      "cooldown_ms": 10000,
+      "increment_ms": 1000,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "alias": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "askgod": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "averageping": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "bestping": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "blacklist": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "calc": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "censor": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "coords": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "crouch": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "day": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "delfaq": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "discord": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "divorce": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "drop": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "editfaq": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "efficiency": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "equip": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "execute": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "faq": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "febzey": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "firstdeath": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "firstkill": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "firstmessage": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "godstats": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "godverse": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "greeting": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "grudge": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "hardware": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "health": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "help": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "iam": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "jdpt": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "joindate": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "joins": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "kd": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "lastadvancement": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "lastdeath": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "lastkill": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "lastseen": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "lastmessage": {
+      "cooldown_ms": 300000,
+      "increment_ms": 60000,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "link": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "listgods": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "listquoteservers": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "marry": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "minewiki": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "mount": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "msgcount": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "news": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "nickname": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "night": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "noobs": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "offlinemsg": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "oldheads": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "oldnames": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "ownsfaq": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "ping": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "playtime": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "poll": {
+      "cooldown_ms": 300000,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "profile": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "quote": {
+      "cooldown_ms": 10000,
+      "increment_ms": 1000,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "randomquote": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "roast": {
+      "cooldown_ms": 300000,
+      "increment_ms": 30000,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "randomquoteall": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "realname": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "reload": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "report": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "scammers": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "search": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "searchgod": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "servers": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "setpreset": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "shout": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "slurcount": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "sleep": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "spouse": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "standing": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "summary": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "survived": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "top": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "totaladvancements": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "trade": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "tradestats": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "trades": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "twerk": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "ud": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "unequip": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "uniqueusers": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "unlink": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "victims": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "vs": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "whitelist": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "whois": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "wiki": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "winrate": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "wordcount": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "wordwhitelist": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "worstping": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "addchips": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "answer": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "baccarat": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "battleship": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "faa": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "kalshi": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "spaceweather": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "flood": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "train": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "blackjack": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "checkers": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "chess": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "compare": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "connect4": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "craps": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "sicbo": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "draw": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "duel": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "faucet": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "give": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "godfight": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "hilo": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "jackpot": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "lotto": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "market": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "pearl": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "poker": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "portfolio": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "reversi": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "roulette": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "scratch": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "serversummary": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "slots": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "sports": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "trivia": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "wallet": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "weather": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "wordle": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "aqi": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "mines": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "quake": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "volcano": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "launch": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "gas": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "bets": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
+    "url": {
+      "cooldown_ms": 60000,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    }
+  },
+  "welcome_messages": true,
+  "useCommands": true,
+  "disabled_events": [
+    "entitySpawn",
+    "entitySpawnGreeting",
+    "playerDetected",
+    "fadvAnnouncements",
+    "scammerAnnouncements",
+    "tradeResetAnnouncements",
+    "offlineMessages",
+    "greetings"
+  ],
+  "allow_chatbridge_input": true,
+  "use_live_time_query": false,
+  "rotateHeadOnJoin": false,
+  "smart_censoring": false,
+  "censor_threshold": "moderate",
+  "useLegacyChat": false,
+  "useCustomChatFormatParser": false,
+  "customChatFormats": [
+    "<{username}> {message}",
+    "{username}: {message}",
+    "[{skip}] {username} >> {message}"
+  ],
+  "commands": {
+    "active": true,
+    "addfaq": true,
+    "advancement": true,
+    "alias": true,
+    "askgod": true,
+    "averageping": true,
+    "bestping": true,
+    "blacklist": true,
+    "calc": true,
+    "censor": true,
+    "coords": false,
+    "crouch": true,
+    "day": true,
+    "delfaq": true,
+    "discord": true,
+    "divorce": true,
+    "drop": true,
+    "editfaq": true,
+    "efficiency": true,
+    "equip": true,
+    "execute": true,
+    "fadvs": true,
+    "translate": true,
+    "remindme": true,
+    "faq": true,
+    "febzey": true,
+    "firstdeath": true,
+    "firstkill": true,
+    "firstmessage": true,
+    "godstats": true,
+    "godverse": true,
+    "greeting": true,
+    "grudge": true,
+    "hardware": true,
+    "health": true,
+    "help": true,
+    "iam": true,
+    "jdpt": true,
+    "joindate": true,
+    "joins": true,
+    "kd": true,
+    "lastadvancement": true,
+    "lastdeath": true,
+    "lastkill": true,
+    "lastseen": true,
+    "lastmessage": true,
+    "link": true,
+    "listgods": true,
+    "listquoteservers": true,
+    "marry": true,
+    "minewiki": true,
+    "mount": true,
+    "msgcount": true,
+    "news": true,
+    "nickname": true,
+    "night": true,
+    "noobs": true,
+    "offlinemsg": true,
+    "oldheads": true,
+    "oldnames": true,
+    "ownsfaq": true,
+    "ping": true,
+    "playtime": true,
+    "poll": true,
+    "profile": true,
+    "quote": true,
+    "randomquote": true,
+    "roast": true,
+    "randomquoteall": true,
+    "realname": true,
+    "reload": true,
+    "report": true,
+    "scammers": true,
+    "search": true,
+    "searchgod": true,
+    "servers": true,
+    "setpreset": true,
+    "shout": true,
+    "slurcount": true,
+    "sleep": true,
+    "spouse": true,
+    "standing": true,
+    "summary": true,
+    "survived": true,
+    "top": true,
+    "totaladvancements": true,
+    "trade": true,
+    "tradestats": true,
+    "trades": true,
+    "twerk": true,
+    "ud": true,
+    "unequip": true,
+    "uniqueusers": true,
+    "unlink": true,
+    "victims": true,
+    "vs": true,
+    "whitelist": true,
+    "whois": true,
+    "wiki": true,
+    "winrate": true,
+    "wordcount": true,
+    "wordwhitelist": true,
+    "worstping": true,
+    "addchips": true,
+    "answer": true,
+    "baccarat": true,
+    "battleship": true,
+    "faa": true,
+    "kalshi": true,
+    "spaceweather": true,
+    "flood": true,
+    "train": true,
+    "blackjack": true,
+    "checkers": true,
+    "chess": true,
+    "compare": true,
+    "connect4": true,
+    "craps": true,
+    "sicbo": true,
+    "draw": true,
+    "duel": true,
+    "faucet": true,
+    "give": true,
+    "godfight": true,
+    "hilo": true,
+    "jackpot": true,
+    "lotto": true,
+    "market": true,
+    "pearl": true,
+    "poker": true,
+    "portfolio": true,
+    "reversi": true,
+    "roulette": true,
+    "scratch": true,
+    "serversummary": true,
+    "slots": true,
+    "sports": true,
+    "trivia": true,
+    "wallet": true,
+    "weather": true,
+    "wordle": true,
+    "aqi": true,
+    "mines": true,
+    "quake": true,
+    "volcano": true,
+    "launch": true,
+    "gas": true,
+    "bets": true,
+    "url": true
+  },
+  "url_whitelist_file": "./json/url_whitelist_domains.hosts",
+  "url_blocklist_sources": [
+    "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-porn/hosts",
+    "https://blocklist.sefinek.net/generated/v1/0.0.0.0/fakenews/StevenBlack/hosts.fork.txt",
+    "https://blocklist.sefinek.net/generated/v1/0.0.0.0/fakenews/marktron/hosts.fork.txt",
+    "https://raw.githubusercontent.com/TMAFE/anti-grabify/refs/heads/master/pihole-dns-list.txt",
+    "https://github.com/6unsatiable/HOSTS-File-List/blob/master/Ip-Grabber-blocklist",
+    "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/pro-onlydomains.txt",
+    "https://raw.githubusercontent.com/PeterDaveHello/url-shorteners/master/list",
+    "https://raw.githubusercontent.com/PeterDaveHello/url-shorteners/master/inactive",
+    "https://raw.githubusercontent.com/olbat/ut1-blacklists/refs/heads/master/blacklists/sect/domains",
+    "https://raw.githubusercontent.com/olbat/ut1-blacklists/refs/heads/master/blacklists/fakenews/domains",
+    "https://raw.githubusercontent.com/olbat/ut1-blacklists/refs/heads/master/blacklists/agressif/domains",
+    "./json/url_blacklist_domains.hosts"
+  ],
+  "usePViewer": true,
+  "pViewerPort": 8080,
+  "heartbeat_url": "",
+  "heartbeat_interval_ms": 60000,
+  "queue_probe_command": "",
+  "queue_retry_delay_ms": 300000,
+  "board_whisper_delay_ms": 1000,
+  "announce_min_interval_ms": 900000,
+  "announce_max_interval_ms": 2700000,
+  "packet_send_delay_ms": 25,
+  "entity_spawn_greeting_ttl_ms": 500000,
+  "player_detection_cooldown_ms": 600000,
+  "smart_censor_timeout_ms": 5000,
+  "crouch_toggle_delay_ms": 50,
+  "roast_timeout_ms": 8000,
+  "scratch_animation_delay_ms": 600,
+  "slots_animation_delay_ms": 800,
+  "twerk_flash_delay_ms": 100,
+  "reconnect_time_ms": 30000,
+  "anti_spam_cooldown_ms": 10000,
+  "anti_spam_global_cooldown_ms": 1000,
+  "duplicate_message_window_ms": 5000,
+  "afk_mention_cooldown_ms": 60000,
+  "connection_failure_backoff_ms": 600000,
+  "ws_response_timeout_ms": 5000,
+  "player_list_update_interval_ms": 60000,
+  "reminder_tick_interval_ms": 30000,
+  "crouch_max_hold_ms": 600000,
+  "poll_duration_ms": 120000,
+  "duel_confirm_window_ms": 60000,
+  "duel_timeout_ms": 600000,
+  "marry_confirm_window_ms": 60000,
+  "trade_propose_cooldown_ms": 60000,
+  "trade_reject_penalty_ms": 600000,
+  "market_quote_ttl_ms": 60000,
+  "market_history_ttl_ms": 300000,
+  "market_search_ttl_ms": 86400000,
+  "market_api_timeout_ms": 10000,
+  "url_blocklist_timeout_ms": 30000,
+  "websocket_keepalive_ms": 5000
 }

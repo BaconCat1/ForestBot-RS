@@ -70,7 +70,7 @@ async fn create(ctx: &CommandContext<'_>, raw: &str) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let duration = Duration::from_secs(ctx.runtime.poll_duration_secs);
+    let duration = Duration::from_millis(ctx.runtime.poll_duration_ms);
     let ends_at = Instant::now() + duration;
 
     *ctx.state.active_poll.lock().expect("active_poll lock") = Some(PollState {

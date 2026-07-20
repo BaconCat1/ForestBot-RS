@@ -97,7 +97,7 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     {
         let mut cooldowns = ctx.state.trade_cooldowns.lock().expect("trade cooldown lock poisoned");
-        cooldowns.insert(sender_uuid, Instant::now() + Duration::from_secs(ctx.runtime.trade_propose_cooldown_secs));
+        cooldowns.insert(sender_uuid, Instant::now() + Duration::from_millis(ctx.runtime.trade_propose_cooldown_ms));
     }
 
     ctx.whisper(format!("Trade #{id} proposed to {recipient_name}."));
@@ -167,7 +167,7 @@ async fn reject_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             if is_recipient {
                 let mut cooldowns =
                     ctx.state.trade_cooldowns.lock().expect("trade cooldown lock poisoned");
-                cooldowns.insert(initiator_id, Instant::now() + Duration::from_secs(ctx.runtime.trade_reject_penalty_secs));
+                cooldowns.insert(initiator_id, Instant::now() + Duration::from_millis(ctx.runtime.trade_reject_penalty_ms));
             }
         }
         Err(msg) => ctx.whisper(format!("Could not reject: {msg}")),

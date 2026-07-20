@@ -90,24 +90,24 @@ pub struct RuntimeConfig {
     pub board_whisper_delay_ms: u64,
     pub announce_min_interval_ms: u64,
     pub announce_max_interval_ms: u64,
-    pub duplicate_message_window_secs: u64,
-    pub afk_mention_cooldown_secs: u64,
-    pub connection_failure_backoff_secs: u64,
+    pub duplicate_message_window_ms: u64,
+    pub afk_mention_cooldown_ms: u64,
+    pub connection_failure_backoff_ms: u64,
     pub packet_send_delay_ms: u64,
     pub entity_spawn_greeting_ttl_ms: u64,
     pub player_detection_cooldown_ms: u64,
     pub smart_censor_timeout_ms: u64,
-    pub ws_response_timeout_secs: u64,
-    pub player_list_update_interval_secs: u64,
-    pub reminder_tick_interval_secs: u64,
-    pub crouch_max_hold_secs: u64,
+    pub ws_response_timeout_ms: u64,
+    pub player_list_update_interval_ms: u64,
+    pub reminder_tick_interval_ms: u64,
+    pub crouch_max_hold_ms: u64,
     pub crouch_toggle_delay_ms: u64,
-    pub poll_duration_secs: u64,
-    pub duel_confirm_window_secs: u64,
-    pub duel_timeout_secs: u64,
-    pub marry_confirm_window_secs: u64,
-    pub trade_propose_cooldown_secs: u64,
-    pub trade_reject_penalty_secs: u64,
+    pub poll_duration_ms: u64,
+    pub duel_confirm_window_ms: u64,
+    pub duel_timeout_ms: u64,
+    pub marry_confirm_window_ms: u64,
+    pub trade_propose_cooldown_ms: u64,
+    pub trade_reject_penalty_ms: u64,
     pub roast_timeout_ms: u64,
     pub scratch_animation_delay_ms: u64,
     pub slots_animation_delay_ms: u64,
@@ -177,33 +177,33 @@ pub struct Bot {
     pub board_whisper_delay_ms: u64,
     pub announce_min_interval_ms: u64,
     pub announce_max_interval_ms: u64,
-    pub duplicate_message_window_secs: u64,
-    pub afk_mention_cooldown_secs: u64,
-    pub connection_failure_backoff_secs: u64,
+    pub duplicate_message_window_ms: u64,
+    pub afk_mention_cooldown_ms: u64,
+    pub connection_failure_backoff_ms: u64,
     pub packet_send_delay_ms: u64,
     pub entity_spawn_greeting_ttl_ms: u64,
     pub player_detection_cooldown_ms: u64,
     pub smart_censor_timeout_ms: u64,
-    pub ws_response_timeout_secs: u64,
-    pub player_list_update_interval_secs: u64,
-    pub reminder_tick_interval_secs: u64,
-    pub crouch_max_hold_secs: u64,
+    pub ws_response_timeout_ms: u64,
+    pub player_list_update_interval_ms: u64,
+    pub reminder_tick_interval_ms: u64,
+    pub crouch_max_hold_ms: u64,
     pub crouch_toggle_delay_ms: u64,
-    pub poll_duration_secs: u64,
-    pub duel_confirm_window_secs: u64,
-    pub duel_timeout_secs: u64,
-    pub marry_confirm_window_secs: u64,
-    pub trade_propose_cooldown_secs: u64,
-    pub trade_reject_penalty_secs: u64,
+    pub poll_duration_ms: u64,
+    pub duel_confirm_window_ms: u64,
+    pub duel_timeout_ms: u64,
+    pub marry_confirm_window_ms: u64,
+    pub trade_propose_cooldown_ms: u64,
+    pub trade_reject_penalty_ms: u64,
     pub roast_timeout_ms: u64,
     pub scratch_animation_delay_ms: u64,
     pub slots_animation_delay_ms: u64,
     pub twerk_flash_delay_ms: u64,
-    pub market_quote_ttl_secs: u64,
-    pub market_history_ttl_secs: u64,
-    pub market_search_ttl_secs: u64,
-    pub market_api_timeout_secs: u64,
-    pub url_blocklist_timeout_secs: u64,
+    pub market_quote_ttl_ms: u64,
+    pub market_history_ttl_ms: u64,
+    pub market_search_ttl_ms: u64,
+    pub market_api_timeout_ms: u64,
+    pub url_blocklist_timeout_ms: u64,
 }
 
 impl Bot {
@@ -246,9 +246,9 @@ impl Bot {
             google_safe_browsing_key: state.config.api_keys.google_safe_browsing.clone(),
             url_blocklist_sources: state.config.url_blocklist_sources.clone(),
             url_whitelist_file: state.config.url_whitelist_file.clone(),
-            anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown,
+            anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown_ms,
             command_cooldowns: state.config.command_cooldowns.clone(),
-            reconnect_time_ms: state.config.reconnect_time,
+            reconnect_time_ms: state.config.reconnect_time_ms,
             restart_count: 0,
             is_connected: false,
             allow_connection: true,
@@ -263,33 +263,33 @@ impl Bot {
             board_whisper_delay_ms: state.config.board_whisper_delay_ms,
             announce_min_interval_ms: state.config.announce_min_interval_ms,
             announce_max_interval_ms: state.config.announce_max_interval_ms,
-            duplicate_message_window_secs: state.config.duplicate_message_window_secs,
-            afk_mention_cooldown_secs: state.config.afk_mention_cooldown_secs,
-            connection_failure_backoff_secs: state.config.connection_failure_backoff_secs,
+            duplicate_message_window_ms: state.config.duplicate_message_window_ms,
+            afk_mention_cooldown_ms: state.config.afk_mention_cooldown_ms,
+            connection_failure_backoff_ms: state.config.connection_failure_backoff_ms,
             packet_send_delay_ms: state.config.packet_send_delay_ms,
             entity_spawn_greeting_ttl_ms: state.config.entity_spawn_greeting_ttl_ms,
             player_detection_cooldown_ms: state.config.player_detection_cooldown_ms,
             smart_censor_timeout_ms: state.config.smart_censor_timeout_ms,
-            ws_response_timeout_secs: state.config.ws_response_timeout_secs,
-            player_list_update_interval_secs: state.config.player_list_update_interval_secs,
-            reminder_tick_interval_secs: state.config.reminder_tick_interval_secs,
-            crouch_max_hold_secs: state.config.crouch_max_hold_secs,
+            ws_response_timeout_ms: state.config.ws_response_timeout_ms,
+            player_list_update_interval_ms: state.config.player_list_update_interval_ms,
+            reminder_tick_interval_ms: state.config.reminder_tick_interval_ms,
+            crouch_max_hold_ms: state.config.crouch_max_hold_ms,
             crouch_toggle_delay_ms: state.config.crouch_toggle_delay_ms,
-            poll_duration_secs: state.config.poll_duration_secs,
-            duel_confirm_window_secs: state.config.duel_confirm_window_secs,
-            duel_timeout_secs: state.config.duel_timeout_secs,
-            marry_confirm_window_secs: state.config.marry_confirm_window_secs,
-            trade_propose_cooldown_secs: state.config.trade_propose_cooldown_secs,
-            trade_reject_penalty_secs: state.config.trade_reject_penalty_secs,
+            poll_duration_ms: state.config.poll_duration_ms,
+            duel_confirm_window_ms: state.config.duel_confirm_window_ms,
+            duel_timeout_ms: state.config.duel_timeout_ms,
+            marry_confirm_window_ms: state.config.marry_confirm_window_ms,
+            trade_propose_cooldown_ms: state.config.trade_propose_cooldown_ms,
+            trade_reject_penalty_ms: state.config.trade_reject_penalty_ms,
             roast_timeout_ms: state.config.roast_timeout_ms,
             scratch_animation_delay_ms: state.config.scratch_animation_delay_ms,
             slots_animation_delay_ms: state.config.slots_animation_delay_ms,
             twerk_flash_delay_ms: state.config.twerk_flash_delay_ms,
-            market_quote_ttl_secs: state.config.market_quote_ttl_secs,
-            market_history_ttl_secs: state.config.market_history_ttl_secs,
-            market_search_ttl_secs: state.config.market_search_ttl_secs,
-            market_api_timeout_secs: state.config.market_api_timeout_secs,
-            url_blocklist_timeout_secs: state.config.url_blocklist_timeout_secs,
+            market_quote_ttl_ms: state.config.market_quote_ttl_ms,
+            market_history_ttl_ms: state.config.market_history_ttl_ms,
+            market_search_ttl_ms: state.config.market_search_ttl_ms,
+            market_api_timeout_ms: state.config.market_api_timeout_ms,
+            url_blocklist_timeout_ms: state.config.url_blocklist_timeout_ms,
         }
     }
 
@@ -362,24 +362,24 @@ impl Bot {
                 board_whisper_delay_ms: self.board_whisper_delay_ms,
                 announce_min_interval_ms: self.announce_min_interval_ms,
                 announce_max_interval_ms: self.announce_max_interval_ms,
-                duplicate_message_window_secs: self.duplicate_message_window_secs,
-                afk_mention_cooldown_secs: self.afk_mention_cooldown_secs,
-                connection_failure_backoff_secs: self.connection_failure_backoff_secs,
+                duplicate_message_window_ms: self.duplicate_message_window_ms,
+                afk_mention_cooldown_ms: self.afk_mention_cooldown_ms,
+                connection_failure_backoff_ms: self.connection_failure_backoff_ms,
                 packet_send_delay_ms: self.packet_send_delay_ms,
                 entity_spawn_greeting_ttl_ms: self.entity_spawn_greeting_ttl_ms,
                 player_detection_cooldown_ms: self.player_detection_cooldown_ms,
                 smart_censor_timeout_ms: self.smart_censor_timeout_ms,
-                ws_response_timeout_secs: self.ws_response_timeout_secs,
-                player_list_update_interval_secs: self.player_list_update_interval_secs,
-                reminder_tick_interval_secs: self.reminder_tick_interval_secs,
-                crouch_max_hold_secs: self.crouch_max_hold_secs,
+                ws_response_timeout_ms: self.ws_response_timeout_ms,
+                player_list_update_interval_ms: self.player_list_update_interval_ms,
+                reminder_tick_interval_ms: self.reminder_tick_interval_ms,
+                crouch_max_hold_ms: self.crouch_max_hold_ms,
                 crouch_toggle_delay_ms: self.crouch_toggle_delay_ms,
-                poll_duration_secs: self.poll_duration_secs,
-                duel_confirm_window_secs: self.duel_confirm_window_secs,
-                duel_timeout_secs: self.duel_timeout_secs,
-                marry_confirm_window_secs: self.marry_confirm_window_secs,
-                trade_propose_cooldown_secs: self.trade_propose_cooldown_secs,
-                trade_reject_penalty_secs: self.trade_reject_penalty_secs,
+                poll_duration_ms: self.poll_duration_ms,
+                duel_confirm_window_ms: self.duel_confirm_window_ms,
+                duel_timeout_ms: self.duel_timeout_ms,
+                marry_confirm_window_ms: self.marry_confirm_window_ms,
+                trade_propose_cooldown_ms: self.trade_propose_cooldown_ms,
+                trade_reject_penalty_ms: self.trade_reject_penalty_ms,
                 roast_timeout_ms: self.roast_timeout_ms,
                 scratch_animation_delay_ms: self.scratch_animation_delay_ms,
                 slots_animation_delay_ms: self.slots_animation_delay_ms,
@@ -410,10 +410,10 @@ impl Bot {
             casino_sessions: Arc::new(Mutex::new(HashMap::new())),
             market_service: Arc::new(crate::structure::market::service::MarketService::new(
                 self.coingecko_api_key.clone(),
-                self.market_quote_ttl_secs,
-                self.market_history_ttl_secs,
-                self.market_search_ttl_secs,
-                self.market_api_timeout_secs,
+                self.market_quote_ttl_ms,
+                self.market_history_ttl_ms,
+                self.market_search_ttl_ms,
+                self.market_api_timeout_ms,
             )),
             market_bets: Arc::new(Mutex::new(HashMap::new())),
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
@@ -488,9 +488,9 @@ impl Bot {
             let blocklist_arc = state.url_blocklist.clone();
             let sources = self.url_blocklist_sources.clone();
             let whitelist = self.url_whitelist_file.clone();
-            let blocklist_timeout_secs = self.url_blocklist_timeout_secs;
+            let blocklist_timeout_ms = self.url_blocklist_timeout_ms;
             tokio::spawn(async move {
-                let set = crate::structure::mineflayer::url_blocklist::build_blocklist(&sources, &whitelist, blocklist_timeout_secs).await;
+                let set = crate::structure::mineflayer::url_blocklist::build_blocklist(&sources, &whitelist, blocklist_timeout_ms).await;
                 *blocklist_arc.write().expect("url_blocklist write") = Some(set);
             });
         }
@@ -1111,7 +1111,7 @@ impl Default for AzaleaState {
                 is_bot_client: true,
                 log_errors: false,
                 use_websocket: false,
-                websocket_keepalive_secs: 5,
+                websocket_keepalive_ms: 5,
             })),
             runtime: Arc::new(RwLock::new(RuntimeConfig {
                 prefix: "!".to_owned(),
@@ -1148,24 +1148,24 @@ impl Default for AzaleaState {
                 board_whisper_delay_ms: 1_000,
                 announce_min_interval_ms: 900_000,
                 announce_max_interval_ms: 2_700_000,
-                duplicate_message_window_secs: 5,
-                afk_mention_cooldown_secs: 60,
-                connection_failure_backoff_secs: 600,
+                duplicate_message_window_ms: 5,
+                afk_mention_cooldown_ms: 60,
+                connection_failure_backoff_ms: 600,
                 packet_send_delay_ms: 25,
                 entity_spawn_greeting_ttl_ms: 500_000,
                 player_detection_cooldown_ms: 600_000,
                 smart_censor_timeout_ms: 5_000,
-                ws_response_timeout_secs: 5,
-                player_list_update_interval_secs: 60,
-                reminder_tick_interval_secs: 30,
-                crouch_max_hold_secs: 600,
+                ws_response_timeout_ms: 5,
+                player_list_update_interval_ms: 60,
+                reminder_tick_interval_ms: 30,
+                crouch_max_hold_ms: 600,
                 crouch_toggle_delay_ms: 50,
-                poll_duration_secs: 120,
-                duel_confirm_window_secs: 60,
-                duel_timeout_secs: 600,
-                marry_confirm_window_secs: 60,
-                trade_propose_cooldown_secs: 60,
-                trade_reject_penalty_secs: 600,
+                poll_duration_ms: 120,
+                duel_confirm_window_ms: 60,
+                duel_timeout_ms: 600,
+                marry_confirm_window_ms: 60,
+                trade_propose_cooldown_ms: 60,
+                trade_reject_penalty_ms: 600,
                 roast_timeout_ms: 8_000,
                 scratch_animation_delay_ms: 600,
                 slots_animation_delay_ms: 800,
@@ -1196,10 +1196,10 @@ impl Default for AzaleaState {
             casino_sessions: Arc::new(Mutex::new(HashMap::new())),
             market_service: Arc::new(crate::structure::market::service::MarketService::new(
                 String::new(),
-                60,
-                300,
-                86_400,
-                10,
+                60_000,
+                300_000,
+                86_400_000,
+                10_000,
             )),
             market_bets: Arc::new(Mutex::new(HashMap::new())),
             portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
@@ -1428,14 +1428,14 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 // that target, it's our own echo — drop it before AFK/mention/command
                 // handling ever sees it.
                 {
-                    let dup_window_secs = state
+                    let dup_window_ms = state
                         .runtime
                         .read()
                         .expect("runtime config lock poisoned")
-                        .duplicate_message_window_secs;
+                        .duplicate_message_window_ms;
                     let mut recent = state.recent_whispers.lock().expect("recent_whispers lock poisoned");
                     if let Some((sent_content, sent_at)) = recent.get(&sender_lower) {
-                        if *sent_content == content && sent_at.elapsed() < Duration::from_secs(dup_window_secs) {
+                        if *sent_content == content && sent_at.elapsed() < Duration::from_millis(dup_window_ms) {
                             recent.remove(&sender_lower);
                             return Ok(());
                         }
@@ -1470,17 +1470,17 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
 
                     if !hits.is_empty() {
                         let now = Instant::now();
-                        let afk_mention_cooldown_secs = state
+                        let afk_mention_cooldown_ms = state
                             .runtime
                             .read()
                             .expect("runtime config lock poisoned")
-                            .afk_mention_cooldown_secs;
+                            .afk_mention_cooldown_ms;
                         let on_cd = state
                             .afk_cooldowns
                             .lock()
                             .expect("afk_cooldowns lock")
                             .get(&sender_lower)
-                            .map_or(false, |&t| now.duration_since(t) < Duration::from_secs(afk_mention_cooldown_secs));
+                            .map_or(false, |&t| now.duration_since(t) < Duration::from_millis(afk_mention_cooldown_ms));
 
                         if !on_cd {
                             let wcmd = state.runtime.read().expect("runtime config lock poisoned").whisper_command.clone();
@@ -1706,13 +1706,13 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             let failures = state.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
             if failures >= 10 {
                 state.consecutive_failures.store(0, Ordering::Relaxed);
-                let backoff_secs = state
+                let backoff_ms = state
                     .runtime
                     .read()
                     .expect("runtime config lock poisoned")
-                    .connection_failure_backoff_secs;
-                logger::warn(format!("Server unreachable after 10 consecutive failures. Waiting {backoff_secs}s before reconnect."));
-                tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                    .connection_failure_backoff_ms;
+                logger::warn(format!("Server unreachable after 10 consecutive failures. Waiting {}s before reconnect.", backoff_ms / 1000));
+                tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
             }
         }
         Event::ConnectionFailed(error) => {
@@ -1723,13 +1723,13 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             let failures = state.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
             if failures >= 10 {
                 state.consecutive_failures.store(0, Ordering::Relaxed);
-                let backoff_secs = state
+                let backoff_ms = state
                     .runtime
                     .read()
                     .expect("runtime config lock poisoned")
-                    .connection_failure_backoff_secs;
-                logger::warn(format!("Server unreachable after 10 consecutive failures. Waiting {backoff_secs}s before reconnect."));
-                tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                    .connection_failure_backoff_ms;
+                logger::warn(format!("Server unreachable after 10 consecutive failures. Waiting {}s before reconnect.", backoff_ms / 1000));
+                tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
             }
         }
         Event::Packet(packet) => {
@@ -2215,12 +2215,12 @@ async fn run_queue_probe(state: &AzaleaState, probe_command: &str) -> bool {
 
     crate::commands::enqueue_chat(state, probe_command);
 
-    let timeout_secs = state
+    let timeout_ms = state
         .runtime
         .read()
         .expect("runtime config lock poisoned")
-        .ws_response_timeout_secs;
-    match tokio::time::timeout(Duration::from_secs(timeout_secs), rx).await {
+        .ws_response_timeout_ms;
+    match tokio::time::timeout(Duration::from_millis(timeout_ms), rx).await {
         Ok(Ok(true)) => true,
         _ => {
             // Timed out (or the sender was dropped without sending) -- clear the
@@ -2549,12 +2549,12 @@ fn spawn_websocket_event_task(bot: Client, state: AzaleaState) {
 
 fn spawn_player_list_update_task(state: AzaleaState) {
     tokio::spawn(async move {
-        let interval_secs = state
+        let interval_ms = state
             .runtime
             .read()
             .expect("runtime config lock poisoned")
-            .player_list_update_interval_secs;
-        let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs));
+            .player_list_update_interval_ms;
+        let mut ticker = tokio::time::interval(Duration::from_millis(interval_ms));
         loop {
             ticker.tick().await;
             send_player_list_update(&state).await;
@@ -2934,13 +2934,13 @@ async fn send_player_death(
 
 fn spawn_reminder_tick_task(state: AzaleaState, active: Arc<AtomicBool>) {
     tokio::spawn(async move {
-        let tick_secs = state
+        let tick_ms = state
             .runtime
             .read()
             .expect("runtime config lock poisoned")
-            .reminder_tick_interval_secs;
+            .reminder_tick_interval_ms;
         while active.load(Ordering::Relaxed) {
-            tokio::time::sleep(std::time::Duration::from_secs(tick_secs)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(tick_ms)).await;
             if !active.load(Ordering::Relaxed) {
                 break;
             }
@@ -3143,12 +3143,12 @@ async fn resolve_and_check_bridge_sender(state: &AzaleaState, sender: &str) -> B
         return BridgeSenderStatus::Unavailable;
     }
 
-    let timeout_secs = state
+    let timeout_ms = state
         .runtime
         .read()
         .expect("runtime config lock poisoned")
-        .ws_response_timeout_secs;
-    match tokio::time::timeout(Duration::from_secs(timeout_secs), rx).await {
+        .ws_response_timeout_ms;
+    match tokio::time::timeout(Duration::from_millis(timeout_ms), rx).await {
         Ok(Ok(DiscordResolution::Found(snowflake))) => {
             let blacklisted = state
                 .runtime

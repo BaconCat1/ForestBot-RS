@@ -133,8 +133,8 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
         }
     }
 
-    let confirm_window_secs = ctx.runtime.duel_confirm_window_secs;
-    let confirm_expires_at = now_unix() + confirm_window_secs;
+    let confirm_window_ms = ctx.runtime.duel_confirm_window_ms;
+    let confirm_expires_at = now_unix() + confirm_window_ms / 1000;
     let duel = Duel {
         id: Uuid::new_v4(),
         challenger: sender.to_owned(),
@@ -156,7 +156,7 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
     // Announce in public chat so challenged player sees it
     enqueue_chat(ctx.state, format!(
         "{} challenges {} to a duel for {}! Type !duel confirm to accept ({}s to respond).",
-        sender, target, chips_str(stake), confirm_window_secs
+        sender, target, chips_str(stake), confirm_window_ms / 1000
     ));
 
     // Spawn confirm timeout
@@ -202,7 +202,7 @@ async fn confirm_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         }
     }
 
-    let expires_at = now_unix() + ctx.runtime.duel_timeout_secs;
+    let expires_at = now_unix() + ctx.runtime.duel_timeout_ms / 1000;
 
     // Upgrade phase
     {
@@ -528,12 +528,12 @@ async fn confirm_timeout_task(state: AzaleaState, duel_id: Uuid) {
 }
 
 async fn active_timeout_task(state: AzaleaState, duel_id: Uuid) {
-    let timeout_secs = state
+    let timeout_ms = state
         .runtime
         .read()
         .expect("runtime config lock poisoned")
-        .duel_timeout_secs;
-    tokio::time::sleep(std::time::Duration::from_secs(timeout_secs)).await;
+        .duel_timeout_ms;
+    tokio::time::sleep(std::time::Duration::from_millis(timeout_ms)).await;
 
     let duel = {
         let duels = state.duels.lock().expect("duels lock");
