@@ -129,13 +129,23 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let (won, mult) = resolve(&bet, &dice);
         if won {
             let payout = stake * mult;
-            let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
-            let alimony_note = format_alimony(win.alimony_paid);
-            ctx.whisper_success(format!(
-                "Sic Bo [{}-{}-{}={}] {} | WIN +{}{alimony_note} | Balance: {}",
-                dice[0], dice[1], dice[2], total,
-                label, chips_str(payout - stake), chips_str(win.chips)
-            ));
+            match ctx.state.api.casino_win(&player_uuid, payout).await {
+                Ok(win) => {
+                    let alimony_note = format_alimony(win.alimony_paid);
+                    ctx.whisper_success(format!(
+                        "Sic Bo [{}-{}-{}={}] {} | WIN +{}{alimony_note} | Balance: {}",
+                        dice[0], dice[1], dice[2], total,
+                        label, chips_str(payout - stake), chips_str(win.chips)
+                    ));
+                }
+                Err(e) => {
+                    eprintln!("[Sic Bo] payout failed for {player_uuid}: {e:?}");
+                    ctx.whisper_error(format!(
+                        "Sic Bo [{}-{}-{}={}] {} | WIN, but payout failed. Contact an admin.",
+                        dice[0], dice[1], dice[2], total, label
+                    ));
+                }
+            }
         } else {
             let _ = ctx.state.api.casino_jackpot_rake(stake).await;
             ctx.whisper_success(format!(

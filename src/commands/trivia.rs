@@ -311,14 +311,22 @@ fn spawn_answer_timer(state: AzaleaState, stake: i64, delay_secs: u64) {
         // casino_win/casino_adjust are UUID-keyed, and re-resolving this late would risk
         // a payout failing to find anyone to credit instead of a clean pre-money bail.
         let mut alimony_notes: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut payout_failed: std::collections::HashSet<String> = std::collections::HashSet::new();
         for player in &correct_players {
             let Some(player_uuid) = player_uuids.get(player) else {
                 eprintln!("[trivia] payout: no resolved UUID stored for {player} -- skipping, contact admin");
                 continue;
             };
-            let win = state.api.casino_win(player_uuid, stake * 2).await.unwrap_or_default();
-            if win.alimony_paid > 0 {
-                alimony_notes.insert(player.clone(), format!(" (-{} alimony)", chips_str(win.alimony_paid)));
+            match state.api.casino_win(player_uuid, stake * 2).await {
+                Ok(win) => {
+                    if win.alimony_paid > 0 {
+                        alimony_notes.insert(player.clone(), format!(" (-{} alimony)", chips_str(win.alimony_paid)));
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[trivia] payout failed for {player} ({player_uuid}): {e:?}");
+                    payout_failed.insert(player.clone());
+                }
             }
         }
         // Wrong + no-answer players' stakes go to jackpot (already deducted at join)
@@ -331,8 +339,12 @@ fn spawn_answer_timer(state: AzaleaState, stake: i64, delay_secs: u64) {
             let mut out = state.outbound_chat.lock().expect("outbound lock");
             out.push_back(summary);
             for player in &correct_players {
-                let alimony_note = alimony_notes.get(player).cloned().unwrap_or_default();
-                out.push_back(format!("/msg {player} [Trivia] Correct! +{}{alimony_note}.", chips_str(stake)));
+                if payout_failed.contains(player) {
+                    out.push_back(format!("/msg {player} [Trivia] Correct! but payout failed. Contact an admin."));
+                } else {
+                    let alimony_note = alimony_notes.get(player).cloned().unwrap_or_default();
+                    out.push_back(format!("/msg {player} [Trivia] Correct! +{}{alimony_note}.", chips_str(stake)));
+                }
             }
             for player in &wrong_players {
                 out.push_back(format!("/msg {player} [Trivia] Wrong! -{} (to jackpot).", chips_str(stake)));

@@ -252,10 +252,18 @@ async fn cashout(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     ctx.state.api.casino_market_bet_delete(bet.id).await;
 
     let mut alimony_note = String::new();
+    let mut payout_failed = false;
     if payout > bet.stake {
-        let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
-        if win.alimony_paid > 0 {
-            alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
+        match ctx.state.api.casino_win(&player_uuid, payout).await {
+            Ok(win) => {
+                if win.alimony_paid > 0 {
+                    alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
+                }
+            }
+            Err(e) => {
+                eprintln!("[Market] cashout payout failed for {player_uuid}: {e:?}");
+                payout_failed = true;
+            }
         }
     } else if payout > 0 {
         let _ = ctx.state.api.casino_adjust(&player_uuid, payout).await;
@@ -271,11 +279,19 @@ async fn cashout(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ("LOSS", format!("-{}", chips_str(net.abs())))
     };
 
-    ctx.whisper_success(format!(
-        "Cashed out {} {} | {} | {}→{} ({}{:.2}%) | {}{alimony_note}",
-        bet.direction.label(), bet.symbol, result_str,
-        fmt_price(bet.entry_price), fmt_price(exit_price), sign, pct, net_str
-    ));
+    if payout_failed {
+        ctx.whisper_error(format!(
+            "Cashed out {} {} | {} but payout failed. Contact an admin. | {}→{} ({}{:.2}%)",
+            bet.direction.label(), bet.symbol, result_str,
+            fmt_price(bet.entry_price), fmt_price(exit_price), sign, pct
+        ));
+    } else {
+        ctx.whisper_success(format!(
+            "Cashed out {} {} | {} | {}→{} ({}{:.2}%) | {}{alimony_note}",
+            bet.direction.label(), bet.symbol, result_str,
+            fmt_price(bet.entry_price), fmt_price(exit_price), sign, pct, net_str
+        ));
+    }
 
     Ok(())
 }
@@ -346,10 +362,18 @@ pub async fn settle_task(
     deps.api.casino_market_bet_delete(bet.id).await;
 
     let mut alimony_note = String::new();
+    let mut payout_failed = false;
     if payout > bet.stake {
-        let win = deps.api.casino_win(&player, payout).await.unwrap_or_default();
-        if win.alimony_paid > 0 {
-            alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
+        match deps.api.casino_win(&player, payout).await {
+            Ok(win) => {
+                if win.alimony_paid > 0 {
+                    alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
+                }
+            }
+            Err(e) => {
+                eprintln!("[Market settle] payout failed for {player}: {e:?}");
+                payout_failed = true;
+            }
         }
     } else if payout > 0 {
         let _ = deps.api.casino_adjust(&player, payout).await;
@@ -367,11 +391,19 @@ pub async fn settle_task(
     let username_for_msg = deps.players.read().ok()
         .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()))
         .unwrap_or_else(|| player.clone());
-    deps.enqueue_chat(format!(
-        "/{whisper_cmd} {username_for_msg} {} {} settled: {} | {}→{} ({}{:.2}%) | {}{alimony_note}",
-        bet.direction.label(), bet.symbol, result_str,
-        fmt_price(bet.entry_price), fmt_price(exit_price), sign, pct, net_str
-    ));
+    if payout_failed {
+        deps.enqueue_chat(format!(
+            "/{whisper_cmd} {username_for_msg} {} {} settled: {} but payout failed. Contact an admin. | {}→{} ({}{:.2}%)",
+            bet.direction.label(), bet.symbol, result_str,
+            fmt_price(bet.entry_price), fmt_price(exit_price), sign, pct
+        ));
+    } else {
+        deps.enqueue_chat(format!(
+            "/{whisper_cmd} {username_for_msg} {} {} settled: {} | {}→{} ({}{:.2}%) | {}{alimony_note}",
+            bet.direction.label(), bet.symbol, result_str,
+            fmt_price(bet.entry_price), fmt_price(exit_price), sign, pct, net_str
+        ));
+    }
 }
 
 fn portfolio_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
@@ -501,10 +533,18 @@ async fn portfolio_sell(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     }
     ctx.state.api.casino_portfolio_delete(pos.id).await;
     let mut alimony_note = String::new();
+    let mut payout_failed = false;
     if payout > pos.stake {
-        let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
-        if win.alimony_paid > 0 {
-            alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
+        match ctx.state.api.casino_win(&player_uuid, payout).await {
+            Ok(win) => {
+                if win.alimony_paid > 0 {
+                    alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
+                }
+            }
+            Err(e) => {
+                eprintln!("[Market] portfolio sell payout failed for {player_uuid}: {e:?}");
+                payout_failed = true;
+            }
         }
     } else if payout > 0 {
         let _ = ctx.state.api.casino_adjust(&player_uuid, payout).await;
@@ -520,11 +560,19 @@ async fn portfolio_sell(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ("LOSS", format!("-{}", chips_str(net.abs())))
     };
 
-    ctx.whisper_success(format!(
-        "Closed {} | {} | {}→{} ({}{:.2}%) | {}{alimony_note}",
-        sym, result_str,
-        fmt_price(pos.entry_price), fmt_price(exit_price), sign, pct, net_str
-    ));
+    if payout_failed {
+        ctx.whisper_error(format!(
+            "Closed {} | {} but payout failed. Contact an admin. | {}→{} ({}{:.2}%)",
+            sym, result_str,
+            fmt_price(pos.entry_price), fmt_price(exit_price), sign, pct
+        ));
+    } else {
+        ctx.whisper_success(format!(
+            "Closed {} | {} | {}→{} ({}{:.2}%) | {}{alimony_note}",
+            sym, result_str,
+            fmt_price(pos.entry_price), fmt_price(exit_price), sign, pct, net_str
+        ));
+    }
     Ok(())
 }
 
@@ -548,6 +596,7 @@ async fn portfolio_sell_all(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let mut total_payout = 0i64;
     let mut total_alimony = 0i64;
     let mut quote_failures = 0usize;
+    let mut payout_failures = 0usize;
 
     for (pos, quote_result) in positions.iter().zip(quotes.iter()) {
         let exit_price = match quote_result {
@@ -566,8 +615,14 @@ async fn portfolio_sell_all(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         }
         ctx.state.api.casino_portfolio_delete(pos.id).await;
         if payout > pos.stake {
-            let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
-            total_alimony += win.alimony_paid;
+            match ctx.state.api.casino_win(&player_uuid, payout).await {
+                Ok(win) => total_alimony += win.alimony_paid,
+                Err(e) => {
+                    eprintln!("[Market] sell-all payout failed for {player_uuid} pos {}: {e:?}", pos.id);
+                    payout_failures += 1;
+                    total_payout -= payout; // wasn't actually credited
+                }
+            }
         } else if payout > 0 {
             let _ = ctx.state.api.casino_adjust(&player_uuid, payout).await;
         }
@@ -579,11 +634,14 @@ async fn portfolio_sell_all(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     } else {
         format!("-{}", chips_str(net.abs()))
     };
-    let caveat = if quote_failures > 0 {
-        format!(" ({} price unavailable, refunded at cost)", quote_failures)
-    } else {
-        String::new()
-    };
+    let mut caveat_parts = Vec::new();
+    if quote_failures > 0 {
+        caveat_parts.push(format!("{} price unavailable, refunded at cost", quote_failures));
+    }
+    if payout_failures > 0 {
+        caveat_parts.push(format!("{} payout(s) failed, contact an admin", payout_failures));
+    }
+    let caveat = if caveat_parts.is_empty() { String::new() } else { format!(" ({})", caveat_parts.join("; ")) };
     let alimony_note = format_alimony(total_alimony);
 
     ctx.whisper_success(format!(

@@ -48,6 +48,17 @@ pub fn format_alimony(alimony_paid: i64) -> String {
     }
 }
 
+/// Formats a fetched balance for display, never fabricating a number when the fetch
+/// failed -- callers must not `.unwrap_or(0)`/`.unwrap_or_default()` a balance API
+/// call, since that silently shows a fake "Balance: 0" (or worse, a made-up nonzero
+/// value) instead of surfacing the failure.
+pub fn balance_str(balance: Option<i64>) -> String {
+    match balance {
+        Some(b) => chips_str(b),
+        None => "unavailable".to_string(),
+    }
+}
+
 pub fn fmt_duration(secs: u64) -> String {
     if secs < 60 {
         format!("{secs}s")

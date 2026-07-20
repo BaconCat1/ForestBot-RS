@@ -1,7 +1,7 @@
 use rand::{Rng, rngs::OsRng};
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::{CasinoAdjustErr, CasinoWinResult};
+use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 
 use super::{chips_str, format_alimony};
 
@@ -121,15 +121,22 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         if wins {
             let total_return = bet * multiplier;
-            let result = ctx.state.api.casino_win(&player_uuid, total_return).await
-                .unwrap_or(CasinoWinResult {
-                    chips: balance + total_return, alimony_paid: 0, ex_count: 0, net: total_return,
-                });
-            let alimony_note = format_alimony(result.alimony_paid);
-            ctx.whisper_success(format!(
-                "Roulette: {} {color_str} | {label} — Win! +{}{alimony_note} | Balance: {}",
-                spin, chips_str(result.net - bet), chips_str(result.chips),
-            ));
+            match ctx.state.api.casino_win(&player_uuid, total_return).await {
+                Ok(result) => {
+                    let alimony_note = format_alimony(result.alimony_paid);
+                    ctx.whisper_success(format!(
+                        "Roulette: {} {color_str} | {label} — Win! +{}{alimony_note} | Balance: {}",
+                        spin, chips_str(result.net - bet), chips_str(result.chips),
+                    ));
+                }
+                Err(e) => {
+                    eprintln!("[Roulette] payout failed for {player_uuid}: {e:?}");
+                    ctx.whisper_error(format!(
+                        "Roulette: {} {color_str} | {label} — Win! but payout failed. Contact an admin.",
+                        spin,
+                    ));
+                }
+            }
         } else {
             ctx.state.api.casino_jackpot_rake(bet).await;
             ctx.whisper_success(format!(

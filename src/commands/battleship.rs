@@ -454,10 +454,17 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 ctx.whisper_success("Already fired there.");
             }
             Outcome::Win { stake, opponent, player_msg, board_lines } => {
-                let win = ctx.state.api.casino_win(&player_uuid, stake * 2).await.unwrap_or_default();
                 ctx.whisper_success(&player_msg);
-                let alimony_note = format_alimony(win.alimony_paid);
-                ctx.whisper_success(format!("All of {opponent}'s ships sunk! Win: {}!{alimony_note}", chips_str(stake * 2)));
+                match ctx.state.api.casino_win(&player_uuid, stake * 2).await {
+                    Ok(win) => {
+                        let alimony_note = format_alimony(win.alimony_paid);
+                        ctx.whisper_success(format!("All of {opponent}'s ships sunk! Win: {}!{alimony_note}", chips_str(stake * 2)));
+                    }
+                    Err(e) => {
+                        eprintln!("[Battleship] payout failed for {player_uuid}: {e:?}");
+                        ctx.whisper_error(format!("All of {opponent}'s ships sunk, but payout failed. Contact an admin."));
+                    }
+                }
                 ctx.whisper_board(board_lines).await;
             }
             Outcome::Lose { stake, opponent, player_msg, bot_msg, board_lines } => {

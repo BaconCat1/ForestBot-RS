@@ -4,7 +4,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
 
-use super::chips_str;
+use super::{balance_str, chips_str};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["hilo", "hi-lo"],
@@ -205,17 +205,30 @@ async fn predict(
             let cashout = (stake as f64 * new_mult) as i64;
             // A "safe" (high-probability) correct guess can shrink the multiplier below
             // 1.0 (house edge < step probability), so cashout isn't always a real profit.
-            let (bal, alimony_note) = if cashout > stake {
-                let win = ctx.state.api.casino_win(player_uuid, cashout).await.unwrap_or_default();
-                let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
-                (win.chips, note)
+            if cashout > stake {
+                match ctx.state.api.casino_win(player_uuid, cashout).await {
+                    Ok(win) => {
+                        let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                        ctx.whisper_success(format!(
+                            "Correct! {} → {} | Deck exhausted — auto-cashout: x{:.2}={}{note} | Balance: {}",
+                            rank_name(current_card), rank_name(next_card), new_mult, chips_str(cashout), chips_str(win.chips)
+                        ));
+                    }
+                    Err(e) => {
+                        eprintln!("[Hilo] payout failed for {player_uuid}: {e:?}");
+                        ctx.whisper_error(format!(
+                            "Correct! {} → {} | Deck exhausted — cashout x{:.2}={}, but payout failed. Contact an admin.",
+                            rank_name(current_card), rank_name(next_card), new_mult, chips_str(cashout)
+                        ));
+                    }
+                }
             } else {
-                (ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0), String::new())
-            };
-            ctx.whisper_success(format!(
-                "Correct! {} → {} | Deck exhausted — auto-cashout: x{:.2}={}{alimony_note} | Balance: {}",
-                rank_name(current_card), rank_name(next_card), new_mult, chips_str(cashout), chips_str(bal)
-            ));
+                let bal = ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0);
+                ctx.whisper_success(format!(
+                    "Correct! {} → {} | Deck exhausted — auto-cashout: x{:.2}={} | Balance: {}",
+                    rank_name(current_card), rank_name(next_card), new_mult, chips_str(cashout), chips_str(bal)
+                ));
+            }
         } else {
             {
                 let mut sessions = ctx.state.casino_sessions.lock().expect("casino sessions lock");
@@ -232,10 +245,10 @@ async fn predict(
             let mut sessions = ctx.state.casino_sessions.lock().expect("casino sessions lock");
             sessions.remove(ctx.sender);
         }
-        let bal = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0);
+        let bal = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips);
         ctx.whisper_success(format!(
             "Wrong! {} came up. Lost {}. | Balance: {}",
-            rank_name(next_card), chips_str(stake), chips_str(bal)
+            rank_name(next_card), chips_str(stake), balance_str(bal)
         ));
     }
     Ok(())
@@ -248,18 +261,32 @@ async fn do_cashout(ctx: &CommandContext<'_>, stake: i64, multiplier: f64, guess
         let mut sessions = ctx.state.casino_sessions.lock().expect("casino sessions lock");
         sessions.remove(ctx.sender);
     }
-    let (bal, alimony_note) = if cashout > stake {
-        let win = ctx.state.api.casino_win(player_uuid, cashout).await.unwrap_or_default();
-        let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
-        (win.chips, note)
+    if cashout > stake {
+        match ctx.state.api.casino_win(player_uuid, cashout).await {
+            Ok(win) => {
+                let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                ctx.whisper_success(format!(
+                    "Cashed out! x{:.2} × {} = {} (+{}){note} after {} guess{} | Balance: {}",
+                    multiplier, chips_str(stake), chips_str(cashout), chips_str(profit),
+                    guesses, if guesses == 1 { "" } else { "es" }, chips_str(win.chips)
+                ));
+            }
+            Err(e) => {
+                eprintln!("[Hilo] payout failed for {player_uuid}: {e:?}");
+                ctx.whisper_error(format!(
+                    "Cashed out! x{:.2} × {} = {} (+{}), but payout failed. Contact an admin.",
+                    multiplier, chips_str(stake), chips_str(cashout), chips_str(profit)
+                ));
+            }
+        }
     } else {
-        (ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0), String::new())
-    };
-    ctx.whisper_success(format!(
-        "Cashed out! x{:.2} × {} = {} (+{}){alimony_note} after {} guess{} | Balance: {}",
-        multiplier, chips_str(stake), chips_str(cashout), chips_str(profit),
-        guesses, if guesses == 1 { "" } else { "es" }, chips_str(bal)
-    ));
+        let bal = ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0);
+        ctx.whisper_success(format!(
+            "Cashed out! x{:.2} × {} = {} (+{}) after {} guess{} | Balance: {}",
+            multiplier, chips_str(stake), chips_str(cashout), chips_str(profit),
+            guesses, if guesses == 1 { "" } else { "es" }, chips_str(bal)
+        ));
+    }
     Ok(())
 }
 

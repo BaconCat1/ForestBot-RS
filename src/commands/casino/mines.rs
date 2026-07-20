@@ -286,9 +286,16 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     return Ok(());
                 }
                 ctx.state.mines_games.lock().unwrap().remove(&sender);
-                let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
-                let alimony_note = format_alimony(win.alimony_paid);
-                ctx.whisper_success(format!("Cashed out! Won {}{alimony_note}.", chips_str(payout)));
+                match ctx.state.api.casino_win(&player_uuid, payout).await {
+                    Ok(win) => {
+                        let alimony_note = format_alimony(win.alimony_paid);
+                        ctx.whisper_success(format!("Cashed out! Won {}{alimony_note}.", chips_str(payout)));
+                    }
+                    Err(e) => {
+                        eprintln!("[Mines] payout failed for {player_uuid}: {e:?}");
+                        ctx.whisper_error("Cashed out, but payout failed. Contact an admin.");
+                    }
+                }
                 return Ok(());
             }
             "quit" | "forfeit" => {
@@ -382,9 +389,16 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 ctx.whisper_board(board).await;
             }
             Outcome::Victory { payout, board } => {
-                let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
-                let alimony_note = format_alimony(win.alimony_paid);
-                ctx.whisper_success(format!("All safe cells cleared! Won {}{alimony_note}!", chips_str(payout)));
+                match ctx.state.api.casino_win(&player_uuid, payout).await {
+                    Ok(win) => {
+                        let alimony_note = format_alimony(win.alimony_paid);
+                        ctx.whisper_success(format!("All safe cells cleared! Won {}{alimony_note}!", chips_str(payout)));
+                    }
+                    Err(e) => {
+                        eprintln!("[Mines] payout failed for {player_uuid}: {e:?}");
+                        ctx.whisper_error("All safe cells cleared, but payout failed. Contact an admin.");
+                    }
+                }
                 ctx.whisper_board(board).await;
             }
             Outcome::Continue { revealed, multiplier, safe_revealed, board } => {

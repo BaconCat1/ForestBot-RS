@@ -449,7 +449,7 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
     let pot = duel.stake * 2;
     let rake = (pot as f64 * RAKE) as i64;
     let payout = pot - rake;
-    let win = state.api.casino_win(&winner_uuid, payout).await.unwrap_or_default();
+    let win_result = state.api.casino_win(&winner_uuid, payout).await;
     state.api.casino_jackpot_rake(rake).await;
 
     // Duel win stat
@@ -464,12 +464,22 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
             let sb_rake = (raw as f64 * RAKE) as i64;
             let sb_payout = (raw - sb_rake).max(0);
             jackpot_extra += sb_rake;
-            let sb_win = state.api.casino_win(&sb.bettor_uuid, sb_payout).await.unwrap_or_default();
-            let sb_alimony_note = format_alimony(sb_win.alimony_paid);
-            enqueue_chat(state, format!(
-                "/{whisper_cmd} {} Side bet on {} paid: +{} chips{sb_alimony_note}",
-                sb.bettor, winner, chips_str(sb_payout)
-            ));
+            match state.api.casino_win(&sb.bettor_uuid, sb_payout).await {
+                Ok(sb_win) => {
+                    let sb_alimony_note = format_alimony(sb_win.alimony_paid);
+                    enqueue_chat(state, format!(
+                        "/{whisper_cmd} {} Side bet on {} paid: +{} chips{sb_alimony_note}",
+                        sb.bettor, winner, chips_str(sb_payout)
+                    ));
+                }
+                Err(e) => {
+                    eprintln!("[duel] side bet payout failed for {}: {e:?}", sb.bettor_uuid);
+                    enqueue_chat(state, format!(
+                        "/{whisper_cmd} {} Side bet on {} won, but payout failed. Contact an admin.",
+                        sb.bettor, winner
+                    ));
+                }
+            }
         } else {
             jackpot_extra += sb.amount;
         }
@@ -478,11 +488,21 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
         state.api.casino_jackpot_rake(jackpot_extra).await;
     }
 
-    let net = chips_str(payout - duel.stake);
-    let alimony_note = format_alimony(win.alimony_paid);
-    enqueue_chat(state, format!(
-        "{winner} defeated {loser} in a duel! +{net} chips{alimony_note}"
-    ));
+    match win_result {
+        Ok(win) => {
+            let net = chips_str(payout - duel.stake);
+            let alimony_note = format_alimony(win.alimony_paid);
+            enqueue_chat(state, format!(
+                "{winner} defeated {loser} in a duel! +{net} chips{alimony_note}"
+            ));
+        }
+        Err(e) => {
+            eprintln!("[duel] main pot payout failed for {winner_uuid}: {e:?}");
+            enqueue_chat(state, format!(
+                "{winner} defeated {loser} in a duel, but payout failed. Contact an admin."
+            ));
+        }
+    }
 }
 
 async fn cancel_duel_refund(state: &AzaleaState, duel: &Duel) {

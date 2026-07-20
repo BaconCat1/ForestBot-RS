@@ -3,7 +3,7 @@ use rand::Rng;
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 
-use super::casino::{chips_str, format_alimony};
+use super::casino::{balance_str, chips_str, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["checkers", "draughts"],
@@ -586,9 +586,16 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
     match p1 {
         Phase1::BadMove(e) => ctx.whisper_success(e),
         Phase1::PlayerWins { stake, opponent } => {
-            let win = ctx.state.api.casino_win(&player_uuid, stake * 2).await.unwrap_or_default();
-            let alimony_note = format_alimony(win.alimony_paid);
-            ctx.whisper_success(format!("{} has no moves — you WIN! +{}{alimony_note} | Balance: {}", opponent, chips_str(stake), chips_str(win.chips)));
+            match ctx.state.api.casino_win(&player_uuid, stake * 2).await {
+                Ok(win) => {
+                    let alimony_note = format_alimony(win.alimony_paid);
+                    ctx.whisper_success(format!("{} has no moves — you WIN! +{}{alimony_note} | Balance: {}", opponent, chips_str(stake), chips_str(win.chips)));
+                }
+                Err(e) => {
+                    eprintln!("[Checkers] payout failed for {player_uuid}: {e:?}");
+                    ctx.whisper_error(format!("{} has no moves — you WIN, but payout failed. Contact an admin.", opponent));
+                }
+            }
         }
         Phase1::Draw { stake, reason } => {
             let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
@@ -597,9 +604,16 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
         Phase1::NpcTurn { mut game, stake, difficulty, opponent, mut no_progress_ply, mut position_history } => {
             // NPC computes move without holding lock (potentially slow at Hard depth)
             let Some(npc_path) = npc_pick_move(&game, difficulty) else {
-                let win = ctx.state.api.casino_win(&player_uuid, stake * 2).await.unwrap_or_default();
-                let alimony_note = format_alimony(win.alimony_paid);
-                ctx.whisper_success(format!("{} has no moves — you WIN! +{}{alimony_note} | Balance: {}", opponent, chips_str(stake), chips_str(win.chips)));
+                match ctx.state.api.casino_win(&player_uuid, stake * 2).await {
+                    Ok(win) => {
+                        let alimony_note = format_alimony(win.alimony_paid);
+                        ctx.whisper_success(format!("{} has no moves — you WIN! +{}{alimony_note} | Balance: {}", opponent, chips_str(stake), chips_str(win.chips)));
+                    }
+                    Err(e) => {
+                        eprintln!("[Checkers] payout failed for {player_uuid}: {e:?}");
+                        ctx.whisper_error(format!("{} has no moves — you WIN, but payout failed. Contact an admin.", opponent));
+                    }
+                }
                 return Ok(());
             };
 
@@ -627,9 +641,8 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
             } else if is_game_over(&game) {
                 ctx.state.checkers_games.lock().expect("checkers lock").remove(ctx.sender);
                 ctx.state.api.casino_jackpot_rake(stake).await;
-                let bal = ctx.state.api.casino_get_balance(&player_uuid).await
-                    .map(|b| b.chips).unwrap_or(0);
-                ctx.whisper_success(format!("You have no moves — {} wins. -{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
+                let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips);
+                ctx.whisper_success(format!("You have no moves — {} wins. -{} | Balance: {}", opponent, chips_str(stake), balance_str(bal)));
             } else {
                 ctx.whisper_board(render_board(&game)).await;
                 if let Some(hint) = move_hint(&game) { ctx.whisper_success(hint); }
@@ -646,9 +659,8 @@ async fn quit_game(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         Some(s) => {
             ctx.state.api.casino_jackpot_rake(s.stake).await;
             let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
-            let bal = ctx.state.api.casino_get_balance(&player_uuid).await
-                .map(|b| b.chips).unwrap_or(0);
-            ctx.whisper_success(format!("Forfeited vs {}. -{} | Balance: {}", s.opponent, chips_str(s.stake), chips_str(bal)));
+            let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips);
+            ctx.whisper_success(format!("Forfeited vs {}. -{} | Balance: {}", s.opponent, chips_str(s.stake), balance_str(bal)));
         }
     }
     Ok(())

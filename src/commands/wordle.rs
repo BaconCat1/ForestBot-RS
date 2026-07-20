@@ -204,13 +204,23 @@ async fn submit_guess(ctx: &CommandContext<'_>, word: &str) -> anyhow::Result<()
             let payout = (stake as f64 * mult).ceil() as i64;
             let net = payout - stake;
             let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
-            let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
-            let alimony_note = format_alimony(win.alimony_paid);
             ctx.whisper_board(&board).await;
-            ctx.whisper_success(format!(
-                "You got it in {}/{}! {}x payout — +{} chips ({}){alimony_note}",
-                guesses_used, MAX_GUESSES, mult, chips_str(net), chips_str(payout)
-            ));
+            match ctx.state.api.casino_win(&player_uuid, payout).await {
+                Ok(win) => {
+                    let alimony_note = format_alimony(win.alimony_paid);
+                    ctx.whisper_success(format!(
+                        "You got it in {}/{}! {}x payout — +{} chips ({}){alimony_note}",
+                        guesses_used, MAX_GUESSES, mult, chips_str(net), chips_str(payout)
+                    ));
+                }
+                Err(e) => {
+                    eprintln!("[Wordle] payout failed for {player_uuid}: {e:?}");
+                    ctx.whisper_error(format!(
+                        "You got it in {}/{}! but payout failed. Contact an admin.",
+                        guesses_used, MAX_GUESSES
+                    ));
+                }
+            }
         }
         GuessOutcome::Lose { board, solution, stake } => {
             let _ = ctx.state.api.casino_jackpot_rake(stake).await;

@@ -1,6 +1,6 @@
 use rand::{Rng, rngs::OsRng};
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::{CasinoAdjustErr, CasinoWinResult};
+use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use super::chips_str;
 
 const MIN_BET: i64 = 10;
@@ -107,19 +107,26 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             ctx.state.api.casino_jackpot_rake(bet).await;
             ctx.whisper_success(format!("-{} | Balance: {}", chips_str(bet), chips_str(balance)));
         } else {
-            let result = ctx.state.api.casino_win(&player_uuid, total_win).await
-                .unwrap_or(CasinoWinResult {
-                    chips: balance + total_win, alimony_paid: 0, ex_count: 0, net: total_win,
-                });
-            let alimony_note = if result.alimony_paid > 0 {
-                format!(" (-{} alimony to {} ex)", chips_str(result.alimony_paid), result.ex_count)
-            } else {
-                String::new()
-            };
-            ctx.whisper_success(format!(
-                "{} match! +{}{alimony_note} | Balance: {}",
-                line_names.join(" + "), chips_str(result.net), chips_str(result.chips)
-            ));
+            match ctx.state.api.casino_win(&player_uuid, total_win).await {
+                Ok(result) => {
+                    let alimony_note = if result.alimony_paid > 0 {
+                        format!(" (-{} alimony to {} ex)", chips_str(result.alimony_paid), result.ex_count)
+                    } else {
+                        String::new()
+                    };
+                    ctx.whisper_success(format!(
+                        "{} match! +{}{alimony_note} | Balance: {}",
+                        line_names.join(" + "), chips_str(result.net), chips_str(result.chips)
+                    ));
+                }
+                Err(e) => {
+                    eprintln!("[Slots] payout failed for {player_uuid}: {e:?}");
+                    ctx.whisper_error(format!(
+                        "{} match! but payout failed. Contact an admin.",
+                        line_names.join(" + ")
+                    ));
+                }
+            }
         }
 
         Ok(())

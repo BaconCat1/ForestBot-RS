@@ -1,7 +1,7 @@
 use rand::Rng;
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
-use super::casino::{chips_str, format_alimony};
+use super::casino::{balance_str, chips_str, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["reversi", "othello"],
@@ -539,14 +539,21 @@ async fn finish_game(
     match result {
         GameResult::PlayerWins => {
             let payout = stake * 2;
-            let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
-            let alimony_note = format_alimony(win.alimony_paid);
-            ctx.whisper_success(format!("You beat {}! +{}{alimony_note} | Balance: {}", opponent, chips_str(payout), chips_str(win.chips)));
+            match ctx.state.api.casino_win(&player_uuid, payout).await {
+                Ok(win) => {
+                    let alimony_note = format_alimony(win.alimony_paid);
+                    ctx.whisper_success(format!("You beat {}! +{}{alimony_note} | Balance: {}", opponent, chips_str(payout), chips_str(win.chips)));
+                }
+                Err(e) => {
+                    eprintln!("[Reversi] payout failed for {player_uuid}: {e:?}");
+                    ctx.whisper_error(format!("You beat {}, but payout failed. Contact an admin.", opponent));
+                }
+            }
         }
         GameResult::CpuWins => {
             ctx.state.api.casino_jackpot_rake(stake).await;
-            let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
-            ctx.whisper_success(format!("{} wins. -{} | Balance: {}", opponent, chips_str(stake), chips_str(bal)));
+            let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips);
+            ctx.whisper_success(format!("{} wins. -{} | Balance: {}", opponent, chips_str(stake), balance_str(bal)));
         }
         GameResult::Draw => {
             let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
@@ -569,8 +576,8 @@ async fn quit_game(ctx: &CommandContext<'_>, sender: &str, reason: &str) -> anyh
         Some(s) => {
             ctx.state.api.casino_jackpot_rake(s.stake).await;
             let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
-            let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
-            ctx.whisper_success(format!("{} — lost {}. Stake to jackpot. | Balance: {}", reason, chips_str(s.stake), chips_str(bal)));
+            let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips);
+            ctx.whisper_success(format!("{} — lost {}. Stake to jackpot. | Balance: {}", reason, chips_str(s.stake), balance_str(bal)));
         }
     }
 

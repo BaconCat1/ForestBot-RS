@@ -4,7 +4,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
 
-use super::{chips_str, format_alimony};
+use super::{balance_str, chips_str, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["bj", "blackjack"],
@@ -143,18 +143,23 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
     if pbj {
         // Natural BJ pays 3:2
         let payout = bet + bet * 3 / 2;
-        let win = match ctx.state.api.casino_win(player_uuid, payout).await {
-            Ok(w) => w,
-            Err(_) => crate::structure::endpoints::endpoints::CasinoWinResult {
-                chips: balance + payout, alimony_paid: 0, ex_count: 0, net: payout,
-            },
-        };
-        let alimony_note = format_alimony(win.alimony_paid);
-        ctx.whisper_success(format!(
-            "BJ | You: {} (21) | Dealer: {} ? | BLACKJACK! +{}{alimony_note} | Balance: {}",
-            hand_str(&player), card_str(dealer[0]),
-            chips_str(payout - bet), chips_str(win.chips)
-        ));
+        match ctx.state.api.casino_win(player_uuid, payout).await {
+            Ok(win) => {
+                let alimony_note = format_alimony(win.alimony_paid);
+                ctx.whisper_success(format!(
+                    "BJ | You: {} (21) | Dealer: {} ? | BLACKJACK! +{}{alimony_note} | Balance: {}",
+                    hand_str(&player), card_str(dealer[0]),
+                    chips_str(payout - bet), chips_str(win.chips)
+                ));
+            }
+            Err(e) => {
+                eprintln!("[Blackjack] payout failed for {player_uuid}: {e:?}");
+                ctx.whisper_error(format!(
+                    "BJ | You: {} (21) | Dealer: {} ? | BLACKJACK! but payout failed. Contact an admin.",
+                    hand_str(&player), card_str(dealer[0])
+                ));
+            }
+        }
         return Ok(());
     }
 
@@ -203,11 +208,11 @@ async fn do_hit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()
 
     if ps > 21 {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-        let balance = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0);
+        let balance = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips);
         ctx.state.api.casino_jackpot_rake(bet).await;
         ctx.whisper_success(format!(
             "BJ | You: {} ({ps}) | Dealer: {} ? | Bust — Lost {} | Balance: {}",
-            hand_str(&player), card_str(dealer[0]), chips_str(bet), chips_str(balance)
+            hand_str(&player), card_str(dealer[0]), chips_str(bet), balance_str(balance)
         ));
         return Ok(());
     }
@@ -315,8 +320,8 @@ async fn do_quit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<(
     match removed {
         Some(CasinoSession::Blackjack { bet, .. }) => {
             ctx.state.api.casino_jackpot_rake(bet).await;
-            let balance = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0);
-            ctx.whisper_success(format!("BJ | Quit — forfeited {} | Balance: {}", chips_str(bet), chips_str(balance)));
+            let balance = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips);
+            ctx.whisper_success(format!("BJ | Quit — forfeited {} | Balance: {}", chips_str(bet), balance_str(balance)));
         }
         Some(_) => ctx.whisper_success("Quit that game with its own quit command."),
         None => ctx.whisper_success("No blackjack session active."),
@@ -349,29 +354,39 @@ async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut 
     };
 
     let mut alimony_note = String::new();
-    let new_balance = if payout > bet {
+    let mut payout_failed = false;
+    let new_balance: Option<i64> = if payout > bet {
         match ctx.state.api.casino_win(player_uuid, payout).await {
             Ok(win) => {
                 if win.alimony_paid > 0 {
                     alimony_note = format!(" (-{} alimony)", chips_str(win.alimony_paid));
                 }
-                win.chips
+                Some(win.chips)
             }
-            Err(_) => 0,
+            Err(e) => {
+                eprintln!("[Blackjack] payout failed for {player_uuid}: {e:?}");
+                payout_failed = true;
+                None
+            }
         }
     } else if payout > 0 {
-        match ctx.state.api.casino_adjust(player_uuid, payout).await {
-            Ok(b) => b,
-            Err(_) => 0,
-        }
+        ctx.state.api.casino_adjust(player_uuid, payout).await.ok()
     } else {
         ctx.state.api.casino_jackpot_rake(bet).await;
-        ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips).unwrap_or(0)
+        ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips)
     };
+
+    if payout_failed {
+        ctx.whisper_error(format!(
+            "BJ | You: {} ({ps}) | Dealer: {} ({ds}) | {result_msg} but payout failed. Contact an admin.",
+            hand_str(&player), dealer_display
+        ));
+        return Ok(());
+    }
 
     ctx.whisper_success(format!(
         "BJ | You: {} ({ps}) | Dealer: {} ({ds}) | {result_msg}{alimony_note} | Balance: {}",
-        hand_str(&player), dealer_display, chips_str(new_balance)
+        hand_str(&player), dealer_display, balance_str(new_balance)
     ));
     Ok(())
 }

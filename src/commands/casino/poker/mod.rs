@@ -5,7 +5,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
 
-use super::chips_str;
+use super::{balance_str, chips_str};
 
 pub mod game;
 pub mod bot;
@@ -258,21 +258,37 @@ async fn execute_quit(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
     let credit = game.player_stack as i64;
     let net = credit - stake;
-    let (bal, alimony_note) = if credit > stake {
-        let win = ctx.state.api.casino_win(&player_uuid, credit).await.unwrap_or_default();
-        let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
-        (win.chips, note)
-    } else if credit > 0 {
-        (ctx.state.api.casino_adjust(&player_uuid, credit).await.unwrap_or(0), String::new())
-    } else {
-        (ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0), String::new())
-    };
-
     let sign = if net >= 0 { "+" } else { "" };
-    ctx.whisper_success(format!(
-        "Quit poker vs {}. Returned {}. Net: {sign}{}{alimony_note} | Balance: {}",
-        opponent_name, chips_str(credit), chips_str(net), chips_str(bal)
-    ));
+    if credit > stake {
+        match ctx.state.api.casino_win(&player_uuid, credit).await {
+            Ok(win) => {
+                let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                ctx.whisper_success(format!(
+                    "Quit poker vs {}. Returned {}. Net: {sign}{}{note} | Balance: {}",
+                    opponent_name, chips_str(credit), chips_str(net), chips_str(win.chips)
+                ));
+            }
+            Err(e) => {
+                eprintln!("[Poker] payout failed for {player_uuid}: {e:?}");
+                ctx.whisper_error(format!(
+                    "Quit poker vs {}. Returned {}, but payout failed. Contact an admin.",
+                    opponent_name, chips_str(credit)
+                ));
+            }
+        }
+    } else if credit > 0 {
+        let bal = ctx.state.api.casino_adjust(&player_uuid, credit).await.unwrap_or(0);
+        ctx.whisper_success(format!(
+            "Quit poker vs {}. Returned {}. Net: {sign}{} | Balance: {}",
+            opponent_name, chips_str(credit), chips_str(net), chips_str(bal)
+        ));
+    } else {
+        let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips);
+        ctx.whisper_success(format!(
+            "Quit poker vs {}. Returned {}. Net: {sign}{} | Balance: {}",
+            opponent_name, chips_str(credit), chips_str(net), balance_str(bal)
+        ));
+    }
     Ok(())
 }
 
@@ -311,21 +327,27 @@ async fn handle_hand_end(
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
         let credit = game.player_stack as i64;
         let net = credit - stake;
-        let (bal, alimony_note) = match ctx.require_player_uuid().await {
-            None => return,
-            Some(player_uuid) => if credit > stake {
-                let win = ctx.state.api.casino_win(&player_uuid, credit).await.unwrap_or_default();
-                let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
-                (win.chips, note)
-            } else if credit > 0 {
-                (ctx.state.api.casino_adjust(&player_uuid, credit).await.unwrap_or(0), String::new())
-            } else {
-                (ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0), String::new())
-            },
-        };
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return };
         let sign = if net >= 0 { "+" } else { "" };
         let who = if game.player_stack == 0 { "You're bust" } else { "Bot is bust" };
-        ctx.whisper_success(format!("{who}! Net: {sign}{}{alimony_note} | Balance: {}", chips_str(net), chips_str(bal)));
+        if credit > stake {
+            match ctx.state.api.casino_win(&player_uuid, credit).await {
+                Ok(win) => {
+                    let note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                    ctx.whisper_success(format!("{who}! Net: {sign}{}{note} | Balance: {}", chips_str(net), chips_str(win.chips)));
+                }
+                Err(e) => {
+                    eprintln!("[Poker] payout failed for {player_uuid}: {e:?}");
+                    ctx.whisper_error(format!("{who}! Net: {sign}{}, but payout failed. Contact an admin.", chips_str(net)));
+                }
+            }
+        } else if credit > 0 {
+            let bal = ctx.state.api.casino_adjust(&player_uuid, credit).await.unwrap_or(0);
+            ctx.whisper_success(format!("{who}! Net: {sign}{} | Balance: {}", chips_str(net), chips_str(bal)));
+        } else {
+            let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips);
+            ctx.whisper_success(format!("{who}! Net: {sign}{} | Balance: {}", chips_str(net), balance_str(bal)));
+        }
     } else {
         save_session(ctx, stake, opponent_name, aggression, game.clone());
         ctx.whisper_success(format!(

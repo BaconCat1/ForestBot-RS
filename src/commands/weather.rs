@@ -584,10 +584,18 @@ pub async fn settle_task(
     let msg = if won {
         let payout = (bet.stake as f64 * bet.payout_mult).ceil() as i64;
         let net    = payout - bet.stake;
-        let win = deps.api.casino_win(&bet.player, payout).await.unwrap_or_default();
-        let alimony_note = format_alimony(win.alimony_paid);
-        format!("[Weather] {} {} — {}. WIN +{}{alimony_note} ({} @ {:.2}x).",
-            bet.city, type_str, result_str, chips_str(net), chips_str(bet.stake), bet.payout_mult)
+        match deps.api.casino_win(&bet.player, payout).await {
+            Ok(win) => {
+                let alimony_note = format_alimony(win.alimony_paid);
+                format!("[Weather] {} {} — {}. WIN +{}{alimony_note} ({} @ {:.2}x).",
+                    bet.city, type_str, result_str, chips_str(net), chips_str(bet.stake), bet.payout_mult)
+            }
+            Err(e) => {
+                eprintln!("[Weather settle] payout failed for {}: {e:?}", bet.player);
+                format!("[Weather] {} {} — {}. WIN detected but payout failed. Contact an admin.",
+                    bet.city, type_str, result_str)
+            }
+        }
     } else {
         let _ = deps.api.casino_jackpot_rake(bet.stake).await;
         format!("[Weather] {} {} — {}. LOSS -{} (to jackpot).",

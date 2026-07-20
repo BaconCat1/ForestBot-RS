@@ -3,7 +3,7 @@ use rand::Rng;
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
-use super::{chips_str, format_alimony};
+use super::{balance_str, chips_str, format_alimony};
 
 const MIN_STAKE: i64 = 25;
 const MAX_STAKE: i64 = 5000;
@@ -172,14 +172,21 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
     if player_wins {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
         show_board(ctx, &position).await;
-        let win = ctx.state.api.casino_win(&player_uuid, stake * 2).await.unwrap_or_default();
-        let alimony_note = format_alimony(win.alimony_paid);
-        ctx.whisper_success(format!(
-            "You WIN vs {}! +{}{alimony_note} | Balance: {}",
-            opponent_name,
-            chips_str(stake),
-            chips_str(win.chips)
-        ));
+        match ctx.state.api.casino_win(&player_uuid, stake * 2).await {
+            Ok(win) => {
+                let alimony_note = format_alimony(win.alimony_paid);
+                ctx.whisper_success(format!(
+                    "You WIN vs {}! +{}{alimony_note} | Balance: {}",
+                    opponent_name,
+                    chips_str(stake),
+                    chips_str(win.chips)
+                ));
+            }
+            Err(e) => {
+                eprintln!("[Connect Four] payout failed for {player_uuid}: {e:?}");
+                ctx.whisper_error(format!("You WIN vs {}, but payout failed. Contact an admin.", opponent_name));
+            }
+        }
         return Ok(());
     }
 
@@ -209,12 +216,12 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
         show_board(ctx, &position).await;
         ctx.state.api.casino_jackpot_rake(stake).await;
-        let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
+        let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips);
         ctx.whisper_success(format!(
             "{} wins! -{} | Balance: {}",
             opponent_name,
             chips_str(stake),
-            chips_str(bal)
+            balance_str(bal)
         ));
         return Ok(());
     }
@@ -259,12 +266,12 @@ async fn execute_quit(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
     ctx.state.api.casino_jackpot_rake(stake).await;
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
-    let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
+    let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips);
     ctx.whisper_success(format!(
         "Forfeited vs {}. -{} | Balance: {}",
         opponent_name,
         chips_str(stake),
-        chips_str(bal)
+        balance_str(bal)
     ));
     Ok(())
 }

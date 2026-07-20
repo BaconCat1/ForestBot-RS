@@ -3,7 +3,7 @@ use rand::{Rng, rngs::OsRng};
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::{CasinoAdjustErr, CasinoScratchResult};
 
-use super::{chips_str, format_alimony, fmt_duration};
+use super::{balance_str, chips_str, format_alimony, fmt_duration};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["scratch"],
@@ -170,17 +170,24 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         if prize > 0 {
             let sym = PRIZE_SYMBOLS[prize_idx];
-            let win = ctx.state.api.casino_win(&player_uuid, prize).await.unwrap_or_default();
-            let alimony_note = format_alimony(win.alimony_paid);
-            ctx.whisper_success(format!(
-                "3x {sym} — WIN! +{}{alimony_note} | Balance: {}",
-                chips_str(prize), chips_str(win.chips)
-            ));
+            match ctx.state.api.casino_win(&player_uuid, prize).await {
+                Ok(win) => {
+                    let alimony_note = format_alimony(win.alimony_paid);
+                    ctx.whisper_success(format!(
+                        "3x {sym} — WIN! +{}{alimony_note} | Balance: {}",
+                        chips_str(prize), chips_str(win.chips)
+                    ));
+                }
+                Err(e) => {
+                    eprintln!("[Scratch] payout failed for {player_uuid}: {e:?}");
+                    ctx.whisper_error(format!("3x {sym} — WIN! but payout failed. Contact an admin."));
+                }
+            }
         } else {
             let rake_base = if is_free { 25 } else { tier.cost };
             ctx.state.api.casino_jackpot_rake(rake_base).await;
-            let balance = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips).unwrap_or(0);
-            ctx.whisper_success(format!("No match. | Balance: {}", chips_str(balance)));
+            let balance = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips);
+            ctx.whisper_success(format!("No match. | Balance: {}", balance_str(balance)));
         }
 
         Ok(())
