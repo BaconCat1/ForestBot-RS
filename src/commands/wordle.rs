@@ -3,7 +3,7 @@ use rand::Rng;
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 
-use super::casino::chips_str;
+use super::casino::{chips_str, format_alimony};
 
 fn circled(s: &str) -> String {
     s.chars().map(|c| match c {
@@ -205,7 +205,7 @@ async fn submit_guess(ctx: &CommandContext<'_>, word: &str) -> anyhow::Result<()
             let net = payout - stake;
             let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
             let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
-            let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+            let alimony_note = format_alimony(win.alimony_paid);
             ctx.whisper_board(&board).await;
             ctx.whisper_success(format!(
                 "You got it in {}/{}! {}x payout — +{} chips ({}){alimony_note}",

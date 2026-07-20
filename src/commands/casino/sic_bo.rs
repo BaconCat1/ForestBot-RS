@@ -3,7 +3,7 @@ use rand::{Rng, rngs::OsRng};
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 
-use super::chips_str;
+use super::{chips_str, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["sicbo", "sic"],
@@ -111,10 +111,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             ctx.whisper_success(format!("Bet must be {MIN_BET}–{MAX_BET} chips."));
             return Ok(());
         }
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
-        };
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
         let balance = match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
             Ok(b) => b,
             Err(CasinoAdjustErr::InsufficientFunds(have)) => {
@@ -133,7 +130,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         if won {
             let payout = stake * mult;
             let win = ctx.state.api.casino_win(&player_uuid, payout).await.unwrap_or_default();
-            let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+            let alimony_note = format_alimony(win.alimony_paid);
             ctx.whisper_success(format!(
                 "Sic Bo [{}-{}-{}={}] {} | WIN +{}{alimony_note} | Balance: {}",
                 dice[0], dice[1], dice[2], total,

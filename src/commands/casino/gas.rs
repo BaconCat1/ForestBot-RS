@@ -4,7 +4,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 
-use super::{MIN_BET, chips_str, to_price, fmt_odds, sleep_until, FetchErr, SettleDeps};
+use super::{MIN_BET, chips_str, format_alimony, to_price, fmt_odds, sleep_until, FetchErr, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["gas", "gasbuddy", "gasprice"],
@@ -236,10 +236,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 }
 
 async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper_success("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
     let bets = {
         let map = ctx.state.gas_bets.lock().unwrap();
         map.get(&player_uuid).cloned().unwrap_or_default()
@@ -313,10 +310,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
         Err(_) => { ctx.whisper_success("Usage: !gas <zip> up|down <chips>"); return Ok(()); }
     };
 
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper_success("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
     match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
@@ -410,7 +404,7 @@ pub async fn gas_settle_task(
                 let payout = (bet.stake as f64 * 10000.0 / bet.price as f64).floor() as i64;
                 match deps.api.casino_win(&bet.player, payout).await {
                     Ok(win) => {
-                        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                        let alimony_note = format_alimony(win.alimony_paid);
                         format!(
                             "[GAS] {} {} — ${:.3}→${:.3}. {} WIN +{}{alimony_note} ({} @ {:.2}×).",
                             bet.region, bet.side.to_uppercase(),

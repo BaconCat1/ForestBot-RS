@@ -5,7 +5,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::casino::chips_str;
+use super::casino::{chips_str, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["duel"],
@@ -466,7 +466,7 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
             let sb_payout = (raw - sb_rake).max(0);
             jackpot_extra += sb_rake;
             let sb_win = state.api.casino_win(&sb.bettor_uuid, sb_payout).await.unwrap_or_default();
-            let sb_alimony_note = if sb_win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(sb_win.alimony_paid)) } else { String::new() };
+            let sb_alimony_note = format_alimony(sb_win.alimony_paid);
             enqueue_chat(state, format!(
                 "/{whisper_cmd} {} Side bet on {} paid: +{} chips{sb_alimony_note}",
                 sb.bettor, winner, chips_str(sb_payout)
@@ -480,7 +480,7 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
     }
 
     let net = chips_str(payout - duel.stake);
-    let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+    let alimony_note = format_alimony(win.alimony_paid);
     enqueue_chat(state, format!(
         "{winner} defeated {loser} in a duel! +{net} chips{alimony_note}"
     ));

@@ -4,7 +4,7 @@ use rand::Rng;
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 
-use super::casino::chips_str;
+use super::casino::{chips_str, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["battleship", "bs"],
@@ -456,7 +456,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             Outcome::Win { stake, opponent, player_msg, board_lines } => {
                 let win = ctx.state.api.casino_win(&player_uuid, stake * 2).await.unwrap_or_default();
                 ctx.whisper_success(&player_msg);
-                let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                let alimony_note = format_alimony(win.alimony_paid);
                 ctx.whisper_success(format!("All of {opponent}'s ships sunk! Win: {}!{alimony_note}", chips_str(stake * 2)));
                 ctx.whisper_board(board_lines).await;
             }

@@ -3,7 +3,7 @@ use rand::{Rng, rngs::OsRng};
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::{CasinoAdjustErr, CasinoWinResult};
 
-use super::chips_str;
+use super::{chips_str, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["roulette", "rl"],
@@ -105,10 +105,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             Err(msg) => { ctx.whisper_success(msg); return Ok(()); }
         };
 
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
-        };
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
         let balance = match ctx.state.api.casino_adjust(&player_uuid, -bet).await {
             Ok(b) => b,
@@ -128,11 +125,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 .unwrap_or(CasinoWinResult {
                     chips: balance + total_return, alimony_paid: 0, ex_count: 0, net: total_return,
                 });
-            let alimony_note = if result.alimony_paid > 0 {
-                format!(" (-{} alimony)", chips_str(result.alimony_paid))
-            } else {
-                String::new()
-            };
+            let alimony_note = format_alimony(result.alimony_paid);
             ctx.whisper_success(format!(
                 "Roulette: {} {color_str} | {label} — Win! +{}{alimony_note} | Balance: {}",
                 spin, chips_str(result.net - bet), chips_str(result.chips),

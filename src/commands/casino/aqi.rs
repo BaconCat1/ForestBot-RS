@@ -2,7 +2,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 
-use super::{chips_str, fmt_close, fmt_odds, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
+use super::{chips_str, format_alimony, fmt_close, fmt_odds, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["aqi", "airquality"],
@@ -213,10 +213,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 }
 
 async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper_success("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
     let bets = {
         let map = ctx.state.aqi_bets.lock().unwrap();
         map.get(&player_uuid).cloned().unwrap_or_default()
@@ -313,10 +310,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
         Err(_) => return Ok(()), // no chips = preview only
     };
 
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper_success("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
     // Deduct chips
     match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
@@ -413,7 +407,7 @@ pub async fn aqi_settle_task(
                 let payout = calc_payout(bet.stake, bet.price);
                 match deps.api.casino_win(&bet.player, payout).await {
                     Ok(win) => {
-                        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                        let alimony_note = format_alimony(win.alimony_paid);
                         format!(
                             "[AQI] {} {} — actual AQI {}. {} wins. WIN +{}{alimony_note} ({} @ {:.2}×).",
                             bet.zip, bet.side.to_uppercase(), actual_aqi,

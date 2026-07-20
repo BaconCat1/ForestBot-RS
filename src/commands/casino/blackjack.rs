@@ -4,7 +4,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
 
-use super::chips_str;
+use super::{chips_str, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["bj", "blackjack"],
@@ -68,10 +68,7 @@ fn state_msg(player: &[u8], dealer_up: u8, extra: &str) -> String {
 
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
-        };
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
         let subcmd = ctx.args.first().copied().unwrap_or("").to_ascii_lowercase();
         match subcmd.as_str() {
             "hit" | "h"    => do_hit(ctx, &player_uuid).await,
@@ -152,7 +149,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
                 chips: balance + payout, alimony_paid: 0, ex_count: 0, net: payout,
             },
         };
-        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+        let alimony_note = format_alimony(win.alimony_paid);
         ctx.whisper_success(format!(
             "BJ | You: {} (21) | Dealer: {} ? | BLACKJACK! +{}{alimony_note} | Balance: {}",
             hand_str(&player), card_str(dealer[0]),

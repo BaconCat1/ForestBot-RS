@@ -4,7 +4,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::{CasinoAdjustErr, CasinoWinResult};
 use crate::structure::mineflayer::bot::CasinoSession;
 
-use super::chips_str;
+use super::{chips_str, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["craps"],
@@ -84,10 +84,7 @@ async fn do_come_out(ctx: CommandContext<'_>, pass_line: bool) -> anyhow::Result
         return Ok(());
     }
 
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper_success("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
     let balance = match ctx.state.api.casino_adjust(&player_uuid, -bet).await {
         Ok(b) => b,
@@ -111,7 +108,7 @@ async fn do_come_out(ctx: CommandContext<'_>, pass_line: bool) -> anyhow::Result
                 let payout = bet * 2;
                 let result = ctx.state.api.casino_win(&player_uuid, payout).await
                     .unwrap_or(CasinoWinResult { chips: balance + payout, alimony_paid: 0, ex_count: 0, net: payout });
-                let alimony_note = if result.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(result.alimony_paid)) } else { String::new() };
+                let alimony_note = format_alimony(result.alimony_paid);
                 ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Natural {total}! {bet_label} wins +{}{alimony_note} | Balance: {}", chips_str(bet), chips_str(result.chips)));
             } else {
                 ctx.state.api.casino_jackpot_rake(bet).await;
@@ -126,7 +123,7 @@ async fn do_come_out(ctx: CommandContext<'_>, pass_line: bool) -> anyhow::Result
                 let payout = bet * 2;
                 let result = ctx.state.api.casino_win(&player_uuid, payout).await
                     .unwrap_or(CasinoWinResult { chips: balance + payout, alimony_paid: 0, ex_count: 0, net: payout });
-                let alimony_note = if result.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(result.alimony_paid)) } else { String::new() };
+                let alimony_note = format_alimony(result.alimony_paid);
                 ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Craps {total}! {bet_label} wins +{}{alimony_note} | Balance: {}", chips_str(bet), chips_str(result.chips)));
             }
         }
@@ -161,10 +158,7 @@ async fn do_come_out(ctx: CommandContext<'_>, pass_line: bool) -> anyhow::Result
 // ── Point-phase roll ──────────────────────────────────────────────────────────
 
 async fn do_roll(ctx: CommandContext<'_>) -> anyhow::Result<()> {
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper_success("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
     let (bet, pass_line, point) = {
         let sessions = ctx.state.casino_sessions.lock().expect("lock");
@@ -192,7 +186,7 @@ async fn do_roll(ctx: CommandContext<'_>) -> anyhow::Result<()> {
                 let payout = bet * 2;
                 let result = ctx.state.api.casino_win(&player_uuid, payout).await
                     .unwrap_or(CasinoWinResult { chips: 0, alimony_paid: 0, ex_count: 0, net: payout });
-                let alimony_note = if result.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(result.alimony_paid)) } else { String::new() };
+                let alimony_note = format_alimony(result.alimony_paid);
                 ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Hit the point {point}! {bet_label} wins +{}{alimony_note} | Balance: {}", chips_str(bet), chips_str(result.chips)));
             } else {
                 ctx.state.api.casino_jackpot_rake(bet).await;
@@ -210,7 +204,7 @@ async fn do_roll(ctx: CommandContext<'_>) -> anyhow::Result<()> {
                 let payout = bet * 2;
                 let result = ctx.state.api.casino_win(&player_uuid, payout).await
                     .unwrap_or(CasinoWinResult { chips: 0, alimony_paid: 0, ex_count: 0, net: payout });
-                let alimony_note = if result.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(result.alimony_paid)) } else { String::new() };
+                let alimony_note = format_alimony(result.alimony_paid);
                 ctx.whisper_success(format!("Craps [{d1}+{d2}={total}] Seven out! {bet_label} wins +{}{alimony_note} | Balance: {}", chips_str(bet), chips_str(result.chips)));
             }
         }
@@ -227,10 +221,7 @@ async fn do_roll(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 // ── Quit ──────────────────────────────────────────────────────────────────────
 
 async fn do_quit(ctx: CommandContext<'_>) -> anyhow::Result<()> {
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper_success("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
     let removed = ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
     match removed {
         Some(CasinoSession::Craps { bet, .. }) => {

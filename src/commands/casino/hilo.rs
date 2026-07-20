@@ -57,10 +57,7 @@ fn show_state(ctx: &CommandContext, card: u8, _deck: &[u8], stake: i64, multipli
 
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
-        };
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
         let arg = ctx.args.first().copied().unwrap_or("");
 
         // ── Start new round ──────────────────────────────────────────────────

@@ -4,7 +4,7 @@ use shakmaty::uci::UciMove;
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
-use super::chips_str;
+use super::{chips_str, format_alimony};
 
 const MIN_STAKE: i64 = 25;
 const MAX_STAKE: i64 = 5000;
@@ -266,7 +266,7 @@ async fn finish_game(
     match outcome {
         Outcome::Decisive { winner } if winner == player_color => {
             let win = ctx.state.api.casino_win(&player_uuid, stake * 2).await.unwrap_or_default();
-            let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+            let alimony_note = format_alimony(win.alimony_paid);
             ctx.whisper_success(format!("{}Checkmate! You WIN! +{}{alimony_note} | Balance: {}", prefix, chips_str(stake), chips_str(win.chips)));
         }
         Outcome::Decisive { .. } => {

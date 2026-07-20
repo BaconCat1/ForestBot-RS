@@ -3,7 +3,7 @@ use rand::Rng;
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
-use super::chips_str;
+use super::{chips_str, format_alimony};
 
 const MIN_STAKE: i64 = 25;
 const MAX_STAKE: i64 = 5000;
@@ -173,7 +173,7 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
         show_board(ctx, &position).await;
         let win = ctx.state.api.casino_win(&player_uuid, stake * 2).await.unwrap_or_default();
-        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+        let alimony_note = format_alimony(win.alimony_paid);
         ctx.whisper_success(format!(
             "You WIN vs {}! +{}{alimony_note} | Balance: {}",
             opponent_name,

@@ -38,6 +38,16 @@ pub fn chips_str(n: i64) -> String {
     format!("{} chip{}", n, if n == 1 { "" } else { "s" })
 }
 
+/// Formats the "(-X alimony)" suffix appended to win messages when a forced-divorce
+/// ex garnished part of the payout, or an empty string when none did.
+pub fn format_alimony(alimony_paid: i64) -> String {
+    if alimony_paid > 0 {
+        format!(" (-{} alimony)", chips_str(alimony_paid))
+    } else {
+        String::new()
+    }
+}
+
 pub fn fmt_duration(secs: u64) -> String {
     if secs < 60 {
         format!("{secs}s")
@@ -194,10 +204,7 @@ pub const FAUCET_COMMAND: CommandDefinition = CommandDefinition {
 
 pub fn faucet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
-        };
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
         match ctx.state.api.casino_faucet(&player_uuid).await {
             CasinoFaucetResult::Awarded { chips_awarded, streak, chips, lotto_pick, draw_date } => {
                 ctx.whisper_success(format!(
@@ -247,10 +254,7 @@ pub fn give_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             ctx.whisper_success("Cannot give chips to yourself.");
             return Ok(());
         }
-        let Some(from_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
-        };
+        let Some(from_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
         let Some(to_uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
             ctx.whisper_error(format!("Could not find UUID for {}.", target));
             return Ok(());
@@ -274,10 +278,7 @@ pub const JACKPOT_COMMAND: CommandDefinition = CommandDefinition {
 
 pub fn jackpot_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
-        };
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
         match ctx.args.first().copied() {
             Some("buy") => {
                 let count: u32 = ctx.args.get(1)
@@ -322,10 +323,7 @@ pub const LOTTO_COMMAND: CommandDefinition = CommandDefinition {
 
 pub fn lotto_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
-        };
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
         match ctx.args.first().copied() {
             Some("quick") | Some("q") => {
                 let count: u32 = ctx.args.get(1)

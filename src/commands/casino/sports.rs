@@ -2,7 +2,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 
-use super::{chips_str, sleep_until, FetchErr, check_resp, SettleDeps};
+use super::{chips_str, format_alimony, sleep_until, FetchErr, check_resp, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["sports", "sb"],
@@ -407,10 +407,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper_success("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
@@ -465,10 +462,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 // ── show_bets ─────────────────────────────────────────────────────────────────
 
 async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper_success("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
     let all_bets = ctx.state.api.casino_bet_list::<SportsBet>().await;
     let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
     if player_bets.is_empty() {
@@ -530,7 +524,7 @@ pub async fn settle_task(
                 let payout = (bet.stake as f64 * bet.payout_mult).ceil() as i64;
                 match deps.api.casino_win(&bet.player, payout).await {
                     Ok(win) => {
-                        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                        let alimony_note = format_alimony(win.alimony_paid);
                         format!("[Sports] {} vs {} — {winner} wins. WIN +{}{alimony_note} ({} @ {:.2}x).",
                             bet.home_team, bet.away_team,
                             chips_str(payout - bet.stake), chips_str(bet.stake), bet.payout_mult)

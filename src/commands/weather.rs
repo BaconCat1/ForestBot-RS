@@ -3,7 +3,7 @@ use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::casino::{chips_str, SettleDeps};
+use super::casino::{chips_str, format_alimony, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["weather", "w"],
@@ -59,10 +59,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         match arg.as_str() {
             "bet" => place_bet(&ctx).await?,
             "bets" => {
-                let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-                    ctx.whisper("Could not resolve your UUID.");
-                    return Ok(());
-                };
+                let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
                 show_bets(&ctx, &player_uuid).await;
             }
             "odds" => {
@@ -322,10 +319,7 @@ async fn place_rain_bet(ctx: &CommandContext<'_>, city_arg: &str, tail: &[&str])
         (((100.0 / (100 - prob_clamped) as f64) * RAKE).min(20.0).max(1.02) * 100.0).round() / 100.0
     };
 
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
@@ -447,10 +441,7 @@ async fn place_ensemble_bet(
     let payout_mult = (((1.0 / p) * RAKE).min(20.0).max(1.02) * 100.0).round() / 100.0;
     let forecast_prob = (p * 100.0).round() as u8;
 
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
     match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
         Ok(_) => {}
@@ -594,7 +585,7 @@ pub async fn settle_task(
         let payout = (bet.stake as f64 * bet.payout_mult).ceil() as i64;
         let net    = payout - bet.stake;
         let win = deps.api.casino_win(&bet.player, payout).await.unwrap_or_default();
-        let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+        let alimony_note = format_alimony(win.alimony_paid);
         format!("[Weather] {} {} — {}. WIN +{}{alimony_note} ({} @ {:.2}x).",
             bet.city, type_str, result_str, chips_str(net), chips_str(bet.stake), bet.payout_mult)
     } else {

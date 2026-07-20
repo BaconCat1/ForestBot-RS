@@ -74,10 +74,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         }
 
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
-        };
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
         let balance = match ctx.state.api.casino_adjust(&player_uuid, -bet).await {
             Ok(b) => b,

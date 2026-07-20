@@ -11,10 +11,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
-        };
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
         let db_rows = ctx.state.api.casino_event_bets_list(&player_uuid).await;
 

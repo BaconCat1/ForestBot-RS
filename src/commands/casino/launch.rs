@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
-use super::{MIN_BET, chips_str, to_price, fmt_odds, fmt_time, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
+use super::{MIN_BET, chips_str, format_alimony, to_price, fmt_odds, fmt_time, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
 
 type LaunchBetsMap = Arc<Mutex<HashMap<String, Vec<LaunchBet>>>>;
 
@@ -267,10 +267,7 @@ async fn show_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 }
 
 async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper_success("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
     let bets = {
         let map = ctx.state.launch_bets.lock().unwrap();
         map.get(&player_uuid).cloned().unwrap_or_default()
@@ -341,10 +338,7 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
         Err(_) => { ctx.whisper_success(format!("Usage: !rocket <id> success|ontime <chips>")); return Ok(()); }
     };
 
-    let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-        ctx.whisper_success("Could not resolve your UUID.");
-        return Ok(());
-    };
+    let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
     let l = match fetch_single(&ctx.state.http, short_id).await {
         Ok(l) => l,
@@ -503,7 +497,7 @@ async fn settle(deps: &SettleDeps, bets_map: &LaunchBetsMap, whisper_cmd: &str, 
                 )
             }
             Ok(win) => {
-                let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                let alimony_note = format_alimony(win.alimony_paid);
                 format!(
                     "[ROCKET] {} {} — {}. WIN +{}{alimony_note} ({} @ {:.2}×).",
                     bet.launch_name, bet.side.display(), l.status_name,

@@ -3,7 +3,7 @@ use rand::{Rng, rngs::OsRng};
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::{CasinoAdjustErr, CasinoScratchResult};
 
-use super::{chips_str, fmt_duration};
+use super::{chips_str, format_alimony, fmt_duration};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["scratch"],
@@ -116,10 +116,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             }
         };
 
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
-        };
+        let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
         if is_free {
             {
@@ -174,7 +171,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         if prize > 0 {
             let sym = PRIZE_SYMBOLS[prize_idx];
             let win = ctx.state.api.casino_win(&player_uuid, prize).await.unwrap_or_default();
-            let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+            let alimony_note = format_alimony(win.alimony_paid);
             ctx.whisper_success(format!(
                 "3x {sym} — WIN! +{}{alimony_note} | Balance: {}",
                 chips_str(prize), chips_str(win.chips)

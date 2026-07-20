@@ -3,7 +3,7 @@ use rand::Rng;
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 
-use super::casino::chips_str;
+use super::casino::{chips_str, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["checkers", "draughts"],
@@ -587,7 +587,7 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
         Phase1::BadMove(e) => ctx.whisper_success(e),
         Phase1::PlayerWins { stake, opponent } => {
             let win = ctx.state.api.casino_win(&player_uuid, stake * 2).await.unwrap_or_default();
-            let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+            let alimony_note = format_alimony(win.alimony_paid);
             ctx.whisper_success(format!("{} has no moves — you WIN! +{}{alimony_note} | Balance: {}", opponent, chips_str(stake), chips_str(win.chips)));
         }
         Phase1::Draw { stake, reason } => {
@@ -598,7 +598,7 @@ async fn make_move(ctx: &CommandContext<'_>, path: Vec<Pos>) -> anyhow::Result<(
             // NPC computes move without holding lock (potentially slow at Hard depth)
             let Some(npc_path) = npc_pick_move(&game, difficulty) else {
                 let win = ctx.state.api.casino_win(&player_uuid, stake * 2).await.unwrap_or_default();
-                let alimony_note = if win.alimony_paid > 0 { format!(" (-{} alimony)", chips_str(win.alimony_paid)) } else { String::new() };
+                let alimony_note = format_alimony(win.alimony_paid);
                 ctx.whisper_success(format!("{} has no moves — you WIN! +{}{alimony_note} | Balance: {}", opponent, chips_str(stake), chips_str(win.chips)));
                 return Ok(());
             };
