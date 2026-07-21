@@ -360,8 +360,9 @@ async fn do_quit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<(
 // ── Clear (whitelist-only, admin/testing) ───────────────────────────────────
 
 async fn do_clear_shoe(ctx: CommandContext<'_>) -> anyhow::Result<()> {
-    let allowed = !ctx.runtime.use_whitelist
-        || ctx.runtime.user_whitelist.iter().any(|u| u.eq_ignore_ascii_case(ctx.sender));
+    let allowed = crate::structure::mineflayer::utils::command_handler::is_allowed_whitelisted_command(
+        ctx.runtime, ctx.sender, ctx.state,
+    );
     if !allowed {
         ctx.whisper_success("Whitelist only.");
         return Ok(());

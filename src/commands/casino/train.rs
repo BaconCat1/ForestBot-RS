@@ -146,8 +146,9 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "" => show_usage(&ctx),
             "bets" | "my" => show_bets(&ctx).await?,
             "debug" => {
-                let allowed = !ctx.runtime.use_whitelist
-                    || ctx.runtime.user_whitelist.iter().any(|u| u.eq_ignore_ascii_case(ctx.sender));
+                let allowed = crate::structure::mineflayer::utils::command_handler::is_allowed_whitelisted_command(
+                    ctx.runtime, ctx.sender, ctx.state,
+                );
                 if !allowed { ctx.whisper_success("Whitelist only."); return Ok(()); }
                 gtfs_debug(&ctx, ctx.args.get(1).copied().unwrap_or("")).await?;
             }

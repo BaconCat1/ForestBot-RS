@@ -319,7 +319,7 @@ fn normalize_command_key(prefix: &str, key: &str) -> String {
     key.trim().trim_start_matches(prefix).to_lowercase()
 }
 
-fn is_allowed_whitelisted_command(
+pub fn is_allowed_whitelisted_command(
     runtime: &RuntimeConfig,
     sender: &str,
     state: &AzaleaState,
