@@ -1088,7 +1088,7 @@ pub struct AzaleaState {
     // ── Casino: sessions + immediate games ─────────────────────────────────────
     pub casino_sessions: Arc<Mutex<HashMap<String, CasinoSession>>>,
     pub active_trivia: Arc<Mutex<Option<TriviaRound>>>,
-    pub duels: Arc<Mutex<Vec<crate::commands::duel::Duel>>>,
+    pub duels: Arc<Mutex<Vec<crate::commands::casino::duel::Duel>>>,
     pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
     pub checkers_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::checkers::CheckersSession>>>,
     pub reversi_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::reversi::ReversiSession>>>,
@@ -1816,7 +1816,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 .expect("player cache lock poisoned")
                 .remove(&username);
             stat_history::clear_delete_faq_pending(&username);
-            crate::commands::duel::handle_disconnect(&state, &username).await;
+            crate::commands::casino::duel::handle_disconnect(&state, &username).await;
             state.afk_messages.write().expect("afk_messages lock").remove(&username.to_lowercase());
             send_player_leave(&state, &username, &uuid).await;
             send_player_list_update(&state).await;
@@ -2517,7 +2517,7 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
         let murderer_uuid = murderer
             .as_deref()
             .and_then(|name| players.get(name).map(|player| player.uuid.clone()));
-        crate::commands::duel::handle_death(state, &player, murderer.as_deref()).await;
+        crate::commands::casino::duel::handle_death(state, &player, murderer.as_deref()).await;
         send_player_death(state, &player, &uuid, &full_msg, murderer, murderer_uuid).await;
         logger::death(format!("Death: {full_msg}"));
         return;

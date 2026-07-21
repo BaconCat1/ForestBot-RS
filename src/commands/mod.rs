@@ -43,7 +43,6 @@ pub mod casino;
 pub mod battleship;
 pub mod checkers;
 pub mod reversi;
-pub mod duel;
 pub mod market;
 pub mod wordle;
 pub mod roast;
@@ -479,7 +478,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         casino::sports::COMMAND,
         market::COMMAND,
         market::PORTFOLIO_COMMAND,
-        duel::COMMAND,
+        casino::duel::COMMAND,
         wordle::COMMAND,
         roast::COMMAND,
         battleship::COMMAND,

@@ -22,6 +22,7 @@ pub mod aqi;
 pub mod launch;
 pub mod gas;
 pub mod bets;
+pub mod duel;
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::{CasinoFaucetResult, CasinoLottoPlayerTicket};
