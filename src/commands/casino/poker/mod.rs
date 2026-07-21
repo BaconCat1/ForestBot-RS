@@ -77,8 +77,10 @@ async fn execute_new_session(ctx: &CommandContext<'_>, stake_str: &str) -> anyho
         }
     };
 
-    if stake < MIN_STAKE || stake > MAX_STAKE {
-        ctx.whisper_success(format!("Stake must be between {} and {}.", chips_str(MIN_STAKE), chips_str(MAX_STAKE)));
+    let limit = ctx.bet_limit("poker", MIN_STAKE, Some(MAX_STAKE));
+    let max = limit.max.unwrap_or(MAX_STAKE);
+    if stake < limit.min || stake > max {
+        ctx.whisper_success(format!("Stake must be between {} and {}.", chips_str(limit.min), chips_str(max)));
         return Ok(());
     }
 

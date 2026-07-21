@@ -147,6 +147,24 @@ impl CommandContext<'_> {
             .unwrap_or(true)
     }
 
+    /// Looks up json/bet_limits.json for `game`'s min/max bet. Falls back to the
+    /// caller-supplied defaults if `game` is missing from the file -- shouldn't
+    /// normally happen since bet_limits.json is seeded with every game, but keeps
+    /// behavior sane (the game's original hardcoded value) rather than failing open
+    /// to an unlimited bet.
+    pub fn bet_limit(
+        &self,
+        game: &str,
+        default_min: i64,
+        default_max: Option<i64>,
+    ) -> crate::config::BetLimit {
+        self.runtime
+            .bet_limits
+            .get(game)
+            .copied()
+            .unwrap_or(crate::config::BetLimit { min: default_min, max: default_max })
+    }
+
     /// Resolves the sender's real UUID, whispering an error if resolution fails.
     /// `casino_adjust`/`casino_win` are keyed by UUID (`casino_balance.player_uuid`) --
     /// passing a raw username instead silently reads/creates a bogus shadow row keyed

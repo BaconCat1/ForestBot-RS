@@ -68,8 +68,9 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             ctx.whisper_success("Chip amount must be a number.");
             return Ok(());
         };
-        if stake < MIN_BET {
-            ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+        let limit = ctx.bet_limit("baccarat", MIN_BET, None);
+        if stake < limit.min {
+            ctx.whisper_success(format!("Minimum bet is {}.", chips_str(limit.min)));
             return Ok(());
         }
 

@@ -84,8 +84,10 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
         None => { ctx.whisper_success("Usage: !duel <player> <chips>"); return Ok(()); }
     };
 
-    if stake < MIN_STAKE || stake > MAX_STAKE {
-        ctx.whisper_success(format!("Stake must be {}-{}.", chips_str(MIN_STAKE), chips_str(MAX_STAKE)));
+    let limit = ctx.bet_limit("duel", MIN_STAKE, Some(MAX_STAKE));
+    let max = limit.max.unwrap_or(MAX_STAKE);
+    if stake < limit.min || stake > max {
+        ctx.whisper_success(format!("Stake must be {}-{}.", chips_str(limit.min), chips_str(max)));
         return Ok(());
     }
 
@@ -291,8 +293,9 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         Some(n) => n,
         None => { ctx.whisper_success("Usage: !duel bet <player> <chips>"); return Ok(()); }
     };
-    if amount < MIN_STAKE {
-        ctx.whisper_success(format!("Min side bet is {}.", chips_str(MIN_STAKE)));
+    let limit = ctx.bet_limit("duel", MIN_STAKE, Some(MAX_STAKE));
+    if amount < limit.min {
+        ctx.whisper_success(format!("Min side bet is {}.", chips_str(limit.min)));
         return Ok(());
     }
 

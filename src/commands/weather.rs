@@ -288,8 +288,9 @@ async fn place_rain_bet(ctx: &CommandContext<'_>, city_arg: &str, tail: &[&str])
         Ok(n) => n,
         Err(_) => { ctx.whisper("Invalid chip amount."); return Ok(()); }
     };
-    if stake < MIN_BET {
-        ctx.whisper(format!("Min bet is {}.", chips_str(MIN_BET)));
+    let limit = ctx.bet_limit("weather", MIN_BET, None);
+    if stake < limit.min {
+        ctx.whisper(format!("Min bet is {}.", chips_str(limit.min)));
         return Ok(());
     }
 
@@ -406,8 +407,9 @@ async fn place_ensemble_bet(
         Ok(n) => n,
         Err(_) => { ctx.whisper("Invalid chip amount."); return Ok(()); }
     };
-    if stake < MIN_BET {
-        ctx.whisper(format!("Min bet is {}.", chips_str(MIN_BET)));
+    let limit = ctx.bet_limit("weather", MIN_BET, None);
+    if stake < limit.min {
+        ctx.whisper(format!("Min bet is {}.", chips_str(limit.min)));
         return Ok(());
     }
 

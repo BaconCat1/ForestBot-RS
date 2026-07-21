@@ -86,8 +86,9 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 async fn start_game(ctx: &CommandContext<'_>, stake: i64, hard_mode: bool) -> anyhow::Result<()> {
-    if stake < MIN_STAKE {
-        ctx.whisper_success(format!("Min stake is {}.", chips_str(MIN_STAKE)));
+    let limit = ctx.bet_limit("wordle", MIN_STAKE, None);
+    if stake < limit.min {
+        ctx.whisper_success(format!("Min stake is {}.", chips_str(limit.min)));
         return Ok(());
     }
 

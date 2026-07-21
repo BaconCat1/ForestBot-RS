@@ -300,10 +300,11 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
         }
     };
 
+    let limit = ctx.bet_limit("aqi", MIN_BET, None);
     let chips = match chips_str_arg.parse::<i64>() {
-        Ok(n) if n >= MIN_BET => n,
+        Ok(n) if n >= limit.min => n,
         Ok(_) => {
-            ctx.whisper_success(format!("Minimum bet: {} chips.", MIN_BET));
+            ctx.whisper_success(format!("Minimum bet: {} chips.", limit.min));
             return Ok(());
         }
         Err(_) => return Ok(()), // no chips = preview only

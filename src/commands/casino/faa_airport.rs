@@ -189,8 +189,9 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
-    if stake < MIN_BET {
-        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+    let limit = ctx.bet_limit("faa_airport", MIN_BET, None);
+    if stake < limit.min {
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(limit.min)));
         return Ok(());
     }
 

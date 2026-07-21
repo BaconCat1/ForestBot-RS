@@ -107,8 +107,10 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             show_help(&ctx);
             return Ok(());
         };
-        if stake < MIN_BET || stake > MAX_BET {
-            ctx.whisper_success(format!("Bet must be {MIN_BET}–{MAX_BET} chips."));
+        let limit = ctx.bet_limit("sic_bo", MIN_BET, Some(MAX_BET));
+        let (min, max) = (limit.min, limit.max.unwrap_or(MAX_BET));
+        if stake < min || stake > max {
+            ctx.whisper_success(format!("Bet must be {min}–{max} chips."));
             return Ok(());
         }
         let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };

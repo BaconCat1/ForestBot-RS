@@ -511,8 +511,9 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
-    if stake < MIN_BET {
-        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+    let limit = ctx.bet_limit("seismic", MIN_BET, None);
+    if stake < limit.min {
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(limit.min)));
         return Ok(());
     }
 
@@ -839,8 +840,9 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         ctx.whisper_success("Chip amount must be a number.");
         return Ok(());
     };
-    if stake < MIN_BET {
-        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(MIN_BET)));
+    let limit = ctx.bet_limit("seismic", MIN_BET, None);
+    if stake < limit.min {
+        ctx.whisper_success(format!("Minimum bet is {}.", chips_str(limit.min)));
         return Ok(());
     }
 

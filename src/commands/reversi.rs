@@ -376,8 +376,9 @@ async fn start_game(ctx: &CommandContext<'_>, sender: &str, stake: i64) -> anyho
         }
     }
 
-    if stake < MIN_STAKE {
-        ctx.whisper_success(format!("Min stake: {}", chips_str(MIN_STAKE)));
+    let limit = ctx.bet_limit("reversi", MIN_STAKE, None);
+    if stake < limit.min {
+        ctx.whisper_success(format!("Min stake: {}", chips_str(limit.min)));
         return Ok(());
     }
 

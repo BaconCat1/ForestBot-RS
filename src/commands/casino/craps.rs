@@ -79,8 +79,10 @@ async fn do_come_out(ctx: CommandContext<'_>, pass_line: bool) -> anyhow::Result
         ctx.whisper_success(format!("Usage: !craps {line} <bet>"));
         return Ok(());
     };
-    if bet < MIN_BET || bet > MAX_BET {
-        ctx.whisper_success(format!("Bet must be {MIN_BET}–{MAX_BET} chips."));
+    let limit = ctx.bet_limit("craps", MIN_BET, Some(MAX_BET));
+    let (min, max) = (limit.min, limit.max.unwrap_or(MAX_BET));
+    if bet < min || bet > max {
+        ctx.whisper_success(format!("Bet must be {min}–{max} chips."));
         return Ok(());
     }
 

@@ -61,16 +61,18 @@ fn evaluate_paylines(above: [usize; 3], center: [usize; 3], below: [usize; 3], b
 
 pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
+        let limit = ctx.bet_limit("slots", MIN_BET, Some(MAX_BET));
+        let max = limit.max.unwrap_or(MAX_BET);
         let Some(bet_str) = ctx.args.first() else {
-            ctx.whisper_success(format!("Usage: !slots <bet> ({}-{})", chips_str(MIN_BET), chips_str(MAX_BET)));
+            ctx.whisper_success(format!("Usage: !slots <bet> ({}-{})", chips_str(limit.min), chips_str(max)));
             return Ok(());
         };
         let Ok(bet) = bet_str.parse::<i64>() else {
             ctx.whisper_success("Bet must be a number.");
             return Ok(());
         };
-        if bet < MIN_BET || bet > MAX_BET {
-            ctx.whisper_success(format!("Bet must be {}-{}.", chips_str(MIN_BET), chips_str(MAX_BET)));
+        if bet < limit.min || bet > max {
+            ctx.whisper_success(format!("Bet must be {}-{}.", chips_str(limit.min), chips_str(max)));
             return Ok(());
         }
 

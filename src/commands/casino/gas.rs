@@ -302,9 +302,10 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
         _ => { ctx.whisper_success("Side must be 'up' or 'down'."); return Ok(()); }
     };
 
+    let limit = ctx.bet_limit("gas", MIN_BET, None);
     let chips = match chips_str_arg.parse::<i64>() {
-        Ok(n) if n >= MIN_BET => n,
-        Ok(_) => { ctx.whisper_success(format!("Min bet: {} chips.", MIN_BET)); return Ok(()); }
+        Ok(n) if n >= limit.min => n,
+        Ok(_) => { ctx.whisper_success(format!("Min bet: {} chips.", limit.min)); return Ok(()); }
         Err(_) => { ctx.whisper_success("Usage: !gas <zip> up|down <chips>"); return Ok(()); }
     };
 

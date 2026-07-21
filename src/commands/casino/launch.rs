@@ -312,6 +312,7 @@ async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<
     let price_success = to_price(p_s);
     let price_ontime  = to_price(p_o);
     let p = &ctx.runtime.prefix;
+    let limit = ctx.bet_limit("launch", MIN_BET, None);
 
     ctx.whisper_success(format!(
         "[{}] {} | {} | T-{} | Success: {} | On-time: {} | {p}rocket {} success|ontime <chips> | Min: {}",
@@ -322,15 +323,16 @@ async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<
         fmt_odds(price_success),
         fmt_odds(price_ontime),
         &l.id[..8],
-        chips_str(MIN_BET),
+        chips_str(limit.min),
     ));
     Ok(())
 }
 
 async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide, chips_str_arg: &str) -> anyhow::Result<()> {
+    let limit = ctx.bet_limit("launch", MIN_BET, None);
     let chips = match chips_str_arg.parse::<i64>() {
-        Ok(n) if n >= MIN_BET => n,
-        Ok(_) => { ctx.whisper_success(format!("Min bet: {} chips.", MIN_BET)); return Ok(()); }
+        Ok(n) if n >= limit.min => n,
+        Ok(_) => { ctx.whisper_success(format!("Min bet: {} chips.", limit.min)); return Ok(()); }
         Err(_) => { ctx.whisper_success(format!("Usage: !rocket <id> success|ontime <chips>")); return Ok(()); }
     };
 

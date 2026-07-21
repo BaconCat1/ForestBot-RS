@@ -71,8 +71,9 @@ fn execute_trivia(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             }
         };
 
-        if stake < MIN_BET {
-            ctx.whisper(format!("Min wager is {}.", chips_str(MIN_BET)));
+        let limit = ctx.bet_limit("trivia", MIN_BET, None);
+        if stake < limit.min {
+            ctx.whisper(format!("Min wager is {}.", chips_str(limit.min)));
             return Ok(());
         }
 

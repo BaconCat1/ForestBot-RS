@@ -660,6 +660,17 @@ pub struct CommandCensorship {
     pub error: bool,
 }
 
+// Per-game min/max bet, keyed by game name -- see json/bet_limits.json. `max` is
+// optional since a few games (e.g. battleship) only ever enforced a minimum. Missing
+// game or missing file falls back to that game's own hardcoded default at the call
+// site, same fail-safe pattern as CommandCensorship above.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct BetLimit {
+    pub min: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max: Option<i64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OfflineMessage {
     pub sender: String,
@@ -712,6 +723,7 @@ pub struct AppState {
     pub mc_whitelist: Vec<String>,
     pub mc_blacklist: Vec<String>,
     pub command_censorship: HashMap<String, CommandCensorship>,
+    pub bet_limits: HashMap<String, BetLimit>,
 }
 
 async fn merge_config_from_example() -> Result<()> {
@@ -876,6 +888,7 @@ impl AppState {
         let blacklist: UserList = read_json("./json/mc_blacklist.json").await?;
         let command_censorship: HashMap<String, CommandCensorship> =
             read_json("./json/commands_censorship.json").await?;
+        let bet_limits: HashMap<String, BetLimit> = read_json("./json/bet_limits.json").await?;
 
         require_env("MC_USER")?;
         require_env("MC_PASS")?;
@@ -887,6 +900,7 @@ impl AppState {
             mc_whitelist: whitelist.users,
             mc_blacklist: blacklist.users,
             command_censorship,
+            bet_limits,
         })
     }
 
@@ -900,6 +914,7 @@ impl AppState {
             .await?
             .users;
         self.command_censorship = read_json("./json/commands_censorship.json").await?;
+        self.bet_limits = read_json("./json/bet_limits.json").await?;
 
         println!("Config reloaded successfully.");
         Ok(())

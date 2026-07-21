@@ -69,8 +69,10 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     return Ok(());
                 }
             }
-            if bet < MIN_BET || bet > MAX_BET {
-                ctx.whisper_success(format!("Bet must be {}-{}.", chips_str(MIN_BET), chips_str(MAX_BET)));
+            let limit = ctx.bet_limit("hilo", MIN_BET, Some(MAX_BET));
+            let max = limit.max.unwrap_or(MAX_BET);
+            if bet < limit.min || bet > max {
+                ctx.whisper_success(format!("Bet must be {}-{}.", chips_str(limit.min), chips_str(max)));
                 return Ok(());
             }
             match ctx.state.api.casino_adjust(&player_uuid, -bet).await {

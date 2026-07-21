@@ -89,8 +89,10 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             ctx.whisper_success("Bet must be a number.");
             return Ok(());
         };
-        if bet < MIN_BET || bet > MAX_BET {
-            ctx.whisper_success(format!("Bet must be {MIN_BET}–{MAX_BET} chips."));
+        let limit = ctx.bet_limit("roulette", MIN_BET, Some(MAX_BET));
+        let (min, max) = (limit.min, limit.max.unwrap_or(MAX_BET));
+        if bet < min || bet > max {
+            ctx.whisper_success(format!("Bet must be {min}–{max} chips."));
             return Ok(());
         }
 

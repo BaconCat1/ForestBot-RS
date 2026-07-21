@@ -119,8 +119,9 @@ async fn place_bet(ctx: &CommandContext<'_>, long: bool) -> anyhow::Result<()> {
             return Ok(());
         }
     };
-    if stake < MIN_BET {
-        ctx.whisper(format!("Min stake is {}.", chips_str(MIN_BET)));
+    let limit = ctx.bet_limit("market", MIN_BET, None);
+    if stake < limit.min {
+        ctx.whisper(format!("Min stake is {}.", chips_str(limit.min)));
         return Ok(());
     }
     let dur_str = match ctx.args.get(3).copied() {
@@ -427,8 +428,9 @@ async fn portfolio_buy(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         Some(n) => n,
         None => { ctx.whisper("Usage: !market buy <symbol> <chips>"); return Ok(()); }
     };
-    if stake < MIN_BET {
-        ctx.whisper(format!("Min stake is {}.", chips_str(MIN_BET)));
+    let limit = ctx.bet_limit("market", MIN_BET, None);
+    if stake < limit.min {
+        ctx.whisper(format!("Min stake is {}.", chips_str(limit.min)));
         return Ok(());
     }
 

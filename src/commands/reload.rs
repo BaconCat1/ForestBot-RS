@@ -73,6 +73,7 @@ async fn reload_runtime(
         smart_censoring: app_state.config.smart_censoring,
         censor_threshold: app_state.config.censor_threshold,
         command_censorship: app_state.command_censorship,
+        bet_limits: app_state.bet_limits,
         together_api_key: app_state.config.api_keys.together,
         wolfram_app_id: app_state.config.api_keys.wolfram,
         azure_translator_key: app_state.config.api_keys.azure_key,

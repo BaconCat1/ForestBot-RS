@@ -91,12 +91,14 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
         }
     }
 
+    let limit = ctx.bet_limit("blackjack", MIN_BET, Some(MAX_BET));
+    let (min, max) = (limit.min, limit.max.unwrap_or(MAX_BET));
     let Ok(bet) = stake_str.parse::<i64>() else {
-        ctx.whisper_success(format!("Usage: !bj <bet> (min {MIN_BET}, max {MAX_BET})"));
+        ctx.whisper_success(format!("Usage: !bj <bet> (min {min}, max {max})"));
         return Ok(());
     };
-    if bet < MIN_BET || bet > MAX_BET {
-        ctx.whisper_success(format!("Bet must be {MIN_BET}–{MAX_BET} chips."));
+    if bet < min || bet > max {
+        ctx.whisper_success(format!("Bet must be {min}–{max} chips."));
         return Ok(());
     }
 

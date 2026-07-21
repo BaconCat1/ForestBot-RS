@@ -342,10 +342,11 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let has_session = ctx.state.battleship_games.lock().unwrap().contains_key(&sender);
 
         if !has_session {
+            let limit = ctx.bet_limit("battleship", MIN_STAKE, None);
             let chips = match arg.parse::<i64>() {
-                Ok(n) if n >= MIN_STAKE => n,
+                Ok(n) if n >= limit.min => n,
                 Ok(_) => {
-                    ctx.whisper_success(format!("Minimum stake: {} chips.", MIN_STAKE));
+                    ctx.whisper_success(format!("Minimum stake: {} chips.", limit.min));
                     return Ok(());
                 }
                 _ => {

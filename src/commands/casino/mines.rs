@@ -236,14 +236,15 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let has_session = ctx.state.mines_games.lock().unwrap().contains_key(&sender);
 
         if !has_session {
+            let limit = ctx.bet_limit("mines", MIN_STAKE, None);
             let chips = match arg.parse::<i64>() {
-                Ok(n) if n >= MIN_STAKE => n,
+                Ok(n) if n >= limit.min => n,
                 Ok(_) => {
-                    ctx.whisper_success(format!("Minimum stake: {} chips.", MIN_STAKE));
+                    ctx.whisper_success(format!("Minimum stake: {} chips.", limit.min));
                     return Ok(());
                 }
                 _ => {
-                    ctx.whisper_success(format!("Usage: !mines <chips>. No active game. Min: {}.", MIN_STAKE));
+                    ctx.whisper_success(format!("Usage: !mines <chips>. No active game. Min: {}.", limit.min));
                     return Ok(());
                 }
             };

@@ -92,8 +92,10 @@ async fn execute_new_game(ctx: &CommandContext<'_>, stake_str: &str) -> anyhow::
         }
     };
 
-    if stake < MIN_STAKE || stake > MAX_STAKE {
-        ctx.whisper_success(format!("Stake must be {}-{}.", chips_str(MIN_STAKE), chips_str(MAX_STAKE)));
+    let limit = ctx.bet_limit("connect_four", MIN_STAKE, Some(MAX_STAKE));
+    let max = limit.max.unwrap_or(MAX_STAKE);
+    if stake < limit.min || stake > max {
+        ctx.whisper_success(format!("Stake must be {}-{}.", chips_str(limit.min), chips_str(max)));
         return Ok(());
     }
 
