@@ -1227,5 +1227,6 @@
   "sports_max_poll_ms": 18000000,
   "train_bet_duration_ms": 7200000,
   "train_poll_interval_ms": 120000,
-  "train_max_poll_ms": 3600000
+  "train_max_poll_ms": 3600000,
+  "casino_deck_count": 6
 }

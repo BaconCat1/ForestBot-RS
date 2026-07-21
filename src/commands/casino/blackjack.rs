@@ -1,10 +1,8 @@
-use rand::{Rng, rngs::OsRng};
-
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
 
-use super::{balance_str, chips_str, format_alimony};
+use super::{balance_str, chips_str, format_alimony, shoe};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["bj", "blackjack"],
@@ -15,8 +13,32 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 const MIN_BET: i64 = 25;
 const MAX_BET: i64 = 5_000;
-fn draw_card() -> u8 {
-    OsRng.gen_range(1u8..=13)
+
+// Draws one card from the shared blackjack table shoe, surfacing a shuffle notice
+// the moment the shoe reshuffles.
+fn deal_card(ctx: &CommandContext<'_>) -> (u8, Option<String>) {
+    shoe::deal_one(&ctx.state.blackjack_shoe)
+}
+
+// Draws `n` cards, folding any shuffle notice into `shuffle_notice` (last one wins,
+// though in practice at most one reshuffle can happen within a single hand's deal).
+fn deal_hand(ctx: &CommandContext<'_>, n: usize, shuffle_notice: &mut Option<String>) -> Vec<u8> {
+    (0..n)
+        .map(|_| {
+            let (card, notice) = deal_card(ctx);
+            if notice.is_some() {
+                *shuffle_notice = notice;
+            }
+            card
+        })
+        .collect()
+}
+
+fn with_notice(notice: &Option<String>, msg: String) -> String {
+    match notice {
+        Some(n) => format!("{n} {msg}"),
+        None => msg,
+    }
 }
 
 fn card_str(c: u8) -> String {
@@ -114,8 +136,9 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
         }
     };
 
-    let player = vec![draw_card(), draw_card()];
-    let dealer = vec![draw_card(), draw_card()];
+    let mut shuffle_notice = None;
+    let player = deal_hand(&ctx, 2, &mut shuffle_notice);
+    let dealer = deal_hand(&ctx, 2, &mut shuffle_notice);
 
     let pbj = is_blackjack(&player);
     let dbj = is_blackjack(&dealer);
@@ -126,20 +149,20 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
             Ok(b) => b,
             Err(_) => balance + bet,
         };
-        ctx.whisper_success(format!(
+        ctx.whisper_success(with_notice(&shuffle_notice, format!(
             "BJ | You: {} (21) | Dealer: {} {} (21) | Both blackjack — Push | Balance: {}",
             hand_str(&player), card_str(dealer[0]), card_str(dealer[1]), chips_str(new_balance)
-        ));
+        )));
         return Ok(());
     }
     if dbj {
         ctx.state.api.casino_jackpot_rake(bet).await;
-        ctx.whisper_success(format!(
+        ctx.whisper_success(with_notice(&shuffle_notice, format!(
             "BJ | You: {} ({}) | Dealer: {} {} (21) | Dealer blackjack — Lost {} | Balance: {}",
             hand_str(&player), score(&player),
             card_str(dealer[0]), card_str(dealer[1]),
             chips_str(bet), chips_str(balance)
-        ));
+        )));
         return Ok(());
     }
     if pbj {
@@ -148,18 +171,18 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
         match ctx.state.api.casino_win(player_uuid, payout).await {
             Ok(win) => {
                 let alimony_note = format_alimony(win.alimony_paid);
-                ctx.whisper_success(format!(
+                ctx.whisper_success(with_notice(&shuffle_notice, format!(
                     "BJ | You: {} (21) | Dealer: {} ? | BLACKJACK! +{}{alimony_note} | Balance: {}",
                     hand_str(&player), card_str(dealer[0]),
                     chips_str(payout - bet), chips_str(win.chips)
-                ));
+                )));
             }
             Err(e) => {
                 eprintln!("[Blackjack] payout failed for {player_uuid}: {e:?}");
-                ctx.whisper_error(format!(
+                ctx.whisper_error(with_notice(&shuffle_notice, format!(
                     "BJ | You: {} (21) | Dealer: {} ? | BLACKJACK! but payout failed. Contact an admin.",
                     hand_str(&player), card_str(dealer[0])
-                ));
+                )));
             }
         }
         return Ok(());
@@ -180,7 +203,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
         return Ok(());
     }
 
-    ctx.whisper_success(state_msg(&player, dealer[0], &format!("{actions}? | Balance: {}", chips_str(balance))));
+    ctx.whisper_success(with_notice(&shuffle_notice, state_msg(&player, dealer[0], &format!("{actions}? | Balance: {}", chips_str(balance)))));
     Ok(())
 }
 
@@ -205,31 +228,32 @@ async fn do_hit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()
         }
     };
 
-    player.push(draw_card());
+    let (card, shuffle_notice) = deal_card(&ctx);
+    player.push(card);
     let ps = score(&player);
 
     if ps > 21 {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
         let balance = ctx.state.api.casino_get_balance(player_uuid).await.map(|b| b.chips);
         ctx.state.api.casino_jackpot_rake(bet).await;
-        ctx.whisper_success(format!(
+        ctx.whisper_success(with_notice(&shuffle_notice, format!(
             "BJ | You: {} ({ps}) | Dealer: {} ? | Bust — Lost {} | Balance: {}",
             hand_str(&player), card_str(dealer[0]), chips_str(bet), balance_str(balance)
-        ));
+        )));
         return Ok(());
     }
 
     if ps == 21 {
         // Auto-stand
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-        return resolve_dealer(ctx, bet, player, dealer, player_uuid).await;
+        return resolve_dealer(ctx, bet, player, dealer, player_uuid, shuffle_notice).await;
     }
 
     ctx.state.casino_sessions.lock().expect("lock").insert(
         ctx.sender.to_owned(),
         CasinoSession::Blackjack { bet, player_hand: player.clone(), dealer_hand: dealer.clone() },
     );
-    ctx.whisper_success(state_msg(&player, dealer[0], &format!("Hit or Stand? ({ps})")));
+    ctx.whisper_success(with_notice(&shuffle_notice, state_msg(&player, dealer[0], &format!("Hit or Stand? ({ps})"))));
     Ok(())
 }
 
@@ -254,7 +278,7 @@ async fn do_stand(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<
         }
     };
     ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
-    resolve_dealer(ctx, bet, player, dealer, player_uuid).await
+    resolve_dealer(ctx, bet, player, dealer, player_uuid, None).await
 }
 
 // ── Double ───────────────────────────────────────────────────────────────────
@@ -298,21 +322,22 @@ async fn do_double(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result
 
     let doubled_bet = bet * 2;
     let mut new_player = player;
-    new_player.push(draw_card());
+    let (card, shuffle_notice) = deal_card(&ctx);
+    new_player.push(card);
     let ps = score(&new_player);
 
     ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
 
     if ps > 21 {
         ctx.state.api.casino_jackpot_rake(doubled_bet).await;
-        ctx.whisper_success(format!(
+        ctx.whisper_success(with_notice(&shuffle_notice, format!(
             "BJ | You: {} ({ps}) | Dealer: {} ? | Bust on double — Lost {} | Balance: {}",
             hand_str(&new_player), card_str(dealer[0]), chips_str(doubled_bet), chips_str(balance)
-        ));
+        )));
         return Ok(());
     }
 
-    resolve_dealer(ctx, doubled_bet, new_player, dealer, player_uuid).await
+    resolve_dealer(ctx, doubled_bet, new_player, dealer, player_uuid, shuffle_notice).await
 }
 
 // ── Quit ─────────────────────────────────────────────────────────────────────
@@ -333,10 +358,14 @@ async fn do_quit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<(
 
 // ── Dealer resolution ────────────────────────────────────────────────────────
 
-async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut dealer: Vec<u8>, player_uuid: &str) -> anyhow::Result<()> {
+async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut dealer: Vec<u8>, player_uuid: &str, mut shuffle_notice: Option<String>) -> anyhow::Result<()> {
     // Dealer hits until >= 17
     while score(&dealer) < 17 {
-        dealer.push(draw_card());
+        let (card, notice) = deal_card(&ctx);
+        if notice.is_some() {
+            shuffle_notice = notice;
+        }
+        dealer.push(card);
     }
 
     let ps = score(&player);
@@ -379,17 +408,17 @@ async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut 
     };
 
     if payout_failed {
-        ctx.whisper_error(format!(
+        ctx.whisper_error(with_notice(&shuffle_notice, format!(
             "BJ | You: {} ({ps}) | Dealer: {} ({ds}) | {result_msg} but payout failed. Contact an admin.",
             hand_str(&player), dealer_display
-        ));
+        )));
         return Ok(());
     }
 
-    ctx.whisper_success(format!(
+    ctx.whisper_success(with_notice(&shuffle_notice, format!(
         "BJ | You: {} ({ps}) | Dealer: {} ({ds}) | {result_msg}{alimony_note} | Balance: {}",
         hand_str(&player), dealer_display, balance_str(new_balance)
-    ));
+    )));
     Ok(())
 }
 

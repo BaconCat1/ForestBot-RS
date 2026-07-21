@@ -40,6 +40,10 @@ fn default_censor_threshold() -> String {
     "moderate".to_owned()
 }
 
+fn default_casino_deck_count() -> u32 {
+    6
+}
+
 fn default_duplicate_message_window_ms() -> u64 {
     5_000
 }
@@ -601,6 +605,14 @@ pub struct Config {
     pub train_poll_interval_ms: u64,
     #[serde(default = "default_train_max_poll_ms")]
     pub train_max_poll_ms: u64,
+    // Decks per shoe for blackjack/baccarat's shared table shoe (src/commands/casino/shoe.rs).
+    // Real casinos use 6-8 deck shoes specifically to blunt card counting; 6 matches the most
+    // common real-world convention. Poker/hilo build their own fresh single deck per hand/round
+    // instead and aren't affected by this setting. NOT hot-reloadable: the shoe is built once
+    // at bot startup (AzaleaState construction), so a `!reload` alone won't pick up a change --
+    // needs a full restart.
+    #[serde(default = "default_casino_deck_count")]
+    pub casino_deck_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

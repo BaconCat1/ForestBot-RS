@@ -24,7 +24,7 @@ ForestBot includes a casino module (`!chips`, `!faucet`, `!slots`, `!hilo`, `!c4
 Game logic adapted or referenced from the following sources:
 
 **terminal-poker** — Rust NLHE poker engine by ashxudev (2025).
-Extracted: game engine (`deck`, `hand`, `state`, `actions`) and rule-based bot (`rule_based`, `draws`, `preflop`). Used in `casino/poker/`.
+Extracted: game engine (`deck`, `hand`, `state`, `actions`) and rule-based bot (`rule_based`, `draws`, `preflop`). Used in `casino/poker/`. Its `deck.rs` shuffle-and-deal mechanism is separately reused (rank-only, not the Card/Suit types) in `casino/shoe.rs`, the config-driven multi-deck shoe shared by `blackjack.rs`/`baccarat.rs`.
 License: MIT — © 2025 ashxudev. Repo: https://github.com/ashxudev/terminal-poker
 
 **Let's Go Gambling!** — Fabric mod by BobR0ssiter providing game models for roulette, craps, blackjack, and baccarat (`RouletteScreenHandler`, `CrapsScreenHandler`, `BlackjackScreenHandler`, `BaccaratScreenHandler`). Adapted for MC chat: GUI/inventory/split/side-bet logic dropped; instant-command and session-based ports written in Rust.

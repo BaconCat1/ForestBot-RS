@@ -177,6 +177,7 @@ pub struct Bot {
     pub censor_threshold: String,
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
     pub bet_limits: HashMap<String, crate::config::BetLimit>,
+    pub casino_deck_count: u32,
     pub together_api_key: String,
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
@@ -294,6 +295,7 @@ impl Bot {
             censor_threshold: state.config.censor_threshold.clone(),
             command_censorship: state.command_censorship.clone(),
             bet_limits: state.bet_limits.clone(),
+            casino_deck_count: state.config.casino_deck_count,
             together_api_key: state.config.api_keys.together.clone(),
             wolfram_app_id: state.config.api_keys.wolfram.clone(),
             azure_translator_key: state.config.api_keys.azure_key.clone(),
@@ -528,6 +530,8 @@ impl Bot {
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
             casino_sessions: Arc::new(Mutex::new(HashMap::new())),
+            blackjack_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(self.casino_deck_count)),
+            baccarat_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(self.casino_deck_count)),
             market_service: Arc::new(crate::structure::market::service::MarketService::new(
                 self.coingecko_api_key.clone(),
                 self.market_quote_ttl_ms,
@@ -1087,6 +1091,13 @@ pub struct AzaleaState {
 
     // ── Casino: sessions + immediate games ─────────────────────────────────────
     pub casino_sessions: Arc<Mutex<HashMap<String, CasinoSession>>>,
+    // Shared shuffled multi-deck table shoes for blackjack/baccarat (casino/shoe.rs) --
+    // one shoe per game, dealt to every player, same as a real table. Outlives
+    // individual CasinoSession hands -- held across many hands until the configured
+    // lifetime elapses or the shoe runs dry, unlike poker/hilo which build a fresh
+    // single deck per hand/round instead.
+    pub blackjack_shoe: Arc<crate::commands::casino::shoe::Shoe>,
+    pub baccarat_shoe: Arc<crate::commands::casino::shoe::Shoe>,
     pub active_trivia: Arc<Mutex<Option<TriviaRound>>>,
     pub duels: Arc<Mutex<Vec<crate::commands::casino::duel::Duel>>>,
     pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
@@ -1344,6 +1355,8 @@ impl Default for AzaleaState {
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
             casino_sessions: Arc::new(Mutex::new(HashMap::new())),
+            blackjack_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(6)),
+            baccarat_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(6)),
             market_service: Arc::new(crate::structure::market::service::MarketService::new(
                 String::new(),
                 60_000,

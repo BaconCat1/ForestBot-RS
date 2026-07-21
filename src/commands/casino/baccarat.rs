@@ -1,9 +1,7 @@
-use rand::{Rng, rngs::OsRng};
-
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 
-use super::chips_str;
+use super::{chips_str, shoe};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["baccarat", "bac"],
@@ -14,8 +12,14 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 
 const MIN_BET: i64 = 25;
 
-fn draw() -> u8 {
-    OsRng.gen_range(1u8..=13)
+// Draws one card from the shared baccarat table shoe, folding any shuffle notice
+// into `shuffle_notice`.
+fn draw(ctx: &CommandContext<'_>, shuffle_notice: &mut Option<String>) -> u8 {
+    let (card, notice) = shoe::deal_one(&ctx.state.baccarat_shoe);
+    if notice.is_some() {
+        *shuffle_notice = notice;
+    }
+    card
 }
 
 fn bac_value(c: u8) -> u32 {
@@ -89,17 +93,18 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         }
 
         // Deal
-        let mut ph = vec![draw(), draw()];
-        let mut bh = vec![draw(), draw()];
+        let mut shuffle_notice = None;
+        let mut ph = vec![draw(&ctx, &mut shuffle_notice), draw(&ctx, &mut shuffle_notice)];
+        let mut bh = vec![draw(&ctx, &mut shuffle_notice), draw(&ctx, &mut shuffle_notice)];
         let mut pt = bac_score(&ph);
         let mut bt = bac_score(&bh);
         let natural = pt >= 8 || bt >= 8;
         if !natural && pt <= 5 {
-            ph.push(draw());
+            ph.push(draw(&ctx, &mut shuffle_notice));
             pt = bac_score(&ph);
         }
         if !natural && bt <= 5 {
-            bh.push(draw());
+            bh.push(draw(&ctx, &mut shuffle_notice));
             bt = bac_score(&bh);
         }
 
@@ -163,10 +168,14 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         }
 
         let natural_tag = if natural { " [natural]" } else { "" };
-        ctx.whisper_success(format!(
+        let msg = format!(
             "[Baccarat] P: {} ({pt}){natural_tag} B: {} ({bt}) → {} | {result}{alimony_note}",
             hand_str(&ph), hand_str(&bh), winner.to_uppercase()
-        ));
+        );
+        ctx.whisper_success(match shuffle_notice {
+            Some(n) => format!("{n} {msg}"),
+            None => msg,
+        });
         Ok(())
     })
 }
