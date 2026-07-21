@@ -46,8 +46,26 @@ fn hand_str(hand: &[u8]) -> String {
     hand.iter().map(|&c| card_str(c)).collect::<Vec<_>>().join(" ")
 }
 
+// ── Clear (whitelist-only, admin/testing) ───────────────────────────────────
+
+async fn do_clear_shoe(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
+    let allowed = !ctx.runtime.use_whitelist
+        || ctx.runtime.user_whitelist.iter().any(|u| u.eq_ignore_ascii_case(ctx.sender));
+    if !allowed {
+        ctx.whisper_success("Whitelist only.");
+        return Ok(());
+    }
+    shoe::clear_shoe(&ctx.state.baccarat_shoe);
+    ctx.whisper_success("Baccarat shoe cleared — next deal reshuffles.");
+    Ok(())
+}
+
 fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
+        if ctx.args.first().map(|s| s.eq_ignore_ascii_case("clear")).unwrap_or(false) {
+            return do_clear_shoe(&ctx).await;
+        }
+
         let (Some(&side_s), Some(&amt_s)) = (ctx.args.first(), ctx.args.get(1)) else {
             ctx.whisper_success(format!(
                 "Usage: {p}baccarat player|banker|tie <chips>  |  Player 2× | Banker 1.95× | Tie 8×",

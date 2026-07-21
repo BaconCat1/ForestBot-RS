@@ -530,8 +530,8 @@ impl Bot {
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
             casino_sessions: Arc::new(Mutex::new(HashMap::new())),
-            blackjack_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(self.casino_deck_count)),
-            baccarat_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(self.casino_deck_count)),
+            blackjack_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(self.casino_deck_count, "Blackjack")),
+            baccarat_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(self.casino_deck_count, "Baccarat")),
             market_service: Arc::new(crate::structure::market::service::MarketService::new(
                 self.coingecko_api_key.clone(),
                 self.market_quote_ttl_ms,
@@ -1355,8 +1355,8 @@ impl Default for AzaleaState {
             world_time_ticks: Arc::new(RwLock::new(0)),
             active_trivia: Arc::new(Mutex::new(None)),
             casino_sessions: Arc::new(Mutex::new(HashMap::new())),
-            blackjack_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(6)),
-            baccarat_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(6)),
+            blackjack_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(6, "Blackjack")),
+            baccarat_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(6, "Baccarat")),
             market_service: Arc::new(crate::structure::market::service::MarketService::new(
                 String::new(),
                 60_000,

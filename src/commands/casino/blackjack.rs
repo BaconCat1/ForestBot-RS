@@ -97,6 +97,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "stand" | "s"  => do_stand(ctx, &player_uuid).await,
             "double" | "d" => do_double(ctx, &player_uuid).await,
             "quit" | "q"   => do_quit(ctx, &player_uuid).await,
+            "clear"        => do_clear_shoe(ctx).await,
             _              => do_deal(ctx, &subcmd, &player_uuid).await,
         }
     })
@@ -353,6 +354,20 @@ async fn do_quit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<(
         Some(_) => ctx.whisper_success("Quit that game with its own quit command."),
         None => ctx.whisper_success("No blackjack session active."),
     }
+    Ok(())
+}
+
+// ── Clear (whitelist-only, admin/testing) ───────────────────────────────────
+
+async fn do_clear_shoe(ctx: CommandContext<'_>) -> anyhow::Result<()> {
+    let allowed = !ctx.runtime.use_whitelist
+        || ctx.runtime.user_whitelist.iter().any(|u| u.eq_ignore_ascii_case(ctx.sender));
+    if !allowed {
+        ctx.whisper_success("Whitelist only.");
+        return Ok(());
+    }
+    shoe::clear_shoe(&ctx.state.blackjack_shoe);
+    ctx.whisper_success("Blackjack shoe cleared — next deal reshuffles.");
     Ok(())
 }
 
