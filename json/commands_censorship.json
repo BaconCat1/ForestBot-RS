@@ -1,6 +1,7 @@
 {
   "market": { "success": false, "error": true },
   "portfolio": { "success": false, "error": true },
+  "calc": { "success": false, "error": true },
 
   "kd": { "success": false, "error": true },
   "joindate": { "success": false, "error": true },

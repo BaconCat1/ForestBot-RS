@@ -1,5 +1,6 @@
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::logger;
+use crate::structure::mineflayer::utils::profanity_filter;
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["calc", "wa", "wolframalpha"],
@@ -21,14 +22,38 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         }
         let query = ctx.args.join(" ");
         match wolfram_query(&app_id, &query).await {
-            Some(result) => ctx.chat(result),
-            None => ctx.chat(format!("No result for: {query}")),
+            // The query is real, unvalidated player input and still needs censoring.
+            // The answer is Wolfram|Alpha's own computed output (often a long decimal
+            // expansion) -- it can't carry intent, so it's never censored. Censoring it
+            // wholesale was exactly what broke `!wa arctan(53)`: a coincidental digit run
+            // decoded via leetspeak into a bad_words.json entry that has nothing to do
+            // with the actual math being shown.
+            Some((sep, answer)) => {
+                let trie = *ctx.state.profanity_trie.read().expect("profanity_trie read");
+                let threshold = profanity_filter::censor_threshold_from_config(&ctx.runtime.censor_threshold);
+                let censored_query = match trie {
+                    Some(trie) => profanity_filter::censor_message(trie, &query, threshold),
+                    None => query,
+                };
+                let display = format!("{censored_query}{sep}{answer}");
+                let display = if display.chars().count() > 220 {
+                    format!("{}...", display.chars().take(217).collect::<String>())
+                } else {
+                    display
+                };
+                ctx.chat_success(display);
+            }
+            None => ctx.chat_error(format!("No result for: {query}")),
         }
         Ok(())
     })
 }
 
-async fn wolfram_query(app_id: &str, query: &str) -> Option<String> {
+/// Returns `(separator, answer)` rather than the fully-assembled display string --
+/// the caller censors the query and answer independently before joining them (see
+/// `execute`), since the answer is bot-computed and must never be censored, while the
+/// query is real player input and always must be.
+async fn wolfram_query(app_id: &str, query: &str) -> Option<(&'static str, String)> {
     let url = format!(
         "https://www.wolframalpha.com/api/v1/llm-api?input={}&appid={}",
         percent_encode(query),
@@ -143,12 +168,7 @@ async fn wolfram_query(app_id: &str, query: &str) -> Option<String> {
 
     // Use ": " separator for equations (query already contains "=") to avoid "a = b = c = d"
     let sep = if query.contains('=') { ": " } else { " = " };
-    let display = format!("{query}{sep}{answer}");
-    if display.chars().count() > 220 {
-        Some(format!("{}...", display.chars().take(217).collect::<String>()))
-    } else {
-        Some(display)
-    }
+    Some((sep, answer.to_owned()))
 }
 
 fn percent_encode(value: &str) -> String {
