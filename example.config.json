@@ -296,6 +296,12 @@
       "reset_multiplier": 2,
       "max_cooldown_ms": 0
     },
+    "deaths": {
+      "cooldown_ms": 0,
+      "increment_ms": 0,
+      "reset_multiplier": 2,
+      "max_cooldown_ms": 0
+    },
     "lastadvancement": {
       "cooldown_ms": 0,
       "increment_ms": 0,
@@ -1029,6 +1035,7 @@
     "joindate": true,
     "joins": true,
     "kd": true,
+    "deaths": true,
     "lastadvancement": true,
     "lastdeath": true,
     "lastkill": true,

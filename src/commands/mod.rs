@@ -357,6 +357,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         joins::COMMAND,
         quote::COMMAND,
         stat_history::KD_COMMAND,
+        stat_history::DEATHS_COMMAND,
         stat_history::JOINDATE_COMMAND,
         stat_history::JDPT_COMMAND,
         stat_history::WORDCOUNT_COMMAND,

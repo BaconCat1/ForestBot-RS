@@ -30,6 +30,7 @@ macro_rules! admin_command {
 }
 
 mod kd;
+mod deaths;
 mod joindate;
 mod jdpt;
 mod wordcount;
@@ -111,6 +112,7 @@ pub use iam::IAM_COMMAND;
 pub use jdpt::JDPT_COMMAND;
 pub use joindate::JOINDATE_COMMAND;
 pub use kd::KD_COMMAND;
+pub use deaths::DEATHS_COMMAND;
 pub use last_advancement::LAST_ADVANCEMENT_COMMAND;
 pub use lastdeath::LAST_DEATH_COMMAND;
 pub use lastkill::LAST_KILL_COMMAND;

@@ -568,6 +568,7 @@ impl Bot {
             gas_bets: Arc::new(Mutex::new(HashMap::new())),
             gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
             gasbuddy_csrf: Arc::new(Mutex::new(None)),
+            join_window_bets: Arc::new(Mutex::new(HashMap::new())),
             http: reqwest::Client::new(),
             url_blocklist: Arc::new(RwLock::new(None)),
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
@@ -945,6 +946,28 @@ impl Bot {
             }
         }
 
+        // Recover join-window bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::join_market::JoinWindowBet>().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.join_window_bets.lock().expect("join_window_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::join_market::join_window_settle_task(
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.join_window_bets.clone(),
+                        whisper_cmd.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
         // Load portfolio positions into memory
         {
             let open_positions = state.api.casino_portfolio_list().await;
@@ -1136,6 +1159,7 @@ pub struct AzaleaState {
     // (price, display_name, fetched_at)
     pub gas_price_cache: Arc<Mutex<std::collections::HashMap<String, (f64, String, u64)>>>,
     pub gasbuddy_csrf: Arc<Mutex<Option<String>>>,
+    pub join_window_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::join_market::JoinWindowBet>>>>,
 
     // ── AI / poll ───────────────────────────────────────────────────────────────
     pub active_poll: Arc<Mutex<Option<crate::commands::poll::PollState>>>,
@@ -1393,6 +1417,7 @@ impl Default for AzaleaState {
             gas_bets: Arc::new(Mutex::new(HashMap::new())),
             gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
             gasbuddy_csrf: Arc::new(Mutex::new(None)),
+            join_window_bets: Arc::new(Mutex::new(HashMap::new())),
             http: reqwest::Client::new(),
             url_blocklist: Arc::new(RwLock::new(None)),
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),

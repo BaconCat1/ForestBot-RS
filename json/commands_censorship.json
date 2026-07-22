@@ -4,6 +4,7 @@
   "calc": { "success": false, "error": true },
 
   "kd": { "success": false, "error": true },
+  "deaths": { "success": false, "error": true },
   "joindate": { "success": false, "error": true },
   "jdpt": { "success": false, "error": true },
   "victims": { "success": false, "error": true },

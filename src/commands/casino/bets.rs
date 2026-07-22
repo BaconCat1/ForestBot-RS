@@ -57,9 +57,10 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             let payout     = calc_payout(stake, price);
             let label      = describe_bet(bet_type, row);
             let bracket = match bet_type {
-                "launch" => "ROCKET".to_owned(),
-                "nasa"   => "SPACEWX".to_owned(),
-                other    => other.to_uppercase(),
+                "launch"      => "ROCKET".to_owned(),
+                "nasa"        => "SPACEWX".to_owned(),
+                "join_window" => "JOINS".to_owned(),
+                other         => other.to_uppercase(),
             };
             ctx.whisper_success(format!(
                 "[{}] {} {} → pays {} | T-{}",
@@ -97,6 +98,11 @@ fn describe_bet(bet_type: &str, row: &serde_json::Value) -> String {
         "nasa" => {
             let subtype = row["nasa_subtype"].as_str().unwrap_or("?");
             subtype.to_uppercase()
+        }
+        "join_window" => {
+            // location = subject_uuid, train_name = subject_name. No `side` -- single outcome.
+            let subject = row["train_name"].as_str().unwrap_or("?");
+            format!("{subject} logs in")
         }
         _ => {
             // train_name = display name for every other type (train, faa, noaa, kalshi,

@@ -170,7 +170,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ⏸️ Pollen betting (Ambee Pollen API — free key) — daily pollen severity over/under; seasonal variance // casino phase II
 * ⏸️ Public health forecast betting (CDC FluSight + RSV + COVID Forecast Hub, free, no key) — weekly regional ensemble; same odds derivation as Open-Meteo; no Kalshi overlap // casino phase II
 * ⏸️ Boat/vessel arrival betting (Norway Coastal Administration AIS, free) — arrival-time over/under for tracked vessels; same shape as train delay bets // casino phase II
-* ⏸️ server event futures, same idea, just about stuff that happens on the server // on hold for casino phase II
+* 🔧 server event futures, same idea, just about stuff that happens on the server // join-window market built 2026-07-21 (`!joins <player> <bet>`), odds SQL not yet verified against real data; death-timing market scoped, not built; death cause-distribution dropped from scope
 * ⏸️ parlays across all betting types (needs mapping) // on hold for casino phase II
 * ⏸️ side betting on any game, not just dueling // on hold for casino phase II
 * ⏸️ add multiplayer where applicable to "casino games" // on hold for casino phase II

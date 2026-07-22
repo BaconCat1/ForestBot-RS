@@ -1212,6 +1212,29 @@ impl ApiClient {
         let _ = self.delete_json(&format!("/casino/bet/{}/{id}", T::TYPE)).await;
     }
 
+    /// `None` means the request itself failed (network/500) -- distinct from
+    /// `Some(JoinOdds { eligible: false, .. })`, which means Hub answered fine
+    /// but this player doesn't clear the sample-size floor. Callers must not
+    /// collapse these into the same "no odds" message.
+    pub async fn casino_join_odds(&self, subject_uuid: &str) -> Option<JoinOdds> {
+        let v = self.get_json(&format!("/casino/event/join-odds/{subject_uuid}"), &[]).await?;
+        Some(JoinOdds {
+            eligible: v.get("eligible").and_then(|b| b.as_bool()).unwrap_or(false),
+            p: v.get("p").and_then(|n| n.as_f64()).unwrap_or(0.0),
+            sample_size: v.get("sample_size").and_then(|n| n.as_i64()).unwrap_or(0),
+            elapsed_hours: v.get("elapsed_hours").and_then(|n| n.as_f64()).unwrap_or(0.0),
+            window_hours: v.get("window_hours").and_then(|n| n.as_i64()).unwrap_or(12),
+        })
+    }
+
+    /// `None` = request failed (settle task treats this the same as "unknown",
+    /// same fail-safe posture as every other settle task's fetch failure).
+    pub async fn casino_joined_since(&self, subject_uuid: &str, since_unix: u64) -> Option<bool> {
+        let since_str = since_unix.to_string();
+        let v = self.get_json(&format!("/casino/event/joined-since/{subject_uuid}"), &[("since", since_str.as_str())]).await?;
+        v.get("joined").and_then(|b| b.as_bool())
+    }
+
     pub async fn casino_event_bets_list(&self, player_uuid: &str) -> Vec<serde_json::Value> {
         let Some(v) = self.get_json(&format!("/casino/event-bets/{player_uuid}"), &[]).await else { return vec![]; };
         v.get("bets")
@@ -2245,6 +2268,21 @@ pub struct MarriageProposal {
     pub dowry: i64,
     pub state: String,
     pub role: String,
+}
+
+// ── Event futures (join-window, etc.) ────────────────────────────────────────
+
+/// Hazard-survival odds for a "will they join in the next N hours" bet, computed
+/// Hub-side against deduped `sessions` gaps. `p`/`sample_size`/`elapsed_hours` are
+/// only meaningful when `eligible` -- below the sample-size floor, Hub refuses to
+/// quote a number rather than trust a thin sample (see the scoping doc).
+#[derive(Debug, Clone, Default)]
+pub struct JoinOdds {
+    pub eligible: bool,
+    pub p: f64,
+    pub sample_size: i64,
+    pub elapsed_hours: f64,
+    pub window_hours: i64,
 }
 
 #[derive(Debug, Clone)]

@@ -24,6 +24,7 @@ pub mod launch;
 pub mod gas;
 pub mod bets;
 pub mod duel;
+pub mod join_market;
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::{CasinoFaucetResult, CasinoLottoPlayerTicket};
