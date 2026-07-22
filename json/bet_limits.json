@@ -6,6 +6,7 @@
   "chess": { "min": 25, "max": 5000 },
   "connect_four": { "min": 25, "max": 5000 },
   "craps": { "min": 10, "max": 5000 },
+  "death_window": { "min": 25, "max": 10000 },
   "faa_airport": { "min": 25 },
   "gas": { "min": 25 },
   "join_window": { "min": 25, "max": 10000 },

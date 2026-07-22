@@ -569,6 +569,7 @@ impl Bot {
             gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
             gasbuddy_csrf: Arc::new(Mutex::new(None)),
             join_window_bets: Arc::new(Mutex::new(HashMap::new())),
+            death_window_bets: Arc::new(Mutex::new(HashMap::new())),
             http: reqwest::Client::new(),
             url_blocklist: Arc::new(RwLock::new(None)),
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
@@ -968,6 +969,29 @@ impl Bot {
             }
         }
 
+        // Recover death-window bets open when bot last shut down
+        {
+            let open_bets = state.api.casino_bet_list::<crate::commands::casino::death_market::DeathWindowBet>().await;
+            if !open_bets.is_empty() {
+                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
+                {
+                    let mut bets = state.death_window_bets.lock().expect("death_window_bets lock");
+                    for bet in &open_bets {
+                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
+                    }
+                }
+                for bet in open_bets {
+                    tokio::spawn(crate::commands::casino::death_market::death_window_settle_task(
+                        crate::commands::casino::SettleDeps::from(&state),
+                        state.death_window_bets.clone(),
+                        whisper_cmd.clone(),
+                        state.mc_server.clone(),
+                        bet,
+                    ));
+                }
+            }
+        }
+
         // Load portfolio positions into memory
         {
             let open_positions = state.api.casino_portfolio_list().await;
@@ -1160,6 +1184,7 @@ pub struct AzaleaState {
     pub gas_price_cache: Arc<Mutex<std::collections::HashMap<String, (f64, String, u64)>>>,
     pub gasbuddy_csrf: Arc<Mutex<Option<String>>>,
     pub join_window_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::join_market::JoinWindowBet>>>>,
+    pub death_window_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::death_market::DeathWindowBet>>>>,
 
     // ── AI / poll ───────────────────────────────────────────────────────────────
     pub active_poll: Arc<Mutex<Option<crate::commands::poll::PollState>>>,
@@ -1418,6 +1443,7 @@ impl Default for AzaleaState {
             gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
             gasbuddy_csrf: Arc::new(Mutex::new(None)),
             join_window_bets: Arc::new(Mutex::new(HashMap::new())),
+            death_window_bets: Arc::new(Mutex::new(HashMap::new())),
             http: reqwest::Client::new(),
             url_blocklist: Arc::new(RwLock::new(None)),
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),

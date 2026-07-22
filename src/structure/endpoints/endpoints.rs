@@ -1235,6 +1235,29 @@ impl ApiClient {
         v.get("joined").and_then(|b| b.as_bool())
     }
 
+    /// Death-timing market's odds fetch -- same `None` vs `Some(eligible: false)`
+    /// distinction as `casino_join_odds`.
+    pub async fn casino_death_odds(&self, subject_uuid: &str) -> Option<DeathOdds> {
+        let v = self.get_json(&format!("/casino/event/death-odds/{subject_uuid}"), &[]).await?;
+        Some(DeathOdds {
+            eligible: v.get("eligible").and_then(|b| b.as_bool()).unwrap_or(false),
+            p: v.get("p").and_then(|n| n.as_f64()).unwrap_or(0.0),
+            sample_size: v.get("sample_size").and_then(|n| n.as_i64()).unwrap_or(0),
+            elapsed_hours: v.get("elapsed_hours").and_then(|n| n.as_f64()).unwrap_or(0.0),
+            window_hours: v.get("window_hours").and_then(|n| n.as_i64()).unwrap_or(12),
+        })
+    }
+
+    /// WIN-trigger check for the death-timing settle poll: has the subject died
+    /// at or after `since_ms` (the bet's placement wall-clock time, in ms)?
+    /// The LOSS/timeout side is evaluated by the caller against live playtime,
+    /// not this endpoint.
+    pub async fn casino_died_since(&self, subject_uuid: &str, since_ms: u64) -> Option<bool> {
+        let since_str = since_ms.to_string();
+        let v = self.get_json(&format!("/casino/event/died-since/{subject_uuid}"), &[("since", since_str.as_str())]).await?;
+        v.get("died").and_then(|b| b.as_bool())
+    }
+
     pub async fn casino_event_bets_list(&self, player_uuid: &str) -> Vec<serde_json::Value> {
         let Some(v) = self.get_json(&format!("/casino/event-bets/{player_uuid}"), &[]).await else { return vec![]; };
         v.get("bets")
@@ -2284,6 +2307,11 @@ pub struct JoinOdds {
     pub elapsed_hours: f64,
     pub window_hours: i64,
 }
+
+/// Same hazard-survival shape as `JoinOdds`, just sourced from the death-timing
+/// odds endpoint -- `elapsed_hours`/`window_hours` are PLAYTIME-hours here, not
+/// wall-clock (see getDeathOdds.ts), everything else means the same thing.
+pub type DeathOdds = JoinOdds;
 
 #[derive(Debug, Clone)]
 pub struct MarriageSpouseEntry {
