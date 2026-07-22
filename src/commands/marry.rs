@@ -19,7 +19,7 @@ pub const DIVORCE_COMMAND: CommandDefinition = CommandDefinition {
 
 pub const SPOUSE_COMMAND: CommandDefinition = CommandDefinition {
     names: &["spouse", "spouses"],
-    description: "List your current spouses",
+    description: "List your current spouses, or !spouse <player> for someone else's",
     whitelisted: false,
     execute: spouse_execute,
 };
@@ -263,14 +263,32 @@ fn divorce_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn spouse_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let Some(sender_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
-            ctx.whisper_success("Could not resolve your UUID.");
-            return Ok(());
+        let target_name = ctx.args.first().copied();
+
+        let (target_uuid, subject) = match target_name {
+            Some(name) => {
+                let Some(uuid) = ctx.state.api.convert_username_to_uuid(name).await else {
+                    ctx.whisper_error(format!("Player {name} not found."));
+                    return Ok(());
+                };
+                (uuid, name.to_owned())
+            }
+            None => {
+                let Some(uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+                    ctx.whisper_success("Could not resolve your UUID.");
+                    return Ok(());
+                };
+                (uuid, "You".to_owned())
+            }
         };
 
-        let spouses = ctx.state.api.marry_get_spouses(&sender_uuid).await;
+        let spouses = ctx.state.api.marry_get_spouses(&target_uuid).await;
         if spouses.is_empty() {
-            ctx.whisper_success("You are not married to anyone.");
+            if target_name.is_some() {
+                ctx.whisper_success(format!("{subject} is not married to anyone."));
+            } else {
+                ctx.whisper_success("You are not married to anyone.");
+            }
             return Ok(());
         }
 
@@ -280,7 +298,12 @@ fn spouse_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 .await.unwrap_or_else(|| s.spouse_uuid[..8.min(s.spouse_uuid.len())].to_owned());
             names.push(name);
         }
-        ctx.whisper_success(format!("Married to: {}", names.join(", ")));
+
+        if target_name.is_some() {
+            ctx.whisper_success(format!("{subject} is married to: {}", names.join(", ")));
+        } else {
+            ctx.whisper_success(format!("Married to: {}", names.join(", ")));
+        }
 
         Ok(())
     })

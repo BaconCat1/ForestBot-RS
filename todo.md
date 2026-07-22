@@ -175,6 +175,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ⏸️ side betting on any game, not just dueling // on hold for casino phase II
 * ⏸️ add multiplayer where applicable to "casino games" // on hold for casino phase II
 * ✅ ~~!marry, as well as !divorce and !spouse, let's you marry a player, check their spouse. Append marital status to whois, alimony system based on winning casino games?~~ // built for real 2026-07-18, compiled + live-tested + pushed (Hub schema + endpoints, marry.rs, universal alimony hook across every casino/market/weather win-credit site). The old "betting api" blocker is resolved by the `casino_win`/`SettleDeps` payout choke point built the same session — alimony now applies automatically to any game, no per-game wiring needed.
+	* ✅ ~~**extension**: should take users as args to show other people's spouses~~ // `!spouse <player>` optional arg, defaults to sender; error on unknown player
 
 * ✅ ~~**bug**: `increment_ms` cooldown not working~~ // spam path (blocked attempt) now also increments cooldown; success path already had it
 * ✅ ~~**bug**: !ud upvotes/downvotes always 0~~ // improved type parsing (i64 fallback); votes hidden when both 0 rather than showing (+0/-0)
