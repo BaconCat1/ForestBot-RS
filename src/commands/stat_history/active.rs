@@ -1,4 +1,4 @@
-use super::helpers::{epoch_ms_from_string, now_millis, ONE_DAY_MS};
+use super::helpers::{epoch_ms_from_string, excluded_usernames, now_millis, ONE_DAY_MS};
 use crate::commands::{CommandContext, CommandFuture};
 use futures_util::stream::{self, StreamExt};
 use std::collections::{HashMap, HashSet};
@@ -41,9 +41,11 @@ fn active(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .get_unique_users(&ctx.state.mc_server)
             .await
             .unwrap_or_default();
+        let excluded = excluded_usernames(&ctx).await;
         let usernames = users
             .into_iter()
             .map(|user| user.username)
+            .filter(|username| !excluded.contains(&username.to_lowercase()))
             .collect::<HashSet<_>>()
             .into_iter()
             .collect::<Vec<_>>();

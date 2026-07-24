@@ -1,4 +1,4 @@
-use super::helpers::{all_known_usernames_for_server, whisper, BACKFILL_CONCURRENCY, ONE_DAY_MS};
+use super::helpers::{all_known_usernames_for_server, excluded_usernames, whisper, BACKFILL_CONCURRENCY, ONE_DAY_MS};
 use crate::commands::{CommandContext, CommandFuture};
 use crate::commands::utils::stats_target::format_server_label;
 use futures_util::stream::{self, StreamExt};
@@ -73,10 +73,13 @@ async fn top_backend_stat(
     stat: &str,
     server: &str,
 ) -> anyhow::Result<()> {
+    let excluded = excluded_usernames(ctx).await;
+    // Hub applies the row limit server-side -- over-fetch by the exclusion
+    // count so filtering here can't shrink a real top-5 into a top-4.
     let value = ctx
         .state
         .api
-        .get_top_statistic(stat, server, TOP_LIMIT)
+        .get_top_statistic(stat, server, TOP_LIMIT + excluded.len())
         .await;
     let Some(value) = value else {
         whisper(ctx, "Api error");
@@ -91,6 +94,9 @@ async fn top_backend_stat(
         .into_iter()
         .filter_map(|row| {
             let username = row.get("username")?.as_str()?;
+            if excluded.contains(&username.to_lowercase()) {
+                return None;
+            }
             let number = row.get(stat)?;
             if stat == "playtime" {
                 let days = number.as_u64().unwrap_or_default() / ONE_DAY_MS;
@@ -99,6 +105,7 @@ async fn top_backend_stat(
                 Some(format!("{username}: {}", value_to_string(number)))
             }
         })
+        .take(TOP_LIMIT)
         .collect::<Vec<_>>();
     let title = if stat == "joins" {
         "TOP JOINS/LEAVES".to_owned()
@@ -111,23 +118,28 @@ async fn top_backend_stat(
 }
 
 async fn top_messages(ctx: &CommandContext<'_>, server: &str) -> anyhow::Result<()> {
-    let Some(value) = ctx.state.api.get_top_messages(server, TOP_LIMIT).await else {
+    let excluded = excluded_usernames(ctx).await;
+    let Some(value) = ctx.state.api.get_top_messages(server, TOP_LIMIT + excluded.len()).await else {
         whisper(ctx, "Could not calculate top messages right now.");
         return Ok(());
     };
-    let rows: Vec<_> = value
+    let mut rows: Vec<_> = value
         .get("top_messages")
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
                 .filter_map(|row| {
                     let username = row.get("name")?.as_str()?.to_owned();
+                    if excluded.contains(&username.to_lowercase()) {
+                        return None;
+                    }
                     let value = row.get("count").and_then(number_from_value)?;
                     Some(TopRow { username, value })
                 })
                 .collect()
         })
         .unwrap_or_default();
+    rows.truncate(TOP_LIMIT);
     if rows.is_empty() {
         whisper(ctx, "Could not calculate top messages right now.");
     } else {
@@ -149,23 +161,28 @@ async fn top_slurcount(ctx: &CommandContext<'_>, server: &str) -> anyhow::Result
         whisper(ctx, "No slurs configured (slurcount_list.json is empty).");
         return Ok(());
     }
-    let Some(value) = ctx.state.api.get_top_slurcount(server, &slurs, TOP_LIMIT).await else {
+    let excluded = excluded_usernames(ctx).await;
+    let Some(value) = ctx.state.api.get_top_slurcount(server, &slurs, TOP_LIMIT + excluded.len()).await else {
         whisper(ctx, "No slur data found.");
         return Ok(());
     };
-    let rows: Vec<_> = value
+    let mut rows: Vec<_> = value
         .get("top_slurcount")
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
                 .filter_map(|row| {
                     let username = row.get("name")?.as_str()?.to_owned();
+                    if excluded.contains(&username.to_lowercase()) {
+                        return None;
+                    }
                     let value = row.get("count").and_then(number_from_value)?;
                     Some(TopRow { username, value })
                 })
                 .collect()
         })
         .unwrap_or_default();
+    rows.truncate(TOP_LIMIT);
     if rows.is_empty() {
         whisper(ctx, "No slur data found.");
     } else {
@@ -213,6 +230,7 @@ async fn top_advancements(ctx: &CommandContext<'_>, server: &str) -> anyhow::Res
 }
 
 async fn top_trades(ctx: &CommandContext<'_>, _server: &str) -> anyhow::Result<()> {
+    let excluded = excluded_usernames(ctx).await;
     let Some(value) = ctx.state.api.get_trade_leaderboard().await else {
         whisper(ctx, "Api error");
         return Ok(());
@@ -224,6 +242,9 @@ async fn top_trades(ctx: &CommandContext<'_>, _server: &str) -> anyhow::Result<(
             arr.iter()
                 .filter_map(|row| {
                     let username = row.get("player_name")?.as_str()?.to_owned();
+                    if excluded.contains(&username.to_lowercase()) {
+                        return None;
+                    }
                     let value = row.get("trade_count").and_then(number_from_value)?;
                     Some(TopRow { username, value })
                 })
@@ -239,6 +260,7 @@ async fn top_trades(ctx: &CommandContext<'_>, _server: &str) -> anyhow::Result<(
 }
 
 async fn top_rejects(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
+    let excluded = excluded_usernames(ctx).await;
     let Some(value) = ctx.state.api.get_trade_leaderboard().await else {
         whisper(ctx, "Api error");
         return Ok(());
@@ -250,6 +272,9 @@ async fn top_rejects(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             arr.iter()
                 .filter_map(|row| {
                     let username = row.get("player_name")?.as_str()?.to_owned();
+                    if excluded.contains(&username.to_lowercase()) {
+                        return None;
+                    }
                     let value = row.get("reject_count").and_then(number_from_value)?;
                     Some(TopRow { username, value })
                 })
@@ -265,7 +290,12 @@ async fn top_rejects(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 }
 
 async fn get_top_advancements_historical(ctx: &CommandContext<'_>, server: &str) -> Vec<TopRow> {
-    let usernames = all_known_usernames_for_server(ctx, server).await;
+    let excluded = excluded_usernames(ctx).await;
+    let usernames = all_known_usernames_for_server(ctx, server)
+        .await
+        .into_iter()
+        .filter(|username| !excluded.contains(&username.to_lowercase()))
+        .collect::<Vec<_>>();
     let api = ctx.state.api.clone();
     let server = server.to_owned();
     let mut rows = stream::iter(usernames)
@@ -290,6 +320,7 @@ async fn get_top_advancements_from_leaderboards(
     ctx: &CommandContext<'_>,
     server: &str,
 ) -> Option<Vec<TopRow>> {
+    let excluded = excluded_usernames(ctx).await;
     let value = ctx.state.api.get_leaderboards(server).await?;
     let mut rows = value
         .get("advancements")?
@@ -297,6 +328,9 @@ async fn get_top_advancements_from_leaderboards(
         .iter()
         .filter_map(|row| {
             let username = row.get("player_name")?.as_str()?.to_owned();
+            if excluded.contains(&username.to_lowercase()) {
+                return None;
+            }
             let value = row.get("advancement_count").and_then(number_from_value)?;
             Some(TopRow { username, value })
         })

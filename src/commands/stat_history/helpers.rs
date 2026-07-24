@@ -79,6 +79,29 @@ pub async fn parse_target_with_uuid(
     Ok(Some((target, uuid)))
 }
 
+/// Manually-curated list of accounts (by UUID -- stable across name changes,
+/// project convention) to keep out of cross-player stat/quote results, e.g.
+/// the bot's own account. Lives at `json/stat_exclusions.json`, a bare JSON
+/// array of UUID strings, edited by hand, not hot-reloaded (same read-fresh-
+/// per-call pattern as `top.rs`'s `slurcount_list.json`). Resolved to
+/// lowercased usernames here since none of the Hub endpoints this filters
+/// (top-statistic, unique-users, messages, quotes) return UUIDs in their rows.
+pub async fn excluded_usernames(ctx: &CommandContext<'_>) -> HashSet<String> {
+    let uuids = match tokio::fs::read_to_string("./json/stat_exclusions.json").await {
+        Ok(data) => serde_json::from_str::<Vec<String>>(&data).unwrap_or_default(),
+        Err(_) => return HashSet::new(),
+    };
+    let mut names = HashSet::new();
+    for uuid in uuids {
+        if let Some(stats) = ctx.state.api.get_stats_by_uuid(&uuid, &ctx.state.mc_server).await
+            && let Some(username) = stats.username
+        {
+            names.insert(username.to_lowercase());
+        }
+    }
+    names
+}
+
 pub async fn all_known_usernames(ctx: &CommandContext<'_>) -> Vec<String> {
     all_known_usernames_for_server(ctx, &ctx.state.mc_server).await
 }

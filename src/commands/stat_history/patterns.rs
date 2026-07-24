@@ -2,7 +2,7 @@
 //! one command's thin wrapper fn (e.g. firstdeath/lastdeath/firstkill/lastkill
 //! all delegate to death_or_kill). Distinct from helpers.rs's generic utilities.
 
-use super::helpers::{epoch_ms_from_string, player_uuid, whisper, whisper_no_record};
+use super::helpers::{epoch_ms_from_string, excluded_usernames, player_uuid, whisper, whisper_no_record};
 use crate::commands::{
     CommandContext, CommandFuture,
     utils::stats_target::{format_server_label, parse_stats_target_or_reply},
@@ -110,6 +110,8 @@ pub fn sorted_unique_users(ctx: CommandContext<'_>, oldest: bool) -> CommandFutu
             .await
             .unwrap_or_default();
         users.retain(|user| online.contains(&user.username.to_lowercase()));
+        let excluded = excluded_usernames(&ctx).await;
+        users.retain(|user| !excluded.contains(&user.username.to_lowercase()));
         if users.is_empty() {
             ctx.whisper("No online players found in database.");
             return Ok(());
