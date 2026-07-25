@@ -97,20 +97,20 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let model_cache = &ctx.state.ai_model_cache;
         let http = &ctx.state.http;
 
-        for provider in &providers {
-            if let Some(response) = try_provider(http, model_cache, provider, &prompt).await {
-                crate::structure::logger::info(format!("[AI] provider={}", provider.name));
-                let response = response.trim();
-                flag_content_if_needed(
-                    ctx.state,
-                    ctx.sender,
-                    "ai",
-                    &format!("Q: {prompt}\nA: {response}"),
-                );
-                let text = format!("[AI] {}", truncate(response, MAX_RESPONSE_CHARS));
-                enqueue_chat(ctx.state, text);
-                return Ok(());
-            }
+        if let Some((provider_name, response)) =
+            run_provider_chain(http, model_cache, &providers, SYSTEM_PROMPT, &prompt).await
+        {
+            crate::structure::logger::info(format!("[AI] provider={provider_name}"));
+            let response = response.trim();
+            flag_content_if_needed(
+                ctx.state,
+                ctx.sender,
+                "ai",
+                &format!("Q: {prompt}\nA: {response}"),
+            );
+            let text = format!("[AI] {}", truncate(response, MAX_RESPONSE_CHARS));
+            enqueue_chat(ctx.state, text);
+            return Ok(());
         }
 
         enqueue_chat(
@@ -121,14 +121,36 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     })
 }
 
+// Reusable across any caller that needs a free-provider fallback chain with its own
+// system prompt (e.g. translate.rs's LLM-chain tier) -- not just the !ai Q&A flow.
+// Returns (provider_name, response) on first success so callers can log which
+// provider answered, same as !ai's own logging.
+pub async fn run_provider_chain(
+    http: &reqwest::Client,
+    model_cache: &Arc<Mutex<HashMap<String, String>>>,
+    providers: &[AiProviderEntry],
+    system_prompt: &str,
+    user_prompt: &str,
+) -> Option<(String, String)> {
+    for provider in providers {
+        if let Some(response) =
+            try_provider(http, model_cache, provider, system_prompt, user_prompt).await
+        {
+            return Some((provider.name.clone(), response));
+        }
+    }
+    None
+}
+
 async fn try_provider(
     http: &reqwest::Client,
     model_cache: &Arc<Mutex<HashMap<String, String>>>,
     provider: &AiProviderEntry,
+    system_prompt: &str,
     prompt: &str,
 ) -> Option<String> {
     let model = resolve_model(http, model_cache, provider).await;
-    call_provider(http, provider, &model, prompt).await
+    call_provider(http, provider, &model, system_prompt, prompt).await
 }
 
 async fn resolve_model(
@@ -225,6 +247,7 @@ async fn call_provider(
     http: &reqwest::Client,
     provider: &AiProviderEntry,
     model: &str,
+    system_prompt: &str,
     prompt: &str,
 ) -> Option<String> {
     if model.is_empty() {
@@ -236,7 +259,7 @@ async fn call_provider(
         messages: vec![
             ChatMessage {
                 role: "system",
-                content: SYSTEM_PROMPT,
+                content: system_prompt,
             },
             ChatMessage {
                 role: "user",

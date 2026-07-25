@@ -29,3 +29,4 @@ urlencoding = "2"
 whatlang = "0.16"
 prost = "0.13"
 rustrict = { version = "0.7.38", features = ["customize"] }
+translators = { version = "0.2.0", default-features = false, features = ["google", "tokio-async"] }

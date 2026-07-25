@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -80,6 +80,9 @@ pub struct RuntimeConfig {
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
     pub azure_translator_region: String,
+    pub google_cloud_translate_key: String,
+    pub google_scrape_enabled: bool,
+    pub google_scrape_min_interval_ms: u64,
     pub sharpapi_key: String,
     pub nasa_api_key: String,
     pub airnow_api_key: String,
@@ -182,6 +185,9 @@ pub struct Bot {
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
     pub azure_translator_region: String,
+    pub google_cloud_translate_key: String,
+    pub google_scrape_enabled: bool,
+    pub google_scrape_min_interval_ms: u64,
     pub sharpapi_key: String,
     pub nasa_api_key: String,
     pub airnow_api_key: String,
@@ -300,6 +306,9 @@ impl Bot {
             wolfram_app_id: state.config.api_keys.wolfram.clone(),
             azure_translator_key: state.config.api_keys.azure_key.clone(),
             azure_translator_region: state.config.api_keys.azure_region.clone(),
+            google_cloud_translate_key: state.config.api_keys.google_cloud_translate.clone(),
+            google_scrape_enabled: state.config.google_scrape_enabled,
+            google_scrape_min_interval_ms: state.config.google_scrape_min_interval_ms,
             sharpapi_key: state.config.api_keys.sharpapi.clone(),
             nasa_api_key: state.config.api_keys.nasa.clone(),
             airnow_api_key: state.config.api_keys.airnow.clone(),
@@ -444,6 +453,9 @@ impl Bot {
                 wolfram_app_id: self.wolfram_app_id.clone(),
                 azure_translator_key: self.azure_translator_key.clone(),
                 azure_translator_region: self.azure_translator_region.clone(),
+                google_cloud_translate_key: self.google_cloud_translate_key.clone(),
+                google_scrape_enabled: self.google_scrape_enabled,
+                google_scrape_min_interval_ms: self.google_scrape_min_interval_ms,
                 sharpapi_key: self.sharpapi_key.clone(),
                 nasa_api_key: self.nasa_api_key.clone(),
                 airnow_api_key: self.airnow_api_key.clone(),
@@ -579,6 +591,7 @@ impl Bot {
             active_poll: Arc::new(Mutex::new(None)),
             ai_providers: Arc::new(RwLock::new(ai_providers)),
             ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
+            google_scrape_last_call_ms: Arc::new(AtomicU64::new(0)),
             bridge_unsafe_commands: Arc::new(RwLock::new(bridge_unsafe_commands)),
             pending_time_query: Arc::new(Mutex::new(None)),
             day_ticks_accum: Arc::new(Mutex::new(0.0)),
@@ -1190,6 +1203,11 @@ pub struct AzaleaState {
     pub active_poll: Arc<Mutex<Option<crate::commands::poll::PollState>>>,
     pub ai_providers: Arc<RwLock<Vec<crate::commands::ai::AiProviderEntry>>>,
     pub ai_model_cache: Arc<Mutex<HashMap<String, String>>>,
+
+    // ── Translate ──────────────────────────────────────────────────────────────
+    // Global (not per-user) gate for the Google-scrape fallback tier in !translate --
+    // unix ms of last scrape attempt, compared against google_scrape_min_interval_ms.
+    pub google_scrape_last_call_ms: Arc<AtomicU64>,
 }
 
 // Result of asking discordbot (via Hub) to resolve a chat-bridge "server username" to a
@@ -1318,6 +1336,9 @@ impl Default for AzaleaState {
                 wolfram_app_id: String::new(),
                 azure_translator_key: String::new(),
                 azure_translator_region: String::new(),
+                google_cloud_translate_key: String::new(),
+                google_scrape_enabled: true,
+                google_scrape_min_interval_ms: 15_000,
                 sharpapi_key: String::new(),
                 nasa_api_key: String::new(),
                 airnow_api_key: String::new(),
@@ -1453,6 +1474,7 @@ impl Default for AzaleaState {
             active_poll: Arc::new(Mutex::new(None)),
             ai_providers: Arc::new(RwLock::new(Vec::new())),
             ai_model_cache: Arc::new(Mutex::new(HashMap::new())),
+            google_scrape_last_call_ms: Arc::new(AtomicU64::new(0)),
             bridge_unsafe_commands: Arc::new(RwLock::new(HashSet::new())),
             pending_time_query: Arc::new(Mutex::new(None)),
             day_ticks_accum: Arc::new(Mutex::new(0.0)),

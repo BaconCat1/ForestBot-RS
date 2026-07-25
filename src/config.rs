@@ -120,6 +120,19 @@ fn default_roast_timeout_ms() -> u64 {
     8_000
 }
 
+// !translate fallback tiers (Azure -> Google Cloud -> Google-scrape -> free LLM chain) --
+// scrape tier is an unofficial Google Translate web scrape (translators crate), real IP-ban
+// risk if hammered, so it's both individually rate-limited (min_interval_ms, global not
+// per-user, skip-if-too-soon rather than block-and-wait -- falls through to the LLM tier
+// instead of delaying the chat response) and separately toggleable in case it ever gets
+// flagged and needs to be killed without a recompile.
+fn default_google_scrape_enabled() -> bool {
+    true
+}
+fn default_google_scrape_min_interval_ms() -> u64 {
+    15_000
+}
+
 fn default_scratch_animation_delay_ms() -> u64 {
     600
 }
@@ -260,6 +273,8 @@ pub struct ApiKeys {
     pub azure_key: String,
     #[serde(default)]
     pub azure_region: String,
+    #[serde(default)]
+    pub google_cloud_translate: String,
     #[serde(default)]
     pub sharpapi: String,
     #[serde(default)]
@@ -523,6 +538,10 @@ pub struct Config {
     pub trade_reject_penalty_ms: u64,
     #[serde(default = "default_roast_timeout_ms")]
     pub roast_timeout_ms: u64,
+    #[serde(default = "default_google_scrape_enabled")]
+    pub google_scrape_enabled: bool,
+    #[serde(default = "default_google_scrape_min_interval_ms")]
+    pub google_scrape_min_interval_ms: u64,
     #[serde(default = "default_scratch_animation_delay_ms")]
     pub scratch_animation_delay_ms: u64,
     #[serde(default = "default_slots_animation_delay_ms")]
