@@ -1,7 +1,7 @@
 pub const NAMES: &[&str] = &["hardware", "hw"];
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use sysinfo::{Disks, System};
+use sysinfo::{Components, Disks, System};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
@@ -40,8 +40,18 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         let uptime = format_uptime(System::uptime());
 
+        // Package-level sensor (not per-core) -- "Package id 0" on Intel coretemp, "Tctl" on
+        // AMD k10temp -- the one representative "CPU temp" number, not a per-core dump.
+        let components = Components::new_with_refreshed_list();
+        let cpu_temp = components
+            .iter()
+            .find(|c| c.label().contains("Package") || c.label().contains("Tctl"))
+            .and_then(|c| c.temperature())
+            .map(|t| format!("{t:.0}°C"))
+            .unwrap_or_else(|| "N/A".to_owned());
+
         ctx.chat_success(format!(
-            "OS: {os} {os_ver} | Kernel: {kernel} | CPU: {cpu_brand} | RAM: {used_ram:.1}/{total_ram:.1} GB | Disk: {disk_used_gb:.1}/{disk_total_gb:.1} GB | Uptime: {uptime}"
+            "OS: {os} {os_ver} | Kernel: {kernel} | CPU: {cpu_brand} ({cpu_temp}) | RAM: {used_ram:.1}/{total_ram:.1} GB | Disk: {disk_used_gb:.1}/{disk_total_gb:.1} GB | Uptime: {uptime}"
         ));
         Ok(())
     })
