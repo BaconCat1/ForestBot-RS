@@ -713,6 +713,33 @@ pub struct BetLimit {
     pub max: Option<i64>,
 }
 
+/// Canonical list of valid `bet_limits.json` keys -- must match every string literal
+/// passed to `CommandContext::bet_limit()` across the codebase. Kept as a flat const
+/// array rather than an enum since the call sites are plain `&str` literals scattered
+/// across ~30 files; this only guards the JSON side (a typo'd JSON key silently has
+/// zero effect at startup, since `bet_limit()` falls back to the call site's own
+/// hardcoded default with no error) -- it can't catch a typo on the code side without
+/// a shared enum, which isn't worth the churn across every game file for this.
+const KNOWN_BET_LIMIT_GAMES: &[&str] = &[
+    "aqi", "baccarat", "battleship", "blackjack", "chess", "checkers", "connect_four",
+    "craps", "death_window", "duel", "faa_airport", "gas", "hilo", "join_window",
+    "kalshi", "launch", "market", "mines", "nasa_space_weather", "noaa_flooding",
+    "poker", "reversi", "roulette", "seismic", "sic_bo", "slots", "sports", "train",
+    "trivia", "weather", "wordle",
+];
+
+fn warn_unknown_bet_limit_keys(bet_limits: &HashMap<String, BetLimit>) {
+    for key in bet_limits.keys() {
+        if !KNOWN_BET_LIMIT_GAMES.contains(&key.as_str()) {
+            println!(
+                "[bet_limits] WARNING: unrecognized key \"{key}\" in bet_limits.json -- \
+                 no game calls bet_limit(\"{key}\", ...). Check for a typo; this entry \
+                 currently has zero effect."
+            );
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OfflineMessage {
     pub sender: String,
@@ -931,6 +958,7 @@ impl AppState {
         let command_censorship: HashMap<String, CommandCensorship> =
             read_json("./json/commands_censorship.json").await?;
         let bet_limits: HashMap<String, BetLimit> = read_json("./json/bet_limits.json").await?;
+        warn_unknown_bet_limit_keys(&bet_limits);
 
         require_env("MC_USER")?;
         require_env("MC_PASS")?;
@@ -957,6 +985,7 @@ impl AppState {
             .users;
         self.command_censorship = read_json("./json/commands_censorship.json").await?;
         self.bet_limits = read_json("./json/bet_limits.json").await?;
+        warn_unknown_bet_limit_keys(&self.bet_limits);
 
         println!("Config reloaded successfully.");
         Ok(())
