@@ -69,6 +69,7 @@ pub struct RuntimeConfig {
     pub disabled_events: HashSet<String>,
     pub allow_chatbridge_input: bool,
     pub use_live_time_query: bool,
+    pub day_night_game_time_fallback: bool,
     pub welcome_messages: bool,
     pub use_custom_chat_prefix: bool,
     pub custom_chat_prefix: String,
@@ -176,6 +177,7 @@ pub struct Bot {
     pub custom_chat_prefix: String,
     pub allow_chatbridge_input: bool,
     pub use_live_time_query: bool,
+    pub day_night_game_time_fallback: bool,
     pub smart_censoring: bool,
     pub censor_threshold: String,
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
@@ -297,6 +299,7 @@ impl Bot {
             custom_chat_prefix: state.config.custom_chat_prefix.clone(),
             allow_chatbridge_input: state.config.allow_chatbridge_input,
             use_live_time_query: state.config.use_live_time_query,
+            day_night_game_time_fallback: state.config.day_night_game_time_fallback,
             smart_censoring: state.config.smart_censoring,
             censor_threshold: state.config.censor_threshold.clone(),
             command_censorship: state.command_censorship.clone(),
@@ -442,6 +445,7 @@ impl Bot {
                 allow_chatbridge_input: self.api.options.use_websocket
                     && self.allow_chatbridge_input,
                 use_live_time_query: self.use_live_time_query,
+                day_night_game_time_fallback: self.day_night_game_time_fallback,
                 welcome_messages: self.welcome_messages,
                 use_custom_chat_prefix: self.use_custom_chat_prefix,
                 custom_chat_prefix: self.custom_chat_prefix.clone(),
@@ -1325,6 +1329,7 @@ impl Default for AzaleaState {
                 disabled_events: HashSet::new(),
                 allow_chatbridge_input: false,
                 use_live_time_query: false,
+                day_night_game_time_fallback: false,
                 welcome_messages: false,
                 use_custom_chat_prefix: false,
                 custom_chat_prefix: String::new(),
@@ -2002,22 +2007,37 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     *state.day_ticks_accum.lock().expect("day_ticks_accum lock poisoned") =
                         clock.total_ticks as f64;
                     *state.day_clock_rate.lock().expect("day_clock_rate lock poisoned") = clock.rate;
-                } else {
-                    // Common case on this server: clock_updates is never populated, only
-                    // game_time. game_time always increments +1/tick regardless of the
-                    // daylight cycle's rate/pause state (confirmed via the decompiled
-                    // ClientWorld.tickTime() -- only timeOfDay respects that, not the raw
-                    // world-age counter), so absent an explicit rate/pause signal the day
-                    // clock tracks it in lockstep. Don't touch day_clock_rate here: if a
-                    // genuine non-default rate was ever communicated via a real
-                    // clock_updates entry, a plain game_time-only packet shouldn't silently
-                    // reset it back to the 1.0 default.
+                } else if state
+                    .runtime
+                    .read()
+                    .expect("runtime config lock poisoned")
+                    .day_night_game_time_fallback
+                {
+                    // Opt-in rollback path only (default off) -- see day_night_game_time_fallback's
+                    // doc comment in config.rs. Confirmed wrong in the general case: game_time
+                    // always increments +1/tick regardless of the daylight cycle's rate/pause
+                    // state (decompiled ClientWorld.tickTime() -- only timeOfDay respects that,
+                    // not the raw world-age counter), so this stomps the correct value captured
+                    // from the one real clock_updates sync at connect. Kept available in case the
+                    // free-run estimate (Event::Tick below) ever needs a quick way to be bypassed.
                     logger::debug_cat("daynight", format!(
-                        "day/night correction (game_time fallback): game_time={}",
+                        "day/night correction (game_time fallback, opt-in): game_time={}",
                         p.game_time
                     ));
                     *state.day_ticks_accum.lock().expect("day_ticks_accum lock poisoned") =
                         p.game_time as f64;
+                } else {
+                    // Common case on this server: clock_updates is empty on every packet
+                    // except the one real full sync at connect (confirmed via production
+                    // packet capture 2026-07-26 -- RV/vanilla only broadcasts on-change, not
+                    // every tick). Leaving day_ticks_accum untouched here is correct: it was
+                    // already snapped to the real value by the clock_updates branch above
+                    // (or will be, once that first packet arrives), and free-runs via
+                    // day_clock_rate on every Event::Tick in between, same as a real client.
+                    logger::debug_cat("daynight", format!(
+                        "day/night correction (empty clock_updates, no-op): game_time={}",
+                        p.game_time
+                    ));
                 }
 
                 let now_ms = SystemTime::now()

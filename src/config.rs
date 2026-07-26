@@ -442,6 +442,17 @@ pub struct Config {
     pub allow_chatbridge_input: bool,
     #[serde(default)]
     pub use_live_time_query: bool,
+    // Default off (2026-07-26): production capture confirmed RV sends a real clock sync
+    // exactly once, on join (ClientboundSetTime with populated clock_updates); every packet
+    // after that has an empty clock_updates, which is normal/expected, not missing data.
+    // With this off, the day/night estimate snaps to that one real value and free-runs from
+    // there via Event::Tick, same as a real client. Turning this on restores the old
+    // behavior of re-snapping day_ticks_accum to game_time on every empty-clock_updates
+    // packet -- known wrong (game_time and the day/night clock are unrelated quantities) but
+    // kept available, not deleted, as a quick rollback switch if the free-run estimate ever
+    // turns out to drift in practice.
+    #[serde(default)]
+    pub day_night_game_time_fallback: bool,
     #[serde(rename = "rotateHeadOnJoin")]
     #[allow(dead_code)]
     pub rotate_head_on_join: bool,
