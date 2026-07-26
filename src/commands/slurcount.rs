@@ -47,9 +47,9 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         let label = format_server_label(&server, &ctx.state.mc_server);
         if total == 0 {
-            ctx.chat(format!("{target}{label} has no recorded slur usage."));
+            ctx.chat_success(format!("{target}{label} has no recorded slur usage."));
         } else {
-            ctx.chat(format!("{target}{label} has used {total} slur(s)."));
+            ctx.chat_success(format!("{target}{label} has used {total} slur(s)."));
         }
 
         Ok(())

@@ -99,7 +99,7 @@ async fn post_article(ctx: &CommandContext<'_>, category: &str, n: usize) {
         desc.to_owned()
     };
 
-    ctx.chat(format!("[{title}] {desc} | {link}"));
+    ctx.chat_success(format!("[{title}] {desc} | {link}"));
 }
 
 async fn fetch_headlines(category: &str) -> Option<String> {

@@ -149,7 +149,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         {
             Some((translated, detected)) => {
                 let from = detected.as_deref().unwrap_or("?");
-                ctx.chat(format!("[{from}→{lang}] {translated}"));
+                ctx.chat_success(format!("[{from}→{lang}] {translated}"));
             }
             None => ctx.whisper("Translation failed on all providers. Try again later.".to_owned()),
         }

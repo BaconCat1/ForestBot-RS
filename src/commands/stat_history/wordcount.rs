@@ -42,7 +42,7 @@ fn wordcount(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         };
         let label = format_server_label(&server, &ctx.state.mc_server);
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " {search}{label} has said {word} {} times",
             data.count
         ));

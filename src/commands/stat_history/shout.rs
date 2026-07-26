@@ -34,7 +34,7 @@ fn shout(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "[Shout {}] {}: {}",
             ctx.state.mc_server, ctx.sender, message
         );
-        ctx.chat(&shout_text);
+        ctx.chat_success(&shout_text);
         let Some(websocket) = ctx.state.api.websocket.as_ref() else {
             whisper(
                 &ctx,

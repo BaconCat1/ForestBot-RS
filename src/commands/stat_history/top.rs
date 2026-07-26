@@ -113,7 +113,7 @@ async fn top_backend_stat(
         format!("TOP {}", stat.to_uppercase())
     };
     let label = format_server_label(server, &ctx.state.mc_server);
-    ctx.chat(format!(" [{title}{label}]: {}", formatted.join(", ")));
+    ctx.chat_success(format!(" [{title}{label}]: {}", formatted.join(", ")));
     Ok(())
 }
 
@@ -354,7 +354,7 @@ fn send_top_rows(ctx: &CommandContext<'_>, title: &str, rows: &[TopRow]) {
         .map(|row| format!("{}: {}", row.username, row.value))
         .collect::<Vec<_>>()
         .join(", ");
-    ctx.chat(format!(" [{title}]: {formatted}"));
+    ctx.chat_success(format!(" [{title}]: {formatted}"));
 }
 
 fn cached_top_rows(server: &str, metric: &str) -> Option<Vec<TopRow>> {

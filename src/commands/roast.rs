@@ -55,6 +55,7 @@ async fn roast_run(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
     let state = ctx.state.clone();
     let timeout_ms = ctx.runtime.roast_timeout_ms;
+    let censor_threshold = ctx.runtime.censor_threshold.clone();
 
     tokio::spawn(async move {
         let client = reqwest::Client::new();
@@ -66,7 +67,22 @@ async fn roast_run(ctx: CommandContext<'_>) -> anyhow::Result<()> {
         .await;
 
         let msg = match result {
-            Ok(Some(roast)) => roast,
+            Ok(Some(roast)) => {
+                // The system prompt already tells the model not to do this, but that's
+                // a request, not a guarantee -- this is the same profanity filter every
+                // other public message goes through, applied manually since this runs
+                // in a detached task with no CommandContext to call chat_success on.
+                let trie = *state.profanity_trie.read().expect("profanity_trie read");
+                let threshold = crate::structure::mineflayer::utils::profanity_filter::censor_threshold_from_config(
+                    &censor_threshold,
+                );
+                match trie {
+                    Some(trie) => crate::structure::mineflayer::utils::profanity_filter::censor_message(
+                        trie, &roast, threshold,
+                    ),
+                    None => roast,
+                }
+            }
             _ => format!("Failed to roast {target}."),
         };
 

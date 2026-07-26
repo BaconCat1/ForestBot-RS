@@ -34,7 +34,7 @@ fn standing(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             Some(uuid) if ctx.runtime.user_whitelist.contains(&uuid) => "whitelisted",
             _ => "regular",
         };
-        ctx.chat(format!(" {target} is {status}."));
+        ctx.chat_success(format!(" {target} is {status}."));
         Ok(())
     })
 }

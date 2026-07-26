@@ -10,7 +10,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             whisper(&ctx, &format!(" Usage: {}execute </command>", ctx.runtime.prefix));
             return Ok(());
         }
-        ctx.chat(&command);
+        ctx.chat_success(&command);
         whisper(&ctx, &format!(" Executed: {command}"));
         Ok(())
     })

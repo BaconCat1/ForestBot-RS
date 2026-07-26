@@ -51,7 +51,7 @@ fn godstats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             Some(s) => {
                 let mb = s.total_bytes as f64 / 1_048_576.0;
                 let compressed_mb = s.total_compressed_bytes as f64 / 1_048_576.0;
-                ctx.chat(format!(
+                ctx.chat_success(format!(
                     "God Stats: {} Corpora, {:.1} MB ({:.1} MB on disk), {} verses, loaded in {:.2}s, Known Gods: {}",
                     s.corpora_loaded, mb, compressed_mb, s.total_verses, s.elapsed.as_secs_f64(), KNOWN_GODS_COUNT
                 ));
@@ -73,12 +73,12 @@ fn searchgod(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let kw = ctx.args.join(" ").to_lowercase();
         let hits = search_corpora(&kw);
         if hits.is_empty() {
-            ctx.chat("The light of the Oracle fades, your word is not that of the Gods.".to_string());
+            ctx.chat_success("The light of the Oracle fades, your word is not that of the Gods.".to_string());
             return Ok(());
         }
         let h = time_seed();
         let verse = hits[(h as usize) % hits.len()];
-        ctx.chat(make_output_with_keyword(&verse.reference, &verse.text, &kw));
+        ctx.chat_success(make_output_with_keyword(&verse.reference, &verse.text, &kw));
         Ok(())
     })
 }
@@ -654,7 +654,7 @@ fn godfight(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let side1 = fight_snippet(&v1.text, keyword.as_deref(), 126);
         let remaining = 252usize.saturating_sub(side1.chars().count());
         let side2 = fight_snippet(&v2.text, keyword.as_deref(), remaining);
-        ctx.chat(format!("{side1} ⚔ {side2}"));
+        ctx.chat_success(format!("{side1} ⚔ {side2}"));
         ctx.whisper(format!("[{}] ⚔ [{}]", v1.reference, v2.reference));
         Ok(())
     })
@@ -694,7 +694,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             } else {
                 full
             };
-            ctx.chat(format!("The Gods have heard you, and they send you their divine wisdom: {out}"));
+            ctx.chat_success(format!("The Gods have heard you, and they send you their divine wisdom: {out}"));
             return Ok(());
         }
 
@@ -703,7 +703,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Some(entry) => {
                     if !std::path::Path::new(entry.1).exists() {
                         let phrase = OUT_TO_LUNCH[(secs as usize).wrapping_mul(2654435761) % OUT_TO_LUNCH.len()];
-                        ctx.chat(format!("Sorry, that God is {phrase}, another God will answer your mortal cries instead."));
+                        ctx.chat_success(format!("Sorry, that God is {phrase}, another God will answer your mortal cries instead."));
                         pick_random_available_corpus(secs)
                     } else {
                         entry
@@ -711,7 +711,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
                 None => {
                     let phrase = OUT_TO_LUNCH[(secs as usize).wrapping_mul(2654435761) % OUT_TO_LUNCH.len()];
-                    ctx.chat(format!("Sorry, that God is {phrase}, another God will answer your mortal cries instead. (use !searchgod for keywords)"));
+                    ctx.chat_success(format!("Sorry, that God is {phrase}, another God will answer your mortal cries instead. (use !searchgod for keywords)"));
                     pick_random_available_corpus(secs)
                 }
             },
@@ -746,7 +746,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             full
         };
 
-        ctx.chat(out);
+        ctx.chat_success(out);
         Ok(())
     })
 }
@@ -1081,7 +1081,7 @@ fn godverse(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let query = ctx.args.join(" ");
         let hits = find_by_reference(&query);
         if hits.is_empty() {
-            ctx.chat("No verse found matching that reference.".to_string());
+            ctx.chat_success("No verse found matching that reference.".to_string());
             return Ok(());
         }
         let pick = match hits.iter().find(|v| v.reference.eq_ignore_ascii_case(&query)) {
@@ -1091,7 +1091,7 @@ fn godverse(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 hits[(h as usize) % hits.len()]
             }
         };
-        ctx.chat(make_output_with_keyword(&pick.reference, &pick.text, ""));
+        ctx.chat_success(make_output_with_keyword(&pick.reference, &pick.text, ""));
         Ok(())
     })
 }

@@ -36,6 +36,25 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let recipient_name = ctx.args[0];
     let description = ctx.args[1..].join(" ");
 
+    {
+        let trie = *ctx.state.profanity_trie.read().expect("profanity_trie read");
+        let threshold = crate::structure::mineflayer::utils::profanity_filter::censor_threshold_from_config(
+            &ctx.runtime.censor_threshold,
+        );
+        let censored = match trie {
+            Some(trie) => crate::structure::mineflayer::utils::profanity_filter::censor_message(
+                trie,
+                &description,
+                threshold,
+            ),
+            None => description.clone(),
+        };
+        if censored != description {
+            ctx.whisper("Trade description tripped censor check, use different words.");
+            return Ok(());
+        }
+    }
+
     let sender_uuid = match resolve_target_uuid(ctx, ctx.sender).await {
         Some(u) => u,
         None => {
@@ -78,10 +97,10 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     if let Some(_s) = ctx.state.api.tradebot_get_scammer(&sender_uuid).await {
-        ctx.chat(format!("🚨 {} is a known scammer, proceed with caution 🚨", ctx.sender));
+        ctx.chat_success(format!("🚨 {} is a known scammer, proceed with caution 🚨", ctx.sender));
     }
     if let Some(_s) = ctx.state.api.tradebot_get_scammer(&recipient_uuid).await {
-        ctx.chat(format!("🚨 {recipient_name} is a known scammer, proceed with caution 🚨"));
+        ctx.chat_success(format!("🚨 {recipient_name} is a known scammer, proceed with caution 🚨"));
     }
 
     let server = ctx.state.mc_server.clone();
@@ -251,7 +270,7 @@ pub fn execute_trades(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         };
 
         if let Some(_s) = ctx.state.api.tradebot_get_scammer(&target_uuid).await {
-            ctx.chat(format!("🚨 {target} is a known scammer, trade counts not reported 🚨"));
+            ctx.chat_success(format!("🚨 {target} is a known scammer, trade counts not reported 🚨"));
             return Ok(());
         }
 
@@ -338,12 +357,12 @@ pub fn execute_tradestats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let scammer = data.scammer_status.is_some();
 
         if scammer {
-            ctx.chat(format!("🚨 {target} is a known scammer, trade counts not reported 🚨"));
+            ctx.chat_success(format!("🚨 {target} is a known scammer, trade counts not reported 🚨"));
             return Ok(());
         }
 
         if !full {
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 "{target} | {} confirmed, {} rejected trades",
                 s.confirmed_trades, s.rejected_trades
             ));
@@ -493,7 +512,7 @@ pub fn execute_scammers(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let remaining = 5usize.saturating_sub(result.len());
         result.extend(offline.into_iter().take(remaining));
 
-        ctx.chat(format!(" [SCAMMERS]: {}", result.join(", ")));
+        ctx.chat_success(format!(" [SCAMMERS]: {}", result.join(", ")));
         Ok(())
     })
 }

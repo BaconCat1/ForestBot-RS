@@ -45,7 +45,7 @@ fn random_quote(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 .map(time::time_ago_str)
                 .map(|date| format!(" ({date})"))
                 .unwrap_or_default();
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 " Quote from {}: \"{}\"{}",
                 data.name, data.message, date
             ));

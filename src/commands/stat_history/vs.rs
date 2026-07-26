@@ -44,7 +44,7 @@ fn vs(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let pt_days2 = pt2.map(|pt| pt.playtime / 86_400_000).unwrap_or_default();
         let msgs1 = mc1.map(|mc| mc.message_count).unwrap_or_default();
         let msgs2 = mc2.map(|mc| mc.message_count).unwrap_or_default();
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " [VS] {name1} vs {name2} | K: {kills1} {} {kills2} | D: {deaths1} {} {deaths2} | KD: {kdr1:.2} {} {kdr2:.2} | PT: {pt_days1}d {} {pt_days2}d | Msgs: {msgs1} {} {msgs2}",
             compare_u64(kills1, kills2),
             compare_u64(deaths2, deaths1),

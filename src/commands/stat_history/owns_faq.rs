@@ -31,7 +31,7 @@ fn owns_faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 whisper(&ctx, &format!(" Could not find FAQ #{arg}."));
                 return Ok(());
             };
-            ctx.chat(format!(" FAQ #{} owner: {}", data.id, data.username));
+            ctx.chat_success(format!(" FAQ #{} owner: {}", data.id, data.username));
         } else {
             let Some(faqs) = ctx.state.api.get_owned_faq_ids(arg).await else {
                 whisper(&ctx, &format!(" No FAQs found for {arg}."));

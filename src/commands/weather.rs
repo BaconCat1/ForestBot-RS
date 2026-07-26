@@ -85,10 +85,10 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     let location = ctx.args.join(" ");
                     match fetch_weather(&location).await {
                         Some((wx_msg, rain_odds)) => {
-                            ctx.chat(wx_msg);
+                            ctx.chat_success(wx_msg);
                             if let Some(odds) = rain_odds { ctx.whisper(odds); }
                         }
-                        None => ctx.chat(format!("No weather data found for: {location}")),
+                        None => ctx.chat_success(format!("No weather data found for: {location}")),
                     }
                 }
             }

@@ -44,7 +44,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             }
             return Ok(());
         }
-        ctx.chat(RESPONSE);
+        ctx.chat_success(RESPONSE);
         Ok(())
     })
 }

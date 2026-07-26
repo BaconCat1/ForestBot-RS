@@ -8,7 +8,12 @@ fn set_preset(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         };
         enqueue_chat(&ctx.state, format!("/nc preset {preset}"));
-        ctx.chat(format!(" Set the preset {preset} successfully!"));
+        // Doesn't echo the preset back -- no validation against NameChalk's own preset
+        // list here (invalid presets are on the player to get right), so this used to
+        // blindly repeat whatever they typed into public chat and claim success either
+        // way. Generic confirmation instead, censorship toggled off since there's
+        // nothing user-authored left to censor.
+        ctx.chat_success(" Preset request sent.".to_owned());
         Ok(())
     })
 }

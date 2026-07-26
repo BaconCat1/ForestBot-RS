@@ -13,7 +13,7 @@ fn faq(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             );
             return Ok(());
         };
-        ctx.chat(format!(" #{}/{}: {}", data.id, data.total, data.faq));
+        ctx.chat_success(format!(" #{}/{}: {}", data.id, data.total, data.faq));
         Ok(())
     })
 }

@@ -32,10 +32,10 @@ fn execute_wiki(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         match result {
             Some((text, whisper)) => {
-                ctx.chat(text);
+                ctx.chat_success(text);
                 ctx.whisper(whisper);
             }
-            None => ctx.chat(format!("No Wikipedia article found for: {}", ctx.args.join(" "))),
+            None => ctx.chat_success(format!("No Wikipedia article found for: {}", ctx.args.join(" "))),
         }
         Ok(())
     })
@@ -50,10 +50,10 @@ fn execute_minewiki(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let query = ctx.args.join(" ");
         match minewiki_summary(&query).await {
             Some((text, url)) => {
-                ctx.chat(text);
+                ctx.chat_success(text);
                 ctx.whisper(url);
             }
-            None => ctx.chat(format!("No Minecraft Wiki article found for: {query}")),
+            None => ctx.chat_success(format!("No Minecraft Wiki article found for: {query}")),
         }
         Ok(())
     })

@@ -44,7 +44,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         };
 
         let server_label = format_server_label(&target.server, &ctx.state.mc_server);
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " {}{}: {} messages",
             target.search, server_label, data.message_count
         ));

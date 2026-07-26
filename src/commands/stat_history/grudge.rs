@@ -38,13 +38,13 @@ fn grudge(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .filter(|name| name.eq_ignore_ascii_case(victim))
             .count();
         if count == 0 {
-            ctx.chat(format!(" {killer} has never killed {victim}."));
+            ctx.chat_success(format!(" {killer} has never killed {victim}."));
         } else if count >= 30 {
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 " {killer} has killed {victim} {count} times. That's a grudge!"
             ));
         } else {
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 " {killer} has killed {victim} {count} time{}.",
                 if count == 1 { "" } else { "s" }
             ));

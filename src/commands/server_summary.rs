@@ -23,8 +23,8 @@ fn execute_server_summary(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         }
         let server = ctx.args[0];
         match ctx.state.api.get_server_summary(server).await {
-            Some(data) => ctx.chat(format_summary(&data)),
-            None => ctx.chat(format!("No data found for server: {server}")),
+            Some(data) => ctx.chat_success(format_summary(&data)),
+            None => ctx.chat_success(format!("No data found for server: {server}")),
         }
         Ok(())
     })
@@ -48,9 +48,9 @@ fn execute_compare(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         );
 
         match (data_a, data_b) {
-            (Some(a), Some(b)) => ctx.chat(format_compare(&a, &b)),
-            (None, _) => ctx.chat(format!("No data found for server: {server_a}")),
-            (_, None) => ctx.chat(format!("No data found for server: {server_b}")),
+            (Some(a), Some(b)) => ctx.chat_success(format_compare(&a, &b)),
+            (None, _) => ctx.chat_success(format!("No data found for server: {server_a}")),
+            (_, None) => ctx.chat_success(format!("No data found for server: {server_b}")),
         }
         Ok(())
     })

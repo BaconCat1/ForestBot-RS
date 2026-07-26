@@ -29,7 +29,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 .map(|player| player.latency)
         };
 
-        ctx.chat(response(target, latency));
+        ctx.chat_success(response(target, latency));
         Ok(())
     })
 }

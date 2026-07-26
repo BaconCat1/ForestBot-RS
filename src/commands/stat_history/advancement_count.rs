@@ -52,7 +52,7 @@ fn advancement_count(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             })
             .await;
 
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " Advancement \"{search}\" has been reached {count} time{} on {}.",
             if count == 1 { "" } else { "s" },
             ctx.state.mc_server

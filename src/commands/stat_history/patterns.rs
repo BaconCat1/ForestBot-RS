@@ -77,7 +77,7 @@ pub fn message_lookup<'a>(ctx: CommandContext<'a>, order: &'static str) -> Comma
                 .map(crate::functions::utils::time::time_ago_str)
                 .unwrap_or(row.date);
             let label = format_server_label(&target.server, &ctx.state.mc_server);
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 " {}{}: {}, {date}",
                 target.search, label, row.message
             ));

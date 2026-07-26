@@ -26,7 +26,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let phrase = query.phrase.as_deref();
 
         if matches!(query.mode, QuoteQueryMode::MissingAllTarget) {
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 "/{} {}  Usage: {}quote all <username>",
                 ctx.runtime.whisper_command, ctx.sender, ctx.runtime.prefix
             ));
@@ -34,7 +34,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         }
 
         if query.mode == QuoteQueryMode::Server && search.trim().is_empty() {
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 "/{} {}  Usage: {}quote <server> <username>",
                 ctx.runtime.whisper_command, ctx.sender, ctx.runtime.prefix
             ));
@@ -114,7 +114,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     "I have no quotes recorded for {search}{server_hint}{phrase_hint}, or unexpected error occurred."
                 )
             };
-            ctx.chat(format!(
+            ctx.chat_success(format!(
                 "/{} {} {}",
                 ctx.runtime.whisper_command, ctx.sender, text
             ));
@@ -139,7 +139,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             String::new()
         };
 
-        ctx.chat(format!(
+        ctx.chat_success(format!(
             " {display_name}{server_label}: {}{date}",
             data.message
         ));

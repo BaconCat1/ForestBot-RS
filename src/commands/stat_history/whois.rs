@@ -16,7 +16,7 @@ fn whois(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 .split_whitespace()
                 .collect::<Vec<_>>()
                 .join(" ");
-            ctx.chat(format!("User {target} is {safe_description}"));
+            ctx.chat_success(format!("User {target} is {safe_description}"));
         } else {
             let message = if target.eq_ignore_ascii_case(ctx.sender) {
                 format!(" You have not yet set a description with {}iam", ctx.runtime.prefix)

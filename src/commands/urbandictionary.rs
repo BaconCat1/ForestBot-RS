@@ -15,8 +15,8 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         }
         let query = ctx.args.join(" ");
         match ud_lookup(&query).await {
-            Some(result) => ctx.chat(result),
-            None => ctx.chat(format!("No Urban Dictionary entry found for: {query}")),
+            Some(result) => ctx.chat_success(result),
+            None => ctx.chat_success(format!("No Urban Dictionary entry found for: {query}")),
         }
         Ok(())
     })
