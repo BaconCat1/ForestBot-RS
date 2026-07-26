@@ -459,18 +459,9 @@ pub async fn launch_settle_task(
     // Give-up path: refund
     remove_bet(&bets_map, &bet);
     deps.api.casino_bet_delete::<LaunchBet>(bet.id.unwrap()).await;
-    let msg = if let Err(e) = deps.api.casino_adjust(&bet.player, bet.stake).await {
-        eprintln!("[Launch settle] refund failed for {}: {e:?}", bet.player);
-        format!(
-            "[ROCKET] {} {} — no final status after 7 days. Refund failed — contact an admin.",
-            bet.launch_name, bet.side.display()
-        )
-    } else {
-        format!(
-            "[ROCKET] {} {} — no final status after 7 days. {} refunded.",
-            bet.launch_name, bet.side.display(), chips_str(bet.stake)
-        )
-    };
+    let msg = super::settle_refund(&deps.api, &bet.player, bet.stake, "ROCKET",
+        &format!("{} {}", bet.launch_name, bet.side.display()),
+        "no final status after 7 days").await;
     deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }
 

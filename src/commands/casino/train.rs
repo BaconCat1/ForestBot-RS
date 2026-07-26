@@ -742,18 +742,9 @@ async fn apply_outcome(deps: &SettleDeps, bet: &TrainBet, outcome: Option<bool>)
             }
         }
         None => {
-            match deps.api.casino_adjust(&bet.player, bet.stake).await {
-                Ok(_) => format!(
-                    "[Train] {} ({}) — train not found or API error. {} refunded.",
-                    bet.train_name,
-                    bet.train_code,
-                    chips_str(bet.stake),
-                ),
-                Err(e) => {
-                    eprintln!("[Train settle] refund failed for {}: {e:?}", bet.player);
-                    format!("[Train] {} ({}) — train not found or API error. Refund failed — contact an admin.", bet.train_name, bet.train_code)
-                }
-            }
+            super::settle_refund(&deps.api, &bet.player, bet.stake, "Train",
+                &format!("{} ({})", bet.train_name, bet.train_code),
+                "train not found or API error").await
         }
     }
 }

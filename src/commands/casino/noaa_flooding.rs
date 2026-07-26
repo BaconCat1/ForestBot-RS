@@ -455,17 +455,9 @@ pub async fn settle_task(
             }
         }
         None => {
-            match deps.api.casino_adjust(&bet.player, bet.stake).await {
-                Ok(_) => format!(
-                    "[NOAA Flood] {} — NOAA API unavailable. {} refunded.",
-                    bet.location,
-                    chips_str(bet.stake),
-                ),
-                Err(e) => {
-                    eprintln!("[NOAA Flood settle] refund failed for {}: {e:?}", bet.player);
-                    format!("[NOAA Flood] {} — NOAA API unavailable. Refund failed — contact an admin.", bet.location)
-                }
-            }
+            super::settle_refund(&deps.api, &bet.player, bet.stake, "NOAA Flood",
+                &bet.location,
+                "NOAA API unavailable").await
         }
     };
 

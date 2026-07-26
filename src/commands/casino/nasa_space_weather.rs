@@ -482,17 +482,9 @@ pub async fn settle_task(
             )
         }
         None => {
-            match deps.api.casino_adjust(&bet.player, bet.stake).await {
-                Ok(_) => format!(
-                    "[SpaceWX] {} — NASA API unavailable. {} refunded.",
-                    label,
-                    chips_str(bet.stake),
-                ),
-                Err(e) => {
-                    eprintln!("[SpaceWX settle] refund failed for {}: {e:?}", bet.player);
-                    format!("[SpaceWX] {} — NASA API unavailable. Refund failed — contact an admin.", label)
-                }
-            }
+            super::settle_refund(&deps.api, &bet.player, bet.stake, "SpaceWX",
+                label,
+                "NASA API unavailable").await
         }
     };
 

@@ -428,17 +428,9 @@ pub async fn aqi_settle_task(
             }
         }
         None => {
-            match deps.api.casino_adjust(&bet.player, bet.stake).await {
-                Ok(_) => format!(
-                    "[AQI] {} {} — AirNow API unavailable at settlement. {} refunded.",
-                    bet.zip, bet.side.to_uppercase(),
-                    chips_str(bet.stake),
-                ),
-                Err(e) => {
-                    eprintln!("[AQI settle] refund failed for {}: {e:?}", bet.player);
-                    format!("[AQI] {} {} — AirNow API unavailable. Refund failed — contact an admin.", bet.zip, bet.side.to_uppercase())
-                }
-            }
+            super::settle_refund(&deps.api, &bet.player, bet.stake, "AQI",
+                &format!("{} {}", bet.zip, bet.side.to_uppercase()),
+                "AirNow API unavailable at settlement").await
         }
     };
 

@@ -628,17 +628,9 @@ pub async fn quake_settle_task(
             }
         }
         None => {
-            match deps.api.casino_adjust(&bet.player, bet.stake).await {
-                Ok(_) => format!(
-                    "[Quake] {} — FDSN API unavailable. {} refunded.",
-                    bet.display,
-                    chips_str(bet.stake),
-                ),
-                Err(e) => {
-                    eprintln!("[Quake settle] refund failed for {}: {e:?}", bet.player);
-                    format!("[Quake] {} — FDSN API unavailable. Refund failed — contact an admin.", bet.display)
-                }
-            }
+            super::settle_refund(&deps.api, &bet.player, bet.stake, "Quake",
+                &bet.display,
+                "FDSN API unavailable").await
         }
     };
 
@@ -945,17 +937,9 @@ pub async fn volcano_settle_task(
             }
         }
         None => {
-            match deps.api.casino_adjust(&bet.player, bet.stake).await {
-                Ok(_) => format!(
-                    "[Volcano] {} — VHP API unavailable. {} refunded.",
-                    bet.vname,
-                    chips_str(bet.stake),
-                ),
-                Err(e) => {
-                    eprintln!("[Volcano settle] refund failed for {}: {e:?}", bet.player);
-                    format!("[Volcano] {} — VHP API unavailable. Refund failed — contact an admin.", bet.vname)
-                }
-            }
+            super::settle_refund(&deps.api, &bet.player, bet.stake, "Volcano",
+                &bet.vname,
+                "VHP API unavailable").await
         }
     };
 

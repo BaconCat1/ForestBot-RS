@@ -214,16 +214,9 @@ pub async fn join_window_settle_task(
             )
         }
         None => {
-            match deps.api.casino_adjust(&bet.player, bet.stake).await {
-                Ok(_) => format!(
-                    "[JOINS] {} — could not check login status at settlement. {} refunded.",
-                    bet.subject_name, chips_str(bet.stake),
-                ),
-                Err(e) => {
-                    eprintln!("[JoinWindow settle] refund failed for {}: {e:?}", bet.player);
-                    format!("[JOINS] {} — could not check login status. Refund failed — contact an admin.", bet.subject_name)
-                }
-            }
+            super::settle_refund(&deps.api, &bet.player, bet.stake, "JOINS",
+                &bet.subject_name,
+                "could not check login status at settlement").await
         }
     };
 

@@ -54,6 +54,28 @@ pub fn chips_str(n: i64) -> String {
 /// downgraded `NetworkErr` to a raw `Err(e) => format!("Error: {e:?}")` debug
 /// print instead of a real message -- all copy-paste drift, no functional
 /// difference intended).
+/// Shared refund path for settle tasks when the external data source (API/feed)
+/// never produced a usable result by the settlement deadline. Standardizes what
+/// was an identical `match casino_adjust {...}` block copy-pasted across 11
+/// settle-task files (12 call sites) -- only the log tag, bet descriptor, and
+/// unavailable-reason text differed between them.
+pub async fn settle_refund(
+    api: &crate::structure::endpoints::endpoints::ApiClient,
+    player: &str,
+    stake: i64,
+    log_tag: &str,
+    descriptor: &str,
+    unavailable_reason: &str,
+) -> String {
+    match api.casino_adjust(player, stake).await {
+        Ok(_) => format!("[{log_tag}] {descriptor} — {unavailable_reason}. {} refunded.", chips_str(stake)),
+        Err(e) => {
+            eprintln!("[{log_tag} settle] refund failed for {player}: {e:?}");
+            format!("[{log_tag}] {descriptor} — {unavailable_reason}. Refund failed — contact an admin.")
+        }
+    }
+}
+
 pub async fn deduct_stake(ctx: &CommandContext<'_>, player_uuid: &str, amount: i64) -> Option<i64> {
     match ctx.state.api.casino_adjust(player_uuid, -amount).await {
         Ok(balance) => Some(balance),

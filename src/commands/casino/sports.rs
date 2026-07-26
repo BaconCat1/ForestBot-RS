@@ -535,14 +535,9 @@ pub async fn settle_task(
             }
         }
         None => {
-            match deps.api.casino_adjust(&bet.player, bet.stake).await {
-                Ok(_) => format!("[Sports] {} vs {} — result unavailable. {} refunded.",
-                    bet.home_team, bet.away_team, chips_str(bet.stake)),
-                Err(e) => {
-                    eprintln!("[Sports settle] refund failed for {}: {e:?}", bet.player);
-                    format!("[Sports] {} vs {} — result unavailable. Refund failed — contact an admin.", bet.home_team, bet.away_team)
-                }
-            }
+            super::settle_refund(&deps.api, &bet.player, bet.stake, "Sports",
+                &format!("{} vs {}", bet.home_team, bet.away_team),
+                "result unavailable").await
         }
     };
     deps.deliver(&whisper_cmd, &bet.player, msg).await;

@@ -300,16 +300,9 @@ pub async fn settle_task(
     let (flt_cat, outcome_is_ifr) = match result {
         Some(ref cat) => (cat.as_str(), is_ifr(cat)),
         None => {
-            let msg = match deps.api.casino_adjust(&bet.player, bet.stake).await {
-                Ok(_) => format!(
-                    "[FAA] {} ({}) — METAR unavailable. {} refunded.",
-                    bet.name, bet.airport_code, chips_str(bet.stake)
-                ),
-                Err(e) => {
-                    eprintln!("[FAA settle] refund failed for {}: {e:?}", bet.player);
-                    format!("[FAA] {} ({}) — METAR unavailable. Refund failed — contact an admin.", bet.name, bet.airport_code)
-                }
-            };
+            let msg = super::settle_refund(&deps.api, &bet.player, bet.stake, "FAA",
+                &format!("{} ({})", bet.name, bet.airport_code),
+                "METAR unavailable").await;
             deps.deliver(&whisper_cmd, &bet.player, msg).await;
             return;
         }

@@ -454,17 +454,9 @@ pub async fn settle_task(
             )
         }
         None => {
-            match deps.api.casino_adjust(&bet.player, bet.stake).await {
-                Ok(_) => format!(
-                    "[Kalshi] {} — result unavailable. {} refunded.",
-                    bet.title,
-                    chips_str(bet.stake),
-                ),
-                Err(e) => {
-                    eprintln!("[Kalshi settle] refund failed for {}: {e:?}", bet.player);
-                    format!("[Kalshi] {} — result unavailable. Refund failed — contact an admin.", bet.title)
-                }
-            }
+            super::settle_refund(&deps.api, &bet.player, bet.stake, "Kalshi",
+                &bet.title,
+                "result unavailable").await
         }
     };
 

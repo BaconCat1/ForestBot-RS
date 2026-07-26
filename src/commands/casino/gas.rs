@@ -423,16 +423,9 @@ pub async fn gas_settle_task(
             }
         }
         None => {
-            match deps.api.casino_adjust(&bet.player, bet.stake).await {
-                Ok(_) => format!(
-                    "[GAS] {} {} — GasBuddy unavailable at settlement. {} refunded.",
-                    bet.region, bet.side.to_uppercase(), chips_str(bet.stake),
-                ),
-                Err(e) => {
-                    eprintln!("[GAS settle] refund failed for {}: {e:?}", bet.player);
-                    format!("[GAS] {} {} — GasBuddy unavailable. Refund failed — contact an admin.", bet.region, bet.side.to_uppercase())
-                }
-            }
+            super::settle_refund(&deps.api, &bet.player, bet.stake, "GAS",
+                &format!("{} {}", bet.region, bet.side.to_uppercase()),
+                "GasBuddy unavailable at settlement").await
         }
     };
 
