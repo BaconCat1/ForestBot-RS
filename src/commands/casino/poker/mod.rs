@@ -2,10 +2,9 @@
 use rand::Rng;
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
 
-use super::{balance_str, chips_str};
+use super::{balance_str, chips_str, deduct_stake};
 
 pub mod game;
 pub mod bot;
@@ -86,17 +85,7 @@ async fn execute_new_session(ctx: &CommandContext<'_>, stake_str: &str) -> anyho
 
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
-    match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
-        Ok(_) => {}
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
-            return Ok(());
-        }
-        Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper_success("Casino unavailable.");
-            return Ok(());
-        }
-    }
+    let Some(_) = deduct_stake(ctx, &player_uuid, stake).await else { return Ok(()); };
 
     let (opponent_name, aggression) = pick_opponent();
     let mut game = GameState::new((stake / 2) as u32);
@@ -117,8 +106,8 @@ async fn execute_new_session(ctx: &CommandContext<'_>, stake_str: &str) -> anyho
         stake, opponent_name, aggression, game: Box::new(game),
     });
     if !started {
-        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
-        ctx.whisper_success(format!("Already in another game — this stake refunded. Balance: {}", chips_str(bal)));
+        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.ok();
+        ctx.whisper_success(format!("Already in another game — this stake refunded. Balance: {}", balance_str(bal)));
     }
     Ok(())
 }
@@ -279,10 +268,10 @@ async fn execute_quit(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             }
         }
     } else if credit > 0 {
-        let bal = ctx.state.api.casino_adjust(&player_uuid, credit).await.unwrap_or(0);
+        let bal = ctx.state.api.casino_adjust(&player_uuid, credit).await.ok();
         ctx.whisper_success(format!(
             "Quit poker vs {}. Returned {}. Net: {sign}{} | Balance: {}",
-            opponent_name, chips_str(credit), chips_str(net), chips_str(bal)
+            opponent_name, chips_str(credit), chips_str(net), balance_str(bal)
         ));
     } else {
         let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips);
@@ -344,8 +333,8 @@ async fn handle_hand_end(
                 }
             }
         } else if credit > 0 {
-            let bal = ctx.state.api.casino_adjust(&player_uuid, credit).await.unwrap_or(0);
-            ctx.whisper_success(format!("{who}! Net: {sign}{} | Balance: {}", chips_str(net), chips_str(bal)));
+            let bal = ctx.state.api.casino_adjust(&player_uuid, credit).await.ok();
+            ctx.whisper_success(format!("{who}! Net: {sign}{} | Balance: {}", chips_str(net), balance_str(bal)));
         } else {
             let bal = ctx.state.api.casino_get_balance(&player_uuid).await.map(|b| b.chips);
             ctx.whisper_success(format!("{who}! Net: {sign}{} | Balance: {}", chips_str(net), balance_str(bal)));

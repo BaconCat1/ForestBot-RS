@@ -1,11 +1,10 @@
 use uuid::Uuid;
 
 use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 
-use super::{chips_str, format_alimony};
+use super::{chips_str, deduct_stake, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["duel"],
@@ -123,17 +122,7 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
     let Some(challenger_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
     // Escrow challenger chips
-    match ctx.state.api.casino_adjust(&challenger_uuid, -stake).await {
-        Ok(_) => {}
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
-            return Ok(());
-        }
-        Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper_success("Casino unavailable.");
-            return Ok(());
-        }
-    }
+    let Some(_) = deduct_stake(ctx, &challenger_uuid, stake).await else { return Ok(()); };
 
     let confirm_window_ms = ctx.runtime.duel_confirm_window_ms;
     let confirm_expires_at = now_unix() + confirm_window_ms / 1000;
@@ -192,17 +181,7 @@ async fn confirm_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(challenged_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
     // Escrow challenged chips
-    match ctx.state.api.casino_adjust(&challenged_uuid, -duel.stake).await {
-        Ok(_) => {}
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Need {} but have {}.", chips_str(duel.stake), chips_str(have)));
-            return Ok(());
-        }
-        Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper_success("Casino unavailable.");
-            return Ok(());
-        }
-    }
+    let Some(_) = deduct_stake(ctx, &challenged_uuid, duel.stake).await else { return Ok(()); };
 
     let expires_at = now_unix() + ctx.runtime.duel_timeout_ms / 1000;
 
@@ -340,17 +319,7 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(bettor_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
     // Deduct chips
-    match ctx.state.api.casino_adjust(&bettor_uuid, -amount).await {
-        Ok(_) => {}
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Need {} but have {}.", chips_str(amount), chips_str(have)));
-            return Ok(());
-        }
-        Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper_success("Casino unavailable.");
-            return Ok(());
-        }
-    }
+    let Some(_) = deduct_stake(ctx, &bettor_uuid, amount).await else { return Ok(()); };
 
     let potential_payout = ((amount as f64 / odds_for_target.max(0.01)) * (1.0 - RAKE)) as i64;
 

@@ -3,9 +3,8 @@ use std::collections::VecDeque;
 use rand::Rng;
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 
-use super::{chips_str, format_alimony};
+use super::{chips_str, deduct_stake, format_alimony};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["mines", "minesweeper"],
@@ -248,14 +247,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                     return Ok(());
                 }
             };
-            match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
-                Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-                    ctx.whisper_success(format!("Not enough chips (have {}).", chips_str(have)));
-                    return Ok(());
-                }
-                Err(e) => { ctx.whisper_success(format!("Error: {e:?}")); return Ok(()); }
-                Ok(_)  => {}
-            }
+            let Some(_) = deduct_stake(&ctx, &player_uuid, chips).await else { return Ok(()); };
             let session = MinesGame::new(chips);
             let board   = session.render(false);
             ctx.state.mines_games.lock().unwrap().insert(sender.clone(), session);

@@ -1,7 +1,6 @@
 use rand::{Rng, rngs::OsRng};
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
-use super::chips_str;
+use super::{chips_str, deduct_stake};
 
 const MIN_BET: i64 = 10;
 const MAX_BET: i64 = 5_000;
@@ -78,17 +77,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
-        let balance = match ctx.state.api.casino_adjust(&player_uuid, -bet).await {
-            Ok(b) => b,
-            Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-                ctx.whisper_success(format!("Need {} but have {}.", chips_str(bet), chips_str(have)));
-                return Ok(());
-            }
-            Err(CasinoAdjustErr::NetworkErr) => {
-                ctx.whisper_success("Casino unavailable.");
-                return Ok(());
-            }
-        };
+        let Some(balance) = deduct_stake(&ctx, &player_uuid, bet).await else { return Ok(()); };
 
         let mut rng = OsRng;
         let pos    = [spin_reel(&mut rng), spin_reel(&mut rng), spin_reel(&mut rng)];

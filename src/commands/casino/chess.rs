@@ -2,9 +2,8 @@ use rand::seq::SliceRandom;
 use shakmaty::{Board, Chess as ChessPos, Color, File, Move, Outcome, Piece, Position, Rank, Role, Square};
 use shakmaty::uci::UciMove;
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
-use super::{balance_str, chips_str, format_alimony};
+use super::{balance_str, chips_str, deduct_stake, format_alimony};
 
 const MIN_STAKE: i64 = 25;
 const MAX_STAKE: i64 = 5000;
@@ -85,17 +84,7 @@ async fn execute_new_game(ctx: &CommandContext<'_>, color_str: &str) -> anyhow::
 
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
-    match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
-        Ok(_) => {}
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
-            return Ok(());
-        }
-        Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper_success("Casino unavailable.");
-            return Ok(());
-        }
-    }
+    let Some(_) = deduct_stake(ctx, &player_uuid, stake).await else { return Ok(()); };
 
     let &(opponent_name, ai_depth) = OPPONENTS.choose(&mut rand::thread_rng()).unwrap();
     let position = ChessPos::default();
@@ -108,8 +97,8 @@ async fn execute_new_game(ctx: &CommandContext<'_>, color_str: &str) -> anyhow::
         ai_depth,
     });
     if !started {
-        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
-        ctx.whisper_success(format!("Already in another game — this stake refunded. Balance: {}", chips_str(bal)));
+        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.ok();
+        ctx.whisper_success(format!("Already in another game — this stake refunded. Balance: {}", balance_str(bal)));
         return Ok(());
     }
 
@@ -189,8 +178,8 @@ async fn execute_move(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
         show_board(ctx, &pos_after, player_color).await;
         let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
-        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
-        ctx.whisper_success(format!("You played {}. Draw by 50-move rule. Stake returned. Balance: {}", move_str, chips_str(bal)));
+        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.ok();
+        ctx.whisper_success(format!("You played {}. Draw by 50-move rule. Stake returned. Balance: {}", move_str, balance_str(bal)));
         return Ok(());
     }
 
@@ -217,8 +206,8 @@ async fn execute_bot_turn(
     let Some(bot_move) = bot_move else {
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
         let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
-        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
-        ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
+        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.ok();
+        ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", balance_str(bal)));
         return Ok(());
     };
 
@@ -236,8 +225,8 @@ async fn execute_bot_turn(
         ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
         show_board(ctx, &pos_after, player_color).await;
         let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
-        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
-        ctx.whisper_success(format!("{} played {}. Draw by 50-move rule. Stake returned. Balance: {}", opponent_name, bot_move_str, chips_str(bal)));
+        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.ok();
+        ctx.whisper_success(format!("{} played {}. Draw by 50-move rule. Stake returned. Balance: {}", opponent_name, bot_move_str, balance_str(bal)));
         return Ok(());
     }
 
@@ -284,8 +273,8 @@ async fn finish_game(
             ctx.whisper_success(format!("{}Checkmate! {} wins. -{} | Balance: {}", prefix, opponent_name, chips_str(stake), balance_str(bal)));
         }
         Outcome::Draw => {
-            let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
-            ctx.whisper_success(format!("{}Draw! Stake returned. Balance: {}", prefix, chips_str(bal)));
+            let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.ok();
+            ctx.whisper_success(format!("{}Draw! Stake returned. Balance: {}", prefix, balance_str(bal)));
         }
     }
     Ok(())

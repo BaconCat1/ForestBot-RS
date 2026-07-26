@@ -1,7 +1,6 @@
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 
-use super::{chips_str, shoe};
+use super::{chips_str, deduct_stake, hand_str, shoe};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["baccarat", "bac"],
@@ -32,18 +31,6 @@ fn bac_value(c: u8) -> u32 {
 
 fn bac_score(hand: &[u8]) -> u32 {
     hand.iter().map(|&c| bac_value(c)).sum::<u32>() % 10
-}
-
-fn card_str(c: u8) -> &'static str {
-    match c {
-        1 => "A", 2 => "2", 3 => "3", 4 => "4", 5 => "5",
-        6 => "6", 7 => "7", 8 => "8", 9 => "9", 10 => "10",
-        11 => "J", 12 => "Q", _ => "K",
-    }
-}
-
-fn hand_str(hand: &[u8]) -> String {
-    hand.iter().map(|&c| card_str(c)).collect::<Vec<_>>().join(" ")
 }
 
 // ── Clear (whitelist-only, admin/testing) ───────────────────────────────────
@@ -99,17 +86,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
-        match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
-            Ok(_) => {}
-            Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-                ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
-                return Ok(());
-            }
-            Err(CasinoAdjustErr::NetworkErr) => {
-                ctx.whisper_success("Casino unavailable.");
-                return Ok(());
-            }
-        }
+        let Some(_) = deduct_stake(&ctx, &player_uuid, stake).await else { return Ok(()); };
 
         // Deal
         let mut shuffle_notice = None;

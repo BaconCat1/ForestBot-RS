@@ -2,9 +2,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
-use super::{MIN_BET, chips_str, format_alimony, to_price, fmt_odds, fmt_time, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
+use super::{MIN_BET, chips_str, deduct_stake, format_alimony, to_price, fmt_odds, fmt_time, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
 
 type LaunchBetsMap = Arc<Mutex<HashMap<String, Vec<LaunchBet>>>>;
 
@@ -363,14 +362,7 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
         LaunchBetSide::OnTime  => to_price(p_o),
     };
 
-    match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Not enough chips (have {}).", chips_str(have)));
-            return Ok(());
-        }
-        Err(e) => { ctx.whisper_success(format!("Error: {e:?}")); return Ok(()); }
-        Ok(_) => {}
-    }
+    let Some(_) = deduct_stake(&ctx, &player_uuid, chips).await else { return Ok(()); };
 
     let mut bet = LaunchBet {
         id: None,

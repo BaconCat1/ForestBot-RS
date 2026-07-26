@@ -1,8 +1,7 @@
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 
-use super::{chips_str, format_alimony, fmt_close, fmt_odds, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
+use super::{chips_str, deduct_stake, format_alimony, fmt_close, fmt_odds, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["aqi", "airquality"],
@@ -313,14 +312,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
     // Deduct chips
-    match ctx.state.api.casino_adjust(&player_uuid, -chips).await {
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Not enough chips (have {}).", chips_str(have)));
-            return Ok(());
-        }
-        Err(e) => { ctx.whisper_success(format!("Error: {e:?}")); return Ok(()); }
-        Ok(_) => {}
-    }
+    let Some(_) = deduct_stake(&ctx, &player_uuid, chips).await else { return Ok(()); };
 
     let close_time = now_unix() + ctx.runtime.aqi_settle_window_ms / 1000;
     let mut bet = AqiBet {

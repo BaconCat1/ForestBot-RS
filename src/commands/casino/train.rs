@@ -1,8 +1,7 @@
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 
-use super::{chips_str, format_alimony, fmt_close, calc_payout, sleep_until, gtfs_rt, FetchErr, check_resp, SettleDeps};
+use super::{chips_str, deduct_stake, format_alimony, fmt_close, calc_payout, sleep_until, gtfs_rt, FetchErr, check_resp, SettleDeps};
 
 type TrainBetsMap = std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<TrainBet>>>>;
 
@@ -393,17 +392,7 @@ async fn gtfs_place_bet(
     }
 
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
-    match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
-        Ok(_) => {}
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
-            return Ok(());
-        }
-        Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper_success("Casino unavailable.");
-            return Ok(());
-        }
-    }
+    let Some(_) = deduct_stake(ctx, &player_uuid, stake).await else { return Ok(()); };
 
     // close_time = last stop scheduled arrival (settle when trip ends)
     let close_time = snap.last_stop_time.max(now + 120);
@@ -559,17 +548,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
-    match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
-        Ok(_) => {}
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Need {} but only have {}.", chips_str(stake), chips_str(have)));
-            return Ok(());
-        }
-        Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper_success("Casino unavailable.");
-            return Ok(());
-        }
-    }
+    let Some(_) = deduct_stake(ctx, &player_uuid, stake).await else { return Ok(()); };
 
     let close_time = now_unix() + ctx.runtime.train_bet_duration_ms / 1000;
     let delay_str  = if current_delay > 0 {

@@ -28,7 +28,7 @@ pub mod join_market;
 pub mod death_market;
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::{CasinoFaucetResult, CasinoLottoPlayerTicket};
+use crate::structure::endpoints::endpoints::{CasinoAdjustErr, CasinoFaucetResult, CasinoLottoPlayerTicket};
 use crate::structure::market::types::now_unix;
 use crate::structure::mineflayer::bot::AzaleaState;
 use futures_util::future::join_all;
@@ -40,6 +40,44 @@ pub const HOUSE_EDGE: f64 = 0.03;
 
 pub fn chips_str(n: i64) -> String {
     format!("{} chip{}", n, if n == 1 { "" } else { "s" })
+}
+
+/// Deducts `amount` chips from the player's balance for a stake/bet, whispering
+/// the standard insufficient-funds/network-error message and returning `None` on
+/// failure (`Some(new_balance)` on success, for the few callers that display it
+/// immediately). Callers should
+/// `let Some(_) = deduct_stake(ctx, &player_uuid, amount).await else { return Ok(()); };`
+/// (or bind the balance instead of `_` where needed). Standardizes what were ~25
+/// near-duplicate, inconsistently-worded match blocks on `CasinoAdjustErr` across
+/// every casino game file (some said "Need X but have Y", others "Not enough
+/// chips (have Y)", a few added "right now" to the network-error message, a few
+/// downgraded `NetworkErr` to a raw `Err(e) => format!("Error: {e:?}")` debug
+/// print instead of a real message -- all copy-paste drift, no functional
+/// difference intended).
+pub async fn deduct_stake(ctx: &CommandContext<'_>, player_uuid: &str, amount: i64) -> Option<i64> {
+    match ctx.state.api.casino_adjust(player_uuid, -amount).await {
+        Ok(balance) => Some(balance),
+        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
+            ctx.whisper_success(format!("Need {} but have {}.", chips_str(amount), chips_str(have)));
+            None
+        }
+        Err(CasinoAdjustErr::NetworkErr) => {
+            ctx.whisper_success("Casino unavailable.");
+            None
+        }
+    }
+}
+
+pub fn card_str(c: u8) -> &'static str {
+    match c {
+        1 => "A", 2 => "2", 3 => "3", 4 => "4", 5 => "5",
+        6 => "6", 7 => "7", 8 => "8", 9 => "9", 10 => "10",
+        11 => "J", 12 => "Q", _ => "K",
+    }
+}
+
+pub fn hand_str(hand: &[u8]) -> String {
+    hand.iter().map(|&c| card_str(c)).collect::<Vec<_>>().join(" ")
 }
 
 /// Formats the "(-X alimony)" suffix appended to win messages when a forced-divorce

@@ -2,7 +2,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
 
-use super::{balance_str, chips_str, format_alimony, shoe};
+use super::{balance_str, card_str, chips_str, deduct_stake, format_alimony, hand_str, shoe};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["bj", "blackjack"],
@@ -39,20 +39,6 @@ fn with_notice(notice: &Option<String>, msg: String) -> String {
         Some(n) => format!("{n} {msg}"),
         None => msg,
     }
-}
-
-fn card_str(c: u8) -> String {
-    match c {
-        1 => "A".to_string(),
-        11 => "J".to_string(),
-        12 => "Q".to_string(),
-        13 => "K".to_string(),
-        n => n.to_string(),
-    }
-}
-
-fn hand_str(hand: &[u8]) -> String {
-    hand.iter().map(|&c| card_str(c)).collect::<Vec<_>>().join(" ")
 }
 
 fn card_value(c: u8) -> u32 {
@@ -125,17 +111,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
         return Ok(());
     }
 
-    let balance = match ctx.state.api.casino_adjust(player_uuid, -bet).await {
-        Ok(b) => b,
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Not enough chips (have {}, need {}).", chips_str(have), chips_str(bet)));
-            return Ok(());
-        }
-        Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper_success("Casino unavailable right now.");
-            return Ok(());
-        }
-    };
+    let Some(balance) = deduct_stake(&ctx, player_uuid, bet).await else { return Ok(()); };
 
     let mut shuffle_notice = None;
     let player = deal_hand(&ctx, 2, &mut shuffle_notice);

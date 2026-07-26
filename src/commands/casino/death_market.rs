@@ -15,10 +15,9 @@
 // way (everything else settles against a fixed timestamp).
 
 use crate::commands::CommandContext;
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::market::types::now_unix;
 
-use super::{MIN_BET, chips_str, format_alimony, to_price, fmt_odds, SettleDeps};
+use super::{MIN_BET, chips_str, deduct_stake, format_alimony, to_price, fmt_odds, SettleDeps};
 
 /// Mirrors Hub's `WINDOW_HOURS` (getDeathOdds.ts) -- used to compute the
 /// playtime threshold a bet loses at, since that's not round-tripped through
@@ -147,17 +146,7 @@ pub async fn place_bet(ctx: &CommandContext<'_>, subject_name: &str, stake: i64)
 
     let price = to_price(odds.p);
 
-    match ctx.state.api.casino_adjust(&bettor_uuid, -stake).await {
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Not enough chips (have {}).", chips_str(have)));
-            return Ok(());
-        }
-        Err(e) => {
-            ctx.whisper_success(format!("Error: {e:?}"));
-            return Ok(());
-        }
-        Ok(_) => {}
-    }
+    let Some(_) = deduct_stake(ctx, &bettor_uuid, stake).await else { return Ok(()); };
 
     let now = now_unix();
     let close_time = now + odds.window_hours as u64 * 3600; // informational only

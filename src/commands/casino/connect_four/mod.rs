@@ -1,9 +1,8 @@
 use connect_four_ai::{AIPlayer, Difficulty, Position};
 use rand::Rng;
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
-use super::{balance_str, chips_str, format_alimony};
+use super::{balance_str, chips_str, deduct_stake, format_alimony};
 
 const MIN_STAKE: i64 = 25;
 const MAX_STAKE: i64 = 5000;
@@ -101,17 +100,7 @@ async fn execute_new_game(ctx: &CommandContext<'_>, stake_str: &str) -> anyhow::
 
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
-    match ctx.state.api.casino_adjust(&player_uuid, -stake).await {
-        Ok(_) => {}
-        Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-            ctx.whisper_success(format!("Need {} but have {}.", chips_str(stake), chips_str(have)));
-            return Ok(());
-        }
-        Err(CasinoAdjustErr::NetworkErr) => {
-            ctx.whisper_success("Casino unavailable.");
-            return Ok(());
-        }
-    }
+    let Some(_) = deduct_stake(ctx, &player_uuid, stake).await else { return Ok(()); };
 
     let idx = rand::thread_rng().gen_range(0..OPPONENTS.len());
     let (opponent_name, difficulty) = OPPONENTS[idx];
@@ -124,8 +113,8 @@ async fn execute_new_game(ctx: &CommandContext<'_>, stake_str: &str) -> anyhow::
         position,
     });
     if !started {
-        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
-        ctx.whisper_success(format!("Already in another game — this stake refunded. Balance: {}", chips_str(bal)));
+        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.ok();
+        ctx.whisper_success(format!("Already in another game — this stake refunded. Balance: {}", balance_str(bal)));
         return Ok(());
     }
 
@@ -195,8 +184,8 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
     if position.get_moves() == Position::BOARD_SIZE {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
         show_board(ctx, &position).await;
-        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
-        ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
+        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.ok();
+        ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", balance_str(bal)));
         return Ok(());
     }
 
@@ -205,8 +194,8 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
         Some(c) => c,
         None => {
             ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
-            let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
-            ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
+            let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.ok();
+            ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", balance_str(bal)));
             return Ok(());
         }
     };
@@ -231,8 +220,8 @@ async fn execute_drop(ctx: &CommandContext<'_>, col: u8) -> anyhow::Result<()> {
     if position.get_moves() == Position::BOARD_SIZE {
         ctx.state.casino_sessions.lock().expect("casino sessions lock poisoned").remove(ctx.sender);
         show_board(ctx, &position).await;
-        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.unwrap_or(0);
-        ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", chips_str(bal)));
+        let bal = ctx.state.api.casino_adjust(&player_uuid, stake).await.ok();
+        ctx.whisper_success(format!("Draw! Stake returned. Balance: {}", balance_str(bal)));
         return Ok(());
     }
 

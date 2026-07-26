@@ -1,10 +1,9 @@
 use rand::{Rng, rngs::OsRng};
 
 use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::endpoints::endpoints::CasinoAdjustErr;
 use crate::structure::mineflayer::bot::CasinoSession;
 
-use super::{balance_str, chips_str};
+use super::{balance_str, chips_str, deduct_stake};
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["hilo", "hi-lo"],
@@ -75,17 +74,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 ctx.whisper_success(format!("Bet must be {}-{}.", chips_str(limit.min), chips_str(max)));
                 return Ok(());
             }
-            match ctx.state.api.casino_adjust(&player_uuid, -bet).await {
-                Ok(_) => {}
-                Err(CasinoAdjustErr::InsufficientFunds(have)) => {
-                    ctx.whisper_success(format!("Need {} but have {}.", chips_str(bet), chips_str(have)));
-                    return Ok(());
-                }
-                Err(CasinoAdjustErr::NetworkErr) => {
-                    ctx.whisper_success("Casino unavailable.");
-                    return Ok(());
-                }
-            }
+            let Some(_) = deduct_stake(&ctx, &player_uuid, bet).await else { return Ok(()); };
             let mut deck = build_deck();
             let current_card = deck.pop().unwrap(); // 51 remain
             let started = super::try_start_session(ctx.state, ctx.sender, CasinoSession::Hilo {
@@ -96,8 +85,8 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 guesses: 0,
             });
             if !started {
-                let new_balance = ctx.state.api.casino_adjust(&player_uuid, bet).await.unwrap_or(0);
-                ctx.whisper_success(format!("Already in another game — this bet refunded. Balance: {}", chips_str(new_balance)));
+                let new_balance = ctx.state.api.casino_adjust(&player_uuid, bet).await.ok();
+                ctx.whisper_success(format!("Already in another game — this bet refunded. Balance: {}", balance_str(new_balance)));
                 return Ok(());
             }
             show_state(&ctx, current_card, &deck, bet, 1.0, false);
@@ -225,10 +214,10 @@ async fn predict(
                     }
                 }
             } else {
-                let bal = ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0);
+                let bal = ctx.state.api.casino_adjust(player_uuid, cashout).await.ok();
                 ctx.whisper_success(format!(
                     "Correct! {} → {} | Deck exhausted — auto-cashout: x{:.2}={} | Balance: {}",
-                    rank_name(current_card), rank_name(next_card), new_mult, chips_str(cashout), chips_str(bal)
+                    rank_name(current_card), rank_name(next_card), new_mult, chips_str(cashout), balance_str(bal)
                 ));
             }
         } else {
@@ -282,11 +271,11 @@ async fn do_cashout(ctx: &CommandContext<'_>, stake: i64, multiplier: f64, guess
             }
         }
     } else {
-        let bal = ctx.state.api.casino_adjust(player_uuid, cashout).await.unwrap_or(0);
+        let bal = ctx.state.api.casino_adjust(player_uuid, cashout).await.ok();
         ctx.whisper_success(format!(
             "Cashed out! x{:.2} × {} = {} (+{}) after {} guess{} | Balance: {}",
             multiplier, chips_str(stake), chips_str(cashout), chips_str(profit),
-            guesses, if guesses == 1 { "" } else { "es" }, chips_str(bal)
+            guesses, if guesses == 1 { "" } else { "es" }, balance_str(bal)
         ));
     }
     Ok(())
