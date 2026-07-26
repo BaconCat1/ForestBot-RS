@@ -36,6 +36,27 @@ async fn run() -> Result<()> {
 
     crate::structure::logger::load_debug_categories();
 
+    if crate::structure::logger::debug_cat_enabled("packets") {
+        // Azalea's own trace!() logging (e.g. the raw packet-bytes dump in
+        // azalea-protocol's read.rs) needs a tracing subscriber to go anywhere --
+        // ForestBot-RS otherwise never touches the `tracing` crate at all, so this
+        // was previously a silent no-op regardless of RUST_LOG. Scoped to just the
+        // packet-read target to avoid flooding the log with every other crate's
+        // trace-level noise. Written to its own file, not stdout -- one packet per
+        // read floods the console/pm2 log otherwise, drowning out the normal
+        // debug_cat lines.
+        let packet_log = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("azalea-packets.log")
+            .expect("failed to open azalea-packets.log");
+        tracing_subscriber::fmt()
+            .with_env_filter("azalea_protocol::read=trace")
+            .with_writer(std::sync::Mutex::new(packet_log))
+            .with_ansi(false)
+            .init();
+    }
+
     let state = AppState::load().await?;
     let options = state.options()?;
 

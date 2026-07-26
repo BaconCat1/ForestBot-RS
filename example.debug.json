@@ -6,5 +6,6 @@
     "content_flag": true,
     "chat_parse": true,
     "url": true,
-    "queue": true
+    "queue": true,
+    "packets": true
 }
