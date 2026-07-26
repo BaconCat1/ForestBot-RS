@@ -126,6 +126,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 ## !top
 * ✅ ~~"we need !top slurcount"~~ // `!top slurcount`/`!top slurs`; sums `get_word_occurrence` across all slurs in `slurcount_list.json` per player; cached same as other top stats
 * ✅ ~~optimize db calls for efficiency~~ // `top messages`: was N Hub calls → new Hub `GET /top-messages` (single SQL GROUP BY); `top slurcount`: was N×M calls → new Hub `GET /top-slurcount` (single SQL SUM of REGEXP per word); kills/deaths/joins/playtime/trades/rejects already single-call; advancements already uses leaderboard endpoint
+	* 🐛 **audit**: the advancement counting could likely be done more efficiently, worth a check.
 
 ## !trade
 * ✅ ~~!trade preview, let you see the proposed trade that's preventing you from making a new one, prompt people when they hit that snag~~ // `!trade preview` whispers pending trade details + next steps; propose error now hints about preview

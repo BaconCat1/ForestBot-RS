@@ -1970,6 +1970,19 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
         }
         Event::Packet(packet) => {
             if let ClientboundGamePacket::SetTime(p) = packet.as_ref() {
+                // Full raw-packet dump -- previous logging only showed whichever entry got
+                // picked (.values().next()), silently hiding any other simultaneous entries.
+                // This shows every key so we can actually see whether RV/Ruthenium sends
+                // multiple divergent regional clocks in one packet, or one at a time.
+                logger::debug_cat("daynight", format!(
+                    "SetTime raw packet: game_time={} clock_updates=[{}]",
+                    p.game_time,
+                    p.clock_updates.iter()
+                        .map(|(key, c)| format!("{key:?}: total_ticks={} rate={} partial_tick={}", c.total_ticks, c.rate, c.partial_tick))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+
                 let ticks = p.clock_updates.values().next().map(|c| c.total_ticks).unwrap_or(p.game_time);
                 *state.world_time_ticks.write().expect("world_time_ticks lock poisoned") = ticks;
 
