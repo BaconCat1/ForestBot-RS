@@ -285,15 +285,12 @@ pub async fn settle_task(
         (runtime.faa_airport_max_poll_ms, runtime.faa_airport_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
-    let result: Option<String> = loop {
+    let result = super::poll_until(deadline, poll_interval_ms, || async {
         match poll_flt_cat(&client, &bet.airport_code).await {
-            Some(cat) => break Some(cat),
-            None => {
-                if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
-            }
+            Some(cat) => super::PollOutcome::Resolved(cat),
+            None => super::PollOutcome::Retry,
         }
-    };
+    }).await;
 
     deps.api.casino_bet_delete::<FaaAirportBet>(bet.id).await;
 

@@ -204,6 +204,43 @@ pub async fn sleep_until(t: u64) {
     }
 }
 
+/// What one poll attempt found, for `poll_until` below.
+pub enum PollOutcome<T> {
+    /// Market/event has a final answer -- stop polling.
+    Resolved(T),
+    /// Nothing new yet -- wait `poll_interval_ms` and try again (subject to deadline).
+    Retry,
+    /// Give up immediately without waiting for the deadline (e.g. event cancelled).
+    GiveUp,
+}
+
+/// Shared shape for the "sleep until close, then poll an external API on an
+/// interval until it resolves or a deadline passes" loop duplicated identically
+/// across kalshi/faa_airport/noaa_flooding/nasa_space_weather/sports settle
+/// tasks -- only the per-market fetch call and win/loss decision differed, the
+/// loop control flow itself (poll, check resolved, sleep, check deadline) was
+/// byte-for-byte the same `loop { match ... }` in every file. Callers still own
+/// `sleep_until`/buffer-sleep/claim-from-map/message-formatting/`deliver`
+/// themselves -- only the polling loop moved.
+pub async fn poll_until<T, F, Fut>(deadline: u64, poll_interval_ms: u64, mut poll: F) -> Option<T>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = PollOutcome<T>>,
+{
+    loop {
+        match poll().await {
+            PollOutcome::Resolved(r) => return Some(r),
+            PollOutcome::GiveUp => return None,
+            PollOutcome::Retry => {
+                if now_unix() >= deadline {
+                    return None;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
+            }
+        }
+    }
+}
+
 // ── API rate-limit helper ─────────────────────────────────────────────────────
 
 #[derive(Debug)]

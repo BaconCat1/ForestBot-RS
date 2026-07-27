@@ -408,15 +408,12 @@ pub async fn settle_task(
         (runtime.noaa_flooding_max_poll_ms, runtime.noaa_flooding_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
-    let result: Option<bool> = loop {
+    let result = super::poll_until(deadline, poll_interval_ms, || async {
         match poll_flood_state(&client, bet.latitude, bet.longitude).await {
-            Some(flooding) => break Some(flooding),
-            None => {
-                if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
-            }
+            Some(flooding) => super::PollOutcome::Resolved(flooding),
+            None => super::PollOutcome::Retry,
         }
-    };
+    }).await;
 
     deps.api.casino_bet_delete::<NOAAFloodingBet>(bet.id).await;
 

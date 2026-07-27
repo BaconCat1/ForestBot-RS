@@ -411,15 +411,12 @@ pub async fn settle_task(
         (runtime.kalshi_max_poll_ms, runtime.kalshi_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
-    let result: Option<String> = loop {
+    let result = super::poll_until(deadline, poll_interval_ms, || async {
         match poll_market_result(&client, &bet.ticker).await {
-            Some(r) => break Some(r),
-            None => {
-                if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
-            }
+            Some(r) => super::PollOutcome::Resolved(r),
+            None => super::PollOutcome::Retry,
         }
-    };
+    }).await;
 
     deps.api.casino_bet_delete::<KalshiBet>(bet.id).await;
 

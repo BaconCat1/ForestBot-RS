@@ -499,16 +499,13 @@ pub async fn settle_task(
         (runtime.sports_max_poll_ms, runtime.sports_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
-    let outcome: Option<String> = loop {
+    let outcome = super::poll_until(deadline, poll_interval_ms, || async {
         match poll_event_result(&client, &api_key, &bet.event_id).await {
-            EventStatus::Completed(w) => break Some(w),
-            EventStatus::Cancelled => break None,
-            EventStatus::InProgress => {
-                if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
-            }
+            EventStatus::Completed(w) => super::PollOutcome::Resolved(w),
+            EventStatus::Cancelled => super::PollOutcome::GiveUp,
+            EventStatus::InProgress => super::PollOutcome::Retry,
         }
-    };
+    }).await;
 
     deps.api.casino_bet_delete::<SportsBet>(bet.id).await;
 

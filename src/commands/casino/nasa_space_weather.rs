@@ -439,15 +439,12 @@ pub async fn settle_task(
         (runtime.nasa_space_weather_max_poll_ms, runtime.nasa_space_weather_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
-    let result: Option<bool> = loop {
+    let result = super::poll_until(deadline, poll_interval_ms, || async {
         match poll_event_occurred(client, &bet.bet_type, &settle_date, &nasa_api_key).await {
-            Some(r) => break Some(r),
-            None => {
-                if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
-            }
+            Some(r) => super::PollOutcome::Resolved(r),
+            None => super::PollOutcome::Retry,
         }
-    };
+    }).await;
 
     deps.api.casino_bet_delete::<NasaSpaceWeatherBet>(bet.id).await;
 
