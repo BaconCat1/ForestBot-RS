@@ -1159,7 +1159,7 @@
     "https://blocklist.sefinek.net/generated/v1/0.0.0.0/fakenews/StevenBlack/hosts.fork.txt",
     "https://blocklist.sefinek.net/generated/v1/0.0.0.0/fakenews/marktron/hosts.fork.txt",
     "https://raw.githubusercontent.com/TMAFE/anti-grabify/refs/heads/master/pihole-dns-list.txt",
-    "https://github.com/6unsatiable/HOSTS-File-List/blob/master/Ip-Grabber-blocklist",
+    "https://raw.githubusercontent.com/6unsatiable/HOSTS-File-List/master/Ip-Grabber-blocklist",
     "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/pro-onlydomains.txt",
     "https://raw.githubusercontent.com/PeterDaveHello/url-shorteners/master/list",
     "https://raw.githubusercontent.com/PeterDaveHello/url-shorteners/master/inactive",
