@@ -150,6 +150,11 @@ async fn reload_runtime(
     *state.ai_providers.write().expect("ai_providers lock poisoned") = ai_providers;
     state.ai_model_cache.lock().expect("ai_model_cache lock poisoned").clear();
 
+    // Pick up a casino_deck_count config edit without a full restart -- forces
+    // both table shoes to reshuffle at the new size on their next deal.
+    crate::commands::casino::shoe::set_deck_count(&state.blackjack_shoe, app_state.config.casino_deck_count);
+    crate::commands::casino::shoe::set_deck_count(&state.baccarat_shoe, app_state.config.casino_deck_count);
+
     // Unlike a plain OnceLock, this re-reads debug.json and overwrites the live
     // categories -- so flipping a category off actually takes effect on !reload.
     crate::structure::logger::load_debug_categories();

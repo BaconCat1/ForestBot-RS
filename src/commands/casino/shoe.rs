@@ -50,6 +50,14 @@ impl CardShoe {
         self.index = 0;
     }
 
+    // Changes deck count and forces the shoe empty so the next deal() reshuffles
+    // at the new size -- lets `!reload` pick up a `casino_deck_count` config edit
+    // without a full bot restart.
+    fn set_deck_count(&mut self, deck_count: u32) {
+        self.deck_count = deck_count;
+        self.clear();
+    }
+
     // Deals one card, transparently shuffling first if the shoe is brand new,
     // expired, or ran dry. Returns a shuffle notice exactly when a (re)shuffle just
     // happened -- `None` on an ordinary deal from an already-live shoe.
@@ -83,4 +91,10 @@ pub fn deal_one(shoe: &Shoe) -> (u8, Option<String>) {
 // Forces the shoe empty; the next deal_one() call reshuffles and announces it.
 pub fn clear_shoe(shoe: &Shoe) {
     shoe.lock().expect("shoe lock").clear();
+}
+
+// Changes deck count and forces the shoe empty so the next deal_one() reshuffles
+// at the new size.
+pub fn set_deck_count(shoe: &Shoe, deck_count: u32) {
+    shoe.lock().expect("shoe lock").set_deck_count(deck_count);
 }
