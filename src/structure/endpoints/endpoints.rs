@@ -225,6 +225,16 @@ impl ApiClient {
             .and_then(|value| u64_or_string(&value, &["total_advancements"]))
     }
 
+    /// Counts how many times an advancement (matched by case-insensitive substring) has been
+    /// earned across all players -- single Hub aggregate query, replaces the old per-player
+    /// fan-out (resolve every known player's UUID, fetch up to 1000 advancement rows each,
+    /// filter/count client-side) that made `!advancement <name>` take minutes to respond.
+    pub async fn get_advancement_name_count(&self, name: &str, server: &str) -> Option<u64> {
+        self.get_json("/advancement-name-count", &[("name", name), ("server", server)])
+            .await
+            .and_then(|value| u64_or_string(&value, &["count"]))
+    }
+
     pub async fn get_message_count(&self, username: &str, server: &str) -> Option<MessageCount> {
         self.get_json(
             "/messagecount",

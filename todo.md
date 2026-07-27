@@ -83,7 +83,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 	*  // !top <stat> all would need hub support.
 * ✅ ~~Make faqs backfillable // NEEDS HUB CHANGES~~
 * ✅ ~~!delfaq aka !deletefaq, deletes the faq, freeing up the number. Should be done after faqs are backfillable. Should confirm in whisper. // NEEDS HUB CHANGES~~
-* ✅ ~~!advancementcount \<advancement>, shows the number of times an advancement has been reached~~
+* ✅ ~~!advancementcount \<advancement>, shows the number of times an advancement has been reached~~ // perf fix 2026-07-27: was N-player fan-out (resolve every known player's UUID + fetch up to 1000 advancement rows each, filter/count client-side) taking minutes; new Hub `GET /advancement-name-count` (single `COUNT(*) WHERE LOWER(advancement) LIKE ?`) replaces it with one call
 * ✅ ~~!averageping, !ap, shows the average ping of the server as well as best and worst.~~
 * ✅ ~~Cooldowns should be cumulative. For example, the initial 10 second cooldown for !q is fine, but if someone quotes again within cooldown * 2 (20 seconds initially) the cooldown should then increase. I'm thinking just 1 extra second (making it 11 seconds until you can run it again, and 22 until the cooldown resets). This punishes over use and repeated use, since even a small cooldown doesn't seem to be enough to dissuade people to chill on the command spam. This concept should also be implemented for !lm, only waaay more aggressive. There should be a 300 second cooldown for last message on an individual user basis with the same "punishment" style increases. People use forest to bypass ignores and this is meant to dissuade that.~~
 * ✅ ~~Self censorship~~
@@ -126,7 +126,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 ## !top
 * ✅ ~~"we need !top slurcount"~~ // `!top slurcount`/`!top slurs`; sums `get_word_occurrence` across all slurs in `slurcount_list.json` per player; cached same as other top stats
 * ✅ ~~optimize db calls for efficiency~~ // `top messages`: was N Hub calls → new Hub `GET /top-messages` (single SQL GROUP BY); `top slurcount`: was N×M calls → new Hub `GET /top-slurcount` (single SQL SUM of REGEXP per word); kills/deaths/joins/playtime/trades/rejects already single-call; advancements already uses leaderboard endpoint
-	* 🐛 **audit**: the advancement counting could likely be done more efficiently, worth a check.
+	* ✅ ~~**audit**: the advancement counting could likely be done more efficiently, worth a check.~~ // audited 2026-07-27: already fine. `top_advancements()`'s primary path (`get_top_advancements_from_leaderboards`) is one single Hub call, same as messages/slurcount. The N-call-per-player path (`get_top_advancements_historical`) only runs as a one-time backfill when the leaderboards endpoint is empty and nothing's cached yet — even then it's concurrent (`buffer_unordered`), not serial, and gets cached after running once. No fix needed.
 
 ## !trade
 * ✅ ~~!trade preview, let you see the proposed trade that's preventing you from making a new one, prompt people when they hit that snag~~ // `!trade preview` whispers pending trade details + next steps; propose error now hints about preview

@@ -1,8 +1,5 @@
-use super::helpers::{all_known_usernames, whisper, BACKFILL_CONCURRENCY};
+use super::helpers::whisper;
 use crate::commands::{CommandContext, CommandFuture};
-use futures_util::stream::{self, StreamExt};
-
-const ADVANCEMENT_COUNT_FETCH_LIMIT: usize = 1000;
 
 command!(
     ADVANCEMENT_COUNT_COMMAND,
@@ -19,38 +16,11 @@ fn advancement_count(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             return Ok(());
         }
 
-        whisper(
-            &ctx,
-            " Counting advancement matches, this may take a moment...",
-        );
-        let needle = search.to_ascii_lowercase();
         let server = ctx.state.mc_server.clone();
-        let api = ctx.state.api.clone();
-        let usernames = all_known_usernames(&ctx).await;
-        let count = stream::iter(usernames)
-            .map(|username| {
-                let api = api.clone();
-                let server = server.clone();
-                let needle = needle.clone();
-                async move {
-                    let uuid = api.convert_username_to_uuid(&username).await?;
-                    let advancements = api
-                        .get_advancements(&uuid, &server, ADVANCEMENT_COUNT_FETCH_LIMIT, "DESC")
-                        .await
-                        .unwrap_or_default();
-                    Some(
-                        advancements
-                            .into_iter()
-                            .filter(|row| row.advancement.to_ascii_lowercase().contains(&needle))
-                            .count(),
-                    )
-                }
-            })
-            .buffer_unordered(BACKFILL_CONCURRENCY)
-            .fold(0usize, |total, count| async move {
-                total + count.unwrap_or_default()
-            })
-            .await;
+        let Some(count) = ctx.state.api.get_advancement_name_count(&search, &server).await else {
+            whisper(&ctx, "Could not count advancement matches right now.");
+            return Ok(());
+        };
 
         ctx.chat_success(format!(
             " Advancement \"{search}\" has been reached {count} time{} on {}.",
