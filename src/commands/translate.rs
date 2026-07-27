@@ -181,9 +181,21 @@ async fn translate_chain(
         return Some(r);
     }
     if scrape_enabled {
-        if let Some(r) = google_scrape_translate(state, text, lang, scrape_min_interval_ms).await {
-            eprintln!("[Translate] served by tier=google_scrape");
-            return Some(r);
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        let last_ms = state.google_scrape_last_call_ms.load(Ordering::Relaxed);
+        let on_cooldown = now_ms.saturating_sub(last_ms) < scrape_min_interval_ms;
+        if !on_cooldown {
+            // Reserve the slot before the request fires (not after success) -- a failed
+            // attempt still counts against the cooldown, so a block/error doesn't just get
+            // retried instantly.
+            state.google_scrape_last_call_ms.store(now_ms, Ordering::Relaxed);
+            if let Some(r) = google_scrape_translate(text, lang).await {
+                eprintln!("[Translate] served by tier=google_scrape");
+                return Some(r);
+            }
         }
     }
     let result = llm_translate(state, text, lang).await;
@@ -302,28 +314,11 @@ async fn google_cloud_translate(key: &str, text: &str, lang: &str) -> Option<(St
 // but real IP-ban risk if hammered (bans reported at ~40-50 requests/burst with no delay,
 // self-expire after a few hours; see comparison.md). Gated two ways: `scrape_enabled` lets
 // this tier be killed instantly without a recompile if it ever gets flagged, and the
-// interval check below is a *global* (not per-user) skip-if-too-soon gate -- a call inside
-// the cooldown window doesn't block/delay the chat response, it just falls through to the
-// LLM tier immediately. Doesn't return a detected source language; the crate only gives
-// back the translated text.
-async fn google_scrape_translate(
-    state: &crate::structure::mineflayer::bot::AzaleaState,
-    text: &str,
-    lang: &str,
-    min_interval_ms: u64,
-) -> Option<(String, Option<String>)> {
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
-    let last_ms = state.google_scrape_last_call_ms.load(Ordering::Relaxed);
-    if now_ms.saturating_sub(last_ms) < min_interval_ms {
-        return None;
-    }
-    // Reserve the slot before the request fires (not after success) -- a failed attempt
-    // still counts against the cooldown, so a block/error doesn't just get retried instantly.
-    state.google_scrape_last_call_ms.store(now_ms, Ordering::Relaxed);
-
+// interval/cooldown check lives in `translate_chain` (the orchestrator) rather than here --
+// a call inside the cooldown window doesn't block/delay the chat response, it just falls
+// through to the LLM tier immediately. Doesn't return a detected source language; the crate
+// only gives back the translated text.
+async fn google_scrape_translate(text: &str, lang: &str) -> Option<(String, Option<String>)> {
     let translator = GoogleTranslator::builder().timeout(10usize).delay(0usize).build();
     match translator.translate_async(text, "", lang).await {
         Ok(translated) => Some((translated, None)),
