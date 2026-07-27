@@ -1,3 +1,4 @@
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 use crate::commands::{enqueue_chat, CommandContext, CommandDefinition, CommandFuture};
@@ -54,6 +55,108 @@ pub struct SideBet {
     pub odds_at_placement: f64, // win probability of `target` when bet was placed
 }
 
+// ── Duel state service ────────────────────────────────────────────────────────
+//
+// Owns the shared duel list behind a small set of named queries/mutations instead
+// of exposing the raw `Mutex<Vec<Duel>>` for every call site to lock-and-scan by
+// hand. Command handlers, event hooks, and timeout tasks below all go through this
+// -- none of them touch the lock directly anymore. Chat messaging, payouts, and
+// config reads stay exactly where they were (free functions in this file); this
+// only centralizes storage access.
+#[derive(Clone, Default)]
+pub struct DuelService {
+    duels: Arc<Mutex<Vec<Duel>>>,
+}
+
+impl DuelService {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Any duel (Pending or Active) `username` is a party to.
+    pub fn find_participant(&self, username: &str) -> Option<Duel> {
+        let duels = self.duels.lock().expect("duels lock");
+        duels.iter().find(|d| {
+            d.challenger.eq_ignore_ascii_case(username) ||
+            d.challenged.eq_ignore_ascii_case(username)
+        }).cloned()
+    }
+
+    /// A Pending duel where `username` is the challenged party (can !duel confirm).
+    pub fn find_pending_for_challenged(&self, username: &str) -> Option<Duel> {
+        let duels = self.duels.lock().expect("duels lock");
+        duels.iter().find(|d| {
+            d.phase == DuelPhase::Pending && d.challenged.eq_ignore_ascii_case(username)
+        }).cloned()
+    }
+
+    /// A Pending duel where `username` is either party (challenged can reject, challenger can cancel).
+    pub fn find_pending_for_either(&self, username: &str) -> Option<Duel> {
+        let duels = self.duels.lock().expect("duels lock");
+        duels.iter().find(|d| {
+            d.phase == DuelPhase::Pending && (
+                d.challenged.eq_ignore_ascii_case(username) ||
+                d.challenger.eq_ignore_ascii_case(username)
+            )
+        }).cloned()
+    }
+
+    /// An Active duel `username` is a party to (used for death resolution -- a
+    /// Pending duel can't be resolved by a kill, only a confirmed/live one).
+    pub fn find_active_participant(&self, username: &str) -> Option<Duel> {
+        let duels = self.duels.lock().expect("duels lock");
+        duels.iter().find(|d| {
+            d.phase == DuelPhase::Active && (
+                d.challenger.eq_ignore_ascii_case(username) ||
+                d.challenged.eq_ignore_ascii_case(username)
+            )
+        }).cloned()
+    }
+
+    /// A specific duel by id, requiring it still be in `phase` -- lets timeout
+    /// tasks no-op cleanly if the duel already resolved/expired/was cancelled by
+    /// the time the timer fires.
+    pub fn find_by_id_in_phase(&self, id: Uuid, phase: DuelPhase) -> Option<Duel> {
+        let duels = self.duels.lock().expect("duels lock");
+        duels.iter().find(|d| d.id == id && d.phase == phase).cloned()
+    }
+
+    pub fn insert(&self, duel: Duel) {
+        let mut duels = self.duels.lock().expect("duels lock");
+        duels.push(duel);
+    }
+
+    /// Upgrades a Pending duel to Active once the challenged party confirms.
+    pub fn transition_to_active(&self, id: Uuid, challenged_uuid: String, expires_at: u64) {
+        let mut duels = self.duels.lock().expect("duels lock");
+        if let Some(d) = duels.iter_mut().find(|d| d.id == id) {
+            d.phase = DuelPhase::Active;
+            d.expires_at = Some(expires_at);
+            d.challenged_uuid = Some(challenged_uuid);
+        }
+    }
+
+    /// Whether `username` already has a side bet on this duel (one per bettor per duel).
+    pub fn has_side_bet_from(&self, id: Uuid, username: &str) -> bool {
+        let duels = self.duels.lock().expect("duels lock");
+        duels.iter().find(|d| d.id == id)
+            .map(|d| d.side_bets.iter().any(|sb| sb.bettor.eq_ignore_ascii_case(username)))
+            .unwrap_or(false)
+    }
+
+    pub fn add_side_bet(&self, id: Uuid, side_bet: SideBet) {
+        let mut duels = self.duels.lock().expect("duels lock");
+        if let Some(d) = duels.iter_mut().find(|d| d.id == id) {
+            d.side_bets.push(side_bet);
+        }
+    }
+
+    pub fn remove(&self, id: Uuid) {
+        let mut duels = self.duels.lock().expect("duels lock");
+        duels.retain(|d| d.id != id);
+    }
+}
+
 fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let sub = ctx.args.first().copied().unwrap_or("");
@@ -107,14 +210,14 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
     }
 
     // No existing duel for either party -- target is confirmed online (checked above), safe to echo.
-    if let Some(existing) = find_participant_duel(ctx.state, sender) {
+    if let Some(existing) = ctx.state.duels.find_participant(sender) {
         ctx.whisper_success(format!(
             "Already in a duel ({} vs {}). Finish it first.",
             existing.challenger, existing.challenged
         ));
         return Ok(());
     }
-    if find_participant_duel(ctx.state, target).is_some() {
+    if ctx.state.duels.find_participant(target).is_some() {
         ctx.whisper_success(format!("{} is already in a duel.", target));
         return Ok(());
     }
@@ -139,10 +242,7 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
         side_bets: Vec::new(),
     };
 
-    {
-        let mut duels = ctx.state.duels.lock().expect("duels lock");
-        duels.push(duel.clone());
-    }
+    ctx.state.duels.insert(duel.clone());
 
     // Announce in public chat so challenged player sees it
     enqueue_chat(ctx.state, format!(
@@ -160,12 +260,7 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
 // ── Confirm ───────────────────────────────────────────────────────────────────
 
 async fn confirm_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
-    let duel = {
-        let duels = ctx.state.duels.lock().expect("duels lock");
-        duels.iter().find(|d| {
-            d.phase == DuelPhase::Pending && d.challenged.eq_ignore_ascii_case(ctx.sender)
-        }).cloned()
-    };
+    let duel = ctx.state.duels.find_pending_for_challenged(ctx.sender);
 
     let duel = match duel {
         Some(d) => d,
@@ -185,15 +280,7 @@ async fn confirm_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let expires_at = now_unix() + ctx.runtime.duel_timeout_ms / 1000;
 
-    // Upgrade phase
-    {
-        let mut duels = ctx.state.duels.lock().expect("duels lock");
-        if let Some(d) = duels.iter_mut().find(|d| d.id == duel.id) {
-            d.phase = DuelPhase::Active;
-            d.expires_at = Some(expires_at);
-            d.challenged_uuid = Some(challenged_uuid);
-        }
-    }
+    ctx.state.duels.transition_to_active(duel.id, challenged_uuid, expires_at);
 
     // Fetch odds for announcement
     let (c_pct, x_pct) = duel_odds(ctx.state, &duel.challenger, &duel.challenged).await;
@@ -212,16 +299,8 @@ async fn confirm_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 // ── Reject / cancel ───────────────────────────────────────────────────────────
 
 async fn reject_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
-    let duel = {
-        let duels = ctx.state.duels.lock().expect("duels lock");
-        // Challenged can reject; challenger can cancel their own pending duel
-        duels.iter().find(|d| {
-            d.phase == DuelPhase::Pending && (
-                d.challenged.eq_ignore_ascii_case(ctx.sender) ||
-                d.challenger.eq_ignore_ascii_case(ctx.sender)
-            )
-        }).cloned()
-    };
+    // Challenged can reject; challenger can cancel their own pending duel
+    let duel = ctx.state.duels.find_pending_for_either(ctx.sender);
 
     let duel = match duel {
         Some(d) => d,
@@ -240,7 +319,7 @@ async fn reject_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 async fn show_odds(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let lookup = ctx.args.get(1).copied().unwrap_or(ctx.sender);
-    let duel = find_participant_duel(ctx.state, lookup);
+    let duel = ctx.state.duels.find_participant(lookup);
     let duel = match duel {
         Some(d) if d.phase == DuelPhase::Active => d,
         Some(_) => { ctx.whisper_success("Duel hasn't started yet."); return Ok(()); }
@@ -278,7 +357,7 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let duel = find_participant_duel(ctx.state, target);
+    let duel = ctx.state.duels.find_participant(target);
     let duel = match duel {
         Some(d) if d.phase == DuelPhase::Active => d,
         Some(_) => { ctx.whisper_success("That duel hasn't started yet."); return Ok(()); }
@@ -302,14 +381,9 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     // One side bet per bettor per duel
-    {
-        let duels = ctx.state.duels.lock().expect("duels lock");
-        if let Some(d) = duels.iter().find(|d| d.id == duel.id) {
-            if d.side_bets.iter().any(|sb| sb.bettor.eq_ignore_ascii_case(ctx.sender)) {
-                ctx.whisper_success("Already placed a side bet on this duel.");
-                return Ok(());
-            }
-        }
+    if ctx.state.duels.has_side_bet_from(duel.id, ctx.sender) {
+        ctx.whisper_success("Already placed a side bet on this duel.");
+        return Ok(());
     }
 
     // Fetch odds for the target
@@ -323,18 +397,13 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
     let potential_payout = ((amount as f64 / odds_for_target.max(0.01)) * (1.0 - RAKE)) as i64;
 
-    {
-        let mut duels = ctx.state.duels.lock().expect("duels lock");
-        if let Some(d) = duels.iter_mut().find(|d| d.id == duel.id) {
-            d.side_bets.push(SideBet {
-                bettor: ctx.sender.to_owned(),
-                bettor_uuid,
-                target: resolved_target.clone(),
-                amount,
-                odds_at_placement: odds_for_target,
-            });
-        }
-    }
+    ctx.state.duels.add_side_bet(duel.id, SideBet {
+        bettor: ctx.sender.to_owned(),
+        bettor_uuid,
+        target: resolved_target.clone(),
+        amount,
+        odds_at_placement: odds_for_target,
+    });
 
     ctx.whisper_success(format!(
         "Side bet placed: {} chips on {} ({:.0}% odds) — potential payout: {}",
@@ -346,16 +415,7 @@ async fn place_side_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 // ── Public event hooks (called from bot.rs) ───────────────────────────────────
 
 pub async fn handle_death(state: &AzaleaState, victim: &str, murderer: Option<&str>) {
-    let duel = {
-        let duels = state.duels.lock().expect("duels lock");
-        duels.iter().find(|d| {
-            d.phase == DuelPhase::Active && (
-                d.challenger.eq_ignore_ascii_case(victim) ||
-                d.challenged.eq_ignore_ascii_case(victim)
-            )
-        }).cloned()
-    };
-    let Some(duel) = duel else { return; };
+    let Some(duel) = state.duels.find_active_participant(victim) else { return; };
 
     let opponent = if duel.challenger.eq_ignore_ascii_case(victim) {
         &duel.challenged
@@ -380,8 +440,7 @@ pub async fn handle_death(state: &AzaleaState, victim: &str, murderer: Option<&s
 }
 
 pub async fn handle_disconnect(state: &AzaleaState, username: &str) {
-    let duel = find_participant_duel(state, username);
-    let Some(duel) = duel else { return; };
+    let Some(duel) = state.duels.find_participant(username) else { return; };
 
     cancel_duel_refund(state, &duel).await;
     enqueue_chat(state, format!(
@@ -409,13 +468,13 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
                 // which confirm_duel guarantees set challenged_uuid. Refuse the payout
                 // rather than risk crediting a bogus username-keyed row.
                 eprintln!("[duel] resolve_duel: challenged_uuid missing on an Active duel (id {:?}) -- refusing payout", duel.id);
-                remove_duel(state, duel.id);
+                state.duels.remove(duel.id);
                 return;
             }
         }
     };
 
-    remove_duel(state, duel.id);
+    state.duels.remove(duel.id);
 
     // Main pot
     let pot = duel.stake * 2;
@@ -478,7 +537,7 @@ async fn resolve_duel(state: &AzaleaState, duel: &Duel, winner: &str, whisper_cm
 }
 
 async fn cancel_duel_refund(state: &AzaleaState, duel: &Duel) {
-    remove_duel(state, duel.id);
+    state.duels.remove(duel.id);
     let _ = state.api.casino_adjust(&duel.challenger_uuid, duel.stake).await;
     if duel.phase == DuelPhase::Active {
         if let Some(uuid) = &duel.challenged_uuid {
@@ -493,10 +552,8 @@ async fn cancel_duel_refund(state: &AzaleaState, duel: &Duel) {
 // ── Timer tasks ───────────────────────────────────────────────────────────────
 
 async fn confirm_timeout_task(state: AzaleaState, duel_id: Uuid) {
-    let expires = {
-        let duels = state.duels.lock().expect("duels lock");
-        duels.iter().find(|d| d.id == duel_id).map(|d| d.confirm_expires_at)
-    };
+    let expires = state.duels.find_by_id_in_phase(duel_id, DuelPhase::Pending)
+        .map(|d| d.confirm_expires_at);
     let Some(expires) = expires else { return; };
 
     let now = now_unix();
@@ -504,13 +561,7 @@ async fn confirm_timeout_task(state: AzaleaState, duel_id: Uuid) {
         tokio::time::sleep(std::time::Duration::from_secs(expires - now)).await;
     }
 
-    let duel = {
-        let duels = state.duels.lock().expect("duels lock");
-        duels.iter()
-            .find(|d| d.id == duel_id && d.phase == DuelPhase::Pending)
-            .cloned()
-    };
-    let Some(duel) = duel else { return; };
+    let Some(duel) = state.duels.find_by_id_in_phase(duel_id, DuelPhase::Pending) else { return; };
 
     cancel_duel_refund(&state, &duel).await;
     enqueue_chat(&state, format!(
@@ -527,13 +578,7 @@ async fn active_timeout_task(state: AzaleaState, duel_id: Uuid) {
         .duel_timeout_ms;
     tokio::time::sleep(std::time::Duration::from_millis(timeout_ms)).await;
 
-    let duel = {
-        let duels = state.duels.lock().expect("duels lock");
-        duels.iter()
-            .find(|d| d.id == duel_id && d.phase == DuelPhase::Active)
-            .cloned()
-    };
-    let Some(duel) = duel else { return; };
+    let Some(duel) = state.duels.find_by_id_in_phase(duel_id, DuelPhase::Active) else { return; };
 
     cancel_duel_refund(&state, &duel).await;
     enqueue_chat(&state, format!(
@@ -543,19 +588,6 @@ async fn active_timeout_task(state: AzaleaState, duel_id: Uuid) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-fn find_participant_duel(state: &AzaleaState, username: &str) -> Option<Duel> {
-    let duels = state.duels.lock().expect("duels lock");
-    duels.iter().find(|d| {
-        d.challenger.eq_ignore_ascii_case(username) ||
-        d.challenged.eq_ignore_ascii_case(username)
-    }).cloned()
-}
-
-fn remove_duel(state: &AzaleaState, id: Uuid) {
-    let mut duels = state.duels.lock().expect("duels lock");
-    duels.retain(|d| d.id != id);
-}
 
 async fn player_kd(state: &AzaleaState, username: &str) -> Option<f64> {
     let uuid = {
