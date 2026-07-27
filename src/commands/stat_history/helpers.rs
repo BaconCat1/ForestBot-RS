@@ -102,10 +102,6 @@ pub async fn excluded_usernames(ctx: &CommandContext<'_>) -> HashSet<String> {
     names
 }
 
-pub async fn all_known_usernames(ctx: &CommandContext<'_>) -> Vec<String> {
-    all_known_usernames_for_server(ctx, &ctx.state.mc_server).await
-}
-
 pub async fn all_known_usernames_for_server(ctx: &CommandContext<'_>, server: &str) -> Vec<String> {
     ctx.state
         .api
