@@ -32,6 +32,10 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 Some(bl) => {
                     let domain = extract_domain(url);
                     if is_blocked(&domain, bl) {
+                        crate::structure::logger::warn(format!(
+                            "url: blocked by local blocklist: {domain} (requested by {})",
+                            ctx.sender
+                        ));
                         ctx.whisper("Link blocked.");
                         return Ok(());
                     }
@@ -49,6 +53,10 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
         match safe_browsing_check(url, &key).await {
             Ok(true) => {
+                crate::structure::logger::warn(format!(
+                    "url: blocked by Google Safe Browsing: {url} (requested by {})",
+                    ctx.sender
+                ));
                 ctx.whisper("Link blocked.");
                 return Ok(());
             }
