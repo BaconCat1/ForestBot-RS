@@ -435,79 +435,75 @@ pub async fn launch_settle_task(
 ) {
     sleep_until(bet.close_time).await;
 
+    // Same claim-from-map guard every other settle task uses -- brings launch.rs
+    // in line with the rest instead of being the one file without it.
+    let claimed = {
+        let mut bets = bets_map.lock().expect("launch_bets lock");
+        bets.get_mut(&bet.player)
+            .map(|v| {
+                let pos = v.iter().position(|b| b.id == bet.id);
+                pos.map(|i| { v.remove(i); }).is_some()
+            })
+            .unwrap_or(false)
+    };
+    if !claimed { return; }
+
     let (max_settle_wait_ms, poll_interval_ms, timeout_ms) = {
         let runtime = deps.runtime.read().expect("runtime lock");
         (runtime.launch_max_settle_wait_ms, runtime.launch_poll_interval_ms, runtime.launch_timeout_ms)
     };
-    let give_up = now_unix() + max_settle_wait_ms / 1000;
-
-    loop {
-        if now_unix() > give_up { break; }
-
-        let info = fetch_single_by_full_id(&http, &bet.launch_id, timeout_ms).await;
-        if let Some(ref l) = info {
-            let finished = matches!(l.status_id, STATUS_SUCCESS | STATUS_FAILURE | STATUS_PARTIAL_FAILURE);
-            if finished {
-                settle(&deps, &bets_map, &whisper_cmd, &bet, l).await;
-                return;
+    let deadline = now_unix() + max_settle_wait_ms / 1000;
+    let info = super::poll_until(deadline, poll_interval_ms, || async {
+        match fetch_single_by_full_id(&http, &bet.launch_id, timeout_ms).await {
+            Some(l) if matches!(l.status_id, STATUS_SUCCESS | STATUS_FAILURE | STATUS_PARTIAL_FAILURE) => {
+                super::PollOutcome::Resolved(l)
             }
+            _ => super::PollOutcome::Retry,
         }
+    }).await;
 
-        tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
-    }
-
-    // Give-up path: refund
-    remove_bet(&bets_map, &bet);
-    deps.api.casino_bet_delete::<LaunchBet>(bet.id.unwrap()).await;
-    let msg = super::settle_refund(&deps.api, &bet.player, bet.stake, "ROCKET",
-        &format!("{} {}", bet.launch_name, bet.side.display()),
-        "no final status after 7 days").await;
-    deps.deliver(&whisper_cmd, &bet.player, msg).await;
-}
-
-async fn settle(deps: &SettleDeps, bets_map: &LaunchBetsMap, whisper_cmd: &str, bet: &LaunchBet, l: &LaunchInfo) {
-    remove_bet(bets_map, bet);
     deps.api.casino_bet_delete::<LaunchBet>(bet.id.unwrap()).await;
 
-    let won = determine_launch_win(bet.side, l.status_id, l.net, bet.window_start);
-
-    let msg = if won {
-        let payout = calc_payout(bet.stake, bet.price);
-        match deps.api.casino_win(&bet.player, payout).await {
-            Err(e) => {
-                eprintln!("[Launch settle] payout failed for {}: {e:?}", bet.player);
+    let msg = match info {
+        Some(l) => {
+            let won = determine_launch_win(bet.side, l.status_id, l.net, bet.window_start);
+            if won {
+                let payout = calc_payout(bet.stake, bet.price);
+                match deps.api.casino_win(&bet.player, payout).await {
+                    Err(e) => {
+                        eprintln!("[Launch settle] payout failed for {}: {e:?}", bet.player);
+                        format!(
+                            "[ROCKET] {} {} — {}. Win detected but payout failed — contact an admin.",
+                            bet.launch_name, bet.side.display(), l.status_name
+                        )
+                    }
+                    Ok(win) => {
+                        let alimony_note = format_alimony(win.alimony_paid);
+                        format!(
+                            "[ROCKET] {} {} — {}. WIN +{}{alimony_note} ({} @ {:.2}×).",
+                            bet.launch_name, bet.side.display(), l.status_name,
+                            chips_str(payout - bet.stake),
+                            chips_str(bet.stake),
+                            1.0 / bet.price,
+                        )
+                    }
+                }
+            } else {
+                let _ = deps.api.casino_jackpot_rake(bet.stake).await;
                 format!(
-                    "[ROCKET] {} {} — {}. Win detected but payout failed — contact an admin.",
-                    bet.launch_name, bet.side.display(), l.status_name
-                )
-            }
-            Ok(win) => {
-                let alimony_note = format_alimony(win.alimony_paid);
-                format!(
-                    "[ROCKET] {} {} — {}. WIN +{}{alimony_note} ({} @ {:.2}×).",
+                    "[ROCKET] {} {} — {}. LOSS -{} (to jackpot).",
                     bet.launch_name, bet.side.display(), l.status_name,
-                    chips_str(payout - bet.stake),
                     chips_str(bet.stake),
-                    1.0 / bet.price,
                 )
             }
         }
-    } else {
-        let _ = deps.api.casino_jackpot_rake(bet.stake).await;
-        format!(
-            "[ROCKET] {} {} — {}. LOSS -{} (to jackpot).",
-            bet.launch_name, bet.side.display(), l.status_name,
-            chips_str(bet.stake),
-        )
+        None => {
+            super::settle_refund(&deps.api, &bet.player, bet.stake, "ROCKET",
+                &format!("{} {}", bet.launch_name, bet.side.display()),
+                "no final status after 7 days").await
+        }
     };
 
-    deps.deliver(whisper_cmd, &bet.player, msg).await;
-}
-
-fn remove_bet(bets_map: &LaunchBetsMap, bet: &LaunchBet) {
-    let mut bets = bets_map.lock().unwrap();
-    if let Some(v) = bets.get_mut(&bet.player) {
-        v.retain(|b| b.id != bet.id);
-    }
+    deps.deliver(&whisper_cmd, &bet.player, msg).await;
 }
 

@@ -144,6 +144,8 @@ async fn reload_runtime(
         train_bet_duration_ms: app_state.config.train_bet_duration_ms,
         train_poll_interval_ms: app_state.config.train_poll_interval_ms,
         train_max_poll_ms: app_state.config.train_max_poll_ms,
+        train_gtfs_poll_interval_ms: app_state.config.train_gtfs_poll_interval_ms,
+        train_gtfs_max_poll_ms: app_state.config.train_gtfs_max_poll_ms,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;

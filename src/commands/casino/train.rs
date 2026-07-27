@@ -628,16 +628,13 @@ async fn legacy_settle(deps: SettleDeps, bets_map: TrainBetsMap, whisper_cmd: St
         (runtime.train_max_poll_ms, runtime.train_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
-    let outcome: Option<bool> = loop {
+    let outcome = super::poll_until(deadline, poll_interval_ms, || async {
         match poll_train_legacy(&client, &bet.country, &bet.train_code).await {
-            PollOutcome::Found(currently_delayed) => break Some(currently_delayed),
-            PollOutcome::Gone => break None,
-            PollOutcome::ApiError => {
-                if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms)).await;
-            }
+            PollOutcome::Found(currently_delayed) => super::PollOutcome::Resolved(currently_delayed),
+            PollOutcome::Gone => super::PollOutcome::GiveUp,
+            PollOutcome::ApiError => super::PollOutcome::Retry,
         }
-    };
+    }).await;
 
     let _ = started_at; // suppress unused warning
     deps.api.casino_bet_delete::<TrainBet>(bet.id).await;
@@ -664,22 +661,21 @@ async fn gtfs_settle(deps: SettleDeps, bets_map: TrainBetsMap, whisper_cmd: Stri
         return;
     }
 
-    // Poll up to 10 minutes to catch the trip near its last stop.
-    let deadline = now_unix() + 600;
+    // Poll to catch the trip near its last stop (interval/max poll now configurable
+    // via train_gtfs_poll_interval_ms/train_gtfs_max_poll_ms -- were hardcoded 30s/10min).
+    let (gtfs_poll_interval_ms, gtfs_max_poll_ms) = {
+        let runtime = deps.runtime.read().expect("runtime lock");
+        (runtime.train_gtfs_poll_interval_ms, runtime.train_gtfs_max_poll_ms)
+    };
+    let deadline = now_unix() + gtfs_max_poll_ms / 1000;
     let client = reqwest::Client::new();
-    let outcome: Option<bool> = loop {
+    let outcome = super::poll_until(deadline, gtfs_poll_interval_ms, || async {
         let trips = gtfs_rt::fetch_trip_updates(&client, tu_url).await;
         match trips.and_then(|ts| gtfs_rt::find_trip_by_id(&ts, &bet.train_code)) {
-            Some(snap) => {
-                let delayed = snap.last_delay_secs > DELAY_THRESHOLD_SECS;
-                break Some(delayed);
-            }
-            None => {
-                if now_unix() >= deadline { break None; }
-                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-            }
+            Some(snap) => super::PollOutcome::Resolved(snap.last_delay_secs > DELAY_THRESHOLD_SECS),
+            None => super::PollOutcome::Retry,
         }
-    };
+    }).await;
 
     deps.api.casino_bet_delete::<TrainBet>(bet.id).await;
     let msg = apply_outcome(&deps, &bet, outcome).await;

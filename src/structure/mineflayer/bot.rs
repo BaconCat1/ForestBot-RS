@@ -146,6 +146,8 @@ pub struct RuntimeConfig {
     pub train_bet_duration_ms: u64,
     pub train_poll_interval_ms: u64,
     pub train_max_poll_ms: u64,
+    pub train_gtfs_poll_interval_ms: u64,
+    pub train_gtfs_max_poll_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -273,6 +275,8 @@ pub struct Bot {
     pub train_bet_duration_ms: u64,
     pub train_poll_interval_ms: u64,
     pub train_max_poll_ms: u64,
+    pub train_gtfs_poll_interval_ms: u64,
+    pub train_gtfs_max_poll_ms: u64,
 }
 
 impl Bot {
@@ -394,6 +398,8 @@ impl Bot {
             train_bet_duration_ms: state.config.train_bet_duration_ms,
             train_poll_interval_ms: state.config.train_poll_interval_ms,
             train_max_poll_ms: state.config.train_max_poll_ms,
+            train_gtfs_poll_interval_ms: state.config.train_gtfs_poll_interval_ms,
+            train_gtfs_max_poll_ms: state.config.train_gtfs_max_poll_ms,
         }
     }
 
@@ -522,6 +528,8 @@ impl Bot {
                 train_bet_duration_ms: self.train_bet_duration_ms,
                 train_poll_interval_ms: self.train_poll_interval_ms,
                 train_max_poll_ms: self.train_max_poll_ms,
+                train_gtfs_poll_interval_ms: self.train_gtfs_poll_interval_ms,
+                train_gtfs_max_poll_ms: self.train_gtfs_max_poll_ms,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -1406,6 +1414,8 @@ impl Default for AzaleaState {
                 train_bet_duration_ms: 7200000,
                 train_poll_interval_ms: 120000,
                 train_max_poll_ms: 3600000,
+                train_gtfs_poll_interval_ms: 30000,
+                train_gtfs_max_poll_ms: 600000,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),

@@ -1239,5 +1239,7 @@
   "train_bet_duration_ms": 7200000,
   "train_poll_interval_ms": 120000,
   "train_max_poll_ms": 3600000,
+  "train_gtfs_poll_interval_ms": 30000,
+  "train_gtfs_max_poll_ms": 600000,
   "casino_deck_count": 6
 }

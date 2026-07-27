@@ -260,6 +260,12 @@ fn default_train_poll_interval_ms() -> u64 {
 fn default_train_max_poll_ms() -> u64 {
     3_600_000
 }
+fn default_train_gtfs_poll_interval_ms() -> u64 {
+    30_000
+}
+fn default_train_gtfs_max_poll_ms() -> u64 {
+    600_000
+}
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ApiKeys {
@@ -635,12 +641,15 @@ pub struct Config {
     pub train_poll_interval_ms: u64,
     #[serde(default = "default_train_max_poll_ms")]
     pub train_max_poll_ms: u64,
+    #[serde(default = "default_train_gtfs_poll_interval_ms")]
+    pub train_gtfs_poll_interval_ms: u64,
+    #[serde(default = "default_train_gtfs_max_poll_ms")]
+    pub train_gtfs_max_poll_ms: u64,
     // Decks per shoe for blackjack/baccarat's shared table shoe (src/commands/casino/shoe.rs).
     // Real casinos use 6-8 deck shoes specifically to blunt card counting; 6 matches the most
     // common real-world convention. Poker/hilo build their own fresh single deck per hand/round
-    // instead and aren't affected by this setting. NOT hot-reloadable: the shoe is built once
-    // at bot startup (AzaleaState construction), so a `!reload` alone won't pick up a change --
-    // needs a full restart.
+    // instead and aren't affected by this setting. Hot-reloadable via `!reload` (shoe.rs's
+    // set_deck_count() forces a reshuffle at the new size on the next deal).
     #[serde(default = "default_casino_deck_count")]
     pub casino_deck_count: u32,
 }
