@@ -113,6 +113,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~**check**: `drop()` doesn't reliably end a `!Send` value's (MutexGuard, ThreadRng, etc.) liveness for the async `Send` check — has caused 2 compile bugs the same way (`!day`/`!night` fix, board-whisper-delay feature). Codebase needs a scan for other `drop()`-before-`.await` sites that happen to still compile, to block-scope them before an unrelated future edit trips the same error.~~ // scanned 2026-07-19, all 8 real `drop(` sites checked individually, none followed by an `.await` in the same open scope — clean, nothing to fix
 * ✅ ~~scan through code base for any additional candidates for data driven gating in `config.json`~~ // 28 hardcoded timing/threshold values moved to config.json (bot.rs core timers, per-game confirm windows/animation delays, market cache TTLs, websocket keepalive, url blocklist timeout).
 * ✅ ~~add an exclusion array to `config.json` for stats and quote commands, primarily to exclude the bot from lookups.~~ // built as `json/stat_exclusions.json` (bare UUID array, not `config.json` -- matches the unhot-reloaded `slurcount_list.json` pattern already in `top.rs`, not the AppState/reload.rs config path) + `stat_history::helpers::excluded_usernames()`. Wired into `!top` (all 6 sub-stats), `!oldest`/`!oldheads`, `!noobs`/`!newest`, `!active`, `!rq`/`!randomquote`, `!rqa`/`!randomquoteall`. Ping commands (`!bp`/`!wp`) deliberately excluded per explicit call. Hub endpoints only return usernames not UUIDs in these result rows, so the list is stored as UUIDs (project convention) but resolved to usernames once per call for filtering; `!top`'s Hub-side-limited paths over-fetch by the exclusion count so a real top-5 doesn't shrink to top-4. Quote commands retry (capped at 8 attempts) since Hub picks one random row server-side, no result set to filter.
+* 🆕 audit servers in the db for filler/servers with very little data, maybe exclude them from `!lq` or out right.
 
 
 ## !quote
@@ -213,6 +214,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~!tps, if azalea/minecraft or wtv lets you see server performance, report it via a command~~
 * ✅ ~~!url, don't webpages have some seo text built in by default? if so, leverage that for a text only preview of a url, so you can see what it is without having to leave the game.~~ // ~~working, needs some fall back and further testing~~
 * ⏸️ !poke, add a "poke ai" personality users can talk to (requested by Bacon) // ON HOLD, infra required to support feels like it overly complicates ForestBot, unfinished features stored in `poke-unfinished` branch
+* ⏸ !hallucipedia, pulls a random article from https://halupedia.com/, as well as take user input as args. Format links the bot can follow with an "informal unicode font" and throw errors if the bot tries to access an ungenerated page. Color codes would be nice, don't expect them to work on RV.
 
 ---
 
