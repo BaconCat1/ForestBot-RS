@@ -27,6 +27,8 @@
   "trade": { "success": false, "error": true },
   "trades": { "success": false, "error": true },
   "tradestats": { "success": false, "error": true },
+  "link": { "success": false, "error": false },
+  "unlink": { "success": false, "error": false },
   "scammers": { "success": false, "error": true },
   "execute": { "success": false, "error": true },
   "setpreset": { "success": false, "error": true },

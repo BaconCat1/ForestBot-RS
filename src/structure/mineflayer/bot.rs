@@ -2331,17 +2331,32 @@ async fn filter_outgoing_message(state: &AzaleaState, message: &str) -> String {
         .clone();
     let is_slash_command = message.trim_start().starts_with('/');
 
+    // A whisper's `/msg {target} {body}` is never one blob of user content -- {target}
+    // is a real player's MC username, resolved from the player list/join event, never
+    // free text. Splicing it into the censored span lets the profanity trie's fuzzy/
+    // evasion-tolerant matching span the boundary between username and body (e.g. a
+    // username ending in "d" + a reply starting with "Link" fuzzy-matched rustrict's
+    // own builtin "dyke"), masking part of the username and corrupting the /msg target
+    // so the whisper silently never reaches the player. Only the body is in scope for
+    // censoring; the target is carved out before censoring runs, for every command,
+    // not just the ones migrated to whisper_success/whisper_error.
+    let (whisper_prefix, censor_target) =
+        match split_whisper_target(message, &runtime.whisper_command) {
+            Some((prefix, body)) => (prefix, body),
+            None => (String::new(), message.to_owned()),
+        };
+
     let trie = *state.profanity_trie.read().expect("profanity_trie read");
     let threshold = profanity_filter::censor_threshold_from_config(&runtime.censor_threshold);
     let regular_censored = match trie {
-        Some(trie) => profanity_filter::censor_message(trie, message, threshold),
-        None => message.to_owned(),
+        Some(trie) => profanity_filter::censor_message(trie, &censor_target, threshold),
+        None => censor_target.clone(),
     };
 
     let censored = if is_slash_command || !runtime.smart_censoring {
         regular_censored
     } else {
-        maybe_smart_censor_message(message, &runtime)
+        maybe_smart_censor_message(&censor_target, &runtime)
             .await
             .map(|smart_censored| match trie {
                 Some(trie) => profanity_filter::censor_message(trie, &smart_censored, threshold),
@@ -2349,12 +2364,24 @@ async fn filter_outgoing_message(state: &AzaleaState, message: &str) -> String {
             })
             .unwrap_or(regular_censored)
     };
+    let censored = format!("{whisper_prefix}{censored}");
 
     if runtime.use_custom_chat_prefix && !is_slash_command {
         format!("{} {censored}", runtime.custom_chat_prefix)
     } else {
         censored
     }
+}
+
+/// Splits a `/{whisper_command} {target} {body}` message into an uncensorable
+/// `"/{whisper_command} {target} "` prefix and the remaining `body`. Returns `None`
+/// for anything else (public chat, other slash commands, or a whisper with no body),
+/// leaving `message` censored as a whole exactly as before.
+fn split_whisper_target(message: &str, whisper_command: &str) -> Option<(String, String)> {
+    let marker = format!("/{whisper_command} ");
+    let rest = message.strip_prefix(&marker)?;
+    let (target, body) = rest.split_once(' ')?;
+    Some((format!("{marker}{target} "), body.to_owned()))
 }
 
 async fn maybe_smart_censor_message(message: &str, runtime: &RuntimeConfig) -> Option<String> {

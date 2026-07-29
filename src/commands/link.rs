@@ -14,7 +14,7 @@ pub const UNLINK_COMMAND: CommandDefinition = CommandDefinition {
 pub fn execute_unlink(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         if !ctx.args.first().map(|s| s.eq_ignore_ascii_case("UNLINK")).unwrap_or(false) {
-            ctx.whisper(&format!("Type {}unlink UNLINK to confirm removing your Discord account link.", ctx.runtime.prefix));
+            ctx.whisper_success(&format!("Type {}unlink UNLINK to confirm removing your Discord account link.", ctx.runtime.prefix));
             return Ok(());
         }
 
@@ -27,16 +27,16 @@ pub fn execute_unlink(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             None => match ctx.state.api.convert_username_to_uuid(ctx.sender).await {
                 Some(u) => u,
                 None => {
-                    ctx.whisper("Could not resolve your UUID.");
+                    ctx.whisper_error("Could not resolve your UUID.");
                     return Ok(());
                 }
             },
         };
 
         if ctx.state.api.tradebot_unlink(&sender_uuid).await {
-            ctx.whisper("Your Discord account has been unlinked.");
+            ctx.whisper_success("Your Discord account has been unlinked.");
         } else {
-            ctx.whisper("No linked Discord account found.");
+            ctx.whisper_error("No linked Discord account found.");
         }
 
         Ok(())
@@ -61,7 +61,7 @@ pub fn execute_link(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             None => match ctx.state.api.convert_username_to_uuid(ctx.sender).await {
                 Some(u) => u,
                 None => {
-                    ctx.whisper("Could not resolve your UUID.");
+                    ctx.whisper_error("Could not resolve your UUID.");
                     return Ok(());
                 }
             },
@@ -70,11 +70,11 @@ pub fn execute_link(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let code = gen_link_code();
 
         if ctx.state.api.tradebot_request_link_code(&sender_uuid, &code).await {
-            ctx.whisper(format!(
+            ctx.whisper_success(format!(
                 "Link code: {code}  (5 min). In Discord: /link {code}"
             ));
         } else {
-            ctx.whisper("Could not generate link code. Try again later.");
+            ctx.whisper_error("Could not generate link code. Try again later.");
         }
 
         Ok(())
