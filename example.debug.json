@@ -5,6 +5,7 @@
     "calc": true,
     "content_flag": true,
     "chat_parse": true,
+    "chat_packet_dump": true,
     "url": true,
     "queue": true,
     "packets": true

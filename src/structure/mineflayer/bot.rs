@@ -3657,6 +3657,13 @@ fn is_server_presence_message(content: &str) -> bool {
 }
 
 fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<String>, String) {
+    // Decoded ChatPacket variant + fields (System/Player/Disguised, incl. the real
+    // sender UUID when Player) -- separate lever from "packets" (raw undecoded bytes,
+    // every packet type) and from "chat_parse" (text-only) so this can be toggled
+    // independently. Needed to tell a real signed player chat packet apart from a
+    // server-composed one (e.g. an official chat-bridge relay) impersonating a username.
+    logger::debug_cat("chat_packet_dump", format!("[CHAT_PACKET] {message:?}"));
+
     let full_message = message.message().to_string();
     logger::debug_cat("chat_parse", format!("[CHAT_PARSE] full={full_message:?}"));
 
