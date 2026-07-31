@@ -7,8 +7,6 @@ pub mod ai;
 pub mod alias;
 pub mod calc;
 pub mod daynight;
-pub mod greeting;
-pub mod askgod;
 pub mod crouch;
 pub mod discord;
 pub mod drop;
@@ -18,7 +16,6 @@ pub mod hardware;
 pub mod health;
 pub mod help;
 pub mod link;
-pub mod marry;
 pub mod report;
 pub mod trade;
 pub mod joins;
@@ -26,26 +23,15 @@ pub mod lastseen;
 pub mod msgcount;
 pub mod ping;
 pub mod playtime;
-pub mod quote;
 pub mod reload;
 pub mod slurcount;
 pub mod stat_history;
 pub mod utils;
-pub mod news;
 pub mod translate;
 pub mod urbandictionary;
 pub mod server_summary;
-pub mod trivia;
-pub mod weather;
 pub mod wiki;
 pub mod pearl;
-pub mod casino;
-pub mod battleship;
-pub mod checkers;
-pub mod reversi;
-pub mod market;
-pub mod wordle;
-pub mod roast;
 pub mod url;
 pub mod tps;
 pub mod poll;
@@ -146,23 +132,6 @@ impl CommandContext<'_> {
             .unwrap_or(true)
     }
 
-    /// Looks up json/bet_limits.json for `game`'s min/max bet. Falls back to the
-    /// caller-supplied defaults if `game` is missing from the file -- shouldn't
-    /// normally happen since bet_limits.json is seeded with every game, but keeps
-    /// behavior sane (the game's original hardcoded value) rather than failing open
-    /// to an unlimited bet.
-    pub fn bet_limit(
-        &self,
-        game: &str,
-        default_min: i64,
-        default_max: Option<i64>,
-    ) -> crate::config::BetLimit {
-        self.runtime
-            .bet_limits
-            .get(game)
-            .copied()
-            .unwrap_or(crate::config::BetLimit { min: default_min, max: default_max })
-    }
 
     /// Resolves the sender's real UUID, whispering an error if resolution fails.
     /// `casino_adjust`/`casino_win` are keyed by UUID (`casino_balance.player_uuid`) --
@@ -176,23 +145,6 @@ impl CommandContext<'_> {
             None => {
                 self.whisper_success("Could not resolve your UUID.");
                 None
-            }
-        }
-    }
-
-    /// Sends a multi-line game board (battleship/checkers/chess/connect four/mines/
-    /// reversi/wordle) one whisper per line, paced by `board_whisper_delay_ms`.
-    /// Unpaced bursts trip RV's anti-spam filter and get the bot kicked -- delay
-    /// is skipped after the last line since nothing follows it.
-    pub async fn whisper_board(&self, lines: impl IntoIterator<Item = impl AsRef<str>>) {
-        let mut lines = lines.into_iter().peekable();
-        while let Some(line) = lines.next() {
-            self.whisper_success(line);
-            if lines.peek().is_some() {
-                tokio::time::sleep(std::time::Duration::from_millis(
-                    self.runtime.board_whisper_delay_ms,
-                ))
-                .await;
             }
         }
     }
@@ -373,7 +325,6 @@ pub fn registry() -> &'static [CommandDefinition] {
         msgcount::COMMAND,
         playtime::COMMAND,
         joins::COMMAND,
-        quote::COMMAND,
         stat_history::KD_COMMAND,
         stat_history::DEATHS_COMMAND,
         stat_history::JOINDATE_COMMAND,
@@ -398,8 +349,6 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::OFFLINE_MSG_COMMAND,
         stat_history::REMIND_COMMAND,
         stat_history::WHOIS_COMMAND,
-        stat_history::RANDOM_QUOTE_COMMAND,
-        stat_history::LIST_QUOTE_SERVERS_COMMAND,
         stat_history::ACTIVE_COMMAND,
         stat_history::ADD_FAQ_COMMAND,
         stat_history::DELETE_FAQ_COMMAND,
@@ -425,9 +374,7 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::OLDNAMES_COMMAND,
         stat_history::OWNS_FAQ_COMMAND,
         stat_history::PROFILE_COMMAND,
-        stat_history::RANDOM_QUOTE_ALL_COMMAND,
         stat_history::REALNAME_COMMAND,
-        stat_history::SET_PRESET_COMMAND,
         stat_history::SHOUT_COMMAND,
         stat_history::SLEEP_COMMAND,
         stat_history::SERVERS_COMMAND,
@@ -438,12 +385,6 @@ pub fn registry() -> &'static [CommandDefinition] {
         stat_history::WHITELIST_COMMAND,
         stat_history::WORD_WHITELIST_COMMAND,
         stat_history::WORST_PING_COMMAND,
-        askgod::COMMAND,
-        askgod::LISTGODS_COMMAND,
-        askgod::SEARCHGOD_COMMAND,
-        askgod::GODVERSE_COMMAND,
-        askgod::GODSTATS_COMMAND,
-        askgod::GODFIGHT_COMMAND,
         link::LINK_COMMAND,
         link::UNLINK_COMMAND,
         report::REPORT_COMMAND,
@@ -451,63 +392,16 @@ pub fn registry() -> &'static [CommandDefinition] {
         trade::TRADES_COMMAND,
         trade::TRADESTATS_COMMAND,
         trade::SCAMMERS_COMMAND,
-        marry::MARRY_COMMAND,
-        marry::DIVORCE_COMMAND,
-        marry::SPOUSE_COMMAND,
         server_summary::SERVER_SUMMARY_COMMAND,
         server_summary::COMPARE_COMMAND,
         wiki::WIKI_COMMAND,
         wiki::MINEWIKI_COMMAND,
         calc::COMMAND,
-        greeting::COMMAND,
         daynight::DAY_COMMAND,
         daynight::NIGHT_COMMAND,
-        news::COMMAND,
         translate::COMMAND,
-        weather::COMMAND,
         urbandictionary::COMMAND,
-        trivia::TRIVIA_COMMAND,
-        trivia::ANSWER_COMMAND,
         pearl::COMMAND,
-        casino::ADDCHIPS_COMMAND,
-        casino::FAUCET_COMMAND,
-        casino::GIVE_COMMAND,
-        casino::WALLET_COMMAND,
-        casino::JACKPOT_COMMAND,
-        casino::LOTTO_COMMAND,
-        casino::DRAW_COMMAND,
-        casino::roulette::COMMAND,
-        casino::scratch::COMMAND,
-        casino::craps::COMMAND,
-        casino::sic_bo::COMMAND,
-        casino::baccarat::COMMAND,
-        casino::faa_airport::COMMAND,
-        casino::kalshi::COMMAND,
-        casino::nasa_space_weather::COMMAND,
-        casino::noaa_flooding::COMMAND,
-        casino::train::COMMAND,
-        casino::seismic::QUAKE_COMMAND,
-        casino::seismic::VOLCANO_COMMAND,
-        casino::blackjack::COMMAND,
-        casino::poker::COMMAND,
-        casino::chess::COMMAND,
-        casino::connect_four::COMMAND,
-        casino::hilo::COMMAND,
-        casino::slots::COMMAND,
-        casino::sports::COMMAND,
-        market::COMMAND,
-        market::PORTFOLIO_COMMAND,
-        casino::duel::COMMAND,
-        wordle::COMMAND,
-        roast::COMMAND,
-        battleship::COMMAND,
-        casino::mines::COMMAND,
-        casino::aqi::COMMAND,
-        casino::launch::COMMAND,
-        casino::gas::COMMAND,
-        casino::bets::COMMAND,
-        checkers::COMMAND,
-        reversi::COMMAND,
         url::COMMAND,
         tps::COMMAND,
         afk::COMMAND,

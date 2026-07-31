@@ -78,7 +78,6 @@ pub struct RuntimeConfig {
     pub smart_censoring: bool,
     pub censor_threshold: String,
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
-    pub bet_limits: HashMap<String, crate::config::BetLimit>,
     pub together_api_key: String,
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
@@ -86,15 +85,9 @@ pub struct RuntimeConfig {
     pub google_cloud_translate_key: String,
     pub google_scrape_enabled: bool,
     pub google_scrape_min_interval_ms: u64,
-    pub sharpapi_key: String,
-    pub nasa_api_key: String,
-    pub airnow_api_key: String,
-    pub gasbuddy_solver_url: String,
-    pub gasbuddy_csrf_readonly: bool,
     pub google_safe_browsing_key: String,
     pub queue_probe_command: String,
     pub queue_retry_delay_ms: u64,
-    pub board_whisper_delay_ms: u64,
     pub announce_min_interval_ms: u64,
     pub announce_max_interval_ms: u64,
     pub duplicate_message_window_ms: u64,
@@ -110,46 +103,10 @@ pub struct RuntimeConfig {
     pub crouch_max_hold_ms: u64,
     pub crouch_toggle_delay_ms: u64,
     pub poll_duration_ms: u64,
-    pub duel_confirm_window_ms: u64,
-    pub duel_timeout_ms: u64,
-    pub marry_confirm_window_ms: u64,
     pub trade_propose_cooldown_ms: u64,
     pub trade_reject_penalty_ms: u64,
-    pub roast_timeout_ms: u64,
     pub scratch_animation_delay_ms: u64,
-    pub slots_animation_delay_ms: u64,
     pub twerk_flash_delay_ms: u64,
-    pub aqi_settle_window_ms: u64,
-    pub aqi_timeout_ms: u64,
-    pub gas_settle_window_ms: u64,
-    pub gas_timeout_ms: u64,
-    pub gas_cache_ttl_ms: u64,
-    pub kalshi_cache_ttl_ms: u64,
-    pub kalshi_poll_interval_ms: u64,
-    pub kalshi_max_poll_ms: u64,
-    pub faa_airport_bet_duration_ms: u64,
-    pub faa_airport_poll_interval_ms: u64,
-    pub faa_airport_max_poll_ms: u64,
-    pub noaa_flooding_bet_duration_ms: u64,
-    pub noaa_flooding_poll_interval_ms: u64,
-    pub noaa_flooding_max_poll_ms: u64,
-    pub launch_lock_before_ms: u64,
-    pub launch_poll_interval_ms: u64,
-    pub launch_max_settle_wait_ms: u64,
-    pub launch_timeout_ms: u64,
-    pub launch_cache_ttl_ms: u64,
-    pub nasa_space_weather_poll_interval_ms: u64,
-    pub nasa_space_weather_max_poll_ms: u64,
-    pub nasa_space_weather_settle_buffer_ms: u64,
-    pub nasa_space_weather_odds_cache_ttl_ms: u64,
-    pub sports_cache_ttl_ms: u64,
-    pub sports_poll_interval_ms: u64,
-    pub sports_max_poll_ms: u64,
-    pub train_bet_duration_ms: u64,
-    pub train_poll_interval_ms: u64,
-    pub train_max_poll_ms: u64,
-    pub train_gtfs_poll_interval_ms: u64,
-    pub train_gtfs_max_poll_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -187,8 +144,6 @@ pub struct Bot {
     pub smart_censoring: bool,
     pub censor_threshold: String,
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
-    pub bet_limits: HashMap<String, crate::config::BetLimit>,
-    pub casino_deck_count: u32,
     pub together_api_key: String,
     pub wolfram_app_id: String,
     pub azure_translator_key: String,
@@ -196,12 +151,6 @@ pub struct Bot {
     pub google_cloud_translate_key: String,
     pub google_scrape_enabled: bool,
     pub google_scrape_min_interval_ms: u64,
-    pub sharpapi_key: String,
-    pub nasa_api_key: String,
-    pub airnow_api_key: String,
-    pub coingecko_api_key: String,
-    pub gasbuddy_solver_url: String,
-    pub gasbuddy_csrf_readonly: bool,
     pub google_safe_browsing_key: String,
     pub url_blocklist_sources: Vec<String>,
     pub url_whitelist_file: String,
@@ -220,7 +169,6 @@ pub struct Bot {
     pub api_keys: crate::config::ApiKeys,
     pub queue_probe_command: String,
     pub queue_retry_delay_ms: u64,
-    pub board_whisper_delay_ms: u64,
     pub announce_min_interval_ms: u64,
     pub announce_max_interval_ms: u64,
     pub duplicate_message_window_ms: u64,
@@ -236,51 +184,11 @@ pub struct Bot {
     pub crouch_max_hold_ms: u64,
     pub crouch_toggle_delay_ms: u64,
     pub poll_duration_ms: u64,
-    pub duel_confirm_window_ms: u64,
-    pub duel_timeout_ms: u64,
-    pub marry_confirm_window_ms: u64,
     pub trade_propose_cooldown_ms: u64,
     pub trade_reject_penalty_ms: u64,
-    pub roast_timeout_ms: u64,
     pub scratch_animation_delay_ms: u64,
-    pub slots_animation_delay_ms: u64,
     pub twerk_flash_delay_ms: u64,
-    pub market_quote_ttl_ms: u64,
-    pub market_history_ttl_ms: u64,
-    pub market_search_ttl_ms: u64,
-    pub market_api_timeout_ms: u64,
     pub url_blocklist_timeout_ms: u64,
-    pub aqi_settle_window_ms: u64,
-    pub aqi_timeout_ms: u64,
-    pub gas_settle_window_ms: u64,
-    pub gas_timeout_ms: u64,
-    pub gas_cache_ttl_ms: u64,
-    pub kalshi_cache_ttl_ms: u64,
-    pub kalshi_poll_interval_ms: u64,
-    pub kalshi_max_poll_ms: u64,
-    pub faa_airport_bet_duration_ms: u64,
-    pub faa_airport_poll_interval_ms: u64,
-    pub faa_airport_max_poll_ms: u64,
-    pub noaa_flooding_bet_duration_ms: u64,
-    pub noaa_flooding_poll_interval_ms: u64,
-    pub noaa_flooding_max_poll_ms: u64,
-    pub launch_lock_before_ms: u64,
-    pub launch_poll_interval_ms: u64,
-    pub launch_max_settle_wait_ms: u64,
-    pub launch_timeout_ms: u64,
-    pub launch_cache_ttl_ms: u64,
-    pub nasa_space_weather_poll_interval_ms: u64,
-    pub nasa_space_weather_max_poll_ms: u64,
-    pub nasa_space_weather_settle_buffer_ms: u64,
-    pub nasa_space_weather_odds_cache_ttl_ms: u64,
-    pub sports_cache_ttl_ms: u64,
-    pub sports_poll_interval_ms: u64,
-    pub sports_max_poll_ms: u64,
-    pub train_bet_duration_ms: u64,
-    pub train_poll_interval_ms: u64,
-    pub train_max_poll_ms: u64,
-    pub train_gtfs_poll_interval_ms: u64,
-    pub train_gtfs_max_poll_ms: u64,
 }
 
 impl Bot {
@@ -313,8 +221,6 @@ impl Bot {
             smart_censoring: state.config.smart_censoring,
             censor_threshold: state.config.censor_threshold.clone(),
             command_censorship: state.command_censorship.clone(),
-            bet_limits: state.bet_limits.clone(),
-            casino_deck_count: state.config.casino_deck_count,
             together_api_key: state.config.api_keys.together.clone(),
             wolfram_app_id: state.config.api_keys.wolfram.clone(),
             azure_translator_key: state.config.api_keys.azure_key.clone(),
@@ -322,12 +228,6 @@ impl Bot {
             google_cloud_translate_key: state.config.api_keys.google_cloud_translate.clone(),
             google_scrape_enabled: state.config.google_scrape_enabled,
             google_scrape_min_interval_ms: state.config.google_scrape_min_interval_ms,
-            sharpapi_key: state.config.api_keys.sharpapi.clone(),
-            nasa_api_key: state.config.api_keys.nasa.clone(),
-            airnow_api_key: state.config.api_keys.airnow.clone(),
-            coingecko_api_key: state.config.api_keys.coingecko.clone(),
-            gasbuddy_solver_url: state.config.api_keys.gasbuddy_solver_url.clone(),
-            gasbuddy_csrf_readonly: state.config.api_keys.gasbuddy_csrf_readonly,
             google_safe_browsing_key: state.config.api_keys.google_safe_browsing.clone(),
             url_blocklist_sources: state.config.url_blocklist_sources.clone(),
             url_whitelist_file: state.config.url_whitelist_file.clone(),
@@ -345,7 +245,6 @@ impl Bot {
             api_keys: state.config.api_keys.clone(),
             queue_probe_command: state.config.queue_probe_command.clone(),
             queue_retry_delay_ms: state.config.queue_retry_delay_ms,
-            board_whisper_delay_ms: state.config.board_whisper_delay_ms,
             announce_min_interval_ms: state.config.announce_min_interval_ms,
             announce_max_interval_ms: state.config.announce_max_interval_ms,
             duplicate_message_window_ms: state.config.duplicate_message_window_ms,
@@ -361,51 +260,11 @@ impl Bot {
             crouch_max_hold_ms: state.config.crouch_max_hold_ms,
             crouch_toggle_delay_ms: state.config.crouch_toggle_delay_ms,
             poll_duration_ms: state.config.poll_duration_ms,
-            duel_confirm_window_ms: state.config.duel_confirm_window_ms,
-            duel_timeout_ms: state.config.duel_timeout_ms,
-            marry_confirm_window_ms: state.config.marry_confirm_window_ms,
             trade_propose_cooldown_ms: state.config.trade_propose_cooldown_ms,
             trade_reject_penalty_ms: state.config.trade_reject_penalty_ms,
-            roast_timeout_ms: state.config.roast_timeout_ms,
             scratch_animation_delay_ms: state.config.scratch_animation_delay_ms,
-            slots_animation_delay_ms: state.config.slots_animation_delay_ms,
             twerk_flash_delay_ms: state.config.twerk_flash_delay_ms,
-            market_quote_ttl_ms: state.config.market_quote_ttl_ms,
-            market_history_ttl_ms: state.config.market_history_ttl_ms,
-            market_search_ttl_ms: state.config.market_search_ttl_ms,
-            market_api_timeout_ms: state.config.market_api_timeout_ms,
             url_blocklist_timeout_ms: state.config.url_blocklist_timeout_ms,
-            aqi_settle_window_ms: state.config.aqi_settle_window_ms,
-            aqi_timeout_ms: state.config.aqi_timeout_ms,
-            gas_settle_window_ms: state.config.gas_settle_window_ms,
-            gas_timeout_ms: state.config.gas_timeout_ms,
-            gas_cache_ttl_ms: state.config.gas_cache_ttl_ms,
-            kalshi_cache_ttl_ms: state.config.kalshi_cache_ttl_ms,
-            kalshi_poll_interval_ms: state.config.kalshi_poll_interval_ms,
-            kalshi_max_poll_ms: state.config.kalshi_max_poll_ms,
-            faa_airport_bet_duration_ms: state.config.faa_airport_bet_duration_ms,
-            faa_airport_poll_interval_ms: state.config.faa_airport_poll_interval_ms,
-            faa_airport_max_poll_ms: state.config.faa_airport_max_poll_ms,
-            noaa_flooding_bet_duration_ms: state.config.noaa_flooding_bet_duration_ms,
-            noaa_flooding_poll_interval_ms: state.config.noaa_flooding_poll_interval_ms,
-            noaa_flooding_max_poll_ms: state.config.noaa_flooding_max_poll_ms,
-            launch_lock_before_ms: state.config.launch_lock_before_ms,
-            launch_poll_interval_ms: state.config.launch_poll_interval_ms,
-            launch_max_settle_wait_ms: state.config.launch_max_settle_wait_ms,
-            launch_timeout_ms: state.config.launch_timeout_ms,
-            launch_cache_ttl_ms: state.config.launch_cache_ttl_ms,
-            nasa_space_weather_poll_interval_ms: state.config.nasa_space_weather_poll_interval_ms,
-            nasa_space_weather_max_poll_ms: state.config.nasa_space_weather_max_poll_ms,
-            nasa_space_weather_settle_buffer_ms: state.config.nasa_space_weather_settle_buffer_ms,
-            nasa_space_weather_odds_cache_ttl_ms: state.config.nasa_space_weather_odds_cache_ttl_ms,
-            sports_cache_ttl_ms: state.config.sports_cache_ttl_ms,
-            sports_poll_interval_ms: state.config.sports_poll_interval_ms,
-            sports_max_poll_ms: state.config.sports_max_poll_ms,
-            train_bet_duration_ms: state.config.train_bet_duration_ms,
-            train_poll_interval_ms: state.config.train_poll_interval_ms,
-            train_max_poll_ms: state.config.train_max_poll_ms,
-            train_gtfs_poll_interval_ms: state.config.train_gtfs_poll_interval_ms,
-            train_gtfs_max_poll_ms: state.config.train_gtfs_max_poll_ms,
         }
     }
 
@@ -466,7 +325,6 @@ impl Bot {
                 smart_censoring: self.smart_censoring,
                 censor_threshold: self.censor_threshold.clone(),
                 command_censorship: self.command_censorship.clone(),
-                bet_limits: self.bet_limits.clone(),
                 together_api_key: self.together_api_key.clone(),
                 wolfram_app_id: self.wolfram_app_id.clone(),
                 azure_translator_key: self.azure_translator_key.clone(),
@@ -474,15 +332,9 @@ impl Bot {
                 google_cloud_translate_key: self.google_cloud_translate_key.clone(),
                 google_scrape_enabled: self.google_scrape_enabled,
                 google_scrape_min_interval_ms: self.google_scrape_min_interval_ms,
-                sharpapi_key: self.sharpapi_key.clone(),
-                nasa_api_key: self.nasa_api_key.clone(),
-                airnow_api_key: self.airnow_api_key.clone(),
-                gasbuddy_solver_url: self.gasbuddy_solver_url.clone(),
-                gasbuddy_csrf_readonly: self.gasbuddy_csrf_readonly,
                 google_safe_browsing_key: self.google_safe_browsing_key.clone(),
                 queue_probe_command: self.queue_probe_command.clone(),
                 queue_retry_delay_ms: self.queue_retry_delay_ms,
-                board_whisper_delay_ms: self.board_whisper_delay_ms,
                 announce_min_interval_ms: self.announce_min_interval_ms,
                 announce_max_interval_ms: self.announce_max_interval_ms,
                 duplicate_message_window_ms: self.duplicate_message_window_ms,
@@ -498,46 +350,10 @@ impl Bot {
                 crouch_max_hold_ms: self.crouch_max_hold_ms,
                 crouch_toggle_delay_ms: self.crouch_toggle_delay_ms,
                 poll_duration_ms: self.poll_duration_ms,
-                duel_confirm_window_ms: self.duel_confirm_window_ms,
-                duel_timeout_ms: self.duel_timeout_ms,
-                marry_confirm_window_ms: self.marry_confirm_window_ms,
                 trade_propose_cooldown_ms: self.trade_propose_cooldown_ms,
                 trade_reject_penalty_ms: self.trade_reject_penalty_ms,
-                roast_timeout_ms: self.roast_timeout_ms,
                 scratch_animation_delay_ms: self.scratch_animation_delay_ms,
-                slots_animation_delay_ms: self.slots_animation_delay_ms,
                 twerk_flash_delay_ms: self.twerk_flash_delay_ms,
-                aqi_settle_window_ms: self.aqi_settle_window_ms,
-                aqi_timeout_ms: self.aqi_timeout_ms,
-                gas_settle_window_ms: self.gas_settle_window_ms,
-                gas_timeout_ms: self.gas_timeout_ms,
-                gas_cache_ttl_ms: self.gas_cache_ttl_ms,
-                kalshi_cache_ttl_ms: self.kalshi_cache_ttl_ms,
-                kalshi_poll_interval_ms: self.kalshi_poll_interval_ms,
-                kalshi_max_poll_ms: self.kalshi_max_poll_ms,
-                faa_airport_bet_duration_ms: self.faa_airport_bet_duration_ms,
-                faa_airport_poll_interval_ms: self.faa_airport_poll_interval_ms,
-                faa_airport_max_poll_ms: self.faa_airport_max_poll_ms,
-                noaa_flooding_bet_duration_ms: self.noaa_flooding_bet_duration_ms,
-                noaa_flooding_poll_interval_ms: self.noaa_flooding_poll_interval_ms,
-                noaa_flooding_max_poll_ms: self.noaa_flooding_max_poll_ms,
-                launch_lock_before_ms: self.launch_lock_before_ms,
-                launch_poll_interval_ms: self.launch_poll_interval_ms,
-                launch_max_settle_wait_ms: self.launch_max_settle_wait_ms,
-                launch_timeout_ms: self.launch_timeout_ms,
-                launch_cache_ttl_ms: self.launch_cache_ttl_ms,
-                nasa_space_weather_poll_interval_ms: self.nasa_space_weather_poll_interval_ms,
-                nasa_space_weather_max_poll_ms: self.nasa_space_weather_max_poll_ms,
-                nasa_space_weather_settle_buffer_ms: self.nasa_space_weather_settle_buffer_ms,
-                nasa_space_weather_odds_cache_ttl_ms: self.nasa_space_weather_odds_cache_ttl_ms,
-                sports_cache_ttl_ms: self.sports_cache_ttl_ms,
-                sports_poll_interval_ms: self.sports_poll_interval_ms,
-                sports_max_poll_ms: self.sports_max_poll_ms,
-                train_bet_duration_ms: self.train_bet_duration_ms,
-                train_poll_interval_ms: self.train_poll_interval_ms,
-                train_max_poll_ms: self.train_max_poll_ms,
-                train_gtfs_poll_interval_ms: self.train_gtfs_poll_interval_ms,
-                train_gtfs_max_poll_ms: self.train_gtfs_max_poll_ms,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -560,48 +376,6 @@ impl Bot {
             seen_advancements: Arc::new(Mutex::new(HashMap::new())),
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
             world_time_ticks: Arc::new(RwLock::new(0)),
-            active_trivia: Arc::new(Mutex::new(None)),
-            casino_sessions: Arc::new(Mutex::new(HashMap::new())),
-            blackjack_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(self.casino_deck_count, "Blackjack")),
-            baccarat_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(self.casino_deck_count, "Baccarat")),
-            market_service: Arc::new(crate::structure::market::service::MarketService::new(
-                self.coingecko_api_key.clone(),
-                self.market_quote_ttl_ms,
-                self.market_history_ttl_ms,
-                self.market_search_ttl_ms,
-                self.market_api_timeout_ms,
-            )),
-            market_bets: Arc::new(Mutex::new(HashMap::new())),
-            portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
-            weather_bets: Arc::new(Mutex::new(HashMap::new())),
-            weather_odds_cache: Arc::new(Mutex::new(HashMap::new())),
-            sports_bets: Arc::new(Mutex::new(HashMap::new())),
-            sports_cache: Arc::new(Mutex::new(crate::commands::casino::sports::SportsCache::default())),
-            kalshi_bets: Arc::new(Mutex::new(HashMap::new())),
-            kalshi_cache: Arc::new(Mutex::new(crate::commands::casino::kalshi::KalshiCache::default())),
-            nasa_space_weather_bets: Arc::new(Mutex::new(HashMap::new())),
-            sw_odds_cache: Arc::new(Mutex::new(None)),
-            faa_airport_bets: Arc::new(Mutex::new(HashMap::new())),
-            noaa_flooding_bets: Arc::new(Mutex::new(HashMap::new())),
-            flood_cache: Arc::new(Mutex::new(crate::commands::casino::noaa_flooding::FloodCache::default())),
-            train_bets: Arc::new(Mutex::new(HashMap::new())),
-            quake_bets: Arc::new(Mutex::new(HashMap::new())),
-            volcano_bets: Arc::new(Mutex::new(HashMap::new())),
-            duels: crate::commands::casino::duel::DuelService::new(),
-            wordle_games: Arc::new(Mutex::new(HashMap::new())),
-            checkers_games: Arc::new(Mutex::new(HashMap::new())),
-            reversi_games: Arc::new(Mutex::new(HashMap::new())),
-            battleship_games: Arc::new(Mutex::new(HashMap::new())),
-            mines_games: Arc::new(Mutex::new(HashMap::new())),
-            pending_force_divorces: Arc::new(Mutex::new(HashMap::new())),
-            aqi_bets: Arc::new(Mutex::new(HashMap::new())),
-            launch_bets: Arc::new(Mutex::new(HashMap::new())),
-            launch_cache: Arc::new(Mutex::new(HashMap::new())),
-            gas_bets: Arc::new(Mutex::new(HashMap::new())),
-            gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
-            gasbuddy_csrf: Arc::new(Mutex::new(None)),
-            join_window_bets: Arc::new(Mutex::new(HashMap::new())),
-            death_window_bets: Arc::new(Mutex::new(HashMap::new())),
             http: reqwest::Client::new(),
             url_blocklist: Arc::new(RwLock::new(None)),
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
@@ -661,379 +435,6 @@ impl Bot {
                 let trie = profanity_filter::build_trie().await;
                 *trie_arc.write().expect("profanity_trie write") = Some(trie);
             });
-        }
-
-        // Load cached GasBuddy CSRF token
-        if let Some(token) = crate::commands::casino::gas::load_cached_token().await {
-            *state.gasbuddy_csrf.lock().expect("gasbuddy_csrf") = Some(token);
-        }
-
-        // Recover market bets that were open when the bot last shut down
-        {
-            let open_bets = state.api.casino_market_bet_list().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                let now = crate::structure::market::types::now_unix();
-                {
-                    let mut bets = state.market_bets.lock().expect("market_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    let remaining = bet.closes_unix.saturating_sub(now);
-                    tokio::spawn(crate::commands::market::settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.market_bets.clone(),
-                        state.market_service.clone(),
-                        bet.player.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                        remaining,
-                    ));
-                }
-            }
-        }
-
-        // Recover weather bets that were open when the bot last shut down
-        {
-            let open_bets = state.api.casino_weather_bet_list().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                let now = crate::structure::market::types::now_unix();
-                {
-                    let mut bets = state.weather_bets.lock().expect("weather_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    let remaining = bet.closes_unix.saturating_sub(now);
-                    tokio::spawn(crate::commands::weather::settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.weather_bets.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                        remaining,
-                    ));
-                }
-            }
-        }
-
-        // Recover sports bets that were open when the bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::sports::SportsBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                let api_key = state.runtime.read().expect("runtime lock").sharpapi_key.clone();
-                {
-                    let mut bets = state.sports_bets.lock().expect("sports_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    tokio::spawn(crate::commands::casino::sports::settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.sports_bets.clone(),
-                        whisper_cmd.clone(),
-                        api_key.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover Kalshi bets that were open when the bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::kalshi::KalshiBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                {
-                    let mut bets = state.kalshi_bets.lock().expect("kalshi_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    tokio::spawn(crate::commands::casino::kalshi::settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.kalshi_bets.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover NASA space weather bets open when bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet>().await;
-            if !open_bets.is_empty() {
-                let (whisper_cmd, nasa_api_key) = {
-                    let rt = state.runtime.read().expect("runtime lock");
-                    (rt.whisper_command.clone(), rt.nasa_api_key.clone())
-                };
-                {
-                    let mut bets = state.nasa_space_weather_bets.lock().expect("nasa_space_weather_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    tokio::spawn(crate::commands::casino::nasa_space_weather::settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.nasa_space_weather_bets.clone(),
-                        state.http.clone(),
-                        whisper_cmd.clone(),
-                        nasa_api_key.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover FAA airport bets open when bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::faa_airport::FaaAirportBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                let now = crate::structure::market::types::now_unix();
-                {
-                    let mut bets = state.faa_airport_bets.lock().expect("faa_airport_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    // close_time may already be past if bot was down; settle_task handles that
-                    let _ = now; // suppress unused warning
-                    tokio::spawn(crate::commands::casino::faa_airport::settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.faa_airport_bets.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover NOAA flooding bets open when bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::noaa_flooding::NOAAFloodingBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                let now = crate::structure::market::types::now_unix();
-                {
-                    let mut bets = state.noaa_flooding_bets.lock().expect("noaa_flooding_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    let _ = now;
-                    tokio::spawn(crate::commands::casino::noaa_flooding::settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.noaa_flooding_bets.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover train bets open when bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::train::TrainBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                let now = crate::structure::market::types::now_unix();
-                {
-                    let mut bets = state.train_bets.lock().expect("train_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    let _ = now;
-                    tokio::spawn(crate::commands::casino::train::settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.train_bets.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover quake bets open when bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::seismic::QuakeBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                {
-                    let mut bets = state.quake_bets.lock().expect("quake_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    tokio::spawn(crate::commands::casino::seismic::quake_settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.quake_bets.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover volcano bets open when bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::seismic::VolcanoBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                {
-                    let mut bets = state.volcano_bets.lock().expect("volcano_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    tokio::spawn(crate::commands::casino::seismic::volcano_settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.volcano_bets.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover AQI bets open when bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::aqi::AqiBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                {
-                    let mut bets = state.aqi_bets.lock().expect("aqi_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    tokio::spawn(crate::commands::casino::aqi::aqi_settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.aqi_bets.clone(),
-                        state.http.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover launch bets open when bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::launch::LaunchBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                {
-                    let mut bets = state.launch_bets.lock().expect("launch_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    tokio::spawn(crate::commands::casino::launch::launch_settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.launch_bets.clone(),
-                        state.http.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover gas bets open when bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::gas::GasBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                {
-                    let mut bets = state.gas_bets.lock().expect("gas_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    tokio::spawn(crate::commands::casino::gas::gas_settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.gas_bets.clone(),
-                        state.http.clone(),
-                        state.gasbuddy_csrf.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover join-window bets open when bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::join_market::JoinWindowBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                {
-                    let mut bets = state.join_window_bets.lock().expect("join_window_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    tokio::spawn(crate::commands::casino::join_market::join_window_settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.join_window_bets.clone(),
-                        whisper_cmd.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Recover death-window bets open when bot last shut down
-        {
-            let open_bets = state.api.casino_bet_list::<crate::commands::casino::death_market::DeathWindowBet>().await;
-            if !open_bets.is_empty() {
-                let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                {
-                    let mut bets = state.death_window_bets.lock().expect("death_window_bets lock");
-                    for bet in &open_bets {
-                        bets.entry(bet.player.clone()).or_default().push(bet.clone());
-                    }
-                }
-                for bet in open_bets {
-                    tokio::spawn(crate::commands::casino::death_market::death_window_settle_task(
-                        crate::commands::casino::SettleDeps::from(&state),
-                        state.death_window_bets.clone(),
-                        whisper_cmd.clone(),
-                        state.mc_server.clone(),
-                        bet,
-                    ));
-                }
-            }
-        }
-
-        // Load portfolio positions into memory
-        {
-            let open_positions = state.api.casino_portfolio_list().await;
-            if !open_positions.is_empty() {
-                let mut map = state.portfolio_positions.lock().expect("portfolio lock");
-                for pos in open_positions {
-                    map.entry(pos.player.clone()).or_default().push(pos);
-                }
-            }
         }
 
         let mut builder = if self.options.disable_chat_signing {
@@ -1169,56 +570,6 @@ pub struct AzaleaState {
     // !wordwhitelist, and !reload.
     pub profanity_trie: Arc<RwLock<Option<&'static Trie>>>,
 
-    // ── Casino: sessions + immediate games ─────────────────────────────────────
-    pub casino_sessions: Arc<Mutex<HashMap<String, CasinoSession>>>,
-    // Shared shuffled multi-deck table shoes for blackjack/baccarat (casino/shoe.rs) --
-    // one shoe per game, dealt to every player, same as a real table. Outlives
-    // individual CasinoSession hands -- held across many hands until the configured
-    // lifetime elapses or the shoe runs dry, unlike poker/hilo which build a fresh
-    // single deck per hand/round instead.
-    pub blackjack_shoe: Arc<crate::commands::casino::shoe::Shoe>,
-    pub baccarat_shoe: Arc<crate::commands::casino::shoe::Shoe>,
-    pub active_trivia: Arc<Mutex<Option<TriviaRound>>>,
-    pub duels: crate::commands::casino::duel::DuelService,
-    pub wordle_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::wordle::WordleSession>>>,
-    pub checkers_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::checkers::CheckersSession>>>,
-    pub reversi_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::reversi::ReversiSession>>>,
-    pub battleship_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::battleship::BattleshipSession>>>,
-    pub mines_games: Arc<Mutex<std::collections::HashMap<String, crate::commands::casino::mines::MinesGame>>>,
-    // Key = initiator's uuid, value = (target's uuid, request time). 60s TTL enforced
-    // in marry.rs -- "!divorce force <player>" stages here, "!divorce force confirm"
-    // consumes it. Deliberately not Hub-backed: losing this on restart just means
-    // re-running the first step, same posture as other short-lived confirm windows.
-    pub pending_force_divorces: Arc<Mutex<HashMap<String, (String, Instant)>>>,
-
-    // ── Casino: betting markets (bet lists + external-data caches, one pair per type) ──
-    pub market_service: Arc<crate::structure::market::service::MarketService>,
-    pub market_bets: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::MarketBet>>>>,
-    pub portfolio_positions: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::PortfolioPosition>>>>,
-    pub weather_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::weather::WeatherBet>>>>,
-    pub weather_odds_cache: Arc<Mutex<HashMap<String, crate::commands::weather::WeatherCacheEntry>>>,
-    pub sports_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::sports::SportsBet>>>>,
-    pub sports_cache: Arc<Mutex<crate::commands::casino::sports::SportsCache>>,
-    pub kalshi_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::kalshi::KalshiBet>>>>,
-    pub kalshi_cache: Arc<Mutex<crate::commands::casino::kalshi::KalshiCache>>,
-    pub nasa_space_weather_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet>>>>,
-    pub sw_odds_cache: Arc<Mutex<Option<(crate::commands::casino::nasa_space_weather::SwOdds, u64)>>>,
-    pub faa_airport_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::faa_airport::FaaAirportBet>>>>,
-    pub noaa_flooding_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::noaa_flooding::NOAAFloodingBet>>>>,
-    pub flood_cache: Arc<Mutex<crate::commands::casino::noaa_flooding::FloodCache>>,
-    pub train_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::train::TrainBet>>>>,
-    pub quake_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::seismic::QuakeBet>>>>,
-    pub volcano_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::seismic::VolcanoBet>>>>,
-    pub aqi_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::aqi::AqiBet>>>>,
-    pub launch_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::launch::LaunchBet>>>>,
-    pub launch_cache: Arc<Mutex<std::collections::HashMap<u32, (f64, f64, u64)>>>,
-    pub gas_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::gas::GasBet>>>>,
-    // (price, display_name, fetched_at)
-    pub gas_price_cache: Arc<Mutex<std::collections::HashMap<String, (f64, String, u64)>>>,
-    pub gasbuddy_csrf: Arc<Mutex<Option<String>>>,
-    pub join_window_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::join_market::JoinWindowBet>>>>,
-    pub death_window_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::death_market::DeathWindowBet>>>>,
-
     // ── AI / poll ───────────────────────────────────────────────────────────────
     pub active_poll: Arc<Mutex<Option<crate::commands::poll::PollState>>>,
     pub ai_providers: Arc<RwLock<Vec<crate::commands::ai::AiProviderEntry>>>,
@@ -1237,46 +588,6 @@ pub enum DiscordResolution {
     Found(String),
     NotFound,
     Unavailable,
-}
-
-#[derive(Debug, Clone)]
-pub enum CasinoSession {
-    Craps {
-        bet: i64,
-        pass_line: bool,
-        point: u32,
-    },
-    Hilo {
-        stake: i64,
-        deck: Vec<u8>,
-        current_card: u8,
-        multiplier: f64,
-        guesses: u32,
-    },
-    Blackjack {
-        bet: i64,
-        player_hand: Vec<u8>,
-        dealer_hand: Vec<u8>,
-    },
-    Poker {
-        stake: i64,
-        opponent_name: &'static str,
-        aggression: f64,
-        game: Box<crate::commands::casino::poker::game::state::GameState>,
-    },
-    ConnectFour {
-        stake: i64,
-        opponent_name: &'static str,
-        difficulty: connect_four_ai::Difficulty,
-        position: connect_four_ai::Position,
-    },
-    Chess {
-        bet: i64,
-        player_color: shakmaty::Color,
-        position: Box<shakmaty::Chess>,
-        opponent_name: &'static str,
-        ai_depth: u32,
-    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1354,7 +665,6 @@ impl Default for AzaleaState {
                 smart_censoring: false,
                 censor_threshold: "moderate".to_owned(),
                 command_censorship: HashMap::new(),
-                bet_limits: HashMap::new(),
                 together_api_key: String::new(),
                 wolfram_app_id: String::new(),
                 azure_translator_key: String::new(),
@@ -1362,15 +672,9 @@ impl Default for AzaleaState {
                 google_cloud_translate_key: String::new(),
                 google_scrape_enabled: true,
                 google_scrape_min_interval_ms: 15_000,
-                sharpapi_key: String::new(),
-                nasa_api_key: String::new(),
-                airnow_api_key: String::new(),
-                gasbuddy_solver_url: String::new(),
-                gasbuddy_csrf_readonly: false,
                 google_safe_browsing_key: String::new(),
                 queue_probe_command: String::new(),
                 queue_retry_delay_ms: 300_000,
-                board_whisper_delay_ms: 1_000,
                 announce_min_interval_ms: 900_000,
                 announce_max_interval_ms: 2_700_000,
                 duplicate_message_window_ms: 5,
@@ -1386,46 +690,10 @@ impl Default for AzaleaState {
                 crouch_max_hold_ms: 600,
                 crouch_toggle_delay_ms: 50,
                 poll_duration_ms: 120,
-                duel_confirm_window_ms: 60,
-                duel_timeout_ms: 600,
-                marry_confirm_window_ms: 60,
                 trade_propose_cooldown_ms: 60,
                 trade_reject_penalty_ms: 600,
-                roast_timeout_ms: 8_000,
                 scratch_animation_delay_ms: 600,
-                slots_animation_delay_ms: 800,
                 twerk_flash_delay_ms: 100,
-                aqi_settle_window_ms: 86400000,
-                aqi_timeout_ms: 10000,
-                gas_settle_window_ms: 86400000,
-                gas_timeout_ms: 20000,
-                gas_cache_ttl_ms: 3600000,
-                kalshi_cache_ttl_ms: 600000,
-                kalshi_poll_interval_ms: 60000,
-                kalshi_max_poll_ms: 3600000,
-                faa_airport_bet_duration_ms: 7200000,
-                faa_airport_poll_interval_ms: 120000,
-                faa_airport_max_poll_ms: 3600000,
-                noaa_flooding_bet_duration_ms: 7200000,
-                noaa_flooding_poll_interval_ms: 120000,
-                noaa_flooding_max_poll_ms: 3600000,
-                launch_lock_before_ms: 7200000,
-                launch_poll_interval_ms: 3600000,
-                launch_max_settle_wait_ms: 604800000,
-                launch_timeout_ms: 15000,
-                launch_cache_ttl_ms: 3600000,
-                nasa_space_weather_poll_interval_ms: 600000,
-                nasa_space_weather_max_poll_ms: 7200000,
-                nasa_space_weather_settle_buffer_ms: 3600000,
-                nasa_space_weather_odds_cache_ttl_ms: 3600000,
-                sports_cache_ttl_ms: 600000,
-                sports_poll_interval_ms: 300000,
-                sports_max_poll_ms: 18000000,
-                train_bet_duration_ms: 7200000,
-                train_poll_interval_ms: 120000,
-                train_max_poll_ms: 3600000,
-                train_gtfs_poll_interval_ms: 30000,
-                train_gtfs_max_poll_ms: 600000,
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
             outbound_chat: Arc::new(Mutex::new(VecDeque::new())),
@@ -1447,49 +715,6 @@ impl Default for AzaleaState {
             consecutive_failures: Arc::new(AtomicU32::new(0)),
             seen_advancements: Arc::new(Mutex::new(HashMap::new())),
             nick_cache: Arc::new(RwLock::new(HashMap::new())),
-            world_time_ticks: Arc::new(RwLock::new(0)),
-            active_trivia: Arc::new(Mutex::new(None)),
-            casino_sessions: Arc::new(Mutex::new(HashMap::new())),
-            blackjack_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(6, "Blackjack")),
-            baccarat_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(6, "Baccarat")),
-            market_service: Arc::new(crate::structure::market::service::MarketService::new(
-                String::new(),
-                60_000,
-                300_000,
-                86_400_000,
-                10_000,
-            )),
-            market_bets: Arc::new(Mutex::new(HashMap::new())),
-            portfolio_positions: Arc::new(Mutex::new(HashMap::new())),
-            weather_bets: Arc::new(Mutex::new(HashMap::new())),
-            weather_odds_cache: Arc::new(Mutex::new(HashMap::new())),
-            sports_bets: Arc::new(Mutex::new(HashMap::new())),
-            sports_cache: Arc::new(Mutex::new(crate::commands::casino::sports::SportsCache::default())),
-            kalshi_bets: Arc::new(Mutex::new(HashMap::new())),
-            kalshi_cache: Arc::new(Mutex::new(crate::commands::casino::kalshi::KalshiCache::default())),
-            nasa_space_weather_bets: Arc::new(Mutex::new(HashMap::new())),
-            sw_odds_cache: Arc::new(Mutex::new(None)),
-            faa_airport_bets: Arc::new(Mutex::new(HashMap::new())),
-            noaa_flooding_bets: Arc::new(Mutex::new(HashMap::new())),
-            flood_cache: Arc::new(Mutex::new(crate::commands::casino::noaa_flooding::FloodCache::default())),
-            train_bets: Arc::new(Mutex::new(HashMap::new())),
-            quake_bets: Arc::new(Mutex::new(HashMap::new())),
-            volcano_bets: Arc::new(Mutex::new(HashMap::new())),
-            duels: crate::commands::casino::duel::DuelService::new(),
-            wordle_games: Arc::new(Mutex::new(HashMap::new())),
-            checkers_games: Arc::new(Mutex::new(HashMap::new())),
-            reversi_games: Arc::new(Mutex::new(HashMap::new())),
-            battleship_games: Arc::new(Mutex::new(HashMap::new())),
-            mines_games: Arc::new(Mutex::new(HashMap::new())),
-            pending_force_divorces: Arc::new(Mutex::new(HashMap::new())),
-            aqi_bets: Arc::new(Mutex::new(HashMap::new())),
-            launch_bets: Arc::new(Mutex::new(HashMap::new())),
-            launch_cache: Arc::new(Mutex::new(HashMap::new())),
-            gas_bets: Arc::new(Mutex::new(HashMap::new())),
-            gas_price_cache: Arc::new(Mutex::new(HashMap::new())),
-            gasbuddy_csrf: Arc::new(Mutex::new(None)),
-            join_window_bets: Arc::new(Mutex::new(HashMap::new())),
-            death_window_bets: Arc::new(Mutex::new(HashMap::new())),
             http: reqwest::Client::new(),
             url_blocklist: Arc::new(RwLock::new(None)),
             tps_time_samples: Arc::new(Mutex::new(VecDeque::new())),
@@ -1946,7 +1171,6 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 });
             }
             deliver_offline_messages(&state, &username).await;
-            deliver_casino_notifications(&state, &uuid, &username).await;
             if state.initial_spawn_done.load(Ordering::Relaxed) {
                 send_player_join(&state, &username, &uuid).await;
                 fire_greeting_if_due(&state, &username).await;
@@ -1991,7 +1215,6 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 .expect("player cache lock poisoned")
                 .remove(&username);
             stat_history::clear_delete_faq_pending(&username);
-            crate::commands::casino::duel::handle_disconnect(&state, &username).await;
             state.afk_messages.write().expect("afk_messages lock").remove(&username.to_lowercase());
             send_player_leave(&state, &username, &uuid).await;
             send_player_list_update(&state).await;
@@ -2747,7 +1970,6 @@ async fn handle_fallback_message(bot: &Client, state: &AzaleaState, content: &st
         let murderer_uuid = murderer
             .as_deref()
             .and_then(|name| players.get(name).map(|player| player.uuid.clone()));
-        crate::commands::casino::duel::handle_death(state, &player, murderer.as_deref()).await;
         send_player_death(state, &player, &uuid, &full_msg, murderer, murderer_uuid).await;
         logger::death(format!("Death: {full_msg}"));
         return;
@@ -2906,12 +2128,6 @@ fn spawn_websocket_event_task(bot: Client, state: AzaleaState) {
                 }
                 WebsocketEvent::ResolveDiscordUsernameUnavailable(data) => {
                     fulfill_discord_resolution(&state, &data.request_id, DiscordResolution::Unavailable);
-                }
-                WebsocketEvent::CasinoDrawResult(data) => {
-                    enqueue_outbound_chat(&state, &data.message);
-                }
-                WebsocketEvent::CasinoWinnerNotify(data) => {
-                    enqueue_outbound_chat(&state, format!("/msg {} {}", data.player, data.message));
                 }
                 WebsocketEvent::UnknownMessage(message) => {
                     logger::websocket(format!("Unknown websocket message: {message}"));
@@ -3421,13 +2637,6 @@ async fn deliver_offline_messages(state: &AzaleaState, username: &str) {
 
     if let Err(error) = save_offline_messages(&remaining).await {
         logger::warn(format!("Failed to save offline messages: {error:#}"));
-    }
-}
-
-async fn deliver_casino_notifications(state: &AzaleaState, player_uuid: &str, username: &str) {
-    let messages = state.api.casino_claim_notifications(player_uuid).await;
-    for message in messages {
-        enqueue_outbound_chat(state, format!("/msg {username} {message}"));
     }
 }
 

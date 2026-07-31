@@ -2,7 +2,7 @@
 
 # ForestBot Commands
 
-**112 commands** across general, stats, leaderboards, chat, social, fun, and admin categories. Casino commands in [CASINO.md](CASINO.md). Gods and corpora in [GODS.md](GODS.md).
+less than **112 commands** across general, stats, leaderboards, chat, social, fun, and admin categories.
 
 ## General
 
@@ -88,10 +88,6 @@
 | `!realname <player?>` | Current username (resolves old names) |
 | `!whois <player?>` | Show player description |
 | `!iam <description>` | Set your `!whois` description (ASCII only) |
-| `!quote` / `!q <server?> <player?>` | Random quote from a player |
-| `!rq` / `!randomquote` | Random quote from any player |
-| `!rqa` / `!randomquoteall` | Random quote across all servers |
-| `!lq` / `!listquoteservers` | List servers with quotes |
 
 ## FAQ
 
@@ -116,28 +112,13 @@
 | `!unequip` | Remove all equipped armor back to inventory |
 | `!sleep` | Put the bot to sleep |
 | `!twerk` / `!bootyshake` | Bot crouches for 10 seconds |
-| `!setpreset` | Change bot's name chalk preset (RefinedVanilla only) |
 | `!shout <message>` | Broadcast to all connected servers (not enabled) |
 | `!nickname <name>` | Change bot's in-game nickname |
 | `!febzey` | 🤷 |
 | `!roast <username\|server>` | AI-generated roast of a player or server based on their stats (5 min cooldown, requires together_api_key) |
-| `!askgod` / `!agod <god>` | Consult the divine oracle — random corpus if no arg, specify a god below (75 corpora), or ask a multi-word question for an oracle response |
-| `!listgods` / `!gods` | List one god per corpus with its trigger word |
-| `!searchgod` / `!godsearch` / `!sgod <words>` | Search sacred texts for a keyword or phrase |
-| `!godverse` / `!verse` / `!vgod <reference>` | Look up a verse by reference |
-| `!godstats` | Show corpora count, size, compression ratio, verse count, load time, total god aliases |
-| `!godfight <god1> <god2> <keyword?>` | Two gods, one verse each — keyword narrows both draws to matching verses |
-| `!weather` / `!w <city>` | Current weather for any location — temp, feels-like, conditions, wind, humidity (Open-Meteo, no API key needed) |
 | `!slurcount <server\|all>(optional) <player>` | Show total slur usage for a player (excludes command messages) |
-| `!greeting` | Whispers format info + your current greeting |
-| `!greeting <message>` | Set your join greeting — fires as `"<message>, YourName!"` (12h cooldown, ASCII only) |
-| `!greeting preview` | Whispers how your greeting will look |
-| `!greeting clear` | Remove your greeting |
 | `!day` | Posts time until next dawn (tick 23460), or "currently daytime" |
 | `!night` | Posts time until next nightfall (tick 13188), or "currently nighttime" |
-| `!news` | Whispers BBC categories + top 5 top stories (numbered) |
-| `!news <category>` | Whispers top 5 headlines from that category |
-| `!news <category?> <N>` | Posts article N's description + link to public chat |
 | `!calc` / `!wa` / `!wolframalpha <query>` | Query Wolfram\|Alpha — posts `query = result` to public chat |
 | `!serversummary` / `!ssummary <server>` | Posts aggregate stats for a server: players, messages, kills, deaths, playtime, top chatter, tracking start date |
 | `!compare <serverA> <serverB>` | Compares two servers side by side in a single message |
@@ -146,14 +127,6 @@
 | `!url` / `!preview` / `!www <link>` | Fetch og:title and og:description from a URL and post a preview — blocked URLs and flagged content are filtered (60s cooldown) |
 | `!urbandictionary` / `!ud <query>` | Search Urban Dictionary — posts `[Word] definition (+N/-N)` to public chat (60s cooldown) |
 | `!translate` / `!tr` / `!tl [lang] <text\|player>` | Translate non-English text to English (default) or a target lang — posts `[from→to] result` to public chat. Single-word input checks online players and translates their last message. Requires Azure AI Translator key in config. |
-
-## !askgod — Available Gods
-
-See [GODS.md](GODS.md) for the full list of 75 corpora and their trigger words.
-
-## Casino, Market & Duels
-
-See [CASINO.md](CASINO.md) for all casino games, market paper trading, and duel commands.
 
 ## Trades
 

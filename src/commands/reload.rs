@@ -76,7 +76,6 @@ async fn reload_runtime(
         smart_censoring: app_state.config.smart_censoring,
         censor_threshold: app_state.config.censor_threshold,
         command_censorship: app_state.command_censorship,
-        bet_limits: app_state.bet_limits,
         together_api_key: app_state.config.api_keys.together,
         wolfram_app_id: app_state.config.api_keys.wolfram,
         azure_translator_key: app_state.config.api_keys.azure_key,
@@ -84,15 +83,9 @@ async fn reload_runtime(
         google_cloud_translate_key: app_state.config.api_keys.google_cloud_translate,
         google_scrape_enabled: app_state.config.google_scrape_enabled,
         google_scrape_min_interval_ms: app_state.config.google_scrape_min_interval_ms,
-        sharpapi_key: app_state.config.api_keys.sharpapi,
-        nasa_api_key: app_state.config.api_keys.nasa,
-        airnow_api_key: app_state.config.api_keys.airnow,
-        gasbuddy_solver_url: app_state.config.api_keys.gasbuddy_solver_url,
-        gasbuddy_csrf_readonly: app_state.config.api_keys.gasbuddy_csrf_readonly,
         google_safe_browsing_key: app_state.config.api_keys.google_safe_browsing,
         queue_probe_command: app_state.config.queue_probe_command,
         queue_retry_delay_ms: app_state.config.queue_retry_delay_ms,
-        board_whisper_delay_ms: app_state.config.board_whisper_delay_ms,
         announce_min_interval_ms: app_state.config.announce_min_interval_ms,
         announce_max_interval_ms: app_state.config.announce_max_interval_ms,
         duplicate_message_window_ms: app_state.config.duplicate_message_window_ms,
@@ -108,56 +101,15 @@ async fn reload_runtime(
         crouch_max_hold_ms: app_state.config.crouch_max_hold_ms,
         crouch_toggle_delay_ms: app_state.config.crouch_toggle_delay_ms,
         poll_duration_ms: app_state.config.poll_duration_ms,
-        duel_confirm_window_ms: app_state.config.duel_confirm_window_ms,
-        duel_timeout_ms: app_state.config.duel_timeout_ms,
-        marry_confirm_window_ms: app_state.config.marry_confirm_window_ms,
         trade_propose_cooldown_ms: app_state.config.trade_propose_cooldown_ms,
         trade_reject_penalty_ms: app_state.config.trade_reject_penalty_ms,
-        roast_timeout_ms: app_state.config.roast_timeout_ms,
         scratch_animation_delay_ms: app_state.config.scratch_animation_delay_ms,
-        slots_animation_delay_ms: app_state.config.slots_animation_delay_ms,
         twerk_flash_delay_ms: app_state.config.twerk_flash_delay_ms,
-        aqi_settle_window_ms: app_state.config.aqi_settle_window_ms,
-        aqi_timeout_ms: app_state.config.aqi_timeout_ms,
-        gas_settle_window_ms: app_state.config.gas_settle_window_ms,
-        gas_timeout_ms: app_state.config.gas_timeout_ms,
-        gas_cache_ttl_ms: app_state.config.gas_cache_ttl_ms,
-        kalshi_cache_ttl_ms: app_state.config.kalshi_cache_ttl_ms,
-        kalshi_poll_interval_ms: app_state.config.kalshi_poll_interval_ms,
-        kalshi_max_poll_ms: app_state.config.kalshi_max_poll_ms,
-        faa_airport_bet_duration_ms: app_state.config.faa_airport_bet_duration_ms,
-        faa_airport_poll_interval_ms: app_state.config.faa_airport_poll_interval_ms,
-        faa_airport_max_poll_ms: app_state.config.faa_airport_max_poll_ms,
-        noaa_flooding_bet_duration_ms: app_state.config.noaa_flooding_bet_duration_ms,
-        noaa_flooding_poll_interval_ms: app_state.config.noaa_flooding_poll_interval_ms,
-        noaa_flooding_max_poll_ms: app_state.config.noaa_flooding_max_poll_ms,
-        launch_lock_before_ms: app_state.config.launch_lock_before_ms,
-        launch_poll_interval_ms: app_state.config.launch_poll_interval_ms,
-        launch_max_settle_wait_ms: app_state.config.launch_max_settle_wait_ms,
-        launch_timeout_ms: app_state.config.launch_timeout_ms,
-        launch_cache_ttl_ms: app_state.config.launch_cache_ttl_ms,
-        nasa_space_weather_poll_interval_ms: app_state.config.nasa_space_weather_poll_interval_ms,
-        nasa_space_weather_max_poll_ms: app_state.config.nasa_space_weather_max_poll_ms,
-        nasa_space_weather_settle_buffer_ms: app_state.config.nasa_space_weather_settle_buffer_ms,
-        nasa_space_weather_odds_cache_ttl_ms: app_state.config.nasa_space_weather_odds_cache_ttl_ms,
-        sports_cache_ttl_ms: app_state.config.sports_cache_ttl_ms,
-        sports_poll_interval_ms: app_state.config.sports_poll_interval_ms,
-        sports_max_poll_ms: app_state.config.sports_max_poll_ms,
-        train_bet_duration_ms: app_state.config.train_bet_duration_ms,
-        train_poll_interval_ms: app_state.config.train_poll_interval_ms,
-        train_max_poll_ms: app_state.config.train_max_poll_ms,
-        train_gtfs_poll_interval_ms: app_state.config.train_gtfs_poll_interval_ms,
-        train_gtfs_max_poll_ms: app_state.config.train_gtfs_max_poll_ms,
     };
 
     *state.runtime.write().expect("runtime config lock poisoned") = reloaded;
     *state.ai_providers.write().expect("ai_providers lock poisoned") = ai_providers;
     state.ai_model_cache.lock().expect("ai_model_cache lock poisoned").clear();
-
-    // Pick up a casino_deck_count config edit without a full restart -- forces
-    // both table shoes to reshuffle at the new size on their next deal.
-    crate::commands::casino::shoe::set_deck_count(&state.blackjack_shoe, app_state.config.casino_deck_count);
-    crate::commands::casino::shoe::set_deck_count(&state.baccarat_shoe, app_state.config.casino_deck_count);
 
     // Unlike a plain OnceLock, this re-reads debug.json and overwrites the live
     // categories -- so flipping a category off actually takes effect on !reload.
