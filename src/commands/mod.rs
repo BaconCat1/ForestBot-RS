@@ -244,12 +244,30 @@ pub fn enqueue_chat(state: &AzaleaState, message: impl AsRef<str>) {
 }
 
 /// Resolves a username to their real UUID for use with `casino_adjust`/`casino_win`,
-/// which are keyed by UUID. Free-function form of `CommandContext::require_player_uuid`
-/// for detached contexts (spawned timer tasks, event hooks) that only have
-/// `&AzaleaState`, not a `CommandContext` -- e.g. `duel.rs`'s deferred payout tasks,
-/// `trivia.rs`'s answer-timer payout loop. Doesn't whisper on failure since there's no
-/// command invocation to reply to; callers decide how to handle a `None`.
+/// which are keyed by UUID. Free-function form of `CommandContext::require_player_uuid`.
+/// Only ever called for the actively-chatting command sender (`require_player_uuid`'s one
+/// call site) -- deferred/detached payouts (duel.rs, trivia.rs) capture a UUID once, at
+/// command-time via this same path, and reuse it later rather than re-resolving by
+/// username, so requiring a live connection here has no effect on them.
+///
+/// Requires the username to currently be a real, connected MC player (`state.players`,
+/// the live tab-list cache) before ever asking Hub for a UUID. This is the fix for the
+/// 2026-07-30 Discord-nickname spoof incident (see the discord-nick-uuid-spoof-incident
+/// memory): Hub's username->UUID lookup alone succeeds for *any* username it has ever seen
+/// historically, live or not -- letting RV's official Discord bridge (which relays a
+/// spoofable Discord nickname/display name as plain MC-chat-shaped text, no real MC session
+/// behind it) impersonate any real account for every command that resolves identity this
+/// way. Requiring "currently live" closes it regardless of how the message was dispatched.
 pub async fn resolve_player_uuid(state: &AzaleaState, username: &str) -> Option<String> {
+    let is_live = state
+        .players
+        .read()
+        .expect("player cache lock poisoned")
+        .keys()
+        .any(|k| k.eq_ignore_ascii_case(username));
+    if !is_live {
+        return None;
+    }
     state.api.convert_username_to_uuid(username).await
 }
 

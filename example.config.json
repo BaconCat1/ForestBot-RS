@@ -983,6 +983,8 @@
     "greetings"
   ],
   "allow_chatbridge_input": true,
+  "discord_bridge_marker_regex": "^\\[Discord \\| ",
+  "discord_bridge_detection_enabled": true,
   "use_live_time_query": false,
   "day_night_game_time_fallback": false,
   "rotateHeadOnJoin": false,

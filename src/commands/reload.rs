@@ -66,6 +66,8 @@ async fn reload_runtime(
             .into_iter()
             .collect::<HashSet<_>>(),
         allow_chatbridge_input: app_state.config.allow_chatbridge_input,
+        discord_bridge_marker_regex: app_state.config.discord_bridge_marker_regex,
+        discord_bridge_detection_enabled: app_state.config.discord_bridge_detection_enabled,
         use_live_time_query: app_state.config.use_live_time_query,
         day_night_game_time_fallback: app_state.config.day_night_game_time_fallback,
         welcome_messages: app_state.config.welcome_messages,

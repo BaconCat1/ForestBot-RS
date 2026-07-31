@@ -68,6 +68,8 @@ pub struct RuntimeConfig {
     pub command_toggles: HashMap<String, bool>,
     pub disabled_events: HashSet<String>,
     pub allow_chatbridge_input: bool,
+    pub discord_bridge_marker_regex: String,
+    pub discord_bridge_detection_enabled: bool,
     pub use_live_time_query: bool,
     pub day_night_game_time_fallback: bool,
     pub welcome_messages: bool,
@@ -178,6 +180,8 @@ pub struct Bot {
     pub use_custom_chat_prefix: bool,
     pub custom_chat_prefix: String,
     pub allow_chatbridge_input: bool,
+    pub discord_bridge_marker_regex: String,
+    pub discord_bridge_detection_enabled: bool,
     pub use_live_time_query: bool,
     pub day_night_game_time_fallback: bool,
     pub smart_censoring: bool,
@@ -302,6 +306,8 @@ impl Bot {
             use_custom_chat_prefix: state.config.use_custom_chat_prefix,
             custom_chat_prefix: state.config.custom_chat_prefix.clone(),
             allow_chatbridge_input: state.config.allow_chatbridge_input,
+            discord_bridge_marker_regex: state.config.discord_bridge_marker_regex.clone(),
+            discord_bridge_detection_enabled: state.config.discord_bridge_detection_enabled,
             use_live_time_query: state.config.use_live_time_query,
             day_night_game_time_fallback: state.config.day_night_game_time_fallback,
             smart_censoring: state.config.smart_censoring,
@@ -450,6 +456,8 @@ impl Bot {
                 disabled_events: self.disabled_events.clone(),
                 allow_chatbridge_input: self.api.options.use_websocket
                     && self.allow_chatbridge_input,
+                discord_bridge_marker_regex: self.discord_bridge_marker_regex.clone(),
+                discord_bridge_detection_enabled: self.discord_bridge_detection_enabled,
                 use_live_time_query: self.use_live_time_query,
                 day_night_game_time_fallback: self.day_night_game_time_fallback,
                 welcome_messages: self.welcome_messages,
@@ -1336,6 +1344,8 @@ impl Default for AzaleaState {
                 command_toggles: HashMap::new(),
                 disabled_events: HashSet::new(),
                 allow_chatbridge_input: false,
+                discord_bridge_marker_regex: r"^\[Discord \| ".to_owned(),
+                discord_bridge_detection_enabled: true,
                 use_live_time_query: false,
                 day_night_game_time_fallback: false,
                 welcome_messages: false,
@@ -1589,7 +1599,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
             if event_disabled(&state, &["message", "messagestr", "chat"]) {
                 return Ok(());
             }
-            let (sender, content) = parse_chat_message(&message, &state);
+            let (sender, content, is_bridge) = parse_chat_message(&message, &state);
             if sender.is_none() && is_server_presence_message(&content) {
                 return Ok(());
             }
@@ -1770,6 +1780,69 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     .clone();
 
                 if content.starts_with(&prefix) {
+                    if is_bridge {
+                        // RV's official bridge relay, detected via raw-text marker (see
+                        // matches_discord_bridge_marker) -- always routed here regardless of
+                        // what resolve_sender_uuid would say. Checking live-UUID first would
+                        // let an attacker impersonate any real account that also happens to
+                        // be connected right now -- the exact gap that let the 2026-07-30
+                        // incident happen (see discord-nick-uuid-spoof-incident memory).
+                        // resolve_player_uuid's live-connection requirement is the
+                        // unconditional backstop either way; this branch additionally reuses
+                        // the craftbot-native Discord relay's own bridge_unsafe_commands gate
+                        // and Discord:-tagged, non-colliding sender, so bridge commands get
+                        // the same treatment on both bridges instead of silently failing.
+                        if let Some(command_name) =
+                            content.trim().strip_prefix(&prefix).and_then(|c| c.split_whitespace().next())
+                        {
+                            if let Some(command) = crate::commands::find(command_name) {
+                                let is_unsafe = {
+                                    let unsafe_names = state
+                                        .bridge_unsafe_commands
+                                        .read()
+                                        .expect("bridge_unsafe_commands lock poisoned");
+                                    command
+                                        .names
+                                        .iter()
+                                        .any(|name| unsafe_names.contains(&name.to_lowercase()))
+                                };
+                                if is_unsafe {
+                                    logger::command(format!(
+                                        "Bridge-unsafe command blocked (official RV bridge): {command_name} from {sender}"
+                                    ));
+                                    return Ok(());
+                                }
+                            }
+                        }
+
+                        match resolve_and_check_bridge_sender(&state, &sender).await {
+                            BridgeSenderStatus::Allowed => {
+                                let tagged_sender = format!("Discord:{sender}");
+                                command_handler::handle(&bot, &state, &tagged_sender, &content).await;
+                            }
+                            BridgeSenderStatus::Blacklisted => {
+                                logger::command(format!(
+                                    "Bridge command blocked (blacklisted via resolved Discord ID): {sender}"
+                                ));
+                            }
+                            BridgeSenderStatus::NotFound => {
+                                enqueue_outbound_chat(
+                                    &state,
+                                    format!("{sender}, your Discord username was not found."),
+                                );
+                            }
+                            BridgeSenderStatus::Unavailable => {
+                                enqueue_outbound_chat(
+                                    &state,
+                                    format!(
+                                        "{sender}, Discord username resolution unavailable, please try again later."
+                                    ),
+                                );
+                            }
+                        }
+                        return Ok(());
+                    }
+
                     if resolve_sender_uuid(&state, &sender).is_some() {
                         if sender_allowed_for_command(&state, &sender, &content) {
                             command_handler::handle(&bot, &state, &sender, &content).await;
@@ -1777,10 +1850,11 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                         return Ok(());
                     }
 
-                    // No resolvable UUID -- can only mean this "sender" isn't a real,
-                    // currently-connected MC player, i.e. this arrived through an official
-                    // (non-craftbot) Discord chat bridge. Live-resolve to a Discord snowflake
-                    // and check that directly against the blacklist before ever dispatching.
+                    // No bridge marker matched and no resolvable UUID -- an unrecognized/
+                    // unmarked bridge format, or any other case where the parsed sender
+                    // doesn't correspond to a real, currently-connected player. Same
+                    // fallback as before: live-resolve to a Discord snowflake and check that
+                    // directly against the blacklist before ever dispatching.
                     match resolve_and_check_bridge_sender(&state, &sender).await {
                         BridgeSenderStatus::Allowed => {
                             command_handler::handle(&bot, &state, &sender, &content).await;
@@ -3656,7 +3730,39 @@ fn is_server_presence_message(content: &str) -> bool {
         || content.ends_with(" left the game")
 }
 
-fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<String>, String) {
+// Detects RV's own official Discord<->MC bridge relay lines by raw-text marker, e.g.
+// "[Discord | Server Booster] JollyCurve_ » !pearl 1" -- confirmed live via a real
+// production ChatPacket capture, 2026-07-30 (`ChatPacket::sender_uuid()` turned out to be
+// useless here: RV's chat-formatting plugin reroutes *every* message, real player chat
+// included, through `System`, so the protocol-level signal doesn't distinguish anything on
+// this server -- this raw-text marker is the thing that actually does). Config-driven and
+// reloadable so it can be tuned/disabled without a recompile if RV's bridge format changes.
+// Fails safe: an invalid regex or the toggle being off just means this layer treats the
+// line as ordinary chat -- `resolve_player_uuid`'s live-connection requirement (see
+// `commands/mod.rs`) is the actual unconditional backstop regardless of this check's result.
+fn matches_discord_bridge_marker(full_message: &str, state: &AzaleaState) -> bool {
+    let (enabled, pattern) = {
+        let runtime = state.runtime.read().expect("runtime config lock poisoned");
+        (
+            runtime.discord_bridge_detection_enabled,
+            runtime.discord_bridge_marker_regex.clone(),
+        )
+    };
+    if !enabled || pattern.is_empty() {
+        return false;
+    }
+    match regex::Regex::new(&pattern) {
+        Ok(re) => re.is_match(full_message),
+        Err(error) => {
+            logger::warn(format!(
+                "discord_bridge_marker_regex is invalid, treating as no-match: {error}"
+            ));
+            false
+        }
+    }
+}
+
+fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<String>, String, bool) {
     // Decoded ChatPacket variant + fields (System/Player/Disguised, incl. the real
     // sender UUID when Player) -- separate lever from "packets" (raw undecoded bytes,
     // every packet type) and from "chat_parse" (text-only) so this can be toggled
@@ -3666,6 +3772,7 @@ fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<Stri
 
     let full_message = message.message().to_string();
     logger::debug_cat("chat_parse", format!("[CHAT_PARSE] full={full_message:?}"));
+    let is_bridge = matches_discord_bridge_marker(&full_message, state);
 
     let formats = state
         .runtime
@@ -3683,7 +3790,7 @@ fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<Stri
         logger::debug_cat("chat_parse", format!("[CHAT_PARSE] trying {} custom formats: {:?}", formats.len(), formats));
         if let Some(parsed) = chat_format_parser::parse(&full_message, &formats) {
             logger::debug_cat("chat_parse", format!("[CHAT_PARSE] custom match → sender={:?} content={:?}", parsed.username, parsed.message));
-            return (Some(parsed.username), parsed.message);
+            return (Some(parsed.username), parsed.message, is_bridge);
         }
         logger::debug_cat("chat_parse", "[CHAT_PARSE] no custom format matched → fallback to native".to_string());
     } else {
@@ -3694,18 +3801,19 @@ fn parse_chat_message(message: &ChatPacket, state: &AzaleaState) -> (Option<Stri
     if let Some(sender) = sender {
         if sender.eq_ignore_ascii_case("PM") && content.contains(" → ") && content.contains(" » ")
         {
-            return (None, full_message);
+            return (None, full_message, is_bridge);
         }
 
         return (
             Some(chat_format_parser::normalize_username(&sender)),
             content,
+            is_bridge,
         );
     }
 
     if let Some(parsed) = chat_format_parser::parse(&full_message, &formats) {
-        return (Some(parsed.username), parsed.message);
+        return (Some(parsed.username), parsed.message, is_bridge);
     }
 
-    (None, full_message)
+    (None, full_message, is_bridge)
 }

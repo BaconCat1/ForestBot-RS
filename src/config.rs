@@ -40,6 +40,18 @@ fn default_censor_threshold() -> String {
     "moderate".to_owned()
 }
 
+// Matches RV's official (non-craftbot) Discord<->MC bridge relay format,
+// e.g. "[Discord | Server Booster] JollyCurve_ » !pearl 1" -- confirmed live via a real
+// production ChatPacket capture, 2026-07-30 (see the discord-nick-uuid-spoof-incident memory).
+// Anchored at the start so it can't match a real player's own rank tag mid-message.
+fn default_discord_bridge_marker_regex() -> String {
+    r"^\[Discord \| ".to_owned()
+}
+
+fn default_discord_bridge_detection_enabled() -> bool {
+    true
+}
+
 fn default_casino_deck_count() -> u32 {
     6
 }
@@ -446,6 +458,16 @@ pub struct Config {
     pub use_commands: bool,
     pub disabled_events: Vec<String>,
     pub allow_chatbridge_input: bool,
+    // Detects RV's own official Discord<->MC bridge relay lines by raw-text marker (not the
+    // craftbot-native Discord relay below, which already tags its sender safely) so identity-
+    // sensitive commands can never be dispatched as if a real, live player sent them. See
+    // resolve_and_check_bridge_sender / discord-nick-uuid-spoof-incident memory for the
+    // 2026-07-30 incident this closes. Data-driven so it can be tuned/disabled without a
+    // recompile if RV's bridge format ever changes.
+    #[serde(default = "default_discord_bridge_marker_regex")]
+    pub discord_bridge_marker_regex: String,
+    #[serde(default = "default_discord_bridge_detection_enabled")]
+    pub discord_bridge_detection_enabled: bool,
     #[serde(default)]
     pub use_live_time_query: bool,
     // Default off (2026-07-26): production capture confirmed RV sends a real clock sync
