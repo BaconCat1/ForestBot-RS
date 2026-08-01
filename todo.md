@@ -141,7 +141,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🆕 add support for pinging minecraft servers for info via urls. Would make the most send to, on url detection, actually pass it to the `!url` command to pass through the blocklists first, and add support there for minecraft server pinging, like it attempts that when invoked from `!ping`
 
 ## !summary
-* 🆕 add cross server in the same syntax as other cross server commands
+* ✅ ~~add cross server in the same syntax as other cross server commands~~
 
 ## casino
 * ✅ casino style games, create ethereal "chips" currency to go along side them 

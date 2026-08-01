@@ -1,25 +1,23 @@
-use super::helpers::{epoch_ms_from_string, whisper};
+use super::helpers::{epoch_ms_from_string, parse_target_with_uuid};
+use crate::commands::utils::stats_target::format_server_label;
 use crate::commands::{CommandContext, CommandFuture};
 
-command!(SUMMARY_COMMAND, &["summary", "sum"], "Single-line stats overview for a player. Usage: {prefix}summary <username>", summary);
+command!(SUMMARY_COMMAND, &["summary", "sum"], "Single-line stats overview for a player. Usage: {prefix}summary <username> or {prefix}summary <server|all> <username>", summary);
 
 fn summary(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let search = ctx.args.first().copied().unwrap_or(ctx.sender);
-        let Some(uuid) = ctx.state.api.convert_username_to_uuid(search).await else {
-            whisper(&ctx, &format!(" Could not find {search}."));
+        let Some((target, uuid)) = parse_target_with_uuid(&ctx, "summary").await? else {
             return Ok(());
         };
+        let search = target.search.as_str();
         let (kd, pt, mc, adv, jd) = tokio::join!(
-            ctx.state.api.get_kd(&uuid, &ctx.state.mc_server),
-            ctx.state.api.get_playtime(&uuid, &ctx.state.mc_server),
+            ctx.state.api.get_kd(&uuid, &target.server),
+            ctx.state.api.get_playtime(&uuid, &target.server),
+            ctx.state.api.get_message_count(search, &target.server),
             ctx.state
                 .api
-                .get_message_count(search, &ctx.state.mc_server),
-            ctx.state
-                .api
-                .get_total_advancements_count(&uuid, &ctx.state.mc_server),
-            ctx.state.api.get_join_date(&uuid, &ctx.state.mc_server)
+                .get_total_advancements_count(&uuid, &target.server),
+            ctx.state.api.get_join_date(&uuid, &target.server)
         );
         let kills = kd.as_ref().map(|kd| kd.kills).unwrap_or_default();
         let deaths = kd.as_ref().map(|kd| kd.deaths).unwrap_or_default();
@@ -36,8 +34,9 @@ fn summary(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             .map(member_days)
             .map(|days| format!("{days}d"))
             .unwrap_or_else(|| "?".to_owned());
+        let label = format_server_label(&target.server, &ctx.state.mc_server);
         ctx.chat_success(format!(
-            " [{search}] KD: {kills}/{deaths} ({kdr:.2}) | Playtime: {pt_days}d | Messages: {messages} | Advancements: {adv} | Member for: {age}"
+            " [{search}]{label} KD: {kills}/{deaths} ({kdr:.2}) | Playtime: {pt_days}d | Messages: {messages} | Advancements: {adv} | Member for: {age}"
         ));
         Ok(())
     })
