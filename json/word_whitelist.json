@@ -4,6 +4,11 @@
     "hell",
     "among", "amongst",
     "monger", "warmonger", "scaremonger", "ironmonger", "fishmonger", "deathmonger", "gossipmonger",
-    "mongoose", "mongolia", "mongolian", "hmong"
+    "mongoose", "mongolia", "mongolian", "hmong",
+    "wordle <chips>",
+    "tie <chips>",
+    "ontime <chips>",
+    "a1 b2 | !checkers",
+    "board | !checkers"
   ]
 }
