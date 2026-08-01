@@ -165,7 +165,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~Rocket launches (RocketLaunch.live, free)~~
 * ✅ ~~gasbuddy betting, also just treat national gas price as a stock to let people invest/buy "real gasoline" (https://github.com/firstof9/py-gasbuddy)~~
 	* ⏸️ extend gasbuddy feature to support diesel // casino phase II
-* 🐛 **bug**: payouts that are < 1 chip pay out nothing. Minimum payout should always be 1 chip, never 0.
+* ✅ ~~**bug**: payouts that are < 1 chip pay out nothing. Minimum payout should always be 1 chip, never 0.~~ // fixed at the single universal choke point, `ApiClient::casino_win()` (`endpoints.rs`) — every real win-credit call in the codebase already routes through it, `gross_win.max(1)` before the request covers every game at once
 
 ### Casino Phase II
 * ✅️ ~~migrate to a betting api over the current approach (requires Hub changes, deslopify-2026-07-07.md line 111)~~

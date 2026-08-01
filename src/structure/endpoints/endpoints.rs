@@ -832,6 +832,11 @@ impl ApiClient {
         player_uuid: &str,
         gross_win: i64,
     ) -> Result<CasinoWinResult, CasinoAdjustErr> {
+        // Every caller here has already decided this is a real win (pushes/refunds/draws go
+        // through casino_adjust instead) -- but odds-based payout math (calc_payout's floor,
+        // hilo's `as i64` truncation on a shrunk multiplier) can round a genuine win down to 0.
+        // Floor every win at 1 chip so "you won" never pays out nothing.
+        let gross_win = gross_win.max(1);
         let Some(v) = self
             .post_json("/casino/win", json!({ "player_uuid": player_uuid, "gross_win": gross_win }))
             .await
