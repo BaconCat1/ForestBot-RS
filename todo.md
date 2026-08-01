@@ -116,6 +116,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * 🆕 audit servers in the db for filler/servers with very little data, maybe exclude them from `!lq` or out right.
 * ⏸️ !rr, old PR that never got merged into TS forestbot. on hold indefinitely unless there's an RR revival
 * ⏸️ !joke, old PR that never got merged into TS forestbot. would bring parity with moobot, on hold until interest is shown.
+* 🆕 audit TS repo for dropped features/ideas
 
 
 ## !quote
@@ -134,6 +135,9 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 ## !trade
 * ✅ ~~!trade preview, let you see the proposed trade that's preventing you from making a new one, prompt people when they hit that snag~~ // `!trade preview` whispers pending trade details + next steps; propose error now hints about preview
 * ✅ ~~**bug**: users can propose trades to themselves, should throw an error instead.~~
+
+## !ping
+* 🆕 add support for pinging minecraft servers for info via urls. Would make the most send to, on url detection, actually pass it to the `!url` command to pass through the blocklists first, and add support there for minecraft server pinging, like it attempts that when invoked from `!ping`
 
 ## casino
 * ✅ casino style games, create ethereal "chips" currency to go along side them 
@@ -161,6 +165,7 @@ Only behavior still missing or partial compared to `ForestBot/src` is listed her
 * ✅ ~~Rocket launches (RocketLaunch.live, free)~~
 * ✅ ~~gasbuddy betting, also just treat national gas price as a stock to let people invest/buy "real gasoline" (https://github.com/firstof9/py-gasbuddy)~~
 	* ⏸️ extend gasbuddy feature to support diesel // casino phase II
+* 🐛 **bug**: payouts that are < 1 chip pay out nothing. Minimum payout should always be 1 chip, never 0.
 
 ### Casino Phase II
 * ✅️ ~~migrate to a betting api over the current approach (requires Hub changes, deslopify-2026-07-07.md line 111)~~

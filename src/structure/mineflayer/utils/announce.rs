@@ -30,9 +30,13 @@ pub fn spawn_announce_loop(state: AzaleaState, active: Arc<AtomicBool>) {
                 break;
             }
 
-            let (prefix, command_toggles) = {
+            let (prefix, command_toggles, command_censorship) = {
                 let runtime = state.runtime.read().expect("runtime config lock poisoned");
-                (runtime.prefix.clone(), runtime.command_toggles.clone())
+                (
+                    runtime.prefix.clone(),
+                    runtime.command_toggles.clone(),
+                    runtime.command_censorship.clone(),
+                )
             };
 
             let candidates: Vec<usize> = commands::registry()
@@ -73,11 +77,29 @@ pub fn spawn_announce_loop(state: AzaleaState, active: Arc<AtomicBool>) {
             let description = cmd.description.replace("{prefix}", &prefix);
             logger::info(format!("Announce: {description}"));
 
+            // Command descriptions are static, compile-time strings -- never
+            // player-submitted text -- so whether to censor them is driven by
+            // the same json/commands_censorship.json `success` toggle the
+            // command's own whisper_success() would use, not hardcoded here.
+            // Missing entry defaults to censored (true), matching
+            // CommandContext::censored()'s fail-safe in commands/mod.rs.
+            let censored = cmd
+                .names
+                .first()
+                .and_then(|name| command_censorship.get(*name))
+                .map(|c| c.success)
+                .unwrap_or(true);
+            let queued = if censored {
+                description
+            } else {
+                format!("{}{description}", commands::SKIP_CENSOR_MARKER)
+            };
+
             state
                 .outbound_chat
                 .lock()
                 .expect("outbound chat queue lock poisoned")
-                .push_back(description);
+                .push_back(queued);
         }
     });
 }
