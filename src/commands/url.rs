@@ -246,7 +246,7 @@ async fn fetch_preview(url: &str, blocklist: &HashSet<String>) -> Option<(String
     Some((title, description))
 }
 
-fn is_private_ip(ip: std::net::IpAddr) -> bool {
+pub(crate) fn is_private_ip(ip: std::net::IpAddr) -> bool {
     match ip {
         std::net::IpAddr::V4(v4) => {
             v4.is_loopback()
