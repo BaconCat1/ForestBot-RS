@@ -32,7 +32,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 let trie = *ctx.state.profanity_trie.read().expect("profanity_trie read");
                 let threshold = profanity_filter::censor_threshold_from_config(&ctx.runtime.censor_threshold);
                 let censored_query = match trie {
-                    Some(trie) => profanity_filter::censor_message(trie, &query, threshold),
+                    Some(trie) => profanity_filter::censor_message(trie, &query, threshold, ctx.runtime.log_censorship_hits),
                     None => query,
                 };
                 let display = format!("{censored_query}{sep}{answer}");

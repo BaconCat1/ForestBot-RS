@@ -56,6 +56,7 @@ async fn roast_run(ctx: CommandContext<'_>) -> anyhow::Result<()> {
     let state = ctx.state.clone();
     let timeout_ms = ctx.runtime.roast_timeout_ms;
     let censor_threshold = ctx.runtime.censor_threshold.clone();
+    let log_censorship_hits = ctx.runtime.log_censorship_hits;
 
     tokio::spawn(async move {
         let client = reqwest::Client::new();
@@ -78,7 +79,7 @@ async fn roast_run(ctx: CommandContext<'_>) -> anyhow::Result<()> {
                 );
                 match trie {
                     Some(trie) => crate::structure::mineflayer::utils::profanity_filter::censor_message(
-                        trie, &roast, threshold,
+                        trie, &roast, threshold, log_censorship_hits,
                     ),
                     None => roast,
                 }

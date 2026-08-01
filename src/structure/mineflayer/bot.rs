@@ -77,6 +77,7 @@ pub struct RuntimeConfig {
     pub custom_chat_prefix: String,
     pub smart_censoring: bool,
     pub censor_threshold: String,
+    pub log_censorship_hits: bool,
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
     pub bet_limits: HashMap<String, crate::config::BetLimit>,
     pub together_api_key: String,
@@ -186,6 +187,7 @@ pub struct Bot {
     pub day_night_game_time_fallback: bool,
     pub smart_censoring: bool,
     pub censor_threshold: String,
+    pub log_censorship_hits: bool,
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
     pub bet_limits: HashMap<String, crate::config::BetLimit>,
     pub casino_deck_count: u32,
@@ -312,6 +314,7 @@ impl Bot {
             day_night_game_time_fallback: state.config.day_night_game_time_fallback,
             smart_censoring: state.config.smart_censoring,
             censor_threshold: state.config.censor_threshold.clone(),
+            log_censorship_hits: state.config.log_censorship_hits,
             command_censorship: state.command_censorship.clone(),
             bet_limits: state.bet_limits.clone(),
             casino_deck_count: state.config.casino_deck_count,
@@ -465,6 +468,7 @@ impl Bot {
                 custom_chat_prefix: self.custom_chat_prefix.clone(),
                 smart_censoring: self.smart_censoring,
                 censor_threshold: self.censor_threshold.clone(),
+                log_censorship_hits: self.log_censorship_hits,
                 command_censorship: self.command_censorship.clone(),
                 bet_limits: self.bet_limits.clone(),
                 together_api_key: self.together_api_key.clone(),
@@ -1353,6 +1357,7 @@ impl Default for AzaleaState {
                 custom_chat_prefix: String::new(),
                 smart_censoring: false,
                 censor_threshold: "moderate".to_owned(),
+                log_censorship_hits: false,
                 command_censorship: HashMap::new(),
                 bet_limits: HashMap::new(),
                 together_api_key: String::new(),
@@ -2423,7 +2428,7 @@ async fn filter_outgoing_message(state: &AzaleaState, message: &str) -> String {
     let trie = *state.profanity_trie.read().expect("profanity_trie read");
     let threshold = profanity_filter::censor_threshold_from_config(&runtime.censor_threshold);
     let regular_censored = match trie {
-        Some(trie) => profanity_filter::censor_message(trie, &censor_target, threshold),
+        Some(trie) => profanity_filter::censor_message(trie, &censor_target, threshold, runtime.log_censorship_hits),
         None => censor_target.clone(),
     };
 
@@ -2433,7 +2438,7 @@ async fn filter_outgoing_message(state: &AzaleaState, message: &str) -> String {
         maybe_smart_censor_message(&censor_target, &runtime)
             .await
             .map(|smart_censored| match trie {
-                Some(trie) => profanity_filter::censor_message(trie, &smart_censored, threshold),
+                Some(trie) => profanity_filter::censor_message(trie, &smart_censored, threshold, runtime.log_censorship_hits),
                 None => smart_censored,
             })
             .unwrap_or(regular_censored)

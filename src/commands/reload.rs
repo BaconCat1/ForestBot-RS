@@ -75,6 +75,7 @@ async fn reload_runtime(
         custom_chat_prefix: app_state.config.custom_chat_prefix,
         smart_censoring: app_state.config.smart_censoring,
         censor_threshold: app_state.config.censor_threshold,
+        log_censorship_hits: app_state.config.log_censorship_hits,
         command_censorship: app_state.command_censorship,
         bet_limits: app_state.bet_limits,
         together_api_key: app_state.config.api_keys.together,

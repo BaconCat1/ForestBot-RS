@@ -86,11 +86,15 @@ pub async fn rebuild(state: &AzaleaState) {
         .expect("profanity_trie lock poisoned") = Some(trie);
 }
 
-pub fn censor_message(trie: &'static Trie, message: &str, threshold: Type) -> String {
-    Censor::from_str(message)
+pub fn censor_message(trie: &'static Trie, message: &str, threshold: Type, log_hits: bool) -> String {
+    let censored = Censor::from_str(message)
         .with_trie(trie)
         .with_censor_threshold(threshold)
-        .censor()
+        .censor();
+    if log_hits && censored != message {
+        crate::structure::logger::censorship_hit(message, &censored);
+    }
+    censored
 }
 
 pub fn is_severely_flagged(trie: &'static Trie, text: &str) -> bool {

@@ -46,6 +46,7 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
                 trie,
                 &description,
                 threshold,
+                ctx.runtime.log_censorship_hits,
             ),
             None => description.clone(),
         };

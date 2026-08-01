@@ -1,6 +1,7 @@
 use chrono::Local;
 use colored::{ColoredString, Colorize};
 use std::collections::HashMap;
+use std::io::Write;
 use std::sync::{OnceLock, RwLock};
 
 fn timestamp() -> String {
@@ -152,4 +153,28 @@ pub fn debug_cat(category: &str, message: impl AsRef<str>) {
     if debug_cat_enabled(category) {
         log("debug".bright_black(), message.as_ref());
     }
+}
+
+/// Appends one JSON-line record of a real censorship hit (input != output) to
+/// censorship.log, gated behind RuntimeConfig's `log_censorship_hits` (off by default --
+/// callers check the flag before calling this, same as debug_cat's category gating but
+/// config-driven instead). Same open-append-close-per-call pattern as debug.json/
+/// config.json's own file writes elsewhere in this codebase -- fires rarely (only on an
+/// actual mask, not every message), so no persistent file handle is worth the complexity.
+/// Intentionally a separate file from azalea-packets.log/pm2's stdout capture -- the
+/// whole point is triaging false positives without wading through unrelated chat noise.
+pub fn censorship_hit(original: &str, censored: &str) {
+    let record = serde_json::json!({
+        "timestamp": timestamp(),
+        "original": original,
+        "censored": censored,
+    });
+    let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("censorship.log")
+    else {
+        return;
+    };
+    let _ = writeln!(file, "{record}");
 }

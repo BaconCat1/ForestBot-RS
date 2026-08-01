@@ -990,6 +990,7 @@
   "rotateHeadOnJoin": false,
   "smart_censoring": false,
   "censor_threshold": "moderate",
+  "log_censorship_hits": false,
   "useLegacyChat": false,
   "useCustomChatFormatParser": false,
   "customChatFormats": [

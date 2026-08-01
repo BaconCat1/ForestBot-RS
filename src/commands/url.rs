@@ -73,7 +73,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 let trie = *ctx.state.profanity_trie.read().expect("profanity_trie read");
                 let threshold = crate::structure::mineflayer::utils::profanity_filter::censor_threshold_from_config(&ctx.runtime.censor_threshold);
                 let censored = match trie {
-                    Some(trie) => censor_message(trie, &description, threshold),
+                    Some(trie) => censor_message(trie, &description, threshold, ctx.runtime.log_censorship_hits),
                     None => description.clone(),
                 };
                 if censored != description {

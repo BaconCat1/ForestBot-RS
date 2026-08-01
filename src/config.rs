@@ -490,6 +490,10 @@ pub struct Config {
     // censor_threshold_from_config().
     #[serde(default = "default_censor_threshold")]
     pub censor_threshold: String,
+    // Appends every actual censorship hit (input != output) to censorship.log, for later
+    // false-positive triage. Off by default -- opt in via config.json, not example's default.
+    #[serde(default)]
+    pub log_censorship_hits: bool,
     #[serde(default)]
     pub api_keys: ApiKeys,
     #[serde(rename = "useLegacyChat")]
