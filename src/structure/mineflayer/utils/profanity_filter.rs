@@ -86,13 +86,45 @@ pub async fn rebuild(state: &AzaleaState) {
         .expect("profanity_trie lock poisoned") = Some(trie);
 }
 
+/// Negated math relation symbols whose canonical Unicode decomposition is `<base char> +
+/// U+0338 COMBINING LONG SOLIDUS OVERLAY`. rustrict's `Censor` runs every message through
+/// `nfd() -> strip Mn (combining marks) -> nfc()` to defeat strikethrough-style evasion
+/// (`n̶i̶g̶g̶e̶r̶`), which as a side effect strips the slash off these too, silently flipping
+/// them to their un-negated form (confirmed via `dev-tools/censor_trace`, e.g. `"≠"` ->
+/// `"="`) -- no profanity is matched, so nothing gets redacted, it just quietly changes what
+/// the message says. `≤`/`≥`/`∈` are unaffected (different composition, no combining mark)
+/// and are not in this table. Swapped to safe ASCII before rustrict ever sees them.
+const NEGATED_RELATION_SYMBOLS: &[(char, &str)] = &[
+    ('≠', "!="),
+    ('∉', "not in"),
+    ('⊄', "not subset of"),
+    ('≢', "not equivalent to"),
+    ('≮', "not less than"),
+    ('≯', "not greater than"),
+];
+
+fn sanitize_negated_symbols(message: &str) -> std::borrow::Cow<'_, str> {
+    if !message
+        .chars()
+        .any(|c| NEGATED_RELATION_SYMBOLS.iter().any(|&(symbol, _)| symbol == c))
+    {
+        return std::borrow::Cow::Borrowed(message);
+    }
+    let mut owned = message.to_owned();
+    for &(symbol, replacement) in NEGATED_RELATION_SYMBOLS {
+        owned = owned.replace(symbol, replacement);
+    }
+    std::borrow::Cow::Owned(owned)
+}
+
 pub fn censor_message(trie: &'static Trie, message: &str, threshold: Type, log_hits: bool) -> String {
-    let censored = Censor::from_str(message)
+    let sanitized = sanitize_negated_symbols(message);
+    let censored = Censor::from_str(&sanitized)
         .with_trie(trie)
         .with_censor_threshold(threshold)
         .censor();
-    if log_hits && censored != message {
-        crate::structure::logger::censorship_hit(message, &censored);
+    if log_hits && censored != sanitized.as_ref() {
+        crate::structure::logger::censorship_hit(&sanitized, &censored);
     }
     censored
 }
