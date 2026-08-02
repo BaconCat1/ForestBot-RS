@@ -279,6 +279,77 @@ fn default_train_gtfs_max_poll_ms() -> u64 {
     600_000
 }
 
+// Per-game settlement-market timing knobs, grouped into their own struct since adding one new
+// market's timer used to mean editing 4-6 sites (Config, RuntimeConfig, Bot x2, reload.rs,
+// example.config.json) just for the flat-field plumbing -- see the 2026-07-26 deslopify pass'
+// god-struct scoping. #[serde(flatten)] on Config keeps prod's on-disk config.json fully flat
+// (no nesting required there) while RuntimeConfig/Bot embed this as a real sub-struct.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CasinoConfig {
+    #[serde(default = "default_aqi_settle_window_ms")]
+    pub aqi_settle_window_ms: u64,
+    #[serde(default = "default_aqi_timeout_ms")]
+    pub aqi_timeout_ms: u64,
+    #[serde(default = "default_gas_settle_window_ms")]
+    pub gas_settle_window_ms: u64,
+    #[serde(default = "default_gas_timeout_ms")]
+    pub gas_timeout_ms: u64,
+    #[serde(default = "default_gas_cache_ttl_ms")]
+    pub gas_cache_ttl_ms: u64,
+    #[serde(default = "default_kalshi_cache_ttl_ms")]
+    pub kalshi_cache_ttl_ms: u64,
+    #[serde(default = "default_kalshi_poll_interval_ms")]
+    pub kalshi_poll_interval_ms: u64,
+    #[serde(default = "default_kalshi_max_poll_ms")]
+    pub kalshi_max_poll_ms: u64,
+    #[serde(default = "default_faa_airport_bet_duration_ms")]
+    pub faa_airport_bet_duration_ms: u64,
+    #[serde(default = "default_faa_airport_poll_interval_ms")]
+    pub faa_airport_poll_interval_ms: u64,
+    #[serde(default = "default_faa_airport_max_poll_ms")]
+    pub faa_airport_max_poll_ms: u64,
+    #[serde(default = "default_noaa_flooding_bet_duration_ms")]
+    pub noaa_flooding_bet_duration_ms: u64,
+    #[serde(default = "default_noaa_flooding_poll_interval_ms")]
+    pub noaa_flooding_poll_interval_ms: u64,
+    #[serde(default = "default_noaa_flooding_max_poll_ms")]
+    pub noaa_flooding_max_poll_ms: u64,
+    #[serde(default = "default_launch_lock_before_ms")]
+    pub launch_lock_before_ms: u64,
+    #[serde(default = "default_launch_poll_interval_ms")]
+    pub launch_poll_interval_ms: u64,
+    #[serde(default = "default_launch_max_settle_wait_ms")]
+    pub launch_max_settle_wait_ms: u64,
+    #[serde(default = "default_launch_timeout_ms")]
+    pub launch_timeout_ms: u64,
+    #[serde(default = "default_launch_cache_ttl_ms")]
+    pub launch_cache_ttl_ms: u64,
+    #[serde(default = "default_nasa_space_weather_poll_interval_ms")]
+    pub nasa_space_weather_poll_interval_ms: u64,
+    #[serde(default = "default_nasa_space_weather_max_poll_ms")]
+    pub nasa_space_weather_max_poll_ms: u64,
+    #[serde(default = "default_nasa_space_weather_settle_buffer_ms")]
+    pub nasa_space_weather_settle_buffer_ms: u64,
+    #[serde(default = "default_nasa_space_weather_odds_cache_ttl_ms")]
+    pub nasa_space_weather_odds_cache_ttl_ms: u64,
+    #[serde(default = "default_sports_cache_ttl_ms")]
+    pub sports_cache_ttl_ms: u64,
+    #[serde(default = "default_sports_poll_interval_ms")]
+    pub sports_poll_interval_ms: u64,
+    #[serde(default = "default_sports_max_poll_ms")]
+    pub sports_max_poll_ms: u64,
+    #[serde(default = "default_train_bet_duration_ms")]
+    pub train_bet_duration_ms: u64,
+    #[serde(default = "default_train_poll_interval_ms")]
+    pub train_poll_interval_ms: u64,
+    #[serde(default = "default_train_max_poll_ms")]
+    pub train_max_poll_ms: u64,
+    #[serde(default = "default_train_gtfs_poll_interval_ms")]
+    pub train_gtfs_poll_interval_ms: u64,
+    #[serde(default = "default_train_gtfs_max_poll_ms")]
+    pub train_gtfs_max_poll_ms: u64,
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ApiKeys {
     #[serde(default)]
@@ -591,86 +662,29 @@ pub struct Config {
     pub slots_animation_delay_ms: u64,
     #[serde(default = "default_twerk_flash_delay_ms")]
     pub twerk_flash_delay_ms: u64,
-    // Constructor-time only (MarketService::new/Cache::new, build_blocklist,
-    // WebsocketClient::connect) -- not in RuntimeConfig since nothing re-reads them
-    // per-message, only once at startup.
     #[serde(default = "default_market_quote_ttl_ms")]
     pub market_quote_ttl_ms: u64,
     #[serde(default = "default_market_history_ttl_ms")]
     pub market_history_ttl_ms: u64,
+    // Constructor-time only (MarketService::new/Cache::new, build_blocklist,
+    // WebsocketClient::connect) -- not in RuntimeConfig since nothing re-reads them
+    // per-message, only once at startup.
     #[serde(default = "default_market_search_ttl_ms")]
     pub market_search_ttl_ms: u64,
     #[serde(default = "default_market_api_timeout_ms")]
     pub market_api_timeout_ms: u64,
     #[serde(default = "default_url_blocklist_timeout_ms")]
     pub url_blocklist_timeout_ms: u64,
+    // Per-game settlement-market timing knobs, grouped into their own struct since adding one
+    // new market's timer used to mean editing 4-6 sites (Config, RuntimeConfig, Bot x2,
+    // reload.rs, example.config.json) just for the flat-field plumbing -- see the 2026-07-26
+    // deslopify pass' god-struct scoping. #[serde(flatten)] keeps prod's on-disk config.json
+    // fully flat (no nesting there) while RuntimeConfig/Bot embed this as a real sub-struct.
+    #[serde(flatten)]
+    pub casino: CasinoConfig,
     #[serde(default = "default_websocket_keepalive_ms")]
     pub websocket_keepalive_ms: u64,
 
-    // Per-market-game timing knobs -- see the default_* fns above for why these stay
-    // per-game instead of a shared market_* key.
-    #[serde(default = "default_aqi_settle_window_ms")]
-    pub aqi_settle_window_ms: u64,
-    #[serde(default = "default_aqi_timeout_ms")]
-    pub aqi_timeout_ms: u64,
-    #[serde(default = "default_gas_settle_window_ms")]
-    pub gas_settle_window_ms: u64,
-    #[serde(default = "default_gas_timeout_ms")]
-    pub gas_timeout_ms: u64,
-    #[serde(default = "default_gas_cache_ttl_ms")]
-    pub gas_cache_ttl_ms: u64,
-    #[serde(default = "default_kalshi_cache_ttl_ms")]
-    pub kalshi_cache_ttl_ms: u64,
-    #[serde(default = "default_kalshi_poll_interval_ms")]
-    pub kalshi_poll_interval_ms: u64,
-    #[serde(default = "default_kalshi_max_poll_ms")]
-    pub kalshi_max_poll_ms: u64,
-    #[serde(default = "default_faa_airport_bet_duration_ms")]
-    pub faa_airport_bet_duration_ms: u64,
-    #[serde(default = "default_faa_airport_poll_interval_ms")]
-    pub faa_airport_poll_interval_ms: u64,
-    #[serde(default = "default_faa_airport_max_poll_ms")]
-    pub faa_airport_max_poll_ms: u64,
-    #[serde(default = "default_noaa_flooding_bet_duration_ms")]
-    pub noaa_flooding_bet_duration_ms: u64,
-    #[serde(default = "default_noaa_flooding_poll_interval_ms")]
-    pub noaa_flooding_poll_interval_ms: u64,
-    #[serde(default = "default_noaa_flooding_max_poll_ms")]
-    pub noaa_flooding_max_poll_ms: u64,
-    #[serde(default = "default_launch_lock_before_ms")]
-    pub launch_lock_before_ms: u64,
-    #[serde(default = "default_launch_poll_interval_ms")]
-    pub launch_poll_interval_ms: u64,
-    #[serde(default = "default_launch_max_settle_wait_ms")]
-    pub launch_max_settle_wait_ms: u64,
-    #[serde(default = "default_launch_timeout_ms")]
-    pub launch_timeout_ms: u64,
-    #[serde(default = "default_launch_cache_ttl_ms")]
-    pub launch_cache_ttl_ms: u64,
-    #[serde(default = "default_nasa_space_weather_poll_interval_ms")]
-    pub nasa_space_weather_poll_interval_ms: u64,
-    #[serde(default = "default_nasa_space_weather_max_poll_ms")]
-    pub nasa_space_weather_max_poll_ms: u64,
-    #[serde(default = "default_nasa_space_weather_settle_buffer_ms")]
-    pub nasa_space_weather_settle_buffer_ms: u64,
-    #[serde(default = "default_nasa_space_weather_odds_cache_ttl_ms")]
-    pub nasa_space_weather_odds_cache_ttl_ms: u64,
-    #[serde(default = "default_sports_cache_ttl_ms")]
-    pub sports_cache_ttl_ms: u64,
-    #[serde(default = "default_sports_poll_interval_ms")]
-    pub sports_poll_interval_ms: u64,
-    #[serde(default = "default_sports_max_poll_ms")]
-    pub sports_max_poll_ms: u64,
-    #[serde(default = "default_train_bet_duration_ms")]
-    pub train_bet_duration_ms: u64,
-    #[serde(default = "default_train_poll_interval_ms")]
-    pub train_poll_interval_ms: u64,
-    #[serde(default = "default_train_max_poll_ms")]
-    pub train_max_poll_ms: u64,
-    #[serde(default = "default_train_gtfs_poll_interval_ms")]
-    pub train_gtfs_poll_interval_ms: u64,
-    #[serde(default = "default_train_gtfs_max_poll_ms")]
-    pub train_gtfs_max_poll_ms: u64,
     // Decks per shoe for blackjack/baccarat's shared table shoe (src/commands/casino/shoe.rs).
     // Real casinos use 6-8 deck shoes specifically to blunt card counting; 6 matches the most
     // common real-world convention. Poker/hilo build their own fresh single deck per hand/round

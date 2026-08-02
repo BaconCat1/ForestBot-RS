@@ -248,7 +248,7 @@ async fn load_odds(state: &AzaleaState, client: &reqwest::Client, nasa_key: &str
                 .runtime
                 .read()
                 .expect("runtime config lock poisoned")
-                .nasa_space_weather_odds_cache_ttl_ms
+                .casino.nasa_space_weather_odds_cache_ttl_ms
                 / 1000;
             if now_unix().saturating_sub(fetched_at) < odds_cache_ttl_secs {
                 return odds;
@@ -411,7 +411,7 @@ pub async fn settle_task(
         .runtime
         .read()
         .expect("runtime lock")
-        .nasa_space_weather_settle_buffer_ms
+        .casino.nasa_space_weather_settle_buffer_ms
         / 1000;
     let remaining_buffer = settle_buffer_secs.saturating_sub(elapsed_past_close);
     if remaining_buffer > 0 {
@@ -436,7 +436,7 @@ pub async fn settle_task(
 
     let (max_poll_ms, poll_interval_ms) = {
         let runtime = deps.runtime.read().expect("runtime lock");
-        (runtime.nasa_space_weather_max_poll_ms, runtime.nasa_space_weather_poll_interval_ms)
+        (runtime.casino.nasa_space_weather_max_poll_ms, runtime.casino.nasa_space_weather_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
     let result = super::poll_until(deadline, poll_interval_ms, || async {

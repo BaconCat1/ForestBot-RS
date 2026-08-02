@@ -550,7 +550,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
     let Some(_) = deduct_stake(ctx, &player_uuid, stake).await else { return Ok(()); };
 
-    let close_time = now_unix() + ctx.runtime.train_bet_duration_ms / 1000;
+    let close_time = now_unix() + ctx.runtime.casino.train_bet_duration_ms / 1000;
     let delay_str  = if current_delay > 0 {
         format!("+{}m now", current_delay)
     } else {
@@ -625,7 +625,7 @@ async fn legacy_settle(deps: SettleDeps, bets_map: TrainBetsMap, whisper_cmd: St
 
     let (max_poll_ms, poll_interval_ms) = {
         let runtime = deps.runtime.read().expect("runtime lock");
-        (runtime.train_max_poll_ms, runtime.train_poll_interval_ms)
+        (runtime.casino.train_max_poll_ms, runtime.casino.train_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
     let outcome = super::poll_until(deadline, poll_interval_ms, || async {
@@ -665,7 +665,7 @@ async fn gtfs_settle(deps: SettleDeps, bets_map: TrainBetsMap, whisper_cmd: Stri
     // via train_gtfs_poll_interval_ms/train_gtfs_max_poll_ms -- were hardcoded 30s/10min).
     let (gtfs_poll_interval_ms, gtfs_max_poll_ms) = {
         let runtime = deps.runtime.read().expect("runtime lock");
-        (runtime.train_gtfs_poll_interval_ms, runtime.train_gtfs_max_poll_ms)
+        (runtime.casino.train_gtfs_poll_interval_ms, runtime.casino.train_gtfs_max_poll_ms)
     };
     let deadline = now_unix() + gtfs_max_poll_ms / 1000;
     let client = reqwest::Client::new();

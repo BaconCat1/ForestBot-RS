@@ -209,7 +209,7 @@ async fn load_markets(ctx: &CommandContext<'_>, category: &str) -> Result<Vec<Ka
     let cached = {
         let cache = ctx.state.kalshi_cache.lock().expect("kalshi_cache lock");
         let age = now_unix().saturating_sub(cache.fetched_at);
-        if age < ctx.runtime.kalshi_cache_ttl_ms / 1000 && cache.category == category && !cache.markets.is_empty() {
+        if age < ctx.runtime.casino.kalshi_cache_ttl_ms / 1000 && cache.category == category && !cache.markets.is_empty() {
             Some(cache.markets.clone())
         } else {
             None
@@ -408,7 +408,7 @@ pub async fn settle_task(
 
     let (max_poll_ms, poll_interval_ms) = {
         let runtime = deps.runtime.read().expect("runtime lock");
-        (runtime.kalshi_max_poll_ms, runtime.kalshi_poll_interval_ms)
+        (runtime.casino.kalshi_max_poll_ms, runtime.casino.kalshi_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
     let result = super::poll_until(deadline, poll_interval_ms, || async {

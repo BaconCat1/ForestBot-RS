@@ -260,14 +260,14 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
     let cached = {
         let cache = ctx.state.gas_price_cache.lock().unwrap();
         cache.get(zip).and_then(|(p, r, t)| {
-            if now_unix() - t < ctx.runtime.gas_cache_ttl_ms / 1000 { Some((*p, r.clone())) } else { None }
+            if now_unix() - t < ctx.runtime.casino.gas_cache_ttl_ms / 1000 { Some((*p, r.clone())) } else { None }
         })
     };
 
     let (price, region) = if let Some(hit) = cached {
         hit
     } else {
-        match fetch_gas_price(&ctx.state.http, &ctx.state.gasbuddy_csrf, zip, &solver_url, readonly, ctx.runtime.gas_timeout_ms).await {
+        match fetch_gas_price(&ctx.state.http, &ctx.state.gasbuddy_csrf, zip, &solver_url, readonly, ctx.runtime.casino.gas_timeout_ms).await {
             Ok(r) => {
                 ctx.state.gas_price_cache.lock().unwrap()
                     .insert(zip.to_owned(), (r.0, r.1.clone(), now_unix()));
@@ -312,7 +312,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
 
     let Some(_) = deduct_stake(&ctx, &player_uuid, chips).await else { return Ok(()); };
 
-    let close_time = now_unix() + ctx.runtime.gas_settle_window_ms / 1000;
+    let close_time = now_unix() + ctx.runtime.casino.gas_settle_window_ms / 1000;
     let mut bet = GasBet {
         id: None,
         player:     player_uuid.clone(),
@@ -380,7 +380,7 @@ pub async fn gas_settle_task(
 
     let (solver_url, readonly, timeout_ms) = {
         let rt = deps.runtime.read().expect("runtime lock");
-        (rt.gasbuddy_solver_url.clone(), rt.gasbuddy_csrf_readonly, rt.gas_timeout_ms)
+        (rt.gasbuddy_solver_url.clone(), rt.gasbuddy_csrf_readonly, rt.casino.gas_timeout_ms)
     };
 
     let current = fetch_gas_price(&http, &gasbuddy_csrf, &bet.zip, &solver_url, readonly, timeout_ms).await.ok();

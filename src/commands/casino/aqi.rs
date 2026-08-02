@@ -243,7 +243,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     }
 
     let client = reqwest::Client::new();
-    let timeout_ms = ctx.runtime.aqi_timeout_ms;
+    let timeout_ms = ctx.runtime.casino.aqi_timeout_ms;
 
     let (current_result, forecast_result) = tokio::join!(
         fetch_current(&client, &zip, &key, timeout_ms),
@@ -314,7 +314,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
     // Deduct chips
     let Some(_) = deduct_stake(&ctx, &player_uuid, chips).await else { return Ok(()); };
 
-    let close_time = now_unix() + ctx.runtime.aqi_settle_window_ms / 1000;
+    let close_time = now_unix() + ctx.runtime.casino.aqi_settle_window_ms / 1000;
     let mut bet = AqiBet {
         id: 0,
         player: player_uuid.clone(),
@@ -385,7 +385,7 @@ pub async fn aqi_settle_task(
 
     let (key, timeout_ms) = {
         let runtime = deps.runtime.read().expect("runtime lock");
-        (runtime.airnow_api_key.clone(), runtime.aqi_timeout_ms)
+        (runtime.airnow_api_key.clone(), runtime.casino.aqi_timeout_ms)
     };
     let readings = fetch_current(&http, &bet.zip, &key, timeout_ms).await.ok();
 

@@ -263,7 +263,7 @@ async fn load_events(ctx: &CommandContext<'_>) -> Option<Vec<EventDisplay>> {
     let cached = {
         let cache = ctx.state.sports_cache.lock().expect("sports_cache lock");
         let age = now_unix().saturating_sub(cache.fetched_at);
-        (age < ctx.runtime.sports_cache_ttl_ms / 1000 && !cache.events.is_empty()).then(|| cache.events.clone())
+        (age < ctx.runtime.casino.sports_cache_ttl_ms / 1000 && !cache.events.is_empty()).then(|| cache.events.clone())
     };
     if let Some(c) = cached {
         return Some(c);
@@ -496,7 +496,7 @@ pub async fn settle_task(
 
     let (max_poll_ms, poll_interval_ms) = {
         let runtime = deps.runtime.read().expect("runtime lock");
-        (runtime.sports_max_poll_ms, runtime.sports_poll_interval_ms)
+        (runtime.casino.sports_max_poll_ms, runtime.casino.sports_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
     let outcome = super::poll_until(deadline, poll_interval_ms, || async {

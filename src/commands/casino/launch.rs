@@ -240,7 +240,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 }
 
 async fn show_list(ctx: CommandContext<'_>) -> anyhow::Result<()> {
-    let launches = match fetch_upcoming(&ctx.state.http, ctx.runtime.launch_timeout_ms).await {
+    let launches = match fetch_upcoming(&ctx.state.http, ctx.runtime.casino.launch_timeout_ms).await {
         Ok(l) if !l.is_empty() => l,
         Err(FetchErr::RateLimit) => {
             ctx.whisper_success("Launch Library API rate limit reached. Try again later.");
@@ -285,7 +285,7 @@ async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 }
 
 async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<()> {
-    let l = match fetch_single(&ctx.state.http, short_id, ctx.runtime.launch_timeout_ms).await {
+    let l = match fetch_single(&ctx.state.http, short_id, ctx.runtime.casino.launch_timeout_ms).await {
         Ok(l) => l,
         Err(FetchErr::RateLimit) => {
             ctx.whisper_success("Launch Library API rate limit reached. Try again later.");
@@ -298,7 +298,7 @@ async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<
     };
 
     let now = now_unix();
-    let lock_at = l.window_start.saturating_sub(ctx.runtime.launch_lock_before_ms / 1000);
+    let lock_at = l.window_start.saturating_sub(ctx.runtime.casino.launch_lock_before_ms / 1000);
     if now >= lock_at {
         ctx.whisper_success(format!(
             "[{}] {} — bets locked (T-2h window passed).",
@@ -307,7 +307,7 @@ async fn show_launch(ctx: CommandContext<'_>, short_id: &str) -> anyhow::Result<
         return Ok(());
     }
 
-    let (p_s, p_o) = get_rates(&ctx.state.http, &ctx.state.launch_cache, l.lsp_id, ctx.runtime.launch_timeout_ms, ctx.runtime.launch_cache_ttl_ms).await;
+    let (p_s, p_o) = get_rates(&ctx.state.http, &ctx.state.launch_cache, l.lsp_id, ctx.runtime.casino.launch_timeout_ms, ctx.runtime.casino.launch_cache_ttl_ms).await;
     let price_success = to_price(p_s);
     let price_ontime  = to_price(p_o);
     let p = &ctx.runtime.prefix;
@@ -337,7 +337,7 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
 
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
 
-    let l = match fetch_single(&ctx.state.http, short_id, ctx.runtime.launch_timeout_ms).await {
+    let l = match fetch_single(&ctx.state.http, short_id, ctx.runtime.casino.launch_timeout_ms).await {
         Ok(l) => l,
         Err(FetchErr::RateLimit) => {
             ctx.whisper_success("Launch Library API rate limit reached. Try again later.");
@@ -350,13 +350,13 @@ async fn place_bet(ctx: CommandContext<'_>, short_id: &str, side: LaunchBetSide,
     };
 
     let now = now_unix();
-    let lock_at = l.window_start.saturating_sub(ctx.runtime.launch_lock_before_ms / 1000);
+    let lock_at = l.window_start.saturating_sub(ctx.runtime.casino.launch_lock_before_ms / 1000);
     if now >= lock_at {
         ctx.whisper_success("Bets locked (within 2h of launch window).");
         return Ok(());
     }
 
-    let (p_s, p_o) = get_rates(&ctx.state.http, &ctx.state.launch_cache, l.lsp_id, ctx.runtime.launch_timeout_ms, ctx.runtime.launch_cache_ttl_ms).await;
+    let (p_s, p_o) = get_rates(&ctx.state.http, &ctx.state.launch_cache, l.lsp_id, ctx.runtime.casino.launch_timeout_ms, ctx.runtime.casino.launch_cache_ttl_ms).await;
     let price = match side {
         LaunchBetSide::Success => to_price(p_s),
         LaunchBetSide::OnTime  => to_price(p_o),
@@ -450,7 +450,7 @@ pub async fn launch_settle_task(
 
     let (max_settle_wait_ms, poll_interval_ms, timeout_ms) = {
         let runtime = deps.runtime.read().expect("runtime lock");
-        (runtime.launch_max_settle_wait_ms, runtime.launch_poll_interval_ms, runtime.launch_timeout_ms)
+        (runtime.casino.launch_max_settle_wait_ms, runtime.casino.launch_poll_interval_ms, runtime.casino.launch_timeout_ms)
     };
     let deadline = now_unix() + max_settle_wait_ms / 1000;
     let info = super::poll_until(deadline, poll_interval_ms, || async {

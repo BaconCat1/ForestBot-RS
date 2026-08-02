@@ -338,7 +338,7 @@ async fn place_bet_inner(
     let (yes_price, no_price) = compute_odds(currently_flooding);
     let price = if side == "yes" { yes_price } else { no_price };
 
-    let close_time = now_unix() + ctx.runtime.noaa_flooding_bet_duration_ms / 1000;
+    let close_time = now_unix() + ctx.runtime.casino.noaa_flooding_bet_duration_ms / 1000;
     let mut bet = NOAAFloodingBet {
         id: 0,
         player: player_uuid.clone(),
@@ -405,7 +405,7 @@ pub async fn settle_task(
 
     let (max_poll_ms, poll_interval_ms) = {
         let runtime = deps.runtime.read().expect("runtime lock");
-        (runtime.noaa_flooding_max_poll_ms, runtime.noaa_flooding_poll_interval_ms)
+        (runtime.casino.noaa_flooding_max_poll_ms, runtime.casino.noaa_flooding_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
     let result = super::poll_until(deadline, poll_interval_ms, || async {

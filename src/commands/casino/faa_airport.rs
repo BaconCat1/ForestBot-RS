@@ -215,7 +215,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let Some(player_uuid) = ctx.require_player_uuid().await else { return Ok(()); };
     let Some(_) = deduct_stake(ctx, &player_uuid, stake).await else { return Ok(()); };
 
-    let close_time = now_unix() + ctx.runtime.faa_airport_bet_duration_ms / 1000;
+    let close_time = now_unix() + ctx.runtime.casino.faa_airport_bet_duration_ms / 1000;
     let mut bet = FaaAirportBet {
         id: 0,
         player: player_uuid.clone(),
@@ -282,7 +282,7 @@ pub async fn settle_task(
 
     let (max_poll_ms, poll_interval_ms) = {
         let runtime = deps.runtime.read().expect("runtime lock");
-        (runtime.faa_airport_max_poll_ms, runtime.faa_airport_poll_interval_ms)
+        (runtime.casino.faa_airport_max_poll_ms, runtime.casino.faa_airport_poll_interval_ms)
     };
     let deadline = now_unix() + max_poll_ms / 1000;
     let result = super::poll_until(deadline, poll_interval_ms, || async {
