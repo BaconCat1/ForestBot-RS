@@ -1677,12 +1677,26 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 // defensive only, never expected to trigger.
                 let raw_sender = raw_sender.unwrap_or_else(|| sender.clone());
                 if sender == bot.username() {
-                    let allow_bridge = state
-                        .runtime
-                        .read()
-                        .expect("runtime config lock poisoned")
-                        .allow_chatbridge_input;
-                    if allow_bridge && !content.starts_with('!') {
+                    let (allow_bridge, whisper_command) = {
+                        let runtime = state.runtime.read().expect("runtime config lock poisoned");
+                        (runtime.allow_chatbridge_input, runtime.whisper_command.clone())
+                    };
+                    // Whispers must never reach the Discord bridge, regardless of which
+                    // upstream shape produced the reflected text -- checked two ways since
+                    // the exact server-side rendering isn't fully pinned down: the semantic
+                    // whisper_parser (catches "You whisper to X: ...", "X whispers to you:",
+                    // etc., several server dialects) and a raw literal-command check (in case
+                    // our own typed "/{whisper_command} ..." ever shows up unrendered). Also
+                    // excludes "[Discord] "-echoed lines (see handle_inbound_discord_chat) from
+                    // bouncing straight back out to Discord a second time.
+                    let is_whisper_shaped = whisper_parser::parse(&content, &sender).is_some()
+                        || content.starts_with(&format!("/{whisper_command} "));
+                    let is_discord_echo = content.starts_with("[Discord] ");
+                    if allow_bridge
+                        && !content.starts_with('!')
+                        && !is_whisper_shaped
+                        && !is_discord_echo
+                    {
                         send_minecraft_chat_message(&state, &sender, &content, &"").await;
                     }
                     return Ok(());
@@ -3003,6 +3017,14 @@ async fn handle_inbound_discord_chat(bot: &Client, state: &AzaleaState, data: Di
                             data.username
                         ));
                     } else {
+                        // Echo the invocation itself before running it -- otherwise only the
+                        // command's output shows up in MC chat, with no visible cause (the
+                        // "!command" line command_handler::handle produces is never itself
+                        // sent to chat). Same visible format as the plain-chat relay below.
+                        enqueue_outbound_chat(
+                            state,
+                            format!("[Discord] {}: {}", data.username, data.message),
+                        );
                         let sender = format!("Discord:{}", data.username);
                         command_handler::handle(bot, state, &sender, &data.message).await;
                     }
