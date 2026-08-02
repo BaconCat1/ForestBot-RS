@@ -1,6 +1,12 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedChat {
     pub username: String,
+    /// Same segment as `username`, but only bracket/whitespace-trimmed -- no clan-tag
+    /// stripping, no MC-username charset filtering. `username` mangles real Discord display
+    /// names (e.g. splits "Jolly Curve" down to just "Curve" since that's the token that
+    /// happens to look like a valid MC username), so bridge-sourced senders must use this
+    /// field instead, never `username`.
+    pub raw_username: String,
     pub message: String,
 }
 
@@ -48,7 +54,9 @@ fn parse_with_format(message: &str, format: &str) -> Option<ParsedChat> {
     let mut rest = strip_prefix_with_skip(message, before_username)?;
     let between_literal = literal_without_skip(between);
     let username_end = rest.find(&between_literal)?;
-    let username = normalize_username(rest[..username_end].trim());
+    let username_segment = rest[..username_end].trim();
+    let username = normalize_username(username_segment);
+    let raw_username = normalize_username_raw(username_segment);
     rest = &rest[username_end + between_literal.len()..];
 
     let message = if after_message.is_empty() {
@@ -59,20 +67,23 @@ fn parse_with_format(message: &str, format: &str) -> Option<ParsedChat> {
     }
     .trim();
 
-    if username.is_empty() || message.is_empty() {
+    if raw_username.is_empty() || message.is_empty() {
         return None;
     }
 
     Some(ParsedChat {
         username,
+        raw_username,
         message: message.to_owned(),
     })
 }
 
+fn strip_wrapping_brackets(raw: &str) -> &str {
+    raw.trim().trim_matches(|ch: char| matches!(ch, '<' | '>' | '[' | ']'))
+}
+
 pub fn normalize_username(raw_username: &str) -> String {
-    let cleaned = raw_username
-        .trim()
-        .trim_matches(|ch: char| matches!(ch, '<' | '>' | '[' | ']'));
+    let cleaned = strip_wrapping_brackets(raw_username);
 
     cleaned
         .split_whitespace()
@@ -80,6 +91,13 @@ pub fn normalize_username(raw_username: &str) -> String {
         .find(|part| is_minecraft_username(part))
         .unwrap_or(cleaned)
         .to_owned()
+}
+
+/// Whitespace-tolerant counterpart to `normalize_username` -- for Discord-bridge senders,
+/// where the name is a display name/nickname that can legitimately contain spaces as one
+/// unit, not a clan-tag-prefixed MC username. Never runs the MC charset filter.
+pub fn normalize_username_raw(raw_username: &str) -> String {
+    strip_wrapping_brackets(raw_username).trim().to_owned()
 }
 
 fn is_minecraft_username(value: &str) -> bool {
@@ -155,6 +173,7 @@ mod tests {
             parse("Digital_10 » he doesnt parse that yet", &[]),
             Some(ParsedChat {
                 username: "Digital_10".to_owned(),
+                raw_username: "Digital_10".to_owned(),
                 message: "he doesnt parse that yet".to_owned(),
             })
         );
@@ -166,6 +185,7 @@ mod tests {
             parse("Digital_10: !ping", &[]),
             Some(ParsedChat {
                 username: "Digital_10".to_owned(),
+                raw_username: "Digital_10".to_owned(),
                 message: "!ping".to_owned(),
             })
         );
@@ -177,6 +197,7 @@ mod tests {
             parse("[world] Digital_10 >> !help", &[]),
             Some(ParsedChat {
                 username: "Digital_10".to_owned(),
+                raw_username: "Digital_10".to_owned(),
                 message: "!help".to_owned(),
             })
         );
@@ -188,6 +209,7 @@ mod tests {
             parse("RSP DaddyPayMe: !ping", &[]),
             Some(ParsedChat {
                 username: "DaddyPayMe".to_owned(),
+                raw_username: "RSP DaddyPayMe".to_owned(),
                 message: "!ping".to_owned(),
             })
         );
@@ -197,5 +219,11 @@ mod tests {
     fn normalizes_split_sender_with_clan_prefix() {
         assert_eq!(normalize_username("RSP DaddyPayMe"), "DaddyPayMe");
         assert_eq!(normalize_username("FCHOA Fwuffian"), "Fwuffian");
+    }
+
+    #[test]
+    fn raw_username_preserves_whitespace_for_discord_display_names() {
+        assert_eq!(normalize_username_raw("Jolly Curve"), "Jolly Curve");
+        assert_eq!(normalize_username_raw("  <Jolly Curve>  "), "Jolly Curve");
     }
 }
