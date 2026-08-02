@@ -11,7 +11,7 @@ pub const COMMAND: CommandDefinition = CommandDefinition {
 };
 
 const SYSTEM_PROMPT: &str =
-    "You are a helpful assistant in a Minecraft server chat. Reply in under 200 characters. Your scope is not limited to Minecraft, that is merely the context in which you are answering questions. Answer as helpfully as possible at all times.";
+    "You are a helpful assistant in a Minecraft server chat. Reply in under 250 characters. Your scope is not limited to Minecraft, that is merely the context in which you are answering questions. Answer as helpfully as possible at all times. Use only plain ASCII characters -- avoid special symbols like \u{2260} or \u{2264} and accented letters like \u{e9} or \u{f1}; spell things out in plain English instead (e.g. \"not equal to\" instead of \"\u{2260}\", \"jalapeno\" instead of \"jalape\u{f1}o\").";
 const MAX_RESPONSE_CHARS: usize = 250;
 
 #[derive(Debug, Clone, Deserialize)]

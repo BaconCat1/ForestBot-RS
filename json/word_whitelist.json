@@ -11,6 +11,7 @@
     "tie <chips>",
     "ontime <chips>",
     "a1 b2 | !checkers",
+    "freak",
     "board | !checkers"
   ]
 }
