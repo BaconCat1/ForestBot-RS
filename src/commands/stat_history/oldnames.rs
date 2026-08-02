@@ -11,7 +11,11 @@ fn oldnames(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             "https://api.crafty.gg/api/v2/players/{}",
             percent_encode_path_segment(target)
         );
-        let response = reqwest::get(url).await;
+        let response = reqwest::Client::new()
+            .get(url)
+            .header(reqwest::header::USER_AGENT, "ForestBot/1.0")
+            .send()
+            .await;
         let Ok(response) = response else {
             ctx.chat(" An error occured while trying to look up the user.");
             return Ok(());
