@@ -55,8 +55,8 @@ async fn roast_run(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
     let state = ctx.state.clone();
     let timeout_ms = ctx.runtime.roast_timeout_ms;
-    let censor_threshold = ctx.runtime.censor_threshold.clone();
-    let log_censorship_hits = ctx.runtime.log_censorship_hits;
+    let censor_threshold = ctx.runtime.censorship.censor_threshold.clone();
+    let log_censorship_hits = ctx.runtime.censorship.log_censorship_hits;
 
     tokio::spawn(async move {
         let client = reqwest::Client::new();

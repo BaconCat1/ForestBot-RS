@@ -127,9 +127,9 @@ async fn ping_mc_server(ctx: &CommandContext<'_>, host: &str) -> anyhow::Result<
         .collect::<Vec<_>>()
         .join(" ");
     let trie = *ctx.state.profanity_trie.read().expect("profanity_trie read");
-    let threshold = censor_threshold_from_config(&ctx.runtime.censor_threshold);
+    let threshold = censor_threshold_from_config(&ctx.runtime.censorship.censor_threshold);
     let censored_motd = match trie {
-        Some(trie) => censor_message(trie, &motd, threshold, ctx.runtime.log_censorship_hits),
+        Some(trie) => censor_message(trie, &motd, threshold, ctx.runtime.censorship.log_censorship_hits),
         None => motd.clone(),
     };
     if censored_motd != motd {

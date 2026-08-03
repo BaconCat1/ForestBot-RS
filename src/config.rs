@@ -350,6 +350,22 @@ pub struct CasinoConfig {
     pub train_gtfs_max_poll_ms: u64,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct CensorshipConfig {
+    pub smart_censoring: bool,
+    // Minimum rustrict severity that gets censored in outbound chat: "mild", "moderate", or
+    // "severe". Data-driven so it can be tuned without a recompile -- see profanity_filter.rs's
+    // censor_threshold_from_config().
+    #[serde(default = "default_censor_threshold")]
+    pub censor_threshold: String,
+    // Appends every actual censorship hit (input != output) to censorship.log, for later
+    // false-positive triage. Off by default -- opt in via config.json, not example's default.
+    #[serde(default)]
+    pub log_censorship_hits: bool,
+    #[serde(default = "default_smart_censor_timeout_ms")]
+    pub smart_censor_timeout_ms: u64,
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ApiKeys {
     #[serde(default)]
@@ -555,16 +571,8 @@ pub struct Config {
     #[serde(rename = "rotateHeadOnJoin")]
     #[allow(dead_code)]
     pub rotate_head_on_join: bool,
-    pub smart_censoring: bool,
-    // Minimum rustrict severity that gets censored in outbound chat: "mild", "moderate", or
-    // "severe". Data-driven so it can be tuned without a recompile -- see profanity_filter.rs's
-    // censor_threshold_from_config().
-    #[serde(default = "default_censor_threshold")]
-    pub censor_threshold: String,
-    // Appends every actual censorship hit (input != output) to censorship.log, for later
-    // false-positive triage. Off by default -- opt in via config.json, not example's default.
-    #[serde(default)]
-    pub log_censorship_hits: bool,
+    #[serde(flatten)]
+    pub censorship: CensorshipConfig,
     #[serde(default)]
     pub api_keys: ApiKeys,
     #[serde(rename = "useLegacyChat")]
@@ -624,8 +632,6 @@ pub struct Config {
     pub entity_spawn_greeting_ttl_ms: u64,
     #[serde(default = "default_player_detection_cooldown_ms")]
     pub player_detection_cooldown_ms: u64,
-    #[serde(default = "default_smart_censor_timeout_ms")]
-    pub smart_censor_timeout_ms: u64,
     // Shared by run_queue_probe and resolve_and_check_bridge_sender -- both are bounded
     // waits on a oneshot channel for a websocket round trip, same structural role.
     #[serde(default = "default_ws_response_timeout_ms")]

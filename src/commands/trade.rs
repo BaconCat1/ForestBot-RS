@@ -39,14 +39,14 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     {
         let trie = *ctx.state.profanity_trie.read().expect("profanity_trie read");
         let threshold = crate::structure::mineflayer::utils::profanity_filter::censor_threshold_from_config(
-            &ctx.runtime.censor_threshold,
+            &ctx.runtime.censorship.censor_threshold,
         );
         let censored = match trie {
             Some(trie) => crate::structure::mineflayer::utils::profanity_filter::censor_message(
                 trie,
                 &description,
                 threshold,
-                ctx.runtime.log_censorship_hits,
+                ctx.runtime.censorship.log_censorship_hits,
             ),
             None => description.clone(),
         };

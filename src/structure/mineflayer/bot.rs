@@ -75,9 +75,7 @@ pub struct RuntimeConfig {
     pub welcome_messages: bool,
     pub use_custom_chat_prefix: bool,
     pub custom_chat_prefix: String,
-    pub smart_censoring: bool,
-    pub censor_threshold: String,
-    pub log_censorship_hits: bool,
+    pub censorship: crate::config::CensorshipConfig,
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
     pub bet_limits: HashMap<String, crate::config::BetLimit>,
     pub google_scrape_enabled: bool,
@@ -94,7 +92,6 @@ pub struct RuntimeConfig {
     pub packet_send_delay_ms: u64,
     pub entity_spawn_greeting_ttl_ms: u64,
     pub player_detection_cooldown_ms: u64,
-    pub smart_censor_timeout_ms: u64,
     pub ws_response_timeout_ms: u64,
     pub player_list_update_interval_ms: u64,
     pub reminder_tick_interval_ms: u64,
@@ -145,9 +142,7 @@ pub struct Bot {
     pub discord_bridge_detection_enabled: bool,
     pub use_live_time_query: bool,
     pub day_night_game_time_fallback: bool,
-    pub smart_censoring: bool,
-    pub censor_threshold: String,
-    pub log_censorship_hits: bool,
+    pub censorship: crate::config::CensorshipConfig,
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
     pub bet_limits: HashMap<String, crate::config::BetLimit>,
     pub casino_deck_count: u32,
@@ -179,7 +174,6 @@ pub struct Bot {
     pub packet_send_delay_ms: u64,
     pub entity_spawn_greeting_ttl_ms: u64,
     pub player_detection_cooldown_ms: u64,
-    pub smart_censor_timeout_ms: u64,
     pub ws_response_timeout_ms: u64,
     pub player_list_update_interval_ms: u64,
     pub reminder_tick_interval_ms: u64,
@@ -230,9 +224,7 @@ impl Bot {
             discord_bridge_detection_enabled: state.config.discord_bridge_detection_enabled,
             use_live_time_query: state.config.use_live_time_query,
             day_night_game_time_fallback: state.config.day_night_game_time_fallback,
-            smart_censoring: state.config.smart_censoring,
-            censor_threshold: state.config.censor_threshold.clone(),
-            log_censorship_hits: state.config.log_censorship_hits,
+            censorship: state.config.censorship.clone(),
             command_censorship: state.command_censorship.clone(),
             bet_limits: state.bet_limits.clone(),
             casino_deck_count: state.config.casino_deck_count,
@@ -263,7 +255,6 @@ impl Bot {
             packet_send_delay_ms: state.config.packet_send_delay_ms,
             entity_spawn_greeting_ttl_ms: state.config.entity_spawn_greeting_ttl_ms,
             player_detection_cooldown_ms: state.config.player_detection_cooldown_ms,
-            smart_censor_timeout_ms: state.config.smart_censor_timeout_ms,
             ws_response_timeout_ms: state.config.ws_response_timeout_ms,
             player_list_update_interval_ms: state.config.player_list_update_interval_ms,
             reminder_tick_interval_ms: state.config.reminder_tick_interval_ms,
@@ -342,9 +333,7 @@ impl Bot {
                 welcome_messages: self.welcome_messages,
                 use_custom_chat_prefix: self.use_custom_chat_prefix,
                 custom_chat_prefix: self.custom_chat_prefix.clone(),
-                smart_censoring: self.smart_censoring,
-                censor_threshold: self.censor_threshold.clone(),
-                log_censorship_hits: self.log_censorship_hits,
+                censorship: self.censorship.clone(),
                 command_censorship: self.command_censorship.clone(),
                 bet_limits: self.bet_limits.clone(),
                 google_scrape_enabled: self.google_scrape_enabled,
@@ -361,7 +350,6 @@ impl Bot {
                 packet_send_delay_ms: self.packet_send_delay_ms,
                 entity_spawn_greeting_ttl_ms: self.entity_spawn_greeting_ttl_ms,
                 player_detection_cooldown_ms: self.player_detection_cooldown_ms,
-                smart_censor_timeout_ms: self.smart_censor_timeout_ms,
                 ws_response_timeout_ms: self.ws_response_timeout_ms,
                 player_list_update_interval_ms: self.player_list_update_interval_ms,
                 reminder_tick_interval_ms: self.reminder_tick_interval_ms,
@@ -1191,9 +1179,12 @@ impl Default for AzaleaState {
                 welcome_messages: false,
                 use_custom_chat_prefix: false,
                 custom_chat_prefix: String::new(),
-                smart_censoring: false,
-                censor_threshold: "moderate".to_owned(),
-                log_censorship_hits: false,
+                censorship: crate::config::CensorshipConfig {
+                    smart_censoring: false,
+                    censor_threshold: "moderate".to_owned(),
+                    log_censorship_hits: false,
+                    smart_censor_timeout_ms: 5_000,
+                },
                 command_censorship: HashMap::new(),
                 bet_limits: HashMap::new(),
                 google_scrape_enabled: true,
@@ -1210,7 +1201,6 @@ impl Default for AzaleaState {
                 packet_send_delay_ms: 25,
                 entity_spawn_greeting_ttl_ms: 500_000,
                 player_detection_cooldown_ms: 600_000,
-                smart_censor_timeout_ms: 5_000,
                 ws_response_timeout_ms: 5,
                 player_list_update_interval_ms: 60,
                 reminder_tick_interval_ms: 30,
@@ -2252,19 +2242,19 @@ async fn filter_outgoing_message(state: &AzaleaState, message: &str) -> String {
         };
 
     let trie = *state.profanity_trie.read().expect("profanity_trie read");
-    let threshold = profanity_filter::censor_threshold_from_config(&runtime.censor_threshold);
+    let threshold = profanity_filter::censor_threshold_from_config(&runtime.censorship.censor_threshold);
     let regular_censored = match trie {
-        Some(trie) => profanity_filter::censor_message(trie, &censor_target, threshold, runtime.log_censorship_hits),
+        Some(trie) => profanity_filter::censor_message(trie, &censor_target, threshold, runtime.censorship.log_censorship_hits),
         None => censor_target.clone(),
     };
 
-    let censored = if is_slash_command || !runtime.smart_censoring {
+    let censored = if is_slash_command || !runtime.censorship.smart_censoring {
         regular_censored
     } else {
         maybe_smart_censor_message(&censor_target, &runtime)
             .await
             .map(|smart_censored| match trie {
-                Some(trie) => profanity_filter::censor_message(trie, &smart_censored, threshold, runtime.log_censorship_hits),
+                Some(trie) => profanity_filter::censor_message(trie, &smart_censored, threshold, runtime.censorship.log_censorship_hits),
                 None => smart_censored,
             })
             .unwrap_or(regular_censored)
@@ -2337,7 +2327,7 @@ async fn maybe_smart_censor_message(message: &str, runtime: &RuntimeConfig) -> O
         }));
 
     let response = match tokio::time::timeout(
-        Duration::from_millis(runtime.smart_censor_timeout_ms),
+        Duration::from_millis(runtime.censorship.smart_censor_timeout_ms),
         request.send(),
     )
     .await
