@@ -254,8 +254,8 @@ async fn show_bets(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 }
 
 async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_str_arg: &str) -> anyhow::Result<()> {
-    let solver_url = ctx.runtime.gasbuddy_solver_url.clone();
-    let readonly   = ctx.runtime.gasbuddy_csrf_readonly;
+    let solver_url = ctx.runtime.api_keys.gasbuddy_solver_url.clone();
+    let readonly   = ctx.runtime.api_keys.gasbuddy_csrf_readonly;
 
     let cached = {
         let cache = ctx.state.gas_price_cache.lock().unwrap();
@@ -380,7 +380,7 @@ pub async fn gas_settle_task(
 
     let (solver_url, readonly, timeout_ms) = {
         let rt = deps.runtime.read().expect("runtime lock");
-        (rt.gasbuddy_solver_url.clone(), rt.gasbuddy_csrf_readonly, rt.casino.gas_timeout_ms)
+        (rt.api_keys.gasbuddy_solver_url.clone(), rt.api_keys.gasbuddy_csrf_readonly, rt.casino.gas_timeout_ms)
     };
 
     let current = fetch_gas_price(&http, &gasbuddy_csrf, &bet.zip, &solver_url, readonly, timeout_ms).await.ok();

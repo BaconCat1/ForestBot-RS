@@ -282,7 +282,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 async fn show_types(ctx: &CommandContext<'_>) {
     let p = &ctx.runtime.prefix;
-    let nasa_key = ctx.runtime.nasa_api_key.clone();
+    let nasa_key = ctx.runtime.api_keys.nasa.clone();
     let odds = load_odds(ctx.state, &ctx.state.http, &nasa_key).await;
     let kinds: Vec<String> = BET_KINDS.iter()
         .map(|k| format!("{} {:.2}x", k.slug, odds.for_type(k.slug)))
@@ -320,7 +320,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 // ── place_bet ─────────────────────────────────────────────────────────────────
 
 async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
-    if ctx.runtime.nasa_api_key.trim().is_empty() {
+    if ctx.runtime.api_keys.nasa.trim().is_empty() {
         ctx.whisper_success("Space weather bets are not configured on this server.");
         return Ok(());
     }
@@ -345,7 +345,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let nasa_key = ctx.runtime.nasa_api_key.clone();
+    let nasa_key = ctx.runtime.api_keys.nasa.clone();
     let odds = load_odds(ctx.state, &ctx.state.http, &nasa_key).await;
     let multiplier = odds.for_type(kind.slug);
 

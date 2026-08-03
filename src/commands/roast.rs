@@ -25,7 +25,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 }
 
 async fn roast_run(ctx: CommandContext<'_>) -> anyhow::Result<()> {
-    let api_key = ctx.runtime.together_api_key.trim().to_owned();
+    let api_key = ctx.runtime.api_keys.together.trim().to_owned();
     if api_key.is_empty() {
         ctx.whisper("Roast is not configured on this server.");
         return Ok(());

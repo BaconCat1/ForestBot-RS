@@ -188,7 +188,7 @@ fn is_leap(y: i32) -> bool {
 
 fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let key = ctx.runtime.airnow_api_key.trim().to_owned();
+        let key = ctx.runtime.api_keys.airnow.trim().to_owned();
         if key.is_empty() {
             ctx.whisper_success("AQI betting is not configured (missing airnow_api_key).");
             return Ok(());
@@ -385,7 +385,7 @@ pub async fn aqi_settle_task(
 
     let (key, timeout_ms) = {
         let runtime = deps.runtime.read().expect("runtime lock");
-        (runtime.airnow_api_key.clone(), runtime.casino.aqi_timeout_ms)
+        (runtime.api_keys.airnow.clone(), runtime.casino.aqi_timeout_ms)
     };
     let readings = fetch_current(&http, &bet.zip, &key, timeout_ms).await.ok();
 

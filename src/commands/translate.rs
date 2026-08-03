@@ -85,9 +85,9 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         // Each fallback tier below self-guards on its own missing config (empty key /
         // disabled toggle) -- unlike the old single-provider version, an unconfigured or
         // dead tier no longer aborts the whole command, it just falls through to the next.
-        let azure_key = ctx.runtime.azure_translator_key.clone();
-        let azure_region = ctx.runtime.azure_translator_region.clone();
-        let gcloud_key = ctx.runtime.google_cloud_translate_key.clone();
+        let azure_key = ctx.runtime.api_keys.azure_key.clone();
+        let azure_region = ctx.runtime.api_keys.azure_region.clone();
+        let gcloud_key = ctx.runtime.api_keys.google_cloud_translate.clone();
         let scrape_enabled = ctx.runtime.google_scrape_enabled;
         let scrape_min_interval_ms = ctx.runtime.google_scrape_min_interval_ms;
 

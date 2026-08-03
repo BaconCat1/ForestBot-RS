@@ -44,7 +44,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             }
         };
 
-        let key = ctx.runtime.google_safe_browsing_key.clone();
+        let key = ctx.runtime.api_keys.google_safe_browsing.clone();
 
         if key.is_empty() {
             ctx.whisper("URL preview unavailable: api_keys.google_safe_browsing not configured.");

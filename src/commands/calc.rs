@@ -15,7 +15,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             ctx.whisper(format!("Usage: {}calc <query>", ctx.runtime.prefix));
             return Ok(());
         }
-        let app_id = ctx.runtime.wolfram_app_id.clone();
+        let app_id = ctx.runtime.api_keys.wolfram.clone();
         if app_id.is_empty() {
             ctx.whisper("Wolfram|Alpha is not configured.".to_owned());
             return Ok(());

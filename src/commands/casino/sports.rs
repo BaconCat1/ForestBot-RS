@@ -255,7 +255,7 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 // ── show_events ───────────────────────────────────────────────────────────────
 
 async fn load_events(ctx: &CommandContext<'_>) -> Option<Vec<EventDisplay>> {
-    let key = ctx.runtime.sharpapi_key.clone();
+    let key = ctx.runtime.api_keys.sharpapi.clone();
     if key.is_empty() {
         ctx.whisper_success("Sports betting is not configured (missing sharpapi_key).");
         return None;
@@ -443,7 +443,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
         ev.home_team, ev.away_team, sel, payout_mult, chips_str(stake), chips_str(profit)
     ));
 
-    let key = ctx.runtime.sharpapi_key.clone();
+    let key = ctx.runtime.api_keys.sharpapi.clone();
     let wcmd = ctx.runtime.whisper_command.clone();
     tokio::spawn(settle_task(SettleDeps::from(ctx.state), ctx.state.sports_bets.clone(), wcmd, key, bet));
     Ok(())

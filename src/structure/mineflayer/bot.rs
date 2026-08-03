@@ -80,19 +80,9 @@ pub struct RuntimeConfig {
     pub log_censorship_hits: bool,
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
     pub bet_limits: HashMap<String, crate::config::BetLimit>,
-    pub together_api_key: String,
-    pub wolfram_app_id: String,
-    pub azure_translator_key: String,
-    pub azure_translator_region: String,
-    pub google_cloud_translate_key: String,
     pub google_scrape_enabled: bool,
     pub google_scrape_min_interval_ms: u64,
-    pub sharpapi_key: String,
-    pub nasa_api_key: String,
-    pub airnow_api_key: String,
-    pub gasbuddy_solver_url: String,
-    pub gasbuddy_csrf_readonly: bool,
-    pub google_safe_browsing_key: String,
+    pub api_keys: crate::config::ApiKeys,
     pub queue_probe_command: String,
     pub queue_retry_delay_ms: u64,
     pub board_whisper_delay_ms: u64,
@@ -161,20 +151,8 @@ pub struct Bot {
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
     pub bet_limits: HashMap<String, crate::config::BetLimit>,
     pub casino_deck_count: u32,
-    pub together_api_key: String,
-    pub wolfram_app_id: String,
-    pub azure_translator_key: String,
-    pub azure_translator_region: String,
-    pub google_cloud_translate_key: String,
     pub google_scrape_enabled: bool,
     pub google_scrape_min_interval_ms: u64,
-    pub sharpapi_key: String,
-    pub nasa_api_key: String,
-    pub airnow_api_key: String,
-    pub coingecko_api_key: String,
-    pub gasbuddy_solver_url: String,
-    pub gasbuddy_csrf_readonly: bool,
-    pub google_safe_browsing_key: String,
     pub url_blocklist_sources: Vec<String>,
     pub url_whitelist_file: String,
     pub anti_spam_global_cooldown_ms: u64,
@@ -258,20 +236,8 @@ impl Bot {
             command_censorship: state.command_censorship.clone(),
             bet_limits: state.bet_limits.clone(),
             casino_deck_count: state.config.casino_deck_count,
-            together_api_key: state.config.api_keys.together.clone(),
-            wolfram_app_id: state.config.api_keys.wolfram.clone(),
-            azure_translator_key: state.config.api_keys.azure_key.clone(),
-            azure_translator_region: state.config.api_keys.azure_region.clone(),
-            google_cloud_translate_key: state.config.api_keys.google_cloud_translate.clone(),
             google_scrape_enabled: state.config.google_scrape_enabled,
             google_scrape_min_interval_ms: state.config.google_scrape_min_interval_ms,
-            sharpapi_key: state.config.api_keys.sharpapi.clone(),
-            nasa_api_key: state.config.api_keys.nasa.clone(),
-            airnow_api_key: state.config.api_keys.airnow.clone(),
-            coingecko_api_key: state.config.api_keys.coingecko.clone(),
-            gasbuddy_solver_url: state.config.api_keys.gasbuddy_solver_url.clone(),
-            gasbuddy_csrf_readonly: state.config.api_keys.gasbuddy_csrf_readonly,
-            google_safe_browsing_key: state.config.api_keys.google_safe_browsing.clone(),
             url_blocklist_sources: state.config.url_blocklist_sources.clone(),
             url_whitelist_file: state.config.url_whitelist_file.clone(),
             anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown_ms,
@@ -381,19 +347,9 @@ impl Bot {
                 log_censorship_hits: self.log_censorship_hits,
                 command_censorship: self.command_censorship.clone(),
                 bet_limits: self.bet_limits.clone(),
-                together_api_key: self.together_api_key.clone(),
-                wolfram_app_id: self.wolfram_app_id.clone(),
-                azure_translator_key: self.azure_translator_key.clone(),
-                azure_translator_region: self.azure_translator_region.clone(),
-                google_cloud_translate_key: self.google_cloud_translate_key.clone(),
                 google_scrape_enabled: self.google_scrape_enabled,
                 google_scrape_min_interval_ms: self.google_scrape_min_interval_ms,
-                sharpapi_key: self.sharpapi_key.clone(),
-                nasa_api_key: self.nasa_api_key.clone(),
-                airnow_api_key: self.airnow_api_key.clone(),
-                gasbuddy_solver_url: self.gasbuddy_solver_url.clone(),
-                gasbuddy_csrf_readonly: self.gasbuddy_csrf_readonly,
-                google_safe_browsing_key: self.google_safe_browsing_key.clone(),
+                api_keys: self.api_keys.clone(),
                 queue_probe_command: self.queue_probe_command.clone(),
                 queue_retry_delay_ms: self.queue_retry_delay_ms,
                 board_whisper_delay_ms: self.board_whisper_delay_ms,
@@ -449,7 +405,7 @@ impl Bot {
             blackjack_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(self.casino_deck_count, "Blackjack")),
             baccarat_shoe: Arc::new(crate::commands::casino::shoe::new_shoe(self.casino_deck_count, "Baccarat")),
             market_service: Arc::new(crate::structure::market::service::MarketService::new(
-                self.coingecko_api_key.clone(),
+                self.api_keys.coingecko.clone(),
                 self.market_quote_ttl_ms,
                 self.market_history_ttl_ms,
                 self.market_search_ttl_ms,
@@ -609,7 +565,7 @@ impl Bot {
             let open_bets = state.api.casino_bet_list::<crate::commands::casino::sports::SportsBet>().await;
             if !open_bets.is_empty() {
                 let whisper_cmd = state.runtime.read().expect("runtime lock").whisper_command.clone();
-                let api_key = state.runtime.read().expect("runtime lock").sharpapi_key.clone();
+                let api_key = state.runtime.read().expect("runtime lock").api_keys.sharpapi.clone();
                 {
                     let mut bets = state.sports_bets.lock().expect("sports_bets lock");
                     for bet in &open_bets {
@@ -656,7 +612,7 @@ impl Bot {
             if !open_bets.is_empty() {
                 let (whisper_cmd, nasa_api_key) = {
                     let rt = state.runtime.read().expect("runtime lock");
-                    (rt.whisper_command.clone(), rt.nasa_api_key.clone())
+                    (rt.whisper_command.clone(), rt.api_keys.nasa.clone())
                 };
                 {
                     let mut bets = state.nasa_space_weather_bets.lock().expect("nasa_space_weather_bets lock");
@@ -1240,19 +1196,9 @@ impl Default for AzaleaState {
                 log_censorship_hits: false,
                 command_censorship: HashMap::new(),
                 bet_limits: HashMap::new(),
-                together_api_key: String::new(),
-                wolfram_app_id: String::new(),
-                azure_translator_key: String::new(),
-                azure_translator_region: String::new(),
-                google_cloud_translate_key: String::new(),
                 google_scrape_enabled: true,
                 google_scrape_min_interval_ms: 15_000,
-                sharpapi_key: String::new(),
-                nasa_api_key: String::new(),
-                airnow_api_key: String::new(),
-                gasbuddy_solver_url: String::new(),
-                gasbuddy_csrf_readonly: false,
-                google_safe_browsing_key: String::new(),
+                api_keys: crate::config::ApiKeys::default(),
                 queue_probe_command: String::new(),
                 queue_retry_delay_ms: 300_000,
                 board_whisper_delay_ms: 1_000,
@@ -2344,7 +2290,7 @@ fn split_whisper_target(message: &str, whisper_command: &str) -> Option<(String,
 }
 
 async fn maybe_smart_censor_message(message: &str, runtime: &RuntimeConfig) -> Option<String> {
-    let api_key = runtime.together_api_key.trim();
+    let api_key = runtime.api_keys.together.trim();
     if api_key.is_empty() {
         if !WARNED_MISSING_TOGETHER_KEY.swap(true, Ordering::Relaxed) {
             logger::warn(
