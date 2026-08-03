@@ -22,7 +22,7 @@
   "standing": { "success": false, "error": true },
   "top": { "success": false, "error": true },
   "vs": { "success": false, "error": true },
-  "wordcount": { "success": false, "error": true },
+  "wordcount": { "success": true, "error": true },
   "ownsfaq": { "success": false, "error": true },
   "trade": { "success": false, "error": true },
   "trades": { "success": false, "error": true },
