@@ -279,6 +279,113 @@ fn default_train_gtfs_max_poll_ms() -> u64 {
     600_000
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct DiscordBridgeConfig {
+    pub allow_chatbridge_input: bool,
+    // Detects RV's own official Discord<->MC bridge relay lines by raw-text marker (not the
+    // craftbot-native Discord relay below, which already tags its sender safely) so identity-
+    // sensitive commands can never be dispatched as if a real, live player sent them. See
+    // resolve_and_check_bridge_sender / discord-nick-uuid-spoof-incident memory for the
+    // 2026-07-30 incident this closes. Data-driven so it can be tuned/disabled without a
+    // recompile if RV's bridge format ever changes.
+    #[serde(default = "default_discord_bridge_marker_regex")]
+    pub discord_bridge_marker_regex: String,
+    #[serde(default = "default_discord_bridge_detection_enabled")]
+    pub discord_bridge_detection_enabled: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AntiSpamConfig {
+    #[serde(default)]
+    pub anti_spam_global_cooldown_ms: u64,
+    #[serde(default)]
+    pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
+    // Config-driven-gating scan (2026-07-19/20, todo.md:114) -- hardcoded timing/threshold
+    // constants surfaced by grep, moved here so ops can tune per-server without a recompile.
+    // All timing fields are milliseconds, no _secs fields anywhere in this struct.
+    #[serde(default = "default_duplicate_message_window_ms")]
+    pub duplicate_message_window_ms: u64,
+    #[serde(default = "default_afk_mention_cooldown_ms")]
+    pub afk_mention_cooldown_ms: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ConnectionConfig {
+    #[serde(default = "default_connection_failure_backoff_ms")]
+    pub connection_failure_backoff_ms: u64,
+    #[serde(default = "default_packet_send_delay_ms")]
+    pub packet_send_delay_ms: u64,
+    // Shared by run_queue_probe and resolve_and_check_bridge_sender -- both are bounded
+    // waits on a oneshot channel for a websocket round trip, same structural role.
+    #[serde(default = "default_ws_response_timeout_ms")]
+    pub ws_response_timeout_ms: u64,
+    // Command only the real server recognizes (e.g. "/lag") -- used to detect when the
+    // bot has landed on a queue proxy instead of the real server. Empty disables the
+    // whole queue-detection feature.
+    #[serde(default)]
+    pub queue_probe_command: String,
+    #[serde(default = "default_queue_retry_delay_ms")]
+    pub queue_retry_delay_ms: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MiscTimingConfig {
+    #[serde(default = "default_crouch_max_hold_ms")]
+    pub crouch_max_hold_ms: u64,
+    #[serde(default = "default_crouch_toggle_delay_ms")]
+    pub crouch_toggle_delay_ms: u64,
+    #[serde(default = "default_poll_duration_ms")]
+    pub poll_duration_ms: u64,
+    // Gap between whisper lines when sending a multi-line game board (battleship,
+    // checkers, chess, connect four, mines, reversi, wordle). Tune per target server --
+    // RV's anti-spam filter kicks the bot on rapid-fire whispers at the default queue
+    // drain rate (~1 msg/tick).
+    #[serde(default = "default_board_whisper_delay_ms")]
+    pub board_whisper_delay_ms: u64,
+    // Announce loop picks a random wait in [min, max) before each command-usage tip.
+    // Defaults match the original hardcoded 15-45min range.
+    #[serde(default = "default_announce_min_interval_ms")]
+    pub announce_min_interval_ms: u64,
+    #[serde(default = "default_announce_max_interval_ms")]
+    pub announce_max_interval_ms: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct DetectionConfig {
+    #[serde(default = "default_entity_spawn_greeting_ttl_ms")]
+    pub entity_spawn_greeting_ttl_ms: u64,
+    #[serde(default = "default_player_detection_cooldown_ms")]
+    pub player_detection_cooldown_ms: u64,
+    #[serde(default = "default_player_list_update_interval_ms")]
+    pub player_list_update_interval_ms: u64,
+    #[serde(default = "default_reminder_tick_interval_ms")]
+    pub reminder_tick_interval_ms: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PlayerEconomyConfig {
+    #[serde(default = "default_duel_confirm_window_ms")]
+    pub duel_confirm_window_ms: u64,
+    #[serde(default = "default_duel_timeout_ms")]
+    pub duel_timeout_ms: u64,
+    #[serde(default = "default_marry_confirm_window_ms")]
+    pub marry_confirm_window_ms: u64,
+    #[serde(default = "default_trade_propose_cooldown_ms")]
+    pub trade_propose_cooldown_ms: u64,
+    #[serde(default = "default_trade_reject_penalty_ms")]
+    pub trade_reject_penalty_ms: u64,
+    #[serde(default = "default_roast_timeout_ms")]
+    pub roast_timeout_ms: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TranslateConfig {
+    #[serde(default = "default_google_scrape_enabled")]
+    pub google_scrape_enabled: bool,
+    #[serde(default = "default_google_scrape_min_interval_ms")]
+    pub google_scrape_min_interval_ms: u64,
+}
+
 // Per-game settlement-market timing knobs, grouped into their own struct since adding one new
 // market's timer used to mean editing 4-6 sites (Config, RuntimeConfig, Bot x2, reload.rs,
 // example.config.json) just for the flat-field plumbing -- see the 2026-07-26 deslopify pass'
@@ -286,6 +393,12 @@ fn default_train_gtfs_max_poll_ms() -> u64 {
 // (no nesting required there) while RuntimeConfig/Bot embed this as a real sub-struct.
 #[derive(Debug, Clone, Deserialize)]
 pub struct CasinoConfig {
+    #[serde(default = "default_scratch_animation_delay_ms")]
+    pub scratch_animation_delay_ms: u64,
+    #[serde(default = "default_slots_animation_delay_ms")]
+    pub slots_animation_delay_ms: u64,
+    #[serde(default = "default_twerk_flash_delay_ms")]
+    pub twerk_flash_delay_ms: u64,
     #[serde(default = "default_aqi_settle_window_ms")]
     pub aqi_settle_window_ms: u64,
     #[serde(default = "default_aqi_timeout_ms")]
@@ -534,27 +647,16 @@ pub struct Config {
     pub reconnect_time_ms: u64,
     #[allow(dead_code)]
     pub anti_spam_cooldown_ms: u64,
-    #[serde(default)]
-    pub anti_spam_global_cooldown_ms: u64,
     #[allow(dead_code)]
     pub anti_spam_msg_limit: u32,
-    #[serde(default)]
-    pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
+    #[serde(flatten)]
+    pub anti_spam: AntiSpamConfig,
     pub welcome_messages: bool,
     #[serde(rename = "useCommands")]
     pub use_commands: bool,
     pub disabled_events: Vec<String>,
-    pub allow_chatbridge_input: bool,
-    // Detects RV's own official Discord<->MC bridge relay lines by raw-text marker (not the
-    // craftbot-native Discord relay below, which already tags its sender safely) so identity-
-    // sensitive commands can never be dispatched as if a real, live player sent them. See
-    // resolve_and_check_bridge_sender / discord-nick-uuid-spoof-incident memory for the
-    // 2026-07-30 incident this closes. Data-driven so it can be tuned/disabled without a
-    // recompile if RV's bridge format ever changes.
-    #[serde(default = "default_discord_bridge_marker_regex")]
-    pub discord_bridge_marker_regex: String,
-    #[serde(default = "default_discord_bridge_detection_enabled")]
-    pub discord_bridge_detection_enabled: bool,
+    #[serde(flatten)]
+    pub discord_bridge: DiscordBridgeConfig,
     #[serde(default)]
     pub use_live_time_query: bool,
     // Default off (2026-07-26): production capture confirmed RV sends a real clock sync
@@ -597,77 +699,16 @@ pub struct Config {
     pub heartbeat_url: String,
     #[serde(default = "default_heartbeat_interval_ms")]
     pub heartbeat_interval_ms: u64,
-    // Command only the real server recognizes (e.g. "/lag") -- used to detect when the
-    // bot has landed on a queue proxy instead of the real server. Empty disables the
-    // whole queue-detection feature.
-    #[serde(default)]
-    pub queue_probe_command: String,
-    #[serde(default = "default_queue_retry_delay_ms")]
-    pub queue_retry_delay_ms: u64,
-    // Gap between whisper lines when sending a multi-line game board (battleship,
-    // checkers, chess, connect four, mines, reversi, wordle). Tune per target server --
-    // RV's anti-spam filter kicks the bot on rapid-fire whispers at the default queue
-    // drain rate (~1 msg/tick).
-    #[serde(default = "default_board_whisper_delay_ms")]
-    pub board_whisper_delay_ms: u64,
-    // Announce loop picks a random wait in [min, max) before each command-usage tip.
-    // Defaults match the original hardcoded 15-45min range.
-    #[serde(default = "default_announce_min_interval_ms")]
-    pub announce_min_interval_ms: u64,
-    #[serde(default = "default_announce_max_interval_ms")]
-    pub announce_max_interval_ms: u64,
-
-    // Config-driven-gating scan (2026-07-19/20, todo.md:114) -- hardcoded timing/threshold
-    // constants surfaced by grep, moved here so ops can tune per-server without a recompile.
-    // All timing fields are milliseconds, no _secs fields anywhere in this struct.
-    #[serde(default = "default_duplicate_message_window_ms")]
-    pub duplicate_message_window_ms: u64,
-    #[serde(default = "default_afk_mention_cooldown_ms")]
-    pub afk_mention_cooldown_ms: u64,
-    #[serde(default = "default_connection_failure_backoff_ms")]
-    pub connection_failure_backoff_ms: u64,
-    #[serde(default = "default_packet_send_delay_ms")]
-    pub packet_send_delay_ms: u64,
-    #[serde(default = "default_entity_spawn_greeting_ttl_ms")]
-    pub entity_spawn_greeting_ttl_ms: u64,
-    #[serde(default = "default_player_detection_cooldown_ms")]
-    pub player_detection_cooldown_ms: u64,
-    // Shared by run_queue_probe and resolve_and_check_bridge_sender -- both are bounded
-    // waits on a oneshot channel for a websocket round trip, same structural role.
-    #[serde(default = "default_ws_response_timeout_ms")]
-    pub ws_response_timeout_ms: u64,
-    #[serde(default = "default_player_list_update_interval_ms")]
-    pub player_list_update_interval_ms: u64,
-    #[serde(default = "default_reminder_tick_interval_ms")]
-    pub reminder_tick_interval_ms: u64,
-    #[serde(default = "default_crouch_max_hold_ms")]
-    pub crouch_max_hold_ms: u64,
-    #[serde(default = "default_crouch_toggle_delay_ms")]
-    pub crouch_toggle_delay_ms: u64,
-    #[serde(default = "default_poll_duration_ms")]
-    pub poll_duration_ms: u64,
-    #[serde(default = "default_duel_confirm_window_ms")]
-    pub duel_confirm_window_ms: u64,
-    #[serde(default = "default_duel_timeout_ms")]
-    pub duel_timeout_ms: u64,
-    #[serde(default = "default_marry_confirm_window_ms")]
-    pub marry_confirm_window_ms: u64,
-    #[serde(default = "default_trade_propose_cooldown_ms")]
-    pub trade_propose_cooldown_ms: u64,
-    #[serde(default = "default_trade_reject_penalty_ms")]
-    pub trade_reject_penalty_ms: u64,
-    #[serde(default = "default_roast_timeout_ms")]
-    pub roast_timeout_ms: u64,
-    #[serde(default = "default_google_scrape_enabled")]
-    pub google_scrape_enabled: bool,
-    #[serde(default = "default_google_scrape_min_interval_ms")]
-    pub google_scrape_min_interval_ms: u64,
-    #[serde(default = "default_scratch_animation_delay_ms")]
-    pub scratch_animation_delay_ms: u64,
-    #[serde(default = "default_slots_animation_delay_ms")]
-    pub slots_animation_delay_ms: u64,
-    #[serde(default = "default_twerk_flash_delay_ms")]
-    pub twerk_flash_delay_ms: u64,
+    #[serde(flatten)]
+    pub connection: ConnectionConfig,
+    #[serde(flatten)]
+    pub misc_timing: MiscTimingConfig,
+    #[serde(flatten)]
+    pub detection: DetectionConfig,
+    #[serde(flatten)]
+    pub player_economy: PlayerEconomyConfig,
+    #[serde(flatten)]
+    pub translate: TranslateConfig,
     #[serde(default = "default_market_quote_ttl_ms")]
     pub market_quote_ttl_ms: u64,
     #[serde(default = "default_market_history_ttl_ms")]

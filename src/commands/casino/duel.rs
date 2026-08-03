@@ -227,7 +227,7 @@ async fn start_duel(ctx: &CommandContext<'_>, target: &str) -> anyhow::Result<()
     // Escrow challenger chips
     let Some(_) = deduct_stake(ctx, &challenger_uuid, stake).await else { return Ok(()); };
 
-    let confirm_window_ms = ctx.runtime.duel_confirm_window_ms;
+    let confirm_window_ms = ctx.runtime.player_economy.duel_confirm_window_ms;
     let confirm_expires_at = now_unix() + confirm_window_ms / 1000;
     let duel = Duel {
         id: Uuid::new_v4(),
@@ -278,7 +278,7 @@ async fn confirm_duel(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     // Escrow challenged chips
     let Some(_) = deduct_stake(ctx, &challenged_uuid, duel.stake).await else { return Ok(()); };
 
-    let expires_at = now_unix() + ctx.runtime.duel_timeout_ms / 1000;
+    let expires_at = now_unix() + ctx.runtime.player_economy.duel_timeout_ms / 1000;
 
     ctx.state.duels.transition_to_active(duel.id, challenged_uuid, expires_at);
 
@@ -575,7 +575,7 @@ async fn active_timeout_task(state: AzaleaState, duel_id: Uuid) {
         .runtime
         .read()
         .expect("runtime config lock poisoned")
-        .duel_timeout_ms;
+        .player_economy.duel_timeout_ms;
     tokio::time::sleep(std::time::Duration::from_millis(timeout_ms)).await;
 
     let Some(duel) = state.duels.find_by_id_in_phase(duel_id, DuelPhase::Active) else { return; };

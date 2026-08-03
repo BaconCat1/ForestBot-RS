@@ -59,17 +59,13 @@ pub struct RuntimeConfig {
     pub prefix: String,
     pub whisper_command: String,
     pub use_commands: bool,
-    pub anti_spam_global_cooldown_ms: u64,
-    pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub use_whitelist: bool,
     pub user_whitelist: HashSet<String>,
     pub user_blacklist: HashSet<String>,
     pub custom_chat_formats: Vec<String>,
     pub command_toggles: HashMap<String, bool>,
     pub disabled_events: HashSet<String>,
-    pub allow_chatbridge_input: bool,
-    pub discord_bridge_marker_regex: String,
-    pub discord_bridge_detection_enabled: bool,
+    pub discord_bridge: crate::config::DiscordBridgeConfig,
     pub use_live_time_query: bool,
     pub day_night_game_time_fallback: bool,
     pub welcome_messages: bool,
@@ -78,35 +74,13 @@ pub struct RuntimeConfig {
     pub censorship: crate::config::CensorshipConfig,
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
     pub bet_limits: HashMap<String, crate::config::BetLimit>,
-    pub google_scrape_enabled: bool,
-    pub google_scrape_min_interval_ms: u64,
     pub api_keys: crate::config::ApiKeys,
-    pub queue_probe_command: String,
-    pub queue_retry_delay_ms: u64,
-    pub board_whisper_delay_ms: u64,
-    pub announce_min_interval_ms: u64,
-    pub announce_max_interval_ms: u64,
-    pub duplicate_message_window_ms: u64,
-    pub afk_mention_cooldown_ms: u64,
-    pub connection_failure_backoff_ms: u64,
-    pub packet_send_delay_ms: u64,
-    pub entity_spawn_greeting_ttl_ms: u64,
-    pub player_detection_cooldown_ms: u64,
-    pub ws_response_timeout_ms: u64,
-    pub player_list_update_interval_ms: u64,
-    pub reminder_tick_interval_ms: u64,
-    pub crouch_max_hold_ms: u64,
-    pub crouch_toggle_delay_ms: u64,
-    pub poll_duration_ms: u64,
-    pub duel_confirm_window_ms: u64,
-    pub duel_timeout_ms: u64,
-    pub marry_confirm_window_ms: u64,
-    pub trade_propose_cooldown_ms: u64,
-    pub trade_reject_penalty_ms: u64,
-    pub roast_timeout_ms: u64,
-    pub scratch_animation_delay_ms: u64,
-    pub slots_animation_delay_ms: u64,
-    pub twerk_flash_delay_ms: u64,
+    pub anti_spam: crate::config::AntiSpamConfig,
+    pub connection: crate::config::ConnectionConfig,
+    pub misc_timing: crate::config::MiscTimingConfig,
+    pub detection: crate::config::DetectionConfig,
+    pub player_economy: crate::config::PlayerEconomyConfig,
+    pub translate: crate::config::TranslateConfig,
     pub casino: crate::config::CasinoConfig,
 }
 
@@ -137,21 +111,15 @@ pub struct Bot {
     pub custom_chat_formats: Vec<String>,
     pub use_custom_chat_prefix: bool,
     pub custom_chat_prefix: String,
-    pub allow_chatbridge_input: bool,
-    pub discord_bridge_marker_regex: String,
-    pub discord_bridge_detection_enabled: bool,
+    pub discord_bridge: crate::config::DiscordBridgeConfig,
     pub use_live_time_query: bool,
     pub day_night_game_time_fallback: bool,
     pub censorship: crate::config::CensorshipConfig,
     pub command_censorship: HashMap<String, crate::config::CommandCensorship>,
     pub bet_limits: HashMap<String, crate::config::BetLimit>,
     pub casino_deck_count: u32,
-    pub google_scrape_enabled: bool,
-    pub google_scrape_min_interval_ms: u64,
     pub url_blocklist_sources: Vec<String>,
     pub url_whitelist_file: String,
-    pub anti_spam_global_cooldown_ms: u64,
-    pub command_cooldowns: HashMap<String, CommandCooldownConfig>,
     pub reconnect_time_ms: u64,
     pub restart_count: u32,
     #[allow(dead_code)]
@@ -163,32 +131,12 @@ pub struct Bot {
     pub heartbeat_url: String,
     pub heartbeat_interval_ms: u64,
     pub api_keys: crate::config::ApiKeys,
-    pub queue_probe_command: String,
-    pub queue_retry_delay_ms: u64,
-    pub board_whisper_delay_ms: u64,
-    pub announce_min_interval_ms: u64,
-    pub announce_max_interval_ms: u64,
-    pub duplicate_message_window_ms: u64,
-    pub afk_mention_cooldown_ms: u64,
-    pub connection_failure_backoff_ms: u64,
-    pub packet_send_delay_ms: u64,
-    pub entity_spawn_greeting_ttl_ms: u64,
-    pub player_detection_cooldown_ms: u64,
-    pub ws_response_timeout_ms: u64,
-    pub player_list_update_interval_ms: u64,
-    pub reminder_tick_interval_ms: u64,
-    pub crouch_max_hold_ms: u64,
-    pub crouch_toggle_delay_ms: u64,
-    pub poll_duration_ms: u64,
-    pub duel_confirm_window_ms: u64,
-    pub duel_timeout_ms: u64,
-    pub marry_confirm_window_ms: u64,
-    pub trade_propose_cooldown_ms: u64,
-    pub trade_reject_penalty_ms: u64,
-    pub roast_timeout_ms: u64,
-    pub scratch_animation_delay_ms: u64,
-    pub slots_animation_delay_ms: u64,
-    pub twerk_flash_delay_ms: u64,
+    pub anti_spam: crate::config::AntiSpamConfig,
+    pub connection: crate::config::ConnectionConfig,
+    pub misc_timing: crate::config::MiscTimingConfig,
+    pub detection: crate::config::DetectionConfig,
+    pub player_economy: crate::config::PlayerEconomyConfig,
+    pub translate: crate::config::TranslateConfig,
     pub market_quote_ttl_ms: u64,
     pub market_history_ttl_ms: u64,
     pub market_search_ttl_ms: u64,
@@ -219,21 +167,15 @@ impl Bot {
             },
             use_custom_chat_prefix: state.config.use_custom_chat_prefix,
             custom_chat_prefix: state.config.custom_chat_prefix.clone(),
-            allow_chatbridge_input: state.config.allow_chatbridge_input,
-            discord_bridge_marker_regex: state.config.discord_bridge_marker_regex.clone(),
-            discord_bridge_detection_enabled: state.config.discord_bridge_detection_enabled,
+            discord_bridge: state.config.discord_bridge.clone(),
             use_live_time_query: state.config.use_live_time_query,
             day_night_game_time_fallback: state.config.day_night_game_time_fallback,
             censorship: state.config.censorship.clone(),
             command_censorship: state.command_censorship.clone(),
             bet_limits: state.bet_limits.clone(),
             casino_deck_count: state.config.casino_deck_count,
-            google_scrape_enabled: state.config.google_scrape_enabled,
-            google_scrape_min_interval_ms: state.config.google_scrape_min_interval_ms,
             url_blocklist_sources: state.config.url_blocklist_sources.clone(),
             url_whitelist_file: state.config.url_whitelist_file.clone(),
-            anti_spam_global_cooldown_ms: state.config.anti_spam_global_cooldown_ms,
-            command_cooldowns: state.config.command_cooldowns.clone(),
             reconnect_time_ms: state.config.reconnect_time_ms,
             restart_count: 0,
             is_connected: false,
@@ -244,32 +186,12 @@ impl Bot {
             heartbeat_url: state.config.heartbeat_url.clone(),
             heartbeat_interval_ms: state.config.heartbeat_interval_ms,
             api_keys: state.config.api_keys.clone(),
-            queue_probe_command: state.config.queue_probe_command.clone(),
-            queue_retry_delay_ms: state.config.queue_retry_delay_ms,
-            board_whisper_delay_ms: state.config.board_whisper_delay_ms,
-            announce_min_interval_ms: state.config.announce_min_interval_ms,
-            announce_max_interval_ms: state.config.announce_max_interval_ms,
-            duplicate_message_window_ms: state.config.duplicate_message_window_ms,
-            afk_mention_cooldown_ms: state.config.afk_mention_cooldown_ms,
-            connection_failure_backoff_ms: state.config.connection_failure_backoff_ms,
-            packet_send_delay_ms: state.config.packet_send_delay_ms,
-            entity_spawn_greeting_ttl_ms: state.config.entity_spawn_greeting_ttl_ms,
-            player_detection_cooldown_ms: state.config.player_detection_cooldown_ms,
-            ws_response_timeout_ms: state.config.ws_response_timeout_ms,
-            player_list_update_interval_ms: state.config.player_list_update_interval_ms,
-            reminder_tick_interval_ms: state.config.reminder_tick_interval_ms,
-            crouch_max_hold_ms: state.config.crouch_max_hold_ms,
-            crouch_toggle_delay_ms: state.config.crouch_toggle_delay_ms,
-            poll_duration_ms: state.config.poll_duration_ms,
-            duel_confirm_window_ms: state.config.duel_confirm_window_ms,
-            duel_timeout_ms: state.config.duel_timeout_ms,
-            marry_confirm_window_ms: state.config.marry_confirm_window_ms,
-            trade_propose_cooldown_ms: state.config.trade_propose_cooldown_ms,
-            trade_reject_penalty_ms: state.config.trade_reject_penalty_ms,
-            roast_timeout_ms: state.config.roast_timeout_ms,
-            scratch_animation_delay_ms: state.config.scratch_animation_delay_ms,
-            slots_animation_delay_ms: state.config.slots_animation_delay_ms,
-            twerk_flash_delay_ms: state.config.twerk_flash_delay_ms,
+            anti_spam: state.config.anti_spam.clone(),
+            connection: state.config.connection.clone(),
+            misc_timing: state.config.misc_timing.clone(),
+            detection: state.config.detection.clone(),
+            player_economy: state.config.player_economy.clone(),
+            translate: state.config.translate.clone(),
             market_quote_ttl_ms: state.config.market_quote_ttl_ms,
             market_history_ttl_ms: state.config.market_history_ttl_ms,
             market_search_ttl_ms: state.config.market_search_ttl_ms,
@@ -316,18 +238,17 @@ impl Bot {
                 prefix: self.prefix.clone(),
                 whisper_command: self.whisper_command.clone(),
                 use_commands: self.use_commands,
-                anti_spam_global_cooldown_ms: self.anti_spam_global_cooldown_ms,
-                command_cooldowns: self.command_cooldowns.clone(),
                 use_whitelist: self.use_whitelist,
                 user_whitelist: self.user_whitelist.clone(),
                 user_blacklist: self.user_blacklist.clone(),
                 custom_chat_formats: self.custom_chat_formats.clone(), // already gated by use_custom_chat_format_parser in Bot::new()
                 command_toggles: self.command_toggles.clone(),
                 disabled_events: self.disabled_events.clone(),
-                allow_chatbridge_input: self.api.options.use_websocket
-                    && self.allow_chatbridge_input,
-                discord_bridge_marker_regex: self.discord_bridge_marker_regex.clone(),
-                discord_bridge_detection_enabled: self.discord_bridge_detection_enabled,
+                discord_bridge: crate::config::DiscordBridgeConfig {
+                    allow_chatbridge_input: self.api.options.use_websocket
+                        && self.discord_bridge.allow_chatbridge_input,
+                    ..self.discord_bridge.clone()
+                },
                 use_live_time_query: self.use_live_time_query,
                 day_night_game_time_fallback: self.day_night_game_time_fallback,
                 welcome_messages: self.welcome_messages,
@@ -336,35 +257,13 @@ impl Bot {
                 censorship: self.censorship.clone(),
                 command_censorship: self.command_censorship.clone(),
                 bet_limits: self.bet_limits.clone(),
-                google_scrape_enabled: self.google_scrape_enabled,
-                google_scrape_min_interval_ms: self.google_scrape_min_interval_ms,
                 api_keys: self.api_keys.clone(),
-                queue_probe_command: self.queue_probe_command.clone(),
-                queue_retry_delay_ms: self.queue_retry_delay_ms,
-                board_whisper_delay_ms: self.board_whisper_delay_ms,
-                announce_min_interval_ms: self.announce_min_interval_ms,
-                announce_max_interval_ms: self.announce_max_interval_ms,
-                duplicate_message_window_ms: self.duplicate_message_window_ms,
-                afk_mention_cooldown_ms: self.afk_mention_cooldown_ms,
-                connection_failure_backoff_ms: self.connection_failure_backoff_ms,
-                packet_send_delay_ms: self.packet_send_delay_ms,
-                entity_spawn_greeting_ttl_ms: self.entity_spawn_greeting_ttl_ms,
-                player_detection_cooldown_ms: self.player_detection_cooldown_ms,
-                ws_response_timeout_ms: self.ws_response_timeout_ms,
-                player_list_update_interval_ms: self.player_list_update_interval_ms,
-                reminder_tick_interval_ms: self.reminder_tick_interval_ms,
-                crouch_max_hold_ms: self.crouch_max_hold_ms,
-                crouch_toggle_delay_ms: self.crouch_toggle_delay_ms,
-                poll_duration_ms: self.poll_duration_ms,
-                duel_confirm_window_ms: self.duel_confirm_window_ms,
-                duel_timeout_ms: self.duel_timeout_ms,
-                marry_confirm_window_ms: self.marry_confirm_window_ms,
-                trade_propose_cooldown_ms: self.trade_propose_cooldown_ms,
-                trade_reject_penalty_ms: self.trade_reject_penalty_ms,
-                roast_timeout_ms: self.roast_timeout_ms,
-                scratch_animation_delay_ms: self.scratch_animation_delay_ms,
-                slots_animation_delay_ms: self.slots_animation_delay_ms,
-                twerk_flash_delay_ms: self.twerk_flash_delay_ms,
+                anti_spam: self.anti_spam.clone(),
+                connection: self.connection.clone(),
+                misc_timing: self.misc_timing.clone(),
+                detection: self.detection.clone(),
+                player_economy: self.player_economy.clone(),
+                translate: self.translate.clone(),
                 casino: self.casino.clone(),
             })),
             players: Arc::new(RwLock::new(HashMap::new())),
@@ -1163,17 +1062,17 @@ impl Default for AzaleaState {
                 prefix: "!".to_owned(),
                 whisper_command: "msg".to_owned(),
                 use_commands: true,
-                anti_spam_global_cooldown_ms: 1_000,
-                command_cooldowns: HashMap::new(),
                 use_whitelist: false,
                 user_whitelist: HashSet::new(),
                 user_blacklist: HashSet::new(),
                 custom_chat_formats: Vec::new(),
                 command_toggles: HashMap::new(),
                 disabled_events: HashSet::new(),
-                allow_chatbridge_input: false,
-                discord_bridge_marker_regex: r"^\[Discord \| ".to_owned(),
-                discord_bridge_detection_enabled: true,
+                discord_bridge: crate::config::DiscordBridgeConfig {
+                    allow_chatbridge_input: false,
+                    discord_bridge_marker_regex: r"^\[Discord \| ".to_owned(),
+                    discord_bridge_detection_enabled: true,
+                },
                 use_live_time_query: false,
                 day_night_game_time_fallback: false,
                 welcome_messages: false,
@@ -1187,36 +1086,50 @@ impl Default for AzaleaState {
                 },
                 command_censorship: HashMap::new(),
                 bet_limits: HashMap::new(),
-                google_scrape_enabled: true,
-                google_scrape_min_interval_ms: 15_000,
                 api_keys: crate::config::ApiKeys::default(),
-                queue_probe_command: String::new(),
-                queue_retry_delay_ms: 300_000,
-                board_whisper_delay_ms: 1_000,
-                announce_min_interval_ms: 900_000,
-                announce_max_interval_ms: 2_700_000,
-                duplicate_message_window_ms: 5,
-                afk_mention_cooldown_ms: 60,
-                connection_failure_backoff_ms: 600,
-                packet_send_delay_ms: 25,
-                entity_spawn_greeting_ttl_ms: 500_000,
-                player_detection_cooldown_ms: 600_000,
-                ws_response_timeout_ms: 5,
-                player_list_update_interval_ms: 60,
-                reminder_tick_interval_ms: 30,
-                crouch_max_hold_ms: 600,
-                crouch_toggle_delay_ms: 50,
-                poll_duration_ms: 120,
-                duel_confirm_window_ms: 60,
-                duel_timeout_ms: 600,
-                marry_confirm_window_ms: 60,
-                trade_propose_cooldown_ms: 60,
-                trade_reject_penalty_ms: 600,
-                roast_timeout_ms: 8_000,
-                scratch_animation_delay_ms: 600,
-                slots_animation_delay_ms: 800,
-                twerk_flash_delay_ms: 100,
+                anti_spam: crate::config::AntiSpamConfig {
+                    anti_spam_global_cooldown_ms: 1_000,
+                    command_cooldowns: HashMap::new(),
+                    duplicate_message_window_ms: 5,
+                    afk_mention_cooldown_ms: 60,
+                },
+                connection: crate::config::ConnectionConfig {
+                    connection_failure_backoff_ms: 600,
+                    packet_send_delay_ms: 25,
+                    ws_response_timeout_ms: 5,
+                    queue_probe_command: String::new(),
+                    queue_retry_delay_ms: 300_000,
+                },
+                misc_timing: crate::config::MiscTimingConfig {
+                    crouch_max_hold_ms: 600,
+                    crouch_toggle_delay_ms: 50,
+                    poll_duration_ms: 120,
+                    board_whisper_delay_ms: 1_000,
+                    announce_min_interval_ms: 900_000,
+                    announce_max_interval_ms: 2_700_000,
+                },
+                detection: crate::config::DetectionConfig {
+                    entity_spawn_greeting_ttl_ms: 500_000,
+                    player_detection_cooldown_ms: 600_000,
+                    player_list_update_interval_ms: 60,
+                    reminder_tick_interval_ms: 30,
+                },
+                player_economy: crate::config::PlayerEconomyConfig {
+                    duel_confirm_window_ms: 60,
+                    duel_timeout_ms: 600,
+                    marry_confirm_window_ms: 60,
+                    trade_propose_cooldown_ms: 60,
+                    trade_reject_penalty_ms: 600,
+                    roast_timeout_ms: 8_000,
+                },
+                translate: crate::config::TranslateConfig {
+                    google_scrape_enabled: true,
+                    google_scrape_min_interval_ms: 15_000,
+                },
                 casino: crate::config::CasinoConfig {
+                    scratch_animation_delay_ms: 600,
+                    slots_animation_delay_ms: 800,
+                    twerk_flash_delay_ms: 100,
                     aqi_settle_window_ms: 86400000,
                     aqi_timeout_ms: 10000,
                     gas_settle_window_ms: 86400000,
@@ -1402,7 +1315,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 .runtime
                 .read()
                 .expect("runtime config lock poisoned")
-                .queue_probe_command
+                .connection.queue_probe_command
                 .clone();
             if !probe_command.is_empty() {
                 let probe_bot = bot.clone();
@@ -1497,7 +1410,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                 if sender == bot.username() {
                     let (allow_bridge, whisper_command) = {
                         let runtime = state.runtime.read().expect("runtime config lock poisoned");
-                        (runtime.allow_chatbridge_input, runtime.whisper_command.clone())
+                        (runtime.discord_bridge.allow_chatbridge_input, runtime.whisper_command.clone())
                     };
                     // Whispers must never reach the Discord bridge, regardless of which
                     // upstream shape produced the reflected text -- checked two ways since
@@ -1533,7 +1446,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                         .runtime
                         .read()
                         .expect("runtime config lock poisoned")
-                        .duplicate_message_window_ms;
+                        .anti_spam.duplicate_message_window_ms;
                     let mut recent = state.recent_whispers.lock().expect("recent_whispers lock poisoned");
                     if let Some((sent_content, sent_at)) = recent.get(&sender_lower) {
                         if *sent_content == content && sent_at.elapsed() < Duration::from_millis(dup_window_ms) {
@@ -1575,7 +1488,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                             .runtime
                             .read()
                             .expect("runtime config lock poisoned")
-                            .afk_mention_cooldown_ms;
+                            .anti_spam.afk_mention_cooldown_ms;
                         let on_cd = state
                             .afk_cooldowns
                             .lock()
@@ -1844,7 +1757,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     .runtime
                     .read()
                     .expect("runtime config lock poisoned")
-                    .queue_retry_delay_ms;
+                    .connection.queue_retry_delay_ms;
                 logger::debug_cat("queue", format!("Queue-triggered disconnect -- waiting {delay_ms}ms before retrying"));
                 tokio::time::sleep(Duration::from_millis(delay_ms)).await;
             }
@@ -1856,7 +1769,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     .runtime
                     .read()
                     .expect("runtime config lock poisoned")
-                    .connection_failure_backoff_ms;
+                    .connection.connection_failure_backoff_ms;
                 logger::warn(format!("Server unreachable after 10 consecutive failures. Waiting {}s before reconnect.", backoff_ms / 1000));
                 tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
             }
@@ -1873,7 +1786,7 @@ async fn handle_azalea_event(bot: Client, event: Event, state: AzaleaState) -> a
                     .runtime
                     .read()
                     .expect("runtime config lock poisoned")
-                    .connection_failure_backoff_ms;
+                    .connection.connection_failure_backoff_ms;
                 logger::warn(format!("Server unreachable after 10 consecutive failures. Waiting {}s before reconnect.", backoff_ms / 1000));
                 tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
             }
@@ -2005,7 +1918,7 @@ async fn flush_outbound_chat(bot: &Client, state: &AzaleaState) {
             .runtime
             .read()
             .expect("runtime config lock poisoned")
-            .packet_send_delay_ms;
+            .connection.packet_send_delay_ms;
         tokio::time::sleep(Duration::from_millis(packet_send_delay_ms)).await;
     }
 }
@@ -2125,7 +2038,7 @@ fn handle_entity_spawn_first_sight(bot: &Client, state: &AzaleaState) {
             .runtime
             .read()
             .expect("runtime config lock poisoned")
-            .entity_spawn_greeting_ttl_ms;
+            .detection.entity_spawn_greeting_ttl_ms;
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(ttl_ms)).await;
             seen.write()
@@ -2204,7 +2117,7 @@ fn handle_player_detection(bot: &Client, state: &AzaleaState) {
             .runtime
             .read()
             .expect("runtime config lock poisoned")
-            .player_detection_cooldown_ms;
+            .detection.player_detection_cooldown_ms;
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(cooldown_ms)).await;
             seen.write()
@@ -2420,7 +2333,7 @@ async fn run_queue_probe(state: &AzaleaState, probe_command: &str) -> bool {
         .runtime
         .read()
         .expect("runtime config lock poisoned")
-        .ws_response_timeout_ms;
+        .connection.ws_response_timeout_ms;
     match tokio::time::timeout(Duration::from_millis(timeout_ms), rx).await {
         Ok(Ok(true)) => true,
         _ => {
@@ -2754,7 +2667,7 @@ fn spawn_player_list_update_task(state: AzaleaState) {
             .runtime
             .read()
             .expect("runtime config lock poisoned")
-            .player_list_update_interval_ms;
+            .detection.player_list_update_interval_ms;
         let mut ticker = tokio::time::interval(Duration::from_millis(interval_ms));
         loop {
             ticker.tick().await;
@@ -2790,7 +2703,7 @@ async fn handle_inbound_discord_chat(bot: &Client, state: &AzaleaState, data: Di
     let (allow_chatbridge_input, prefix, use_commands) = {
         let runtime = state.runtime.read().expect("runtime config lock poisoned");
         (
-            runtime.allow_chatbridge_input,
+            runtime.discord_bridge.allow_chatbridge_input,
             runtime.prefix.clone(),
             runtime.use_commands,
         )
@@ -2863,7 +2776,7 @@ fn handle_inbound_minecraft_chat(state: &AzaleaState, data: MinecraftChatMessage
         .runtime
         .read()
         .expect("runtime config lock poisoned")
-        .allow_chatbridge_input;
+        .discord_bridge.allow_chatbridge_input;
 
     let target_server = data.mc_server.to_lowercase();
     let current_server = state.mc_server.to_lowercase();
@@ -3147,7 +3060,7 @@ fn spawn_reminder_tick_task(state: AzaleaState, active: Arc<AtomicBool>) {
             .runtime
             .read()
             .expect("runtime config lock poisoned")
-            .reminder_tick_interval_ms;
+            .detection.reminder_tick_interval_ms;
         while active.load(Ordering::Relaxed) {
             tokio::time::sleep(std::time::Duration::from_millis(tick_ms)).await;
             if !active.load(Ordering::Relaxed) {
@@ -3356,7 +3269,7 @@ async fn resolve_and_check_bridge_sender(state: &AzaleaState, sender: &str) -> B
         .runtime
         .read()
         .expect("runtime config lock poisoned")
-        .ws_response_timeout_ms;
+        .connection.ws_response_timeout_ms;
     match tokio::time::timeout(Duration::from_millis(timeout_ms), rx).await {
         Ok(Ok(DiscordResolution::Found(snowflake))) => {
             let blacklisted = state
@@ -3573,8 +3486,8 @@ fn matches_discord_bridge_marker(full_message: &str, state: &AzaleaState) -> boo
     let (enabled, pattern) = {
         let runtime = state.runtime.read().expect("runtime config lock poisoned");
         (
-            runtime.discord_bridge_detection_enabled,
-            runtime.discord_bridge_marker_regex.clone(),
+            runtime.discord_bridge.discord_bridge_detection_enabled,
+            runtime.discord_bridge.discord_bridge_marker_regex.clone(),
         )
     };
     if !enabled || pattern.is_empty() {

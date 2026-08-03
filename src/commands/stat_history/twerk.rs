@@ -14,7 +14,7 @@ fn twerk(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         use azalea::protocol::packets::game::s_player_command::{Action, ServerboundPlayerCommand};
 
-        let flash_delay_ms = ctx.runtime.twerk_flash_delay_ms;
+        let flash_delay_ms = ctx.runtime.casino.twerk_flash_delay_ms;
 
         if BOT_SLEEPING.load(Ordering::Relaxed) {
             ctx.bot.write_packet(ServerboundPlayerCommand {

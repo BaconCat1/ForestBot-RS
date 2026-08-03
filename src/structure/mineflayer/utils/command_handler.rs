@@ -158,20 +158,20 @@ fn command_cooldown_remaining(
         .expect("player command cooldown lock poisoned");
 
     if let Some(remaining) =
-        remaining_seconds(*last_command_at, now, runtime.anti_spam_global_cooldown_ms)
+        remaining_seconds(*last_command_at, now, runtime.anti_spam.anti_spam_global_cooldown_ms)
     {
         return Some(remaining);
     }
 
     let Some(policy) = command_cooldown_config(runtime, command, invoked_alias) else {
-        if runtime.anti_spam_global_cooldown_ms > 0 {
+        if runtime.anti_spam.anti_spam_global_cooldown_ms > 0 {
             *last_command_at = Some(now);
         }
         return None;
     };
 
     if policy.cooldown_ms == 0 {
-        if runtime.anti_spam_global_cooldown_ms > 0 {
+        if runtime.anti_spam.anti_spam_global_cooldown_ms > 0 {
             *last_command_at = Some(now);
         }
         return None;
@@ -199,7 +199,7 @@ fn command_cooldown_remaining(
             policy.cooldown_ms
         };
         state.last_success_at = now;
-        if runtime.anti_spam_global_cooldown_ms > 0 {
+        if runtime.anti_spam.anti_spam_global_cooldown_ms > 0 {
             *last_command_at = Some(now);
         }
         return None;
@@ -212,7 +212,7 @@ fn command_cooldown_remaining(
             cooldown_ms: policy.cooldown_ms,
         },
     );
-    if runtime.anti_spam_global_cooldown_ms > 0 {
+    if runtime.anti_spam.anti_spam_global_cooldown_ms > 0 {
         *last_command_at = Some(now);
     }
     None
@@ -225,7 +225,7 @@ fn command_cooldown_config<'a>(
 ) -> Option<&'a CommandCooldownConfig> {
     std::iter::once(invoked_alias)
         .chain(command.names.iter().copied())
-        .find_map(|alias| runtime.command_cooldowns.get(&alias.to_ascii_lowercase()))
+        .find_map(|alias| runtime.anti_spam.command_cooldowns.get(&alias.to_ascii_lowercase()))
 }
 
 fn increased_cooldown(current_ms: u64, policy: &CommandCooldownConfig) -> u64 {

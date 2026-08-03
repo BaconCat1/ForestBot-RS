@@ -190,7 +190,7 @@ impl CommandContext<'_> {
             self.whisper_success(line);
             if lines.peek().is_some() {
                 tokio::time::sleep(std::time::Duration::from_millis(
-                    self.runtime.board_whisper_delay_ms,
+                    self.runtime.misc_timing.board_whisper_delay_ms,
                 ))
                 .await;
             }

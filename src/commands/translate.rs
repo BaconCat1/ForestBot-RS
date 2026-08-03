@@ -88,8 +88,8 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let azure_key = ctx.runtime.api_keys.azure_key.clone();
         let azure_region = ctx.runtime.api_keys.azure_region.clone();
         let gcloud_key = ctx.runtime.api_keys.google_cloud_translate.clone();
-        let scrape_enabled = ctx.runtime.google_scrape_enabled;
-        let scrape_min_interval_ms = ctx.runtime.google_scrape_min_interval_ms;
+        let scrape_enabled = ctx.runtime.translate.google_scrape_enabled;
+        let scrape_min_interval_ms = ctx.runtime.translate.google_scrape_min_interval_ms;
 
         // If first arg looks like a lang code and there are more args, treat it as target lang.
         // Otherwise default to English and treat all args as input.

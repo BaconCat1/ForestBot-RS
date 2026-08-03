@@ -16,7 +16,7 @@ pub fn spawn_announce_loop(state: AzaleaState, active: Arc<AtomicBool>) {
         } else {
             let (min_ms, max_ms) = {
                 let runtime = state.runtime.read().expect("runtime config lock poisoned");
-                (runtime.announce_min_interval_ms, runtime.announce_max_interval_ms)
+                (runtime.misc_timing.announce_min_interval_ms, runtime.misc_timing.announce_max_interval_ms)
             };
             let span = max_ms.saturating_sub(min_ms).max(1);
             min_ms + pseudo_rand(now_nanos(), 0) % span
