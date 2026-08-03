@@ -33,7 +33,7 @@ const CACHE_TTL: u64 = 3600;
 #[derive(Debug, Clone)]
 pub struct WeatherBet {
     pub id: i64,
-    pub player: String,
+    pub player: crate::structure::player_uuid::PlayerUuid,
     pub bet_type: String,
     pub city: String,
     pub latitude: f64,
@@ -497,9 +497,9 @@ async fn place_ensemble_bet(
 
 // ── Show bets ─────────────────────────────────────────────────────────────────
 
-async fn show_bets(ctx: &CommandContext<'_>, player_uuid: &str) {
+async fn show_bets(ctx: &CommandContext<'_>, player_uuid: &crate::structure::player_uuid::PlayerUuid) {
     let all_bets = ctx.state.api.casino_weather_bet_list().await;
-    let player_bets: Vec<_> = all_bets.into_iter().filter(|b| b.player == player_uuid).collect();
+    let player_bets: Vec<_> = all_bets.into_iter().filter(|b| &b.player == player_uuid).collect();
     if player_bets.is_empty() {
         ctx.whisper("No open weather bets.");
         return;
@@ -527,7 +527,7 @@ async fn show_bets(ctx: &CommandContext<'_>, player_uuid: &str) {
 
 pub async fn settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<WeatherBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<WeatherBet>>>>,
     whisper_cmd: String,
     bet: WeatherBet,
     dur_secs: u64,
@@ -549,7 +549,7 @@ pub async fn settle_task(
     let unit = bet.unit.as_deref().unwrap_or("");
 
     let online_username = deps.players.read().ok()
-        .and_then(|pl| pl.values().find(|s| s.uuid == bet.player).map(|s| s.username.clone()));
+        .and_then(|pl| pl.values().find(|s| s.uuid == bet.player.as_str()).map(|s| s.username.clone()));
 
     let (won, result_str) = match fetch_actual(&client, &bet, &target_date).await {
         Some(actual) => {

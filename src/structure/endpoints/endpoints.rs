@@ -1132,7 +1132,7 @@ impl ApiClient {
             .and_then(|b| b.as_array())
             .map(|arr| arr.iter().filter_map(|item| {
                 let id = item.get("id")?.as_i64()?;
-                let player = item.get("player_uuid")?.as_str()?.to_owned();
+                let player: crate::structure::player_uuid::PlayerUuid = item.get("player_uuid")?.as_str()?.to_owned().into();
                 let symbol = item.get("symbol")?.as_str()?.to_owned();
                 let market = match item.get("market")?.as_str()? {
                     "crypto" => MarketKind::Crypto,
@@ -1185,7 +1185,7 @@ impl ApiClient {
             .and_then(|b| b.as_array())
             .map(|arr| arr.iter().filter_map(|item| {
                 let id = item.get("id")?.as_i64()?;
-                let player = item.get("player_uuid")?.as_str()?.to_owned();
+                let player: crate::structure::player_uuid::PlayerUuid = item.get("player_uuid")?.as_str()?.to_owned().into();
                 let bet_type = item.get("bet_type")?.as_str().unwrap_or("rain").to_owned();
                 let city = item.get("city")?.as_str()?.to_owned();
                 let latitude = item.get("latitude")?.as_f64()?;
@@ -1305,7 +1305,7 @@ impl ApiClient {
             .and_then(|b| b.as_array())
             .map(|arr| arr.iter().filter_map(|item| {
                 let id = item.get("id")?.as_i64()?;
-                let player = item.get("player_uuid")?.as_str()?.to_owned();
+                let player: crate::structure::player_uuid::PlayerUuid = item.get("player_uuid")?.as_str()?.to_owned().into();
                 let symbol = item.get("symbol")?.as_str()?.to_owned();
                 let market = match item.get("market")?.as_str()? {
                     "crypto" => MarketKind::Crypto,

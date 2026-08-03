@@ -76,7 +76,7 @@ async fn propose_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     }
 
     let existing = ctx.state.api.tradebot_get_user_trades(&sender_uuid).await;
-    if existing.iter().any(|t| t.status == "pending" && t.initiator_id == sender_uuid) {
+    if existing.iter().any(|t| t.status == "pending" && t.initiator_id == sender_uuid.as_str()) {
         ctx.whisper(&format!(
             "You already have a pending trade. Run {}trade preview to see it, or {}trade reject to cancel it.",
             ctx.runtime.prefix, ctx.runtime.prefix
@@ -144,7 +144,7 @@ async fn confirm_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let trades = ctx.state.api.tradebot_get_user_trades(&sender_uuid).await;
     let Some(trade) = trades
         .iter()
-        .find(|t| t.status == "pending" && t.recipient_id == sender_uuid)
+        .find(|t| t.status == "pending" && t.recipient_id == sender_uuid.as_str())
     else {
         ctx.whisper("No pending trade addressed to you.");
         return Ok(());
@@ -171,15 +171,15 @@ async fn reject_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     let trades = ctx.state.api.tradebot_get_user_trades(&sender_uuid).await;
     let Some(trade) = trades.iter().find(|t| {
         t.status == "pending"
-            && (t.recipient_id == sender_uuid || t.initiator_id == sender_uuid)
+            && (t.recipient_id == sender_uuid.as_str() || t.initiator_id == sender_uuid.as_str())
     }) else {
         ctx.whisper("No pending trade to reject.");
         return Ok(());
     };
 
     let trade_id = trade.id;
-    let is_recipient = trade.recipient_id == sender_uuid;
-    let initiator_id = trade.initiator_id.clone();
+    let is_recipient = trade.recipient_id == sender_uuid.as_str();
+    let initiator_id: crate::structure::player_uuid::PlayerUuid = trade.initiator_id.clone().into();
 
     match ctx.state.api.tradebot_reject_trade(trade_id).await {
         Ok(()) => {
@@ -216,14 +216,14 @@ async fn preview_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     for trade in pending {
         let (init_name, recv_name) = {
             let players = ctx.state.players.read().expect("player cache lock poisoned");
-            let init = if trade.initiator_id == sender_uuid {
+            let init = if trade.initiator_id == sender_uuid.as_str() {
                 ctx.sender.to_owned()
             } else {
                 uuid_to_name(&trade.initiator_id, &players)
                     .map(str::to_owned)
                     .unwrap_or_else(|| trade.initiator_id.chars().take(8).collect())
             };
-            let recv = if trade.recipient_id == sender_uuid {
+            let recv = if trade.recipient_id == sender_uuid.as_str() {
                 ctx.sender.to_owned()
             } else {
                 uuid_to_name(&trade.recipient_id, &players)
@@ -233,7 +233,7 @@ async fn preview_trade(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
             (init, recv)
         };
 
-        let role = if trade.initiator_id == sender_uuid {
+        let role = if trade.initiator_id == sender_uuid.as_str() {
             format!("run {}trade reject to cancel", ctx.runtime.prefix)
         } else {
             format!("run {}trade confirm or {}trade reject", ctx.runtime.prefix, ctx.runtime.prefix)
@@ -289,14 +289,14 @@ pub fn execute_trades(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 .rev()
                 .take(3)
                 .map(|t| {
-                    let init_name = if t.initiator_id == target_uuid {
+                    let init_name = if t.initiator_id == target_uuid.as_str() {
                         target.to_owned()
                     } else {
                         uuid_to_name(&t.initiator_id, &players)
                             .map(|s| s.to_owned())
                             .unwrap_or_else(|| t.initiator_id.chars().take(8).collect())
                     };
-                    let recv_name = if t.recipient_id == target_uuid {
+                    let recv_name = if t.recipient_id == target_uuid.as_str() {
                         target.to_owned()
                     } else {
                         uuid_to_name(&t.recipient_id, &players)
@@ -419,11 +419,11 @@ pub fn execute_tradestats(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 // ===== Helpers =====
 
-fn resolve_online_uuid(username: &str, players: &HashMap<String, PlayerSnapshot>) -> Option<String> {
-    players.get(username).map(|p| p.uuid.clone())
+fn resolve_online_uuid(username: &str, players: &HashMap<String, PlayerSnapshot>) -> Option<crate::structure::player_uuid::PlayerUuid> {
+    players.get(username).map(|p| crate::structure::player_uuid::PlayerUuid(p.uuid.clone()))
 }
 
-async fn resolve_target_uuid(ctx: &CommandContext<'_>, target: &str) -> Option<String> {
+async fn resolve_target_uuid(ctx: &CommandContext<'_>, target: &str) -> Option<crate::structure::player_uuid::PlayerUuid> {
     {
         let players = ctx.state.players.read().expect("player cache lock poisoned");
         if let Some(u) = resolve_online_uuid(target, &players) {
@@ -437,12 +437,13 @@ async fn resolve_target_uuid(ctx: &CommandContext<'_>, target: &str) -> Option<S
             .read()
             .expect("nick cache lock poisoned")
             .get(target)
-            .cloned();
+            .cloned()
+            .map(crate::structure::player_uuid::PlayerUuid);
         if let Some(u) = nick_result {
             return Some(u);
         }
     }
-    ctx.state.api.convert_username_to_uuid(target).await
+    ctx.state.api.convert_username_to_uuid(target).await.map(crate::structure::player_uuid::PlayerUuid)
 }
 
 fn uuid_to_name<'a>(uuid: &str, players: &'a HashMap<String, PlayerSnapshot>) -> Option<&'a str> {

@@ -19,7 +19,7 @@ const AIRNOW_BASE: &str = "https://www.airnowapi.org/aq";
 #[derive(Debug, Clone)]
 pub struct AqiBet {
     pub id:         i64,
-    pub player:     String,
+    pub player:     crate::structure::player_uuid::PlayerUuid,
     pub zip:        String,
     pub area:       String, // ReportingArea from API
     pub side:       String, // "good" | "unhealthy"
@@ -46,7 +46,7 @@ impl super::CasinoBet for AqiBet {
     fn from_json(item: &serde_json::Value) -> Option<Self> {
         Some(Self {
             id:         item.get("id")?.as_i64()?,
-            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            player:     item.get("player_uuid")?.as_str()?.to_owned().into(),
             zip:        item.get("zip")?.as_str()?.to_owned(),
             area:       item.get("area")?.as_str()?.to_owned(),
             side:       item.get("side")?.as_str()?.to_owned(),
@@ -368,7 +368,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, key: String) -> anyhow::Resul
 
 pub async fn aqi_settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<AqiBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<AqiBet>>>>,
     http: reqwest::Client,
     whisper_cmd: String,
     bet: AqiBet,

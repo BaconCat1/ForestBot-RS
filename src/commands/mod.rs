@@ -170,7 +170,7 @@ impl CommandContext<'_> {
     /// by that literal string, disconnected from the player's real balance. Always
     /// resolve through this (or `resolve_player_uuid` for detached/non-ctx contexts
     /// like spawned timer tasks) before any money-touching API call.
-    pub async fn require_player_uuid(&self) -> Option<String> {
+    pub async fn require_player_uuid(&self) -> Option<crate::structure::player_uuid::PlayerUuid> {
         match resolve_player_uuid(self.state, self.sender).await {
             Some(uuid) => Some(uuid),
             None => {
@@ -258,7 +258,7 @@ pub fn enqueue_chat(state: &AzaleaState, message: impl AsRef<str>) {
 /// spoofable Discord nickname/display name as plain MC-chat-shaped text, no real MC session
 /// behind it) impersonate any real account for every command that resolves identity this
 /// way. Requiring "currently live" closes it regardless of how the message was dispatched.
-pub async fn resolve_player_uuid(state: &AzaleaState, username: &str) -> Option<String> {
+pub async fn resolve_player_uuid(state: &AzaleaState, username: &str) -> Option<crate::structure::player_uuid::PlayerUuid> {
     let is_live = state
         .players
         .read()
@@ -268,7 +268,7 @@ pub async fn resolve_player_uuid(state: &AzaleaState, username: &str) -> Option<
     if !is_live {
         return None;
     }
-    state.api.convert_username_to_uuid(username).await
+    state.api.convert_username_to_uuid(username).await.map(crate::structure::player_uuid::PlayerUuid)
 }
 
 /// Real logic behind `enqueue_chat`, taking the 3 fields it actually needs

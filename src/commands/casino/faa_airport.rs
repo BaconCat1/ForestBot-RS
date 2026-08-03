@@ -18,7 +18,7 @@ const MIN_BET: i64 = 25;
 #[derive(Debug, Clone)]
 pub struct FaaAirportBet {
     pub id: i64,
-    pub player: String,
+    pub player: crate::structure::player_uuid::PlayerUuid,
     pub airport_code: String,
     pub name: String,
     pub side: String,
@@ -45,7 +45,7 @@ impl super::CasinoBet for FaaAirportBet {
     fn from_json(item: &serde_json::Value) -> Option<Self> {
         Some(Self {
             id:           item.get("id")?.as_i64()?,
-            player:       item.get("player_uuid")?.as_str()?.to_owned(),
+            player:       item.get("player_uuid")?.as_str()?.to_owned().into(),
             airport_code: item.get("airport_code")?.as_str()?.to_owned(),
             name:         item.get("name")?.as_str()?.to_owned(),
             side:         item.get("side")?.as_str()?.to_owned(),
@@ -261,7 +261,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 pub async fn settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<FaaAirportBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<FaaAirportBet>>>>,
     whisper_cmd: String,
     bet: FaaAirportBet,
 ) {

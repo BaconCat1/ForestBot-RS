@@ -18,7 +18,7 @@ const MIN_BET: i64 = 50;
 #[derive(Debug, Clone)]
 pub struct SportsBet {
     pub id: i64,
-    pub player: String,
+    pub player: crate::structure::player_uuid::PlayerUuid,
     pub event_id: String,
     pub sport: String,
     pub home_team: String,
@@ -49,7 +49,7 @@ impl super::CasinoBet for SportsBet {
     fn from_json(item: &serde_json::Value) -> Option<Self> {
         Some(Self {
             id:          item.get("id")?.as_i64()?,
-            player:      item.get("player_uuid")?.as_str()?.to_owned(),
+            player:      item.get("player_uuid")?.as_str()?.to_owned().into(),
             event_id:    item.get("event_id")?.as_str()?.to_owned(),
             sport:       item.get("sport")?.as_str()?.to_owned(),
             home_team:   item.get("home_team")?.as_str()?.to_owned(),
@@ -477,7 +477,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 pub async fn settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<SportsBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<SportsBet>>>>,
     whisper_cmd: String,
     api_key: String,
     bet: SportsBet,

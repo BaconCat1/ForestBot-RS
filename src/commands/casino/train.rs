@@ -3,7 +3,7 @@ use crate::structure::market::types::now_unix;
 
 use super::{chips_str, deduct_stake, format_alimony, fmt_close, calc_payout, sleep_until, gtfs_rt, FetchErr, check_resp, SettleDeps};
 
-type TrainBetsMap = std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<TrainBet>>>>;
+type TrainBetsMap = std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<TrainBet>>>>;
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: &["train", "trains"],
@@ -22,7 +22,7 @@ const MIN_BET: i64 = 25;
 #[derive(Debug, Clone)]
 pub struct TrainBet {
     pub id: i64,
-    pub player: String,
+    pub player: crate::structure::player_uuid::PlayerUuid,
     pub country: String,   // legacy: country slug; GTFS-RT: agency slug (e.g. "mbta")
     pub train_code: String, // legacy: train code; GTFS-RT: trip_id
     pub train_name: String, // legacy: train name; GTFS-RT: "MBTA Red" (display)
@@ -51,7 +51,7 @@ impl super::CasinoBet for TrainBet {
     fn from_json(item: &serde_json::Value) -> Option<Self> {
         Some(Self {
             id:         item.get("id")?.as_i64()?,
-            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            player:     item.get("player_uuid")?.as_str()?.to_owned().into(),
             country:    item.get("country")?.as_str()?.to_owned(),
             train_code: item.get("train_code")?.as_str()?.to_owned(),
             train_name: item.get("train_name")?.as_str()?.to_owned(),

@@ -26,7 +26,8 @@ pub const SPOUSE_COMMAND: CommandDefinition = CommandDefinition {
 
 fn marry_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let Some(sender_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+        let Some(sender_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await
+            .map(crate::structure::player_uuid::PlayerUuid) else {
             ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
@@ -122,7 +123,8 @@ fn marry_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 ctx.whisper_success("Usage: !marry <player> | !marry preview | !marry dowry <amount> | !marry accept | !marry reject");
             }
             target_name => {
-                let Some(target_uuid) = ctx.state.api.convert_username_to_uuid(target_name).await else {
+                let Some(target_uuid) = ctx.state.api.convert_username_to_uuid(target_name).await
+                    .map(crate::structure::player_uuid::PlayerUuid) else {
                     ctx.whisper_error(format!("Player {target_name} not found."));
                     return Ok(());
                 };
@@ -164,7 +166,8 @@ fn marry_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 fn divorce_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
-        let Some(sender_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await else {
+        let Some(sender_uuid) = ctx.state.api.convert_username_to_uuid(ctx.sender).await
+            .map(crate::structure::player_uuid::PlayerUuid) else {
             ctx.whisper_success("Could not resolve your UUID.");
             return Ok(());
         };
@@ -217,7 +220,8 @@ fn divorce_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             } else {
                 // First step: set pending
                 let target_name = arg2;
-                let Some(target_uuid) = ctx.state.api.convert_username_to_uuid(target_name).await else {
+                let Some(target_uuid) = ctx.state.api.convert_username_to_uuid(target_name).await
+                    .map(crate::structure::player_uuid::PlayerUuid) else {
                     ctx.whisper_error(format!("Player {target_name} not found."));
                     return Ok(());
                 };
@@ -232,7 +236,8 @@ fn divorce_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         } else {
             // Mutual divorce
             let partner_name = sub;
-            let Some(partner_uuid) = ctx.state.api.convert_username_to_uuid(partner_name).await else {
+            let Some(partner_uuid) = ctx.state.api.convert_username_to_uuid(partner_name).await
+                .map(crate::structure::player_uuid::PlayerUuid) else {
                 ctx.whisper_error(format!("Player {partner_name} not found."));
                 return Ok(());
             };

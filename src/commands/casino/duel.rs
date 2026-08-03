@@ -36,9 +36,9 @@ pub struct Duel {
     // (resolve_duel/cancel_duel_refund, timeout tasks) never need a ctx to pay out
     // correctly. challenged_uuid is None until confirm_duel resolves it -- only ever
     // read once phase == Active, by which point it's guaranteed Some.
-    pub challenger_uuid: String,
+    pub challenger_uuid: crate::structure::player_uuid::PlayerUuid,
     pub challenged: String,
-    pub challenged_uuid: Option<String>,
+    pub challenged_uuid: Option<crate::structure::player_uuid::PlayerUuid>,
     pub stake: i64,
     pub phase: DuelPhase,
     pub confirm_expires_at: u64,
@@ -49,7 +49,7 @@ pub struct Duel {
 #[derive(Clone, Debug)]
 pub struct SideBet {
     pub bettor: String,
-    pub bettor_uuid: String,
+    pub bettor_uuid: crate::structure::player_uuid::PlayerUuid,
     pub target: String,      // participant name they are betting on
     pub amount: i64,
     pub odds_at_placement: f64, // win probability of `target` when bet was placed
@@ -127,7 +127,7 @@ impl DuelService {
     }
 
     /// Upgrades a Pending duel to Active once the challenged party confirms.
-    pub fn transition_to_active(&self, id: Uuid, challenged_uuid: String, expires_at: u64) {
+    pub fn transition_to_active(&self, id: Uuid, challenged_uuid: crate::structure::player_uuid::PlayerUuid, expires_at: u64) {
         let mut duels = self.duels.lock().expect("duels lock");
         if let Some(d) = duels.iter_mut().find(|d| d.id == id) {
             d.phase = DuelPhase::Active;

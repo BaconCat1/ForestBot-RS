@@ -29,7 +29,7 @@ pub struct FloodCache {
 #[derive(Debug, Clone)]
 pub struct NOAAFloodingBet {
     pub id: i64,
-    pub player: String,
+    pub player: crate::structure::player_uuid::PlayerUuid,
     pub location: String,
     pub latitude: f64,
     pub longitude: f64,
@@ -58,7 +58,7 @@ impl super::CasinoBet for NOAAFloodingBet {
     fn from_json(item: &serde_json::Value) -> Option<Self> {
         Some(Self {
             id:         item.get("id")?.as_i64()?,
-            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            player:     item.get("player_uuid")?.as_str()?.to_owned().into(),
             location:   item.get("location")?.as_str()?.to_owned(),
             latitude:   item.get("latitude")?.as_f64()?,
             longitude:  item.get("longitude")?.as_f64()?,
@@ -384,7 +384,7 @@ async fn place_bet_inner(
 
 pub async fn settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<NOAAFloodingBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<NOAAFloodingBet>>>>,
     whisper_cmd: String,
     bet: NOAAFloodingBet,
 ) {

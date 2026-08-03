@@ -20,8 +20,8 @@ const JOIN_WINDOW_HOURS: u64 = 12;
 #[derive(Debug, Clone)]
 pub struct JoinWindowBet {
     pub id: Option<i64>,
-    pub player: String,       // bettor's uuid
-    pub subject_uuid: String, // the player being bet on
+    pub player: crate::structure::player_uuid::PlayerUuid,       // bettor's uuid
+    pub subject_uuid: crate::structure::player_uuid::PlayerUuid, // the player being bet on
     pub subject_name: String,
     pub price: f64,
     pub stake: i64,
@@ -45,8 +45,8 @@ impl super::CasinoBet for JoinWindowBet {
     fn from_json(item: &serde_json::Value) -> Option<Self> {
         Some(Self {
             id:           Some(item.get("id")?.as_i64()?),
-            player:       item.get("player_uuid")?.as_str()?.to_owned(),
-            subject_uuid: item.get("subject_uuid")?.as_str()?.to_owned(),
+            player:       item.get("player_uuid")?.as_str()?.to_owned().into(),
+            subject_uuid: item.get("subject_uuid")?.as_str()?.to_owned().into(),
             subject_name: item.get("subject_name")?.as_str()?.to_owned(),
             price:        item.get("price")?.as_f64()?,
             stake:        item.get("stake")?.as_i64()?,
@@ -82,7 +82,8 @@ pub async fn whisper_odds_hint(ctx: &CommandContext<'_>, subject_uuid: &str, sub
 /// `!joins <player> <bet>` -- places a bet that `player` (the subject, never
 /// the bettor themself) logs in within the odds' fixed window.
 pub async fn place_bet(ctx: &CommandContext<'_>, subject_name: &str, stake: i64) -> anyhow::Result<()> {
-    let Some(subject_uuid) = ctx.state.api.convert_username_to_uuid(subject_name).await else {
+    let Some(subject_uuid) = ctx.state.api.convert_username_to_uuid(subject_name).await
+        .map(crate::structure::player_uuid::PlayerUuid) else {
         ctx.whisper_error(format!("Player {subject_name} not found."));
         return Ok(());
     };
@@ -171,7 +172,7 @@ pub async fn place_bet(ctx: &CommandContext<'_>, subject_name: &str, stake: i64)
 
 pub async fn join_window_settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<JoinWindowBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<JoinWindowBet>>>>,
     whisper_cmd: String,
     bet: JoinWindowBet,
 ) {

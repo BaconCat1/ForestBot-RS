@@ -5,7 +5,7 @@ use crate::commands::{CommandContext, CommandDefinition, CommandFuture};
 use crate::structure::market::types::now_unix;
 use super::{MIN_BET, chips_str, deduct_stake, format_alimony, to_price, fmt_odds, fmt_time, calc_payout, sleep_until, FetchErr, check_resp, SettleDeps};
 
-type LaunchBetsMap = Arc<Mutex<HashMap<String, Vec<LaunchBet>>>>;
+type LaunchBetsMap = Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<LaunchBet>>>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LaunchBetSide {
@@ -48,7 +48,7 @@ const STATUS_PARTIAL_FAILURE: u64 = 7;
 #[derive(Debug, Clone)]
 pub struct LaunchBet {
     pub id:            Option<i64>,
-    pub player:        String,
+    pub player:        crate::structure::player_uuid::PlayerUuid,
     pub launch_id:     String,   // LL2 full UUID
     pub launch_name:   String,
     pub lsp_id:        u32,
@@ -81,7 +81,7 @@ impl super::CasinoBet for LaunchBet {
     fn from_json(item: &serde_json::Value) -> Option<Self> {
         Some(Self {
             id:            Some(item.get("id")?.as_i64()?),
-            player:        item.get("player_uuid")?.as_str()?.to_owned(),
+            player:        item.get("player_uuid")?.as_str()?.to_owned().into(),
             launch_id:     item.get("launch_id")?.as_str()?.to_owned(),
             launch_name:   item.get("launch_name")?.as_str()?.to_owned(),
             lsp_id:        item.get("lsp_id")?.as_u64()? as u32,

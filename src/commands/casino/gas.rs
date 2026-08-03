@@ -22,7 +22,7 @@ const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (
 #[derive(Debug, Clone)]
 pub struct GasBet {
     pub id:            Option<i64>,
-    pub player:        String,
+    pub player:        crate::structure::player_uuid::PlayerUuid,
     pub region:        String,
     pub zip:           String,
     pub side:          String,
@@ -51,7 +51,7 @@ impl super::CasinoBet for GasBet {
     fn from_json(item: &serde_json::Value) -> Option<Self> {
         Some(Self {
             id:         Some(item.get("id")?.as_i64()?),
-            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            player:     item.get("player_uuid")?.as_str()?.to_owned().into(),
             region:     item.get("region")?.as_str()?.to_owned(),
             zip:        item.get("zip")?.as_str()?.to_owned(),
             side:       item.get("side")?.as_str()?.to_owned(),
@@ -363,7 +363,7 @@ async fn place_or_preview(ctx: CommandContext<'_>, zip: &str, side: &str, chips_
 
 pub async fn gas_settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<GasBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<GasBet>>>>,
     http: reqwest::Client,
     gasbuddy_csrf: std::sync::Arc<std::sync::Mutex<Option<String>>>,
     whisper_cmd: String,

@@ -56,7 +56,7 @@ pub fn resolve_region(slug: &str) -> Option<&'static QuakeRegion> {
 #[derive(Debug, Clone)]
 pub struct QuakeBet {
     pub id: i64,
-    pub player: String,
+    pub player: crate::structure::player_uuid::PlayerUuid,
     pub region_slug: String,
     pub display: String,   // e.g. "M5+ in California"
     pub side: String,      // "yes" | "no"
@@ -96,7 +96,7 @@ impl super::CasinoBet for QuakeBet {
         let region = resolve_region(&region_slug);
         Some(Self {
             id:         item.get("id")?.as_i64()?,
-            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            player:     item.get("player_uuid")?.as_str()?.to_owned().into(),
             region_slug,
             display:    item.get("display")?.as_str()?.to_owned(),
             side:       item.get("side")?.as_str()?.to_owned(),
@@ -117,7 +117,7 @@ impl super::CasinoBet for QuakeBet {
 #[derive(Debug, Clone)]
 pub struct VolcanoBet {
     pub id: i64,
-    pub player: String,
+    pub player: crate::structure::player_uuid::PlayerUuid,
     pub vnum: String,      // USGS volcano number
     pub vname: String,
     pub side: String,      // "yes" | "no"
@@ -144,7 +144,7 @@ impl super::CasinoBet for VolcanoBet {
     fn from_json(item: &serde_json::Value) -> Option<Self> {
         Some(Self {
             id:         item.get("id")?.as_i64()?,
-            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            player:     item.get("player_uuid")?.as_str()?.to_owned().into(),
             vnum:       item.get("vnum")?.as_str()?.to_owned(),
             vname:      item.get("vname")?.as_str()?.to_owned(),
             side:       item.get("side")?.as_str()?.to_owned(),
@@ -574,7 +574,7 @@ async fn quake_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
 pub async fn quake_settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<QuakeBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<QuakeBet>>>>,
     whisper_cmd: String,
     bet: QuakeBet,
 ) {
@@ -878,7 +878,7 @@ async fn volcano_place_bet(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
 pub async fn volcano_settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<VolcanoBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<VolcanoBet>>>>,
     whisper_cmd: String,
     bet: VolcanoBet,
 ) {

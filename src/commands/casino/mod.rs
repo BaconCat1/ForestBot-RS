@@ -61,13 +61,13 @@ pub fn chips_str(n: i64) -> String {
 /// unavailable-reason text differed between them.
 pub async fn settle_refund(
     api: &crate::structure::endpoints::endpoints::ApiClient,
-    player: &str,
+    player: &crate::structure::player_uuid::PlayerUuid,
     stake: i64,
     log_tag: &str,
     descriptor: &str,
     unavailable_reason: &str,
 ) -> String {
-    match api.casino_adjust(player, stake).await {
+    match api.casino_adjust(player.as_str(), stake).await {
         Ok(_) => format!("[{log_tag}] {descriptor} — {unavailable_reason}. {} refunded.", chips_str(stake)),
         Err(e) => {
             eprintln!("[{log_tag} settle] refund failed for {player}: {e:?}");
@@ -76,8 +76,8 @@ pub async fn settle_refund(
     }
 }
 
-pub async fn deduct_stake(ctx: &CommandContext<'_>, player_uuid: &str, amount: i64) -> Option<i64> {
-    match ctx.state.api.casino_adjust(player_uuid, -amount).await {
+pub async fn deduct_stake(ctx: &CommandContext<'_>, player_uuid: &crate::structure::player_uuid::PlayerUuid, amount: i64) -> Option<i64> {
+    match ctx.state.api.casino_adjust(player_uuid.as_str(), -amount).await {
         Ok(balance) => Some(balance),
         Err(CasinoAdjustErr::InsufficientFunds(have)) => {
             ctx.whisper_success(format!("Need {} but have {}.", chips_str(amount), chips_str(have)));
@@ -254,7 +254,7 @@ pub async fn check_resp(resp: reqwest::Response) -> Result<reqwest::Response, Fe
     }
 }
 
-pub async fn deliver(state: &AzaleaState, whisper_cmd: &str, player: &str, msg: String) {
+pub async fn deliver(state: &AzaleaState, whisper_cmd: &str, player: &crate::structure::player_uuid::PlayerUuid, msg: String) {
     SettleDeps::from(state).deliver(whisper_cmd, player, msg).await
 }
 
@@ -294,13 +294,13 @@ impl SettleDeps {
         crate::commands::enqueue_chat_raw(&self.runtime, &self.recent_whispers, &self.outbound_chat, message)
     }
 
-    pub async fn deliver(&self, whisper_cmd: &str, player: &str, msg: String) {
+    pub async fn deliver(&self, whisper_cmd: &str, player: &crate::structure::player_uuid::PlayerUuid, msg: String) {
         let online = self.players.read().ok()
-            .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()));
+            .and_then(|pl| pl.values().find(|s| s.uuid == player.as_str()).map(|s| s.username.clone()));
         if let Some(username) = online {
             self.enqueue_chat(format!("/{whisper_cmd} {username} {msg}"));
         } else {
-            self.api.casino_add_notification(player, &msg).await;
+            self.api.casino_add_notification(player.as_str(), &msg).await;
         }
     }
 }
@@ -409,7 +409,7 @@ pub fn jackpot_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
                 }
             }
             _ => {
-                match ctx.state.api.casino_jackpot_get(Some(&player_uuid)).await {
+                match ctx.state.api.casino_jackpot_get(Some(player_uuid.as_str())).await {
                     Some(info) => ctx.whisper_success(format!(
                         "Jackpot pot: {} | Your tickets: {} | Draw: {}",
                         chips_str(info.pot),
@@ -572,7 +572,8 @@ pub const WALLET_COMMAND: CommandDefinition = CommandDefinition {
 pub fn wallet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target_name = ctx.args.first().copied().unwrap_or(ctx.sender);
-        let Some(target_uuid) = ctx.state.api.convert_username_to_uuid(target_name).await else {
+        let Some(target_uuid) = ctx.state.api.convert_username_to_uuid(target_name).await
+            .map(crate::structure::player_uuid::PlayerUuid) else {
             ctx.whisper_error(format!("Could not resolve UUID for {}.", target_name));
             return Ok(());
         };
@@ -618,7 +619,7 @@ pub fn wallet_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     })
 }
 
-pub fn count_event_bets(state: &AzaleaState, player_uuid: &str) -> usize {
+pub fn count_event_bets(state: &AzaleaState, player_uuid: &crate::structure::player_uuid::PlayerUuid) -> usize {
     let mut total = 0;
     if let Ok(m) = state.sports_bets.lock()        { total += m.get(player_uuid).map(|v| v.len()).unwrap_or(0); }
     if let Ok(m) = state.kalshi_bets.lock()        { total += m.get(player_uuid).map(|v| v.len()).unwrap_or(0); }
@@ -633,7 +634,7 @@ pub fn count_event_bets(state: &AzaleaState, player_uuid: &str) -> usize {
 
 async fn portfolio_value_summary(
     state: &AzaleaState,
-    player_uuid: &str,
+    player_uuid: &crate::structure::player_uuid::PlayerUuid,
 ) -> Option<(i64, usize)> {
     let positions = {
         let map = state.portfolio_positions.lock().ok()?;

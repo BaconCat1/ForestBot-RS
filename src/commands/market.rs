@@ -78,7 +78,8 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
             }
             "portfolio" | "port" => {
                 let target = ctx.args.get(1).copied().unwrap_or(ctx.sender);
-                let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
+                let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(target).await
+                    .map(crate::structure::player_uuid::PlayerUuid) else {
                     ctx.whisper_error(format!("Could not resolve UUID for {}.", target));
                     return Ok(());
                 };
@@ -299,9 +300,9 @@ async fn cashout(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 pub async fn settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<MarketBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<MarketBet>>>>,
     market_service: std::sync::Arc<crate::structure::market::service::MarketService>,
-    player: String,
+    player: crate::structure::player_uuid::PlayerUuid,
     whisper_cmd: String,
     bet: MarketBet,
     dur_secs: u64,
@@ -337,8 +338,8 @@ pub async fn settle_task(
             remove_bet(&bets_map, &player, bet.id);
             deps.api.casino_market_bet_delete(bet.id).await;
             let username_for_msg = deps.players.read().ok()
-                .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()))
-                .unwrap_or_else(|| player.clone());
+                .and_then(|pl| pl.values().find(|s| s.uuid == player.as_str()).map(|s| s.username.clone()))
+                .unwrap_or_else(|| player.to_string());
             deps.enqueue_chat(format!(
                 "/{whisper_cmd} {username_for_msg} Market data unavailable — {} {} bet refunded. +{}",
                 bet.direction.label(), bet.symbol, chips_str(bet.stake)
@@ -390,8 +391,8 @@ pub async fn settle_task(
 
     let sign = if pct >= 0.0 { "+" } else { "" };
     let username_for_msg = deps.players.read().ok()
-        .and_then(|pl| pl.values().find(|s| s.uuid == player).map(|s| s.username.clone()))
-        .unwrap_or_else(|| player.clone());
+        .and_then(|pl| pl.values().find(|s| s.uuid == player.as_str()).map(|s| s.username.clone()))
+        .unwrap_or_else(|| player.to_string());
     if payout_failed {
         deps.enqueue_chat(format!(
             "/{whisper_cmd} {username_for_msg} {} {} settled: {} but payout failed. Contact an admin. | {}→{} ({}{:.2}%)",
@@ -410,7 +411,8 @@ pub async fn settle_task(
 fn portfolio_execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
     Box::pin(async move {
         let target = ctx.args.first().copied().unwrap_or(ctx.sender);
-        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(target).await else {
+        let Some(player_uuid) = ctx.state.api.convert_username_to_uuid(target).await
+            .map(crate::structure::player_uuid::PlayerUuid) else {
             ctx.whisper_error(format!("Could not resolve UUID for {}.", target));
             return Ok(());
         };
@@ -653,7 +655,7 @@ async fn portfolio_sell_all(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn show_portfolio(ctx: &CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()> {
+async fn show_portfolio(ctx: &CommandContext<'_>, player_uuid: &crate::structure::player_uuid::PlayerUuid) -> anyhow::Result<()> {
     let positions = {
         let map = ctx.state.portfolio_positions.lock().expect("portfolio lock");
         match map.get(player_uuid) {
@@ -717,7 +719,7 @@ async fn show_portfolio(ctx: &CommandContext<'_>, player_uuid: &str) -> anyhow::
     Ok(())
 }
 
-fn remove_bet(bets_map: &std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<MarketBet>>>>, player: &str, id: i64) {
+fn remove_bet(bets_map: &std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<MarketBet>>>>, player: &crate::structure::player_uuid::PlayerUuid, id: i64) {
     if let Ok(mut bets) = bets_map.lock() {
         if let Some(v) = bets.get_mut(player) {
             v.retain(|b| b.id != id);
@@ -725,7 +727,7 @@ fn remove_bet(bets_map: &std::sync::Arc<std::sync::Mutex<std::collections::HashM
     }
 }
 
-fn show_bets(ctx: &CommandContext, player_uuid: &str) {
+fn show_bets(ctx: &CommandContext, player_uuid: &crate::structure::player_uuid::PlayerUuid) {
     let bets = ctx.state.market_bets.lock().expect("market bets lock");
     let player_bets = match bets.get(player_uuid) {
         Some(v) if !v.is_empty() => v,

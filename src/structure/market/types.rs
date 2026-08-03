@@ -46,7 +46,7 @@ pub struct Asset {
 #[derive(Clone, Debug)]
 pub struct MarketBet {
     pub id: i64,
-    pub player: String,
+    pub player: crate::structure::player_uuid::PlayerUuid,
     pub symbol: String,
     pub market: MarketKind,
     pub direction: Direction,
@@ -59,7 +59,7 @@ pub struct MarketBet {
 #[derive(Clone, Debug)]
 pub struct PortfolioPosition {
     pub id: i64,
-    pub player: String,
+    pub player: crate::structure::player_uuid::PlayerUuid,
     pub symbol: String,
     pub market: MarketKind,
     pub entry_price: f64,

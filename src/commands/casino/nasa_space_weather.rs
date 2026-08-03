@@ -22,7 +22,7 @@ const DONKI_WINDOW_DAYS: i64 = 27;
 #[derive(Debug, Clone)]
 pub struct NasaSpaceWeatherBet {
     pub id: i64,
-    pub player: String,
+    pub player: crate::structure::player_uuid::PlayerUuid,
     pub bet_type: String,
     pub stake: i64,
     pub multiplier: f64,
@@ -45,7 +45,7 @@ impl super::CasinoBet for NasaSpaceWeatherBet {
     fn from_json(item: &serde_json::Value) -> Option<Self> {
         Some(Self {
             id:         item.get("id")?.as_i64()?,
-            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            player:     item.get("player_uuid")?.as_str()?.to_owned().into(),
             bet_type:   item.get("bet_type")?.as_str()?.to_owned(),
             stake:      item.get("stake")?.as_i64()?,
             multiplier: item.get("multiplier")?.as_f64()?,
@@ -397,7 +397,7 @@ async fn place_bet(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 pub async fn settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<NasaSpaceWeatherBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<NasaSpaceWeatherBet>>>>,
     http: reqwest::Client,
     whisper_cmd: String,
     nasa_api_key: String,

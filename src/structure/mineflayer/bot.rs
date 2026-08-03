@@ -820,7 +820,7 @@ pub struct AzaleaState {
     // ── Command dispatch / cooldowns ──────────────────────────────────────────
     pub last_command_at: Arc<Mutex<Option<Instant>>>,
     pub player_command_cooldowns: Arc<Mutex<HashMap<String, PlayerCommandCooldown>>>,
-    pub trade_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
+    pub trade_cooldowns: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Instant>>>,
     pub free_scratch_cooldowns: Arc<Mutex<HashMap<String, Instant>>>,
 
     // ── Spawn / presence tracking ──────────────────────────────────────────────
@@ -889,7 +889,7 @@ pub struct AzaleaState {
     pub pending_discord_resolutions: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<DiscordResolution>>>>,
 
     // ── Moderation / content ───────────────────────────────────────────────────
-    pub seen_advancements: Arc<Mutex<HashMap<String, HashSet<String>>>>,
+    pub seen_advancements: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, HashSet<String>>>>,
     // rustrict trie merging its built-in dictionary with json/bad_words.json (PROFANE|SEVERE)
     // and json/word_whitelist.json (SAFE overrides). None until the background build in
     // Bot::start() finishes; rebuilt in place by profanity_filter::rebuild() on !censor,
@@ -916,35 +916,35 @@ pub struct AzaleaState {
     // in marry.rs -- "!divorce force <player>" stages here, "!divorce force confirm"
     // consumes it. Deliberately not Hub-backed: losing this on restart just means
     // re-running the first step, same posture as other short-lived confirm windows.
-    pub pending_force_divorces: Arc<Mutex<HashMap<String, (String, Instant)>>>,
+    pub pending_force_divorces: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, (crate::structure::player_uuid::PlayerUuid, Instant)>>>,
 
     // ── Casino: betting markets (bet lists + external-data caches, one pair per type) ──
     pub market_service: Arc<crate::structure::market::service::MarketService>,
-    pub market_bets: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::MarketBet>>>>,
-    pub portfolio_positions: Arc<Mutex<HashMap<String, Vec<crate::structure::market::types::PortfolioPosition>>>>,
-    pub weather_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::weather::WeatherBet>>>>,
+    pub market_bets: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::structure::market::types::MarketBet>>>>,
+    pub portfolio_positions: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::structure::market::types::PortfolioPosition>>>>,
+    pub weather_bets: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::weather::WeatherBet>>>>,
     pub weather_odds_cache: Arc<Mutex<HashMap<String, crate::commands::weather::WeatherCacheEntry>>>,
-    pub sports_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::sports::SportsBet>>>>,
+    pub sports_bets: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::sports::SportsBet>>>>,
     pub sports_cache: Arc<Mutex<crate::commands::casino::sports::SportsCache>>,
-    pub kalshi_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::kalshi::KalshiBet>>>>,
+    pub kalshi_bets: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::kalshi::KalshiBet>>>>,
     pub kalshi_cache: Arc<Mutex<crate::commands::casino::kalshi::KalshiCache>>,
-    pub nasa_space_weather_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet>>>>,
+    pub nasa_space_weather_bets: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::nasa_space_weather::NasaSpaceWeatherBet>>>>,
     pub sw_odds_cache: Arc<Mutex<Option<(crate::commands::casino::nasa_space_weather::SwOdds, u64)>>>,
-    pub faa_airport_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::faa_airport::FaaAirportBet>>>>,
-    pub noaa_flooding_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::noaa_flooding::NOAAFloodingBet>>>>,
+    pub faa_airport_bets: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::faa_airport::FaaAirportBet>>>>,
+    pub noaa_flooding_bets: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::noaa_flooding::NOAAFloodingBet>>>>,
     pub flood_cache: Arc<Mutex<crate::commands::casino::noaa_flooding::FloodCache>>,
-    pub train_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::train::TrainBet>>>>,
-    pub quake_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::seismic::QuakeBet>>>>,
-    pub volcano_bets: Arc<Mutex<HashMap<String, Vec<crate::commands::casino::seismic::VolcanoBet>>>>,
-    pub aqi_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::aqi::AqiBet>>>>,
-    pub launch_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::launch::LaunchBet>>>>,
+    pub train_bets: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::train::TrainBet>>>>,
+    pub quake_bets: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::seismic::QuakeBet>>>>,
+    pub volcano_bets: Arc<Mutex<HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::seismic::VolcanoBet>>>>,
+    pub aqi_bets: Arc<Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::aqi::AqiBet>>>>,
+    pub launch_bets: Arc<Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::launch::LaunchBet>>>>,
     pub launch_cache: Arc<Mutex<std::collections::HashMap<u32, (f64, f64, u64)>>>,
-    pub gas_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::gas::GasBet>>>>,
+    pub gas_bets: Arc<Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::gas::GasBet>>>>,
     // (price, display_name, fetched_at)
     pub gas_price_cache: Arc<Mutex<std::collections::HashMap<String, (f64, String, u64)>>>,
     pub gasbuddy_csrf: Arc<Mutex<Option<String>>>,
-    pub join_window_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::join_market::JoinWindowBet>>>>,
-    pub death_window_bets: Arc<Mutex<std::collections::HashMap<String, Vec<crate::commands::casino::death_market::DeathWindowBet>>>>,
+    pub join_window_bets: Arc<Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::join_market::JoinWindowBet>>>>,
+    pub death_window_bets: Arc<Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<crate::commands::casino::death_market::DeathWindowBet>>>>,
 
     // ── AI / poll ───────────────────────────────────────────────────────────────
     pub active_poll: Arc<Mutex<Option<crate::commands::poll::PollState>>>,
@@ -1031,7 +1031,7 @@ pub struct TriviaRound {
     // casino_win/casino_adjust are keyed by UUID; the payout timer that pays winners
     // 30-75s later only has `state`, not `ctx`, so resolving once up front here avoids
     // needing to re-resolve (and risk failure) at payout time.
-    pub player_uuids: std::collections::HashMap<String, String>,
+    pub player_uuids: std::collections::HashMap<String, crate::structure::player_uuid::PlayerUuid>,
     // Results
     pub correct_players: Vec<String>,
     pub wrong_players: Vec<String>,
@@ -2972,7 +2972,7 @@ async fn send_player_advancement(
             .seen_advancements
             .lock()
             .expect("seen_advancements lock poisoned")
-            .insert(uuid.to_owned(), keys);
+            .insert(crate::structure::player_uuid::PlayerUuid(uuid.to_owned()), keys);
     }
 
     let is_duplicate = {
@@ -2980,7 +2980,7 @@ async fn send_player_advancement(
             .seen_advancements
             .lock()
             .expect("seen_advancements lock poisoned");
-        let player_seen = seen.entry(uuid.to_owned()).or_default();
+        let player_seen = seen.entry(crate::structure::player_uuid::PlayerUuid(uuid.to_owned())).or_default();
         if player_seen.contains(key) {
             true
         } else {

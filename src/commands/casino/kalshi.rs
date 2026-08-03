@@ -27,7 +27,7 @@ pub struct KalshiMarket {
 #[derive(Debug, Clone)]
 pub struct KalshiBet {
     pub id: i64,
-    pub player: String,
+    pub player: crate::structure::player_uuid::PlayerUuid,
     pub ticker: String,
     pub title: String,
     pub side: String,
@@ -54,7 +54,7 @@ impl super::CasinoBet for KalshiBet {
     fn from_json(item: &serde_json::Value) -> Option<Self> {
         Some(Self {
             id:         item.get("id")?.as_i64()?,
-            player:     item.get("player_uuid")?.as_str()?.to_owned(),
+            player:     item.get("player_uuid")?.as_str()?.to_owned().into(),
             ticker:     item.get("ticker")?.as_str()?.to_owned(),
             title:      item.get("title")?.as_str()?.to_owned(),
             side:       item.get("side")?.as_str()?.to_owned(),
@@ -387,7 +387,7 @@ async fn show_bets(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
 
 pub async fn settle_task(
     deps: SettleDeps,
-    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<KalshiBet>>>>,
+    bets_map: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<crate::structure::player_uuid::PlayerUuid, Vec<KalshiBet>>>>,
     whisper_cmd: String,
     bet: KalshiBet,
 ) {

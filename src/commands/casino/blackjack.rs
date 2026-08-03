@@ -91,7 +91,7 @@ pub fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
 
 // ── Deal ─────────────────────────────────────────────────────────────────────
 
-async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) -> anyhow::Result<()> {
+async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &crate::structure::player_uuid::PlayerUuid) -> anyhow::Result<()> {
     {
         let sessions = ctx.state.casino_sessions.lock().expect("lock");
         if sessions.contains_key(ctx.sender) {
@@ -186,7 +186,7 @@ async fn do_deal(ctx: CommandContext<'_>, stake_str: &str, player_uuid: &str) ->
 
 // ── Hit ──────────────────────────────────────────────────────────────────────
 
-async fn do_hit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()> {
+async fn do_hit(ctx: CommandContext<'_>, player_uuid: &crate::structure::player_uuid::PlayerUuid) -> anyhow::Result<()> {
     let (bet, mut player, dealer) = {
         let sessions = ctx.state.casino_sessions.lock().expect("lock");
         match sessions.get(ctx.sender) {
@@ -236,7 +236,7 @@ async fn do_hit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()
 
 // ── Stand ────────────────────────────────────────────────────────────────────
 
-async fn do_stand(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()> {
+async fn do_stand(ctx: CommandContext<'_>, player_uuid: &crate::structure::player_uuid::PlayerUuid) -> anyhow::Result<()> {
     let (bet, player, dealer) = {
         let sessions = ctx.state.casino_sessions.lock().expect("lock");
         match sessions.get(ctx.sender) {
@@ -260,7 +260,7 @@ async fn do_stand(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<
 
 // ── Double ───────────────────────────────────────────────────────────────────
 
-async fn do_double(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()> {
+async fn do_double(ctx: CommandContext<'_>, player_uuid: &crate::structure::player_uuid::PlayerUuid) -> anyhow::Result<()> {
     let (bet, player, dealer) = {
         let sessions = ctx.state.casino_sessions.lock().expect("lock");
         match sessions.get(ctx.sender) {
@@ -319,7 +319,7 @@ async fn do_double(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result
 
 // ── Quit ─────────────────────────────────────────────────────────────────────
 
-async fn do_quit(ctx: CommandContext<'_>, player_uuid: &str) -> anyhow::Result<()> {
+async fn do_quit(ctx: CommandContext<'_>, player_uuid: &crate::structure::player_uuid::PlayerUuid) -> anyhow::Result<()> {
     let removed = ctx.state.casino_sessions.lock().expect("lock").remove(ctx.sender);
     match removed {
         Some(CasinoSession::Blackjack { bet, .. }) => {
@@ -350,7 +350,7 @@ async fn do_clear_shoe(ctx: CommandContext<'_>) -> anyhow::Result<()> {
 
 // ── Dealer resolution ────────────────────────────────────────────────────────
 
-async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut dealer: Vec<u8>, player_uuid: &str, mut shuffle_notice: Option<String>) -> anyhow::Result<()> {
+async fn resolve_dealer(ctx: CommandContext<'_>, bet: i64, player: Vec<u8>, mut dealer: Vec<u8>, player_uuid: &crate::structure::player_uuid::PlayerUuid, mut shuffle_notice: Option<String>) -> anyhow::Result<()> {
     // Dealer hits until >= 17
     while score(&dealer) < 17 {
         let (card, notice) = deal_card(&ctx);
