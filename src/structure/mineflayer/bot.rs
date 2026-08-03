@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 use crate::commands::stat_history;
 use crate::config::{
-    AppState, BotConfig, CommandCooldownConfig, load_offline_messages,
+    AppState, BotConfig, load_offline_messages,
     save_offline_messages,
 };
 use crate::structure::{
