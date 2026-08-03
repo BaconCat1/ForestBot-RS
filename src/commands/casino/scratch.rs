@@ -27,33 +27,52 @@ const PRIZE_SYMBOLS: &[&str] = &[
 struct Tier {
     name: &'static str,
     cost: i64,
-    prizes: &'static [(u32, i64)], // (cumulative_weight_out_of_10000, prize_chips)
+    prizes: &'static [(u32, i64)], // (cumulative_weight_out_of_1000000, prize_chips)
 }
 
-// Prize tables: cumulative weights out of 10,000.
-// Ordered highest → lowest value (index 0 = rarest/biggest = ♦).
+// Prize tables sourced from a real, official prize table: California State Lottery
+// Scratchers "Golden State Riches" (game #1735, $20 ticket), pulled directly from
+// calottery.com 2026-08-03 (archived at REFERENCE_MATERIAL/DOCS/Scratchers _
+// California State Lottery.htm). Real 11-tier table merged into these 5 buckets
+// (EV-preserving: each bucket's combined probability times its blended prize equals
+// the sum of the real tiers it replaces, so overall RTP is unchanged by the merge),
+// since the display only has 5 symbol slots:
+//   Bucket 0 ($5,000,000 + $100,000, real combined odds 1 in 480,000)
+//   Bucket 1 ($25,000 + $5,000, real combined odds 1 in 10,225)
+//   Bucket 2 ($1,000 + $500, real combined odds 1 in 357)
+//   Bucket 3 ($100 + $50, real combined odds 1 in 13)
+//   Bucket 4 ($25 + $20 + free ticket, real combined odds 1 in 4)
+// The real game's own overall RTP is 79.21% ($15.84 EV per $20 ticket) -- all 3 tiers
+// below use the SAME real odds/probabilities (unchanged from the real game) and just
+// scale the prize amounts to each tier's own chip cost, so all 3 land at ~79% RTP,
+// matching the real game exactly regardless of price point. Previous prize tables
+// here were invented and badly miscalibrated (11-21% RTP), found and fixed 2026-08-03,
+// see casino/RTP.md.
+// Cumulative weights out of 1,000,000 (not 10,000 -- the real jackpot tier's odds,
+// about 1 in 480,000, need finer granularity than 10,000 can represent at all).
+// Ordered highest to lowest value (index 0 = rarest/biggest = ♦).
 const COPPER_PRIZES: &[(u32, i64)] = &[
-    (1,    500),
-    (11,   100),
-    (111,   50),
-    (611,   25),
-    (1611,  10),
+    (2,      1_350_000),
+    (100,       12_671),
+    (2_901,        717),
+    (78_659,        88),
+    (354_849,       26),
 ];
 
 const GOLD_PRIZES: &[(u32, i64)] = &[
-    (2,    2000),
-    (22,    500),
-    (122,   200),
-    (622,   100),
-    (1622,   75),
+    (2,      4_050_000),
+    (100,       38_013),
+    (2_901,      2_152),
+    (78_659,       262),
+    (354_849,       77),
 ];
 
 const DIAMOND_PRIZES: &[(u32, i64)] = &[
-    (1,    7500),
-    (11,   2000),
-    (111,   500),
-    (611,   200),
-    (1611,  100),
+    (2,     10_800_000),
+    (100,      101_369),
+    (2_901,      5_739),
+    (78_659,       700),
+    (354_849,      206),
 ];
 
 const COPPER:  Tier = Tier { name: "Copper",  cost:  25, prizes: COPPER_PRIZES  };
@@ -62,7 +81,7 @@ const DIAMOND: Tier = Tier { name: "Diamond", cost: 200, prizes: DIAMOND_PRIZES 
 
 // Returns (prize_chips, prize_table_index). Index 0 = rarest.
 fn scratch_ticket(prizes: &[(u32, i64)]) -> (i64, usize) {
-    let roll: u32 = OsRng.gen_range(0..10_000);
+    let roll: u32 = OsRng.gen_range(0..1_000_000);
     for (i, &(weight, prize)) in prizes.iter().enumerate() {
         if roll < weight {
             return (prize, i);

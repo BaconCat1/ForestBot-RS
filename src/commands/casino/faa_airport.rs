@@ -69,15 +69,26 @@ fn is_ifr(flt_cat: &str) -> bool {
     flt_cat == "IFR" || flt_cat == "LIFR"
 }
 
+// Real persistence/onset rates computed from real METAR observations (6 diverse US
+// airports -- ORD/SFO/PDX/IAH/DEN/BOS, 2022-2023, 104,781 real hourly obs) via the
+// Iowa Environmental Mesonet ASOS archive -- see
+// REFERENCE_MATERIAL/DOCS/faa-flight-category-persistence/. Over this market's real
+// 2-hour settlement window, an airport currently in IFR/LIFR conditions is still
+// IFR/LIFR 67.70% of the time (n=6,753 real samples) -- remarkably close to the
+// earlier invented 67% guess. But conditions currently VFR/MVFR only degrade to
+// IFR/LIFR within 2h about 2.22% of the time (n=97,937 real samples) -- the earlier
+// invented 33% guess was roughly 15x too high. Same asymmetry pattern already found
+// in noaa_flooding.rs: bad conditions persist once established far more than they
+// spontaneously arise.
 // Odds based on current flight category.
 // Currently IFR:  YES likely to continue → lower payout; NO contrarian → higher
 // Currently VFR:  YES risky → higher payout; NO safe → lower
 fn compute_odds(currently_ifr: bool) -> (f64, f64) {
     const RAKE: f64 = 0.03;
     if currently_ifr {
-        (0.67 / (1.0 - RAKE), 0.33 / (1.0 - RAKE))
+        (0.6770 / (1.0 - RAKE), 0.3230 / (1.0 - RAKE))
     } else {
-        (0.33 / (1.0 - RAKE), 0.67 / (1.0 - RAKE))
+        (0.0222 / (1.0 - RAKE), 0.9778 / (1.0 - RAKE))
     }
 }
 

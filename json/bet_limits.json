@@ -1,5 +1,5 @@
 {
-  "battleship": { "min": 50 },
+  "battleship": { "min": 50, "max": 5000 },
   "aqi": { "min": 25 },
   "baccarat": { "min": 25 },
   "blackjack": { "min": 25, "max": 5000 },
@@ -23,11 +23,11 @@
   "slots": { "min": 10, "max": 5000 },
   "sports": { "min": 50 },
   "train": { "min": 25 },
-  "checkers": { "min": 50 },
+  "checkers": { "min": 50, "max": 5000 },
   "duel": { "min": 50, "max": 10000 },
   "market": { "min": 50 },
-  "reversi": { "min": 50 },
+  "reversi": { "min": 50, "max": 5000 },
   "trivia": { "min": 50 },
   "weather": { "min": 50 },
-  "wordle": { "min": 50 }
+  "wordle": { "min": 50, "max": 1250 }
 }

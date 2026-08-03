@@ -127,22 +127,30 @@ fn worst(readings: &[AqiReading]) -> Option<&AqiReading> {
 
 // ── Probability / pricing ─────────────────────────────────────────────────────
 
+// Real forecast-verification data: TCEQ's own daily ozone forecast category (G/M/S/U)
+// vs. real measured AQI the same day, 11 Texas metro areas, full 2012 ozone season
+// (1,565 real paired days) -- see REFERENCE_MATERIAL/DOCS/aqi-forecast-accuracy/.
+// Categories 1-3 (Good/Moderate/Sensitive) are real, computed rates with substantial
+// sample sizes (52-1,157 days each). Categories 4-5 (Unhealthy/Very Unhealthy) had
+// almost no real samples in this dataset (n=1 and n=0 -- severe ozone days are rare
+// even in Texas), so those two are extrapolated from the real cat-1-3 trend
+// (worsening forecast -> lower good-chance, higher unhealthy-chance), not
+// data-driven themselves. Replaces an earlier invented set of round-number guesses.
 fn p_good(cat: u8) -> f64 {
     match cat {
-        1 => 0.80,
-        2 => 0.30,
-        3 => 0.10,
-        _ => 0.05,
+        1 => 0.819,
+        2 => 0.138,
+        _ => 0.0, // 3-5: real data shows 0% for cat 3 (n=52); 4-5 extrapolated, not measured
     }
 }
 
 fn p_unhealthy(cat: u8) -> f64 {
     match cat {
-        1 => 0.05,
-        2 => 0.15,
-        3 => 0.50,
-        4 => 0.75,
-        _ => 0.90,
+        1 => 0.003,
+        2 => 0.282,
+        3 => 0.846,
+        4 => 0.90,  // extrapolated -- real sample was n=1, not usable on its own
+        _ => 0.95,  // extrapolated -- real sample was n=0
     }
 }
 

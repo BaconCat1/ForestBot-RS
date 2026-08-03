@@ -33,6 +33,28 @@ fn bac_score(hand: &[u8]) -> u32 {
     hand.iter().map(|&c| bac_value(c)).sum::<u32>() % 10
 }
 
+// Real baccarat banker third-card rule (standard published table, same one printed on
+// a real baccarat table's felt). `player_third` is the value of the player's own third
+// card, or None if the player stood (original two-card total was 6 or 7) -- when the
+// player stands, banker falls back to the same simple "draw on 0-5" rule the player
+// itself uses. This replaces an earlier simplification (banker drew on its own total
+// alone, ignoring the player's third card) that made player/banker win probabilities
+// exactly symmetric and zeroed out the Player bet's house edge entirely -- audited and
+// fixed 2026-08-03, see casino/RTP.md.
+fn banker_should_draw(bt: u32, player_third: Option<u32>) -> bool {
+    match player_third {
+        None => bt <= 5,
+        Some(p3) => match bt {
+            0 | 1 | 2 => true,
+            3 => p3 != 8,
+            4 => (2..=7).contains(&p3),
+            5 => (4..=7).contains(&p3),
+            6 => p3 == 6 || p3 == 7,
+            _ => false,
+        },
+    }
+}
+
 // ── Clear (whitelist-only, admin/testing) ───────────────────────────────────
 
 async fn do_clear_shoe(ctx: &CommandContext<'_>) -> anyhow::Result<()> {
@@ -95,11 +117,15 @@ fn execute(ctx: CommandContext<'_>) -> CommandFuture<'_> {
         let mut pt = bac_score(&ph);
         let mut bt = bac_score(&bh);
         let natural = pt >= 8 || bt >= 8;
+
+        let mut player_third: Option<u32> = None;
         if !natural && pt <= 5 {
-            ph.push(draw(&ctx, &mut shuffle_notice));
+            let card = draw(&ctx, &mut shuffle_notice);
+            player_third = Some(bac_value(card));
+            ph.push(card);
             pt = bac_score(&ph);
         }
-        if !natural && bt <= 5 {
+        if !natural && banker_should_draw(bt, player_third) {
             bh.push(draw(&ctx, &mut shuffle_notice));
             bt = bac_score(&bh);
         }

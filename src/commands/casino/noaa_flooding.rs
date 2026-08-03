@@ -75,12 +75,25 @@ fn fmt_location(lat: f64, lon: f64) -> String {
     format!("{lat:.3},{lon:.3}")
 }
 
+// Real persistence/onset rates computed from NWS VTEC historical flood/flash-flood
+// warning data (6 WFOs, 2020-2025, 2,486 unique warnings) -- see
+// REFERENCE_MATERIAL/DOCS/flood-warning-persistence/. Over this market's real
+// 24-hour settlement window, a currently-active warning is still active 54.92% of
+// the time (real median warning duration is 28.8 hours). A brand new warning
+// starts within 24h, given none is currently active, about 16.02% of the time
+// (Poisson estimate from a real average of 63.74 warning onsets per WFO per year).
+// These two rates are NOT mirror images of each other -- replaced an earlier
+// invented, symmetric 67/33 guess that treated "stays flooding" and "starts
+// flooding" as the same rate. Window bumped 2h->24h same day (2026-08-03): the
+// real 2h numbers (95.26%/1.44%) made this a near-guaranteed bet either way, no
+// real tension; 24h lines up with every sibling market's cadence (weather/gas/aqi
+// are all "tomorrow"-scale) and lands close to a real coin flip on the likely side.
 fn compute_odds(currently_flooding: bool) -> (f64, f64) {
     const RAKE: f64 = 0.03;
     if currently_flooding {
-        (0.67 / (1.0 - RAKE), 0.33 / (1.0 - RAKE))
+        (0.5492 / (1.0 - RAKE), 0.4508 / (1.0 - RAKE))
     } else {
-        (0.33 / (1.0 - RAKE), 0.67 / (1.0 - RAKE))
+        (0.1602 / (1.0 - RAKE), 0.8398 / (1.0 - RAKE))
     }
 }
 
@@ -369,7 +382,7 @@ async fn place_bet_inner(
 
     let payout = calc_payout(stake, price);
     ctx.whisper_success(format!(
-        "[NOAA Flood] {location} | {} {} | {:.2}x | {} | profit if win: +{} | settles in 2h",
+        "[NOAA Flood] {location} | {} {} | {:.2}x | {} | profit if win: +{} | settles in 24h",
         side.to_uppercase(),
         if currently_flooding { "flood alert now" } else { "no alert now" },
         1.0 / price,

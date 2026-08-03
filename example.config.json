@@ -1224,7 +1224,7 @@
   "faa_airport_bet_duration_ms": 7200000,
   "faa_airport_poll_interval_ms": 120000,
   "faa_airport_max_poll_ms": 3600000,
-  "noaa_flooding_bet_duration_ms": 7200000,
+  "noaa_flooding_bet_duration_ms": 86400000,
   "noaa_flooding_poll_interval_ms": 120000,
   "noaa_flooding_max_poll_ms": 3600000,
   "launch_lock_before_ms": 7200000,
