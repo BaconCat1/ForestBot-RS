@@ -33,8 +33,10 @@ License: MIT — © BobR0ssiter. Modrinth: https://modrinth.com/mod/QCz7p8r1
 **connect-four-ai** — Rust Connect Four library by benjaminrall (2025). Board representation (`Position` bitboard), win detection, and AI player (`AIPlayer`) used via path dependency. Command flow and opponent roster written from scratch.
 License: MIT — © 2025 benjaminrall. Repo: https://github.com/benjaminrall/connect-four-ai
 
-**slot-machine-gen** — JavaScript slot machine library by Marc S. Brooks (2020–2025). Strip-model symbol selection approach referenced for weighted probability design. No code ported; JS source used as conceptual reference only.
+**slot-machine-gen** — JavaScript slot machine library by Marc S. Brooks (2020–2025). Strip-model symbol selection approach referenced for weighted probability design. No code ported; JS source used as conceptual reference only (that library has no payout math of its own).
 License: MIT — © 2020-2025 Marc S. Brooks.
+
+**Harrigan & Dixon (2009)** — "PAR Sheets, probabilities, and slot machine play," *Journal of Gambling Issues*, 23. Real, FOIA-obtained reel-strip/paytable data for Lucky Larry's Lobstermania (96.2% RTP version) used to fit slots.rs's per-symbol payout multipliers via log-log regression, since no public PAR sheet exists for a real 3-reel/5-line machine matching our layout. Rescaled to this project's 97% RTP requirement. Cited under academic fair use; PDF archived at `REFERENCE_MATERIAL/DOCS/Harrigan-Dixon-2009-PAR-Sheets-Probabilities-Slot-Machine-Play.pdf`.
 
 **rusty-checkers** — Rust checkers library by dboone. Mandatory jump rule, multi-jump logic, man/king promotion rules adapted from source. Corrected from international draughts to American rules. Board representation, minimax AI, and command flow are original.
 License: MIT — © dboone. Repo: https://github.com/dboone/rusty-checkers

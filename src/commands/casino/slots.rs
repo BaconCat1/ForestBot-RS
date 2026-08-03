@@ -9,22 +9,34 @@ struct Symbol {
     triple_mult: f64,
 }
 
-// Weights (strip counts / 20): $ 30%, ♣ 25%, ♠ 20%, ♥ 15%, ♦ 5%, 7 5%
-// Triple-match RTP ≈ 68% across all symbols.
-// Adapted from slot-machine-gen strip model (MIT, Marc S. Brooks 2020-2025).
+// Weights (strip counts / 21): $ 6, ♣ 5, ♠ 4, ♥ 3, ♦ 2, 7 1 -- every symbol has a
+// distinct rarity (needed so a real payout curve, below, assigns each a distinct
+// multiplier instead of two rarest symbols tying).
+//
+// Multipliers are NOT invented -- derived from real slot machine data. This game pays
+// on 5 lines at once (3 rows + 2 diagonals) from the same 3 reel stops; no public PAR
+// sheet exists for a real 3-reel/5-line machine (checked -- genuine gap in public
+// data), so the per-symbol rarity-to-payout RELATIONSHIP was fitted (log-log power
+// regression) from Lucky Larry's Lobstermania's real, FOIA-obtained 96.2%-RTP reel/pay
+// table (Harrigan & Dixon, 2009, "PAR Sheets, probabilities, and slot machine play,"
+// Journal of Gambling Issues 23 -- see REFERENCE_MATERIAL/DOCS/Harrigan-Dixon-2009-
+// PAR-Sheets-Probabilities-Slot-Machine-Play.pdf, Table 3), then applied to our own
+// weights above and rescaled to this project's mandatory 3% house rake (97% RTP,
+// verified via brute-force over all 21^3 reel-stop combinations -- see
+// REFERENCE_MATERIAL/DOCS for the fit). Real reel-strip data still doesn't exist for
+// this exact 5-line shape; the pricing CURVE does.
 // All symbols 5px in MC 26.x: $ (ascii), ♣♠♥♦ (nonlatin_european bitmap), 7 (ascii).
 const SYMBOLS: &[Symbol] = &[
-    Symbol { label: "$",         triple_mult:   3.0 }, // 0 $ Dollar
-    Symbol { label: "\u{2663}", triple_mult:  10.0 }, // 1 ♣ Clubs
-    Symbol { label: "\u{2660}", triple_mult:  20.0 }, // 2 ♠ Spades
-    Symbol { label: "\u{2665}", triple_mult:  50.0 }, // 3 ♥ Hearts
-    Symbol { label: "\u{2666}", triple_mult: 200.0 }, // 4 ♦ Diamonds
-    Symbol { label: "7",        triple_mult: 777.0 }, // 5   Seven
+    Symbol { label: "$",         triple_mult:   2.028 }, // 0 $ Dollar
+    Symbol { label: "\u{2663}", triple_mult:   3.114 }, // 1 ♣ Clubs
+    Symbol { label: "\u{2660}", triple_mult:   5.265 }, // 2 ♠ Spades
+    Symbol { label: "\u{2665}", triple_mult:  10.361 }, // 3 ♥ Hearts
+    Symbol { label: "\u{2666}", triple_mult:  26.905 }, // 4 ♦ Diamonds
+    Symbol { label: "7",        triple_mult: 137.498 }, // 5   Seven
 ];
 
-// 20-position strip. Counts: $=6, ♣=5, ♠=4, ♥=3, ♦=1, 7=1.
-//        🍒 ♣  ♠  🍒 ♣  🍒 ♥  ♠  ♣  🍒 ♥  ♣  ♠  🍒 ♣  ♥  ♠  🍒 ♦  7
-const STRIP: &[usize] = &[0, 1, 2, 0, 1, 0, 3, 2, 1, 0, 3, 1, 2, 0, 1, 3, 2, 0, 4, 5];
+// 21-position strip. Counts: $=6, ♣=5, ♠=4, ♥=3, ♦=2, 7=1.
+const STRIP: &[usize] = &[0, 1, 2, 0, 1, 0, 3, 2, 1, 0, 4, 1, 2, 0, 1, 3, 2, 0, 4, 5, 3];
 
 fn spin_reel(rng: &mut OsRng) -> usize { rng.gen_range(0..STRIP.len()) }
 fn sym_at(pos: usize) -> usize { STRIP[pos % STRIP.len()] }
