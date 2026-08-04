@@ -60,3 +60,11 @@ License: MIT — © 2019 Wing Yung Chan.
 
 **FlapJack-Cogs / ReactPoll** — Red Discord Bot cog by flapjax. Poll tally structure (`option → [voter_id]`), one-vote-per-user enforcement (scan-and-replace across all options), and auto-close timer pattern referenced for `!poll`. No code ported; JS/Python source used as design reference only.
 License: Unknown — © flapjax. Repo: https://github.com/flapjax/FlapJack-Cogs
+
+### Censorship
+
+**List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words** — Shutterstock's community-maintained multilingual profanity/slur list. Non-ASCII (native-script/diacritic) German, Dutch, Spanish, and Russian entries used directly in `json/bad_words.json`.
+License: CC-BY-4.0 — © Shutterstock. Repo: https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words
+
+**greek-swearword-filter** — JavaScript Greek profanity filter by hwahyeon. Full word list (`src/badwords.config.json`) used directly in `json/bad_words.json`.
+License: MIT — © 2023 hwahyeon. Repo: https://github.com/hwahyeon/greek-swearword-filter
