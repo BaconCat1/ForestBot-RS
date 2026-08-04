@@ -2113,6 +2113,9 @@ pub struct PearlResultData {
     pub success: bool,
     pub message: String,
     pub requester: String,
+    // true if pearlbot's dumb mode produced this result -- see bot.rs's PearlResult
+    // handler for the different success wording this drives.
+    pub dumb_mode: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

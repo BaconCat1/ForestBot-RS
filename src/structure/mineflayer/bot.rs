@@ -2625,7 +2625,14 @@ fn spawn_websocket_event_task(bot: Client, state: AzaleaState) {
                     let whisper_cmd = runtime.whisper_command.clone();
                     drop(runtime);
                     let msg = if data.success {
-                        format!("🟢 Pearl activated!")
+                        // Dumb mode only confirms the click got a server ack, not that a
+                        // pearl was actually caught -- weaker confidence than detection
+                        // mode's real despawn-based confirmation, worded accordingly.
+                        if data.dumb_mode {
+                            format!("🟢 Trapdoor confirmed activated!")
+                        } else {
+                            format!("🟢 Pearl activated!")
+                        }
                     } else {
                         format!("🔴 Pearl failed: {}", data.message)
                     };
