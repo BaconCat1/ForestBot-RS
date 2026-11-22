@@ -14,7 +14,7 @@
 | `!health` | Show bot health, hunger, armor, and active effects |
 | `!discord` | Discord server invite link |
 | `!ping <player?>` | Show a player's ping |
-| `!ping server|s <host[:port]>` | Ping a Minecraft server — MOTD, player count, version |
+| `!ping server <host[:port]>` (or `!ping s`) | Check whether a Minecraft server is online and show its player count |
 | `!ap` / `!averageping` | Average server ping |
 | `!bp` / `!bestping` | Player with best ping |
 | `!wp` / `!worstping` | Player with worst ping |
