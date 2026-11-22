@@ -1,10 +1,7 @@
 pub const NAMES: &[&str] = &["ping"];
 
-use crate::commands::{url::is_private_ip, utils::flag_content_if_needed, CommandContext, CommandDefinition, CommandFuture};
-use crate::structure::mineflayer::{
-    url_blocklist::is_blocked,
-    utils::profanity_filter::{censor_message, censor_threshold_from_config},
-};
+use crate::commands::{url::is_private_ip, CommandContext, CommandDefinition, CommandFuture};
+use crate::structure::mineflayer::url_blocklist::is_blocked;
 
 pub const COMMAND: CommandDefinition = CommandDefinition {
     names: NAMES,
@@ -119,26 +116,35 @@ async fn ping_mc_server(ctx: &CommandContext<'_>, host: &str) -> anyhow::Result<
         }
     };
 
-    // MC MOTDs are often 2 lines; chat is single-line, so collapse to spaces.
-    let motd = response
-        .description
-        .to_string()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    let trie = *ctx.state.profanity_trie.read().expect("profanity_trie read");
-    let threshold = censor_threshold_from_config(&ctx.runtime.censorship.censor_threshold);
-    let censored_motd = match trie {
-        Some(trie) => censor_message(trie, &motd, threshold, ctx.runtime.censorship.log_censorship_hits),
-        None => motd.clone(),
-    };
-    if censored_motd != motd {
-        flag_content_if_needed(ctx.state, ctx.sender, "ping", &format!("{host}\n{motd}"));
-    }
-
-    ctx.chat_success(format!(
-        "[{host}] {censored_motd} | {}/{} players | {}",
-        response.players.online, response.players.max, response.version.name
+    // The host is user input; the MOTD and version name are remote-controlled.
+    // Keep public status replies useful without relaying any of those strings.
+    ctx.chat_success(server_status_message(
+        response.players.online,
+        response.players.max,
     ));
     Ok(())
+}
+
+fn server_status_message(online: i32, max: i32) -> String {
+    format!("Server is online: {online}/{max} players")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn public_status_is_only_a_fixed_label_and_player_counts() {
+        assert_eq!(
+            server_status_message(30, 60),
+            "Server is online: 30/60 players"
+        );
+        assert_eq!(server_status_message(0, 0), "Server is online: 0/0 players");
+    }
+
+    #[test]
+    fn ordinary_player_ping_keeps_its_existing_response() {
+        assert_eq!(response("Steve", Some(42)), "Steve: 42ms");
+        assert_eq!(response("Steve", None), "Steve: not found in tab list.");
+    }
 }
